@@ -1,11 +1,11 @@
 (ns funnyqt.tg.utils.test.xmltg
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.funql)
-  (:use funnyqt.tg.xmltg)
+  (:use funnyqt.tg.query)
+  (:use funnyqt.tg.utils.xmltg)
   (:use clojure.test))
 
 (deftest test-example-with-dtd
-  (let [g (xml2graph "test/example-with-dtd.xml")]
+  (let [g (xml2graph "test/xmltg-example-with-dtd.xml")]
     (is (== 123 (vcount g)))
     (is (== 1   (vcount g 'RootElement)))
     (is (== 55  (vcount g 'Element)))
@@ -44,11 +44,11 @@
                            (vseq g 'Attribute))))))
 
 (deftest test-example-with-dtd-and-IDREFS
-  (let [g (xml2graph "test/example-with-dtd-and-IDREFS.xml")]
+  (let [g (xml2graph "test/xmltg-example-with-dtd-and-IDREFS.xml")]
     (asserts-for-idrefs-example g)))
 
 (deftest test-example-without-dtd
-  (let [g (xml2graph "test/example-without-dtd.xml"
+  (let [g (xml2graph "test/xmltg-example-without-dtd.xml"
                      ;; This is a function that gets 2 parameters: an elements
                      ;; qualified name and an attribute name.  Given that, it
                      ;; should return the attribute's correct type: ID, IDREF,
