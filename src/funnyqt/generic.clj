@@ -1,0 +1,139 @@
+(ns de.uni-koblenz.ist.funtg.generic
+  "Generic functions like quantified expressions."
+  (:use [de.uni-koblenz.ist.funtg.utils :only [error]]))
+
+;;* Quantified Expressions
+
+(defn forall?
+  "Returns logical true, iff `pred' holds forall elements in `coll'."
+  [pred coll]
+  (not (some (complement pred) coll)))
+
+(defn exists?
+  "Returns logical true, iff `pred' holds at least for one element in `coll'."
+  [pred coll]
+  (some pred coll))
+
+(defn exists1?
+  "Returns logical true, iff `pred' holds for exactly one element in `coll'."
+  [pred coll]
+  (let [s (filter pred coll)]
+    ;; There must be one and no other
+    (and (seq s) (not (next s)))))
+
+;;* Sequence Functions
+
+(defn member?
+  "Returns true, iff `e' is a member of `coll'."
+  [e coll]
+  (some #(= e %) coll))
+
+(defn the
+  "Returns the only element of seq `s' and errors if `s' contains more or less
+  elements."
+  [s]
+  (if-let [f (first s)]
+    (if (next s)
+      (error (format "seq contains more than one element!"))
+      f)
+    (error (format "seq contains zero elements!"))))
+
+(defn- pred-seq-internal
+  [s p acc]
+  (lazy-seq
+   (if (seq s)
+     (pred-seq-internal (rest s)
+                        (first s)
+                        (conj acc [p (first s)]))
+     acc)))
+
+(defn pred-seq
+  "Predecessor Seq: Returns a lazy seq of pairs of seq `s's elements.
+  Each pair has the form [elems-predecessor-in-s elem]."
+  [s]
+  (pred-seq-internal s nil []))
+
+(defn- succ-seq-internal
+  [s acc]
+  (lazy-seq
+   (if (seq s)
+     (succ-seq-internal (rest s)
+                        (conj acc [(first s) (first (next s))]))
+     acc)))
+
+(defn succ-seq
+  "Successor Seq: Returns a lazy seq of pairs of seq `s's elements.
+  Each pair has the form [elem elems-successor-in-s]."
+  [s]
+  (succ-seq-internal s []))
+
+;;* Logical (higher-order) funs
+
+(defn xor
+  "Logical XOR: returns true, iff exactly one argument is true.
+  (xor) returns false."
+  ([] false)
+  ([f & r]
+     (loop [t false, f (conj r f)]
+       (if(seq f)
+         (let [fv (first f)]
+           (cond
+            (and t fv)       false
+            (and (not t) fv) (recur true (rest f))
+            :else            (recur t (rest f))))
+         t))))
+
+;; TODO: This should be short-cutting!
+(defn xor-fn
+  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  logical true, iff exactly one of the predicates returns true."
+  [& ps]
+  (fn [& args]
+    (reduce xor (map #(apply % args) ps))))
+
+(defn nand-fn
+  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  logical true, iff at least one predicate returns false."
+  [& ps]
+  (let [ep (apply every-pred ps)]
+    (fn [& args]
+      (not (apply ep args)))))
+
+(defn nor-fn
+  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  logical true, iff none of the predicate returns true."
+  [& ps]
+  (let [sf (apply some-fn ps)]
+    (fn [& args]
+      (not (apply sf args)))))
+
+;;* Sorting
+
+(defn seq-compare
+  "Returns a sequence comparator function that compares 2 sequences element by
+  element according to the given comparators `cmps', i.e., the first 2 elements
+  are compared with the first comparator, the second 2 elements with the second
+  comparator, and so on.  Evaluates only as many comparators as are needed to
+  distinguish the sequences, i.e., evaluates the comparators until one returns
+  non-zero.
+
+  `cmps' must be comparator functions that get 2 elements and returns 0, if the
+  elements are equal, a negative integer, if the first is \"smaller\", or a
+  positive integer, if the second is \"smaller\".
+
+  If all comparators evaluate to 0, then the hash-codes are used as a last
+  resort.
+
+  Example: Sort a seq of 3-tuples of form [number number string] with
+  descending order of the first component, ascending order of second component,
+  and ascending orded of third components.  Clearly, for numbers - is a valid
+  comparator, and for the strings we use compare which sorts lexicographically.
+
+    (sort (seq-compare #(- %2 %1) - compare)
+          [[1 10 \"b\"] [3 7 \"b\"] [1 2 \"b\"] [1 10 \"c\"] [3.0 17 \"a\"]])
+    ;=> ([3 7 \"b\"] [3.0 17 \"a\"] [1 2 \"b\"] [1 10 \"b\"] [1 10 \"c\"])"
+  [& cmps]
+  (fn [a b]
+    (or (first (remove zero? (map #(%1 %2 %3) cmps a b)))
+        (- (hash a) (hash b)))))
+
