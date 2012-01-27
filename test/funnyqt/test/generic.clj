@@ -100,3 +100,22 @@
        ;; All match
        true  [#(== 15 %)]
        true  [#(== 15 %) #(== 0 (mod % 5)) #(== 0 (mod % 3))]))
+
+(deftest test-seq-compare
+  (let [sorted [[-1 "zap" 19]
+                [-1 "zap" 0]
+                [0 "bar" 0]
+                [0 "foo" 1]
+                [0 "foo" 1]
+                [0 "zap" 17]
+                [1 "foo" 1]
+                [1 "foo" 0]
+                [2 "bar" 2]
+                [2 "bar" 1]]]
+    (dotimes [_ 30]
+      (is (= sorted
+             (sort
+              ;; 1. ascending, 2. lexicographical, 3. descending
+              (seq-compare - compare #(- %2 %1))
+              (shuffle sorted)))))))
+
