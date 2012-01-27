@@ -1,0 +1,18 @@
+TGraph 2;
+Schema de.uni_koblenz.jgralabtest.schemas.fooschema.FooSchema;
+GraphClass FooGraph;
+VertexClass N;
+EdgeClass A from N (0,*) to N (0,*);
+EdgeClass B from N (0,*) to N (0,*);
+EdgeClass C from N (0,*) to N (0,*);
+EdgeClass D from N (0,*) to N (0,*);
+
+Graph "co6de1c7-f4ec0906-21cfbc86-28c31aa1" 1 FooGraph (16 16 4 4);
+1 N <1 2>;
+2 N <4 -1 -3>;
+3 N <3 -2>;
+4 N <-4>;
+1 A;
+2 B;
+3 C;
+4 D;

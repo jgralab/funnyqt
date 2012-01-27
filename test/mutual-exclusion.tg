@@ -1,0 +1,14 @@
+TGraph 2;
+Schema test.mutual_exclusion.MutualExclusionSchema;
+GraphClass MutualExclusionGraph;
+
+VertexClass Process;
+VertexClass Resource;
+
+EdgeClass Next from Process (0,1) role prev to Process (0,1) role next;
+
+EdgeClass Blocked from Resource (0,*) to Process (0,*);
+EdgeClass HeldBy from Resource (0,*) to Process (0,1);
+EdgeClass Token from Resource (0,*) to Process (0,1);
+EdgeClass Release from Resource (0,*) to Process (0,1);
+EdgeClass Request from Process (0,*) to Resource (0,*);

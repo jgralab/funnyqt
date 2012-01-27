@@ -89,7 +89,6 @@
 
 (def firm1 (memoize #(load-graph "test/firm_small_46.tg")))
 (def firm2 (memoize #(load-graph "test/firm_medium_1248803056.tg")))
-(def firm3 (memoize #(load-graph "test/firm_huge.tg.gz")))
 
 (deftest constant-folding-1
   (let [g (firm1)]
@@ -111,10 +110,3 @@
     (is (= 1248803056 (value (the (vseq g 'Const)) :value)))
     (save-graph g "test/firm_medium-after-opt.tg")))
 
-(deftest constant-folding-3
-  (let [g (firm3)]
-    (println "constant-folding-3")
-    (time (fold-constants g))
-    ;; (is (= 277594 (vcount g)))
-    ;; (is (= 824146 (ecount g)))
-    (save-graph g "test/firm_huge-after-opt.tg")))

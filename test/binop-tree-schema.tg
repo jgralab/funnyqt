@@ -1,0 +1,12 @@
+TGraph 2;
+Schema test.binoptree.BinaryTreeSchema;
+GraphClass BinaryTree;
+
+abstract VertexClass Expression;
+EdgeClass HasArg from BinaryOp (0,1) to Expression (2,2);
+VertexClass Const : Expression {value : Double};
+abstract VertexClass BinaryOp : Expression;
+VertexClass Add : BinaryOp;
+VertexClass Sub : BinaryOp;
+VertexClass Mul : BinaryOp;
+VertexClass Div : BinaryOp;
