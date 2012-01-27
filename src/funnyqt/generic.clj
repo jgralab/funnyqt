@@ -1,6 +1,6 @@
-(ns de.uni-koblenz.ist.funtg.generic
+(ns funnyqt.generic
   "Generic functions like quantified expressions."
-  (:use [de.uni-koblenz.ist.funtg.utils :only [error]]))
+  (:use [funnyqt.utils :only [error]]))
 
 ;;* Quantified Expressions
 

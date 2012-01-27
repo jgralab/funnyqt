@@ -1,4 +1,4 @@
-(ns de.uni-koblenz.ist.funtg.utils
+(ns funnyqt.utils
   "Generic utility functions."
   (:use ordered.set))
 

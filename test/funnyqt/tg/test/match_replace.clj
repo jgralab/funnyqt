@@ -1,10 +1,10 @@
-(ns funnyqt.tg.test.funml
+(ns funnyqt.tg.test.match-replace
   (:use funnyqt.generic)
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.funml)
-  (:use funnyqt.tg.funql)
+  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.tg.query)
   (:use funnyqt.tg.test.core)
-  (:use [funnyqt.tg.test.funql :only (eval-exp)])
+  (:use [funnyqt.tg.test.query :only (eval-exp)])
   (:use clojure.test))
 
 

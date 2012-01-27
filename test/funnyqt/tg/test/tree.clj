@@ -1,7 +1,7 @@
 (ns funnyqt.tg.test.tree
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.funml)
-  (:use funnyqt.tg.funql)
+  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]))
 

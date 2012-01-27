@@ -1,9 +1,9 @@
 (ns ^{:long-doc
       "TODO"}
-  de.uni-koblenz.ist.funtg.emf.core
+  funnyqt.emf.core
   "Core functions for accessing and manipulating EMF models."
-  (:use de.uni-koblenz.ist.funtg.utils)
-  (:use de.uni-koblenz.ist.funtg.generic)
+  (:use funnyqt.utils)
+  (:use funnyqt.generic)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI]

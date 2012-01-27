@@ -1,47 +1,11 @@
-(ns ^{:long-doc
-      "Here's an example that evaluates a binary tree by replacing all binary
-operations whose arguments are constants with a new constant with calculated
-value.
-
-  ;; An evaluation protocol
-  (defprotocol BinTreeEval (eval-exp [this]))
-
-  ;; Extend the protocol to the classes of the schema
-  (let [g (bin-tree) ;; returns an example binary tree
-        eval-args #(map eval-exp (--> % 'HasArg))]
-    (extend-type (m1class g 'Const) BinTreeEval
-      (eval-exp [c] (value c :value)))
-    (extend-type (m1class g 'Add)   BinTreeEval
-      (eval-exp [b] (reduce + (eval-args b))))
-    (extend-type (m1class g 'Sub)   BinTreeEval
-      (eval-exp [b] (reduce - (eval-args b))))
-    (extend-type (m1class g 'Mul)   BinTreeEval
-      (eval-exp [b] (reduce * (eval-args b))))
-    (extend-type (m1class g 'Div)   BinTreeEval
-      (eval-exp [b] (reduce / (eval-args b)))))
-
-  ;; Here's the single transformation rule
-  (defrule replace-binaryop
-    \"Replaces a binary operation with constant args with
-    a constant of the result.\"
-    [g] [b     (vseq g 'BinaryOp)
-         :let [[a1 a2] (vec (--> b 'HasArg))]
-         :when (has-type? a1 'Const)
-         :when (has-type? a2 'Const)]
-    (let [c (create-vertex! g 'Const)]
-      (set-value! c :value (eval-exp b))
-      (relink! b c nil :in))
-    (delete! b a1 a2))
-
-  ;; Transform the graph
-  (replace-binaryop (bin-tree))"}
-    funnyqt.tg.match-replace
-  "FunML: The Functional Matching Language for in-place graph transformations."
+(ns funnyqt.tg.match-replace
+  "Match and replace structures in a graph."
   (:use funnyqt.tg.core)
   (:use [funnyqt.utils :only [error]])
   (:require clojure.set)
   (:use [funnyqt.generic :only [member?]])
   (:require [clojure.tools.macro :as m]))
+
 
 
 ;;** Matching
