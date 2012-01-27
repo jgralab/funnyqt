@@ -514,10 +514,7 @@ transformation.
            (binding [$target-graph (if (instance? Graph out#)
                                      out#
                                      (do
-                                       (when-not existing#
-                                         (.finish ^Schema $target-schema)
-                                         (.compile ^Schema $target-schema
-                                                   CodeGeneratorConfiguration/MINIMAL))
+                                       (.finish ^Schema $target-schema)
                                        (create-graph $target-schema
                                                      (str "TransformationCreated-"
                                                           (System/currentTimeMillis)))))]
