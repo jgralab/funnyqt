@@ -92,3 +92,9 @@
          (println ~(format "%s: so some stuff won't be compiled." m))
          (comment ~@body)))))
 
+;;** Docs
+
+(defmacro add-long-doc!
+  "Add :long-doc metadata to the current namespace."
+  [doc]
+  `(alter-meta! *ns* assoc :long-doc ~doc))

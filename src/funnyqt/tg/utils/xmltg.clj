@@ -1,5 +1,20 @@
-(ns ^{:long-doc
-      "To transform an XML document to a DOM-like TGraph, use
+(ns funnyqt.tg.utils.xmltg
+  "XmlTg: Convert XML to DOM-like TGraphs."
+  (:use funnyqt.tg.core)
+  (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:require clojure.string)
+  (:import
+   (org.xml.sax Attributes SAXException)
+   (org.xml.sax.helpers DefaultHandler)
+   (javax.xml XMLConstants)
+   (javax.xml.parsers SAXParser SAXParserFactory)
+   (javax.xml.validation SchemaFactory)
+   (de.uni_koblenz.jgralab Graph Vertex Edge)
+   (de.uni_koblenz.jgralab.schema Schema)))
+
+
+(add-long-doc!
+ "To transform an XML document to a DOM-like TGraph, use
 
   (xml2graph \"example.xml\")
 
@@ -14,20 +29,9 @@ attribute type as string.
              #(cond ;; Here, we distingish only by 2nd arg, the attr name
                 (= %2 \"id\")        \"ID\"
                 (= %2 \"links\")     \"IDREF\"
-                (= %2 \"children\")  \"IDREFS\"))"}
-  funnyqt.tg.utils.xmltg
-  "XmlTg: Convert XML to DOM-like TGraphs."
-  (:use funnyqt.tg.core)
-  (:use [funnyqt.utils :only [error]])
-  (:require clojure.string)
-  (:import
-   (org.xml.sax Attributes SAXException)
-   (org.xml.sax.helpers DefaultHandler)
-   (javax.xml XMLConstants)
-   (javax.xml.parsers SAXParser SAXParserFactory)
-   (javax.xml.validation SchemaFactory)
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
-   (de.uni_koblenz.jgralab.schema Schema)))
+                (= %2 \"children\")  \"IDREFS\"))")
+
+;;* Code
 
 (def ^{:dynamic true :private true} *graph*)
 (def ^{:dynamic true :private true} *stack*)

@@ -1,5 +1,21 @@
-(ns ^{:long-doc
-      "FunTL is basically a GReTL implementation in Clojure.  Consequently,
+(ns funnyqt.tg.transform
+  "FunTG: Transformations on TGraphs."
+  (:use funnyqt.tg.core)
+  (:use [funnyqt.utils :only [error add-long-doc! split-qname]])
+  (:require clojure.set)
+  (:require clojure.pprint)
+  (:require [clojure.tools.macro :as m])
+  (:import
+   (de.uni_koblenz.jgralab Graph Vertex Edge)
+   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
+   (de.uni_koblenz.jgralab.schema AggregationKind Attribute
+                                  AttributedElementClass GraphClass EdgeClass
+                                  Schema VertexClass RecordDomain EnumDomain)
+   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
+   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
+
+(add-long-doc!
+ "FunTL is basically a GReTL implementation in Clojure.  Consequently,
 it has elementary creation operations in terms of functions.  In contrast to
 GReTL, `create-edges!' and `create-edge-class!' receive the start and end
 vertices of the edges to be created, not their archetypes.  Similarily,
@@ -106,22 +122,7 @@ transformation.
     (let [tg (families-to-genealogy
               (load-graph \"test/familygraph.tg\")
               '[de.genealogy.GenealogySchema Genealogy])]
-      (save-graph tg \"test/genealogy.tg\")))"}
-  funnyqt.tg.transform
-  "FunTG: Transformations on TGraphs."
-  (:use funnyqt.tg.core)
-  (:use funnyqt.utils)
-  (:require clojure.set)
-  (:require clojure.pprint)
-  (:require [clojure.tools.macro :as m])
-  (:import
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
-   (de.uni_koblenz.jgralab.schema AggregationKind Attribute
-                                  AttributedElementClass GraphClass EdgeClass
-                                  Schema VertexClass RecordDomain EnumDomain)
-   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
+      (save-graph tg \"test/genealogy.tg\")))")
 
 ;;* TODO List
 

@@ -1,6 +1,8 @@
 (ns funnyqt.generic
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error]]))
+  (:use [funnyqt.utils :only [error add-long-doc!]]))
+
+(add-long-doc! "TODO")
 
 ;;* Quantified Expressions
 

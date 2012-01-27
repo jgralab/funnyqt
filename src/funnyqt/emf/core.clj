@@ -1,14 +1,15 @@
-(ns ^{:long-doc
-      "TODO"}
-  funnyqt.emf.core
+(ns funnyqt.emf.core
   "Core functions for accessing and manipulating EMF models."
-  (:use funnyqt.utils)
+  (:use [funnyqt.utils :only [error add-long-doc!]])
   (:use funnyqt.generic)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI]
-   [org.eclipse.emf.ecore EPackage EObject EModelElement])
-  )
+   [org.eclipse.emf.ecore EPackage EObject EModelElement]))
+
+(add-long-doc! "TODO")
+
+;;* Code
 
 (def epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
 

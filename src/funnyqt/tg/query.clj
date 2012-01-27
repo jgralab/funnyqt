@@ -1,5 +1,26 @@
-(ns ^{:long-doc
-      "Sequence Functions
+(ns funnyqt.tg.query
+  "FunQL: Functional TGraph querying."
+  (:use funnyqt.tg.core)
+  (:use [funnyqt.utils])
+  (:use ordered.set)
+  (:use funnyqt.generic)
+  (:require clojure.set)
+  (:require clojure.string)
+  (:import
+   (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
+   (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
+   (de.uni_koblenz.jgralab.algolib.problems TopologicalOrderSolver AcyclicitySolver)
+   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order KahnKnuthAlgorithm TopologicalOrderWithDFS)
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext)
+   (de.uni_koblenz.jgralab.schema Attribute RecordDomain GraphClass
+                                  GraphElementClass AttributedElementClass VertexClass EdgeClass
+                                  AggregationKind)
+   (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
+
+;;* Docs
+
+(add-long-doc!
+ "Sequence Functions
 ==================
 
 The central elements of this namespace are the functions `vseq', `eseq', and
@@ -99,25 +120,7 @@ can compute that like so:
 
   (let [locs (vseq (rg) 'localities.Locality)]
     (/ (reduce-values + 0 locs :foundingDate :year)
-       (count locs)))"}
-  funnyqt.tg.query
-  "FunQL: Functional TGraph querying."
-  (:use funnyqt.tg.core)
-  (:use funnyqt.utils)
-  (:use ordered.set)
-  (:use funnyqt.generic)
-  (:require clojure.set)
-  (:require clojure.string)
-  (:import
-   (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
-   (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
-   (de.uni_koblenz.jgralab.algolib.problems TopologicalOrderSolver AcyclicitySolver)
-   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order KahnKnuthAlgorithm TopologicalOrderWithDFS)
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext)
-   (de.uni_koblenz.jgralab.schema Attribute RecordDomain GraphClass
-                                  GraphElementClass AttributedElementClass VertexClass EdgeClass
-                                  AggregationKind)
-   (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
+       (count locs)))")
 
 ;;* Funlib
 

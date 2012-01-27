@@ -1,5 +1,30 @@
-(ns ^{:long-doc
-      "Loading/Saving
+(ns
+  funnyqt.tg.core
+  "Core functions for accessing and manipulating TGraphs."
+  (:use funnyqt.generic)
+  (:use funnyqt.utils)
+  (:import
+   (java.awt.event KeyEvent KeyListener)
+   (java.util Collection)
+   (java.lang.reflect Method)
+   (javax.swing JFrame JScrollPane JLabel ImageIcon JOptionPane WindowConstants)
+   (de.uni_koblenz.jgralab AttributedElement Graph GraphElement Vertex Edge
+			   EdgeDirection GraphIO Record
+                           ImplementationType)
+   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
+                                  ListDomain SetDomain MapDomain
+                                  AttributedElementClass NamedElement
+                                  GraphClass VertexClass EdgeClass Attribute
+                                  GraphElementClass)
+   (de.uni_koblenz.jgralab.schema.impl.compilation  SchemaClassManager)
+   (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
+   (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
+   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
+   (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
+   (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
+
+(add-long-doc!
+ "Loading/Saving
 ==============
 
 See `load-graph', `save-graph', and `load-schema'.
@@ -26,30 +51,7 @@ functions `record' and `enum'.
 Visualization
 =============
 
-See `tgtree', `show-graph', and `dot-graph'."}
-  funnyqt.tg.core
-  "Core functions for accessing and manipulating TGraphs."
-  (:use funnyqt.generic)
-  (:use funnyqt.utils)
-  (:import
-   (java.awt.event KeyEvent KeyListener)
-   (java.util Collection)
-   (java.lang.reflect Method)
-   (javax.swing JFrame JScrollPane JLabel ImageIcon JOptionPane WindowConstants)
-   (de.uni_koblenz.jgralab AttributedElement Graph GraphElement Vertex Edge
-			   EdgeDirection GraphIO Record
-                           ImplementationType)
-   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
-                                  ListDomain SetDomain MapDomain
-                                  AttributedElementClass NamedElement
-                                  GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)
-   (de.uni_koblenz.jgralab.schema.impl.compilation  SchemaClassManager)
-   (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
-   (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
-   (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
-   (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
+See `tgtree', `show-graph', and `dot-graph'.")
 
 ;;* Utility Functions and Macros
 

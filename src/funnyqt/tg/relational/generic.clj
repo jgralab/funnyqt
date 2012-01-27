@@ -1,12 +1,15 @@
-(ns ^{:long-doc "TODO"}
-  funnyqt.tg.funrl.generic
+(ns funnyqt.tg.relational.generic
   "Generic relations"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:use [funnyqt.utils :only [error]])
+  (:use [funnyqt.utils :only [error add-long-doc!]])
   (:require [funnyqt.tg.core :as core])
   (:require [funnyqt.tg.query :as funql])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)))
+
+(add-long-doc! "TODO")
+
+;;* Code
 
 (defn qmark-symbol?
   "Returns true, if sym is a symbol with name starting with a question mark."

@@ -1,5 +1,21 @@
-(ns ^{:long-doc
-      "Getting Started
+(ns funnyqt.tg.relational
+  "FunRL: Querying graphs using relational programming."
+  (:refer-clojure :exclude [==])
+  (:use [funnyqt.utils :only [add-long-doc!]])
+  (:use [clojure.core.logic])
+  (:use [funnyqt.tg.relational.generic])
+  (:require [funnyqt.tg.core :as core])
+  (:require [funnyqt.tg.query :as query])
+  ;; (:require [funnyqt.tg.query :as q])
+  (:import
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
+   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
+                                  AttributedElementClass NamedElement
+                                  GraphClass VertexClass EdgeClass Attribute
+                                  GraphElementClass)))
+
+(add-long-doc!
+ "Getting Started
 ===============
 
 For a basic understanding of logic programming using miniKanren, have a look
@@ -169,22 +185,9 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
        ;; or an indirect connection, i.e, there's another crossroad in the
        ;; middle.
        ((connectedo j1 ?middle)
-        (connectedo ?middle j2)))))"}
+        (connectedo ?middle j2)))))")
 
-  funnyqt.tg.relational
-  "FunRL: Querying graphs using relational programming."
-  (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic])
-  (:use [funnyqt.tg.funrl.generic])
-  (:require [funnyqt.tg.core :as core])
-  (:require [funnyqt.tg.query :as funql])
-  ;; (:require [funnyqt.tg.query :as q])
-  (:import
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
-   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
-                                  AttributedElementClass NamedElement
-                                  GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)))
+;;* Code
 
 (defn- class->rel-symbols
   [^AttributedElementClass c]
@@ -210,7 +213,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (funql/vseq ~'+graph+ '~na))
+                          (query/vseq ~'+graph+ '~na))
                      (remove not)))
                (if (and (.containsVertex ~'+graph+ v#)
                         (core/has-type? v# '~na))
@@ -237,14 +240,14 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                   [(core/alpha e#) (core/omega e#)])
               (ground? al#) (to-stream
                              (->> (map #(unify a# [~e ~om] [% (core/omega %)])
-                                       (funql/iseq al# '~na :out))
+                                       (query/iseq al# '~na :out))
                                   (remove not)))
               (ground? om#) (to-stream
                              (->> (map #(unify a# [~e ~al] [% (core/alpha %)])
-                                       (funql/iseq om# '~na :in))
+                                       (query/iseq om# '~na :in))
                                   (remove not)))
               :else (to-stream
-                     (->> (for [edge# (funql/eseq ~'+graph+ '~na)]
+                     (->> (for [edge# (query/eseq ~'+graph+ '~na)]
                             (unify a# [~e ~al ~om]
                                    [edge# (core/alpha edge#) (core/omega edge#)]))
                           (remove not))))))))))
@@ -302,7 +305,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                       (if (fresh? gv#)
                         (to-stream
                          (->> (map #(unify a# v# %)
-                                   (funql/vseq ~'+graph+))
+                                   (query/vseq ~'+graph+))
                               (remove not)))
                         (if (.containsVertex ~'+graph+ gv#)
                           a#
@@ -320,14 +323,14 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                             [(core/alpha ge#) (core/omega ge#)])
                        (ground? galpha#) (to-stream
                                           (->> (map #(unify a# [e# omega#] [% (core/omega %)])
-                                                    (funql/iseq galpha# nil :out))
+                                                    (query/iseq galpha# nil :out))
                                                (remove not)))
                        (ground? gomega#) (to-stream
                                           (->> (map #(unify a# [e# alpha#] [% (core/alpha %)])
-                                                    (funql/iseq gomega# nil :in))
+                                                    (query/iseq gomega# nil :in))
                                                (remove not)))
                        :else (to-stream
-                              (->> (for [edge# (funql/eseq ~'+graph+)]
+                              (->> (for [edge# (query/eseq ~'+graph+)]
                                      (unify a# [e# alpha# omega#]
                                             [edge# (core/alpha edge#) (core/omega edge#)]))
                                    (remove not)))))))
@@ -351,8 +354,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                                           [gae# an# (core/value gae# an#)]))
                                                  (remove not)))
                        :else (to-stream
-                              (->> (for [elem# (concat (funql/vseq ~'+graph+)
-                                                       (funql/eseq ~'+graph+))
+                              (->> (for [elem# (concat (query/vseq ~'+graph+)
+                                                       (query/eseq ~'+graph+))
                                          attr# (seq (.getAttributeList
                                                      (core/attributed-element-class elem#)))
                                          :let [an# (keyword (.getName attr#))]]
