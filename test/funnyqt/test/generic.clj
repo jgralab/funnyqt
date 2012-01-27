@@ -43,8 +43,10 @@
   (is (= [[1 2] [2 3] [3 4] [4 nil]]
          (succ-seq [1 2 3 4]))))
 
-(deftest test-xor
-  (are [expected in] (= expected (apply xor in))
+(deftest test-xor-and-xor-fn
+  (are [expected in] (= expected
+                        (apply xor in)
+                        ((apply xor-fn (map constantly in))))
        false []
        true  [true]
        false [false]

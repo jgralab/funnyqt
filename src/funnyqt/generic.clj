@@ -85,13 +85,18 @@
             :else            (recur t (rest f))))
          t))))
 
-;; TODO: This should be short-cutting!
 (defn xor-fn
   "Takes a seq of predicates `ps' and returns a varargs function that returns
   logical true, iff exactly one of the predicates returns true."
   [& ps]
   (fn [& args]
-    (reduce xor (map #(apply % args) ps))))
+    (loop [good false, p ps]
+      (if (seq p)
+        (let [r (apply (first p) args)]
+          (if (and good r)
+            false  ;; second true value, so stop it!
+            (recur (or r good) (rest p))))
+        good))))
 
 (defn and-fn
   "Takes a seq of predicates `ps' and returns a varargs function that returns
