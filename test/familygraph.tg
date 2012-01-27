@@ -1,0 +1,46 @@
+// JGraLab - The Java graph laboratory
+//   Version : Efraasia
+//   Revision: 3528:56c9875e9fe4
+
+TGraph 2;
+Schema de.uni_koblenz.jgralabtest.gretl.schemas.families.FamilySchema;
+GraphClass FamilyGraph;
+VertexClass Family { lastName: String,  street: String,  town: String };
+VertexClass Member { age: Integer,  firstName: String };
+EdgeClass HasDaughter from Family (0,1) role familyDaughter to Member (0,*) role daughters aggregation shared;
+EdgeClass HasFather from Family (0,1) role familyFather to Member (1,1) role father aggregation shared;
+EdgeClass HasMother from Family (0,1) role familyMother to Member (1,1) role mother aggregation shared;
+EdgeClass HasSon from Family (0,1) role familySon to Member (0,*) role sons aggregation shared;
+Graph "918348b4-5153b25a-5668c393-2767b494" 66 FamilyGraph (1000 1000 16 15);
+Package ;
+1 Family <1 2 3 4 5 11> "Smith" "Smith Avenue 4" "Smithtown";
+2 Member <-1> 66 "Steve";
+3 Member <-2> 61 "Stephanie";
+4 Member <-3> 27 "Stu";
+5 Member <-4> 31 "Sven";
+6 Member <-5> 29 "Stella";
+7 Family <6 7 8 9 13> "Carter" "Carter Street 2" "Cartertown";
+8 Member <-6> 51 "Chris";
+9 Member <-7> 49 "Christy";
+10 Member <-8> 25 "Carol";
+11 Member <-9> 17 "Conzuela";
+12 Family <10 12 14 15> "Smith" "Smithway 17" "Smithtown";
+13 Member <-10 -11> 37 "Dennis";
+14 Member <-12 -13> 33 "Debby";
+15 Member <-14> 9 "Diana";
+16 Member <-15> 12 "Doug";
+1 HasFather;
+2 HasMother;
+3 HasSon;
+4 HasSon;
+5 HasDaughter;
+6 HasFather;
+7 HasMother;
+8 HasDaughter;
+9 HasDaughter;
+10 HasFather;
+11 HasSon;
+12 HasMother;
+13 HasDaughter;
+14 HasDaughter;
+15 HasSon;
