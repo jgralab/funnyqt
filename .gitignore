@@ -1,5 +1,5 @@
-syntax: glob
-.gitignore
+.hg/
+.hgignore
 .lein*
 .cake/
 lib/
