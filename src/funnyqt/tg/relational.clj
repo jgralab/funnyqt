@@ -171,7 +171,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
        ((connectedo j1 ?middle)
         (connectedo ?middle j2)))))"}
 
-  funnyqt.tg.funrl
+  funnyqt.tg.relational
   "FunRL: Querying graphs using relational programming."
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
