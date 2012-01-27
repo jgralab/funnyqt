@@ -1,6 +1,6 @@
 (ns funnyqt.emf.core
   "Core functions for accessing and manipulating EMF models."
-  (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:use funnyqt.utils)
   (:use funnyqt.generic)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]

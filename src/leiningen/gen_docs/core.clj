@@ -116,7 +116,7 @@
           [:td [:a {:href (str (name nsp) ".html")}
                 (name nsp)]]
           [:td [:div {:class "ns-toc-entry-desc"}
-                (:doc (meta nsp))]]])]]
+                (:doc (meta (find-ns nsp)))]]])]]
      (page-footer)]]))
 
 (defn gen-ns-toc
@@ -132,7 +132,7 @@
        [:td [:a {:href (str (name onsp) ".html")}
              (name onsp)]]
        [:td [:div {:class "ns-toc-entry-desc"}
-             (:doc (meta onsp))]]])
+             (:doc (meta (find-ns onsp)))]]])
     [:tr
      [:td [:a {:href "index.html"} "Back to Index"]]
      [:td ""]]]])
@@ -186,44 +186,70 @@
         " "
         [:a {:href "#top"} "Back to top"]]))])
 
+(defmacro with-err-str
+  "Evaluates exprs in a context in which *out* is bound to a fresh
+  StringWriter.  Returns the string created by any nested printing
+  calls."
+  {:added "1.0"}
+  [& body]
+  `(let [s# (new java.io.StringWriter)]
+     (binding [*err* s#]
+       ~@body
+       (str s#))))
 
 (defn gen-docs
   []
-  (doseq [f (files-in "src/de" #".*\.clj")]
-    (println "Loading" f "...")
-    (load-file f))
-  (let [nsps (filter #(and (re-matches #".*\.funnyqt\..*" (name %))
-                           (not (re-matches #".*\.test\..*" (name %))))
-                     (sort (map ns-name (all-ns))))]
-    (spit "docs/index.html"
-          (gen-index-page nsps))
-    (doseq [nsp nsps]
-      (spit (str "docs/" (name nsp) ".html")
-            (html
-             html-header
-             [:html
-              [:head
-               [:meta {:charset "utf-8"}]
-               [:title (str "Namespace " nsp)]
-               [:style {:type "text/css"} css]]
-              (let [pubs (filter (fn [[_ v]]
-                                   (:file (meta v)))
-                                 (sort (ns-publics nsp)))]
-                [:body
-                 ;; Namespace Header
-                 [:article {:id "top"}
-                  [:header
-                   [:h1 "Namspace "(name nsp)]
-                   [:h4 (:doc (meta nsp))]
-                   [:details
-                    [:summary "Usage Documentation"]
-                    [:pre
-                     (or (escape-html (:long-doc (meta nsp)))
-                         "Currently, there're no namespace docs.")]]]
-                  ;; Namespace TOC
-                  (gen-ns-toc nsp nsps)
-                  ;; Contents
-                  (gen-public-vars-details pubs)
-                  ;; TOC of Vars
-                  (gen-public-vars-toc pubs)]
-                 (page-footer)])])))))
+  (let [err (with-err-str
+              (println "Loading Files")
+              (println "=============")
+              (println)
+              (doseq [f (files-in "src/funnyqt" #".*\.clj")]
+                (println "  -" f)
+                (load-file f))
+              (let [nsps (filter #(and (re-matches #"^funnyqt\..*" (name %))
+                                       (not (re-matches #".*\.test\..*" (name %))))
+                                 (sort (map ns-name (all-ns))))]
+                (spit "docs/index.html"
+                      (gen-index-page nsps))
+                (println)
+                (println "Generating Documentation")
+                (println "========================")
+                (println)
+                (doseq [nsp nsps]
+                  (spit (let [hf (str "docs/" (name nsp) ".html")]
+                          (println "  -" hf)
+                          hf)
+                        (html
+                         html-header
+                         [:html
+                          [:head
+                           [:meta {:charset "utf-8"}]
+                           [:title (str "Namespace " nsp)]
+                           [:style {:type "text/css"} css]]
+                          (let [pubs (filter (fn [[_ v]]
+                                               (:file (meta v)))
+                                             (sort (ns-publics nsp)))]
+                            [:body
+                             ;; Namespace Header
+                             [:article {:id "top"}
+                              [:header
+                               [:h1 "Namspace "(name nsp)]
+                               [:h4 (:doc (meta (find-ns nsp)))]
+                               [:details
+                                [:summary "Usage Documentation"]
+                                [:pre
+                                 (or (escape-html (:long-doc (meta (find-ns nsp))))
+                                     "Currently, there're no namespace docs.")]]]
+                              ;; Namespace TOC
+                              (gen-ns-toc nsp nsps)
+                              ;; Contents
+                              (gen-public-vars-details pubs)
+                              ;; TOC of Vars
+                              (gen-public-vars-toc pubs)]
+                             (page-footer)])]))))
+              (println)
+              (println "Finished."))]
+    (when (seq err)
+      (println "Some warnings occured, see gen-docs.out.")
+      (spit "gen-docs.out" err))))
+

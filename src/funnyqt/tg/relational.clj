@@ -26,8 +26,8 @@ here:
 The first thing you want to do is to generate relations (derived from the
 schema) and populate them with facts (from the graph).  Here's how to do this.
 
-First, we require the FunTC core namespace with prefix core, so that we can use
-its general graph loading function.
+First, we require the FunnyQT TG core namespace with prefix core, so that we
+can use its general graph loading function.
 
   user> (require '[funnyqt.tg.core :as core])
 
@@ -35,9 +35,9 @@ Then, we load the GReQL test graph and bind it to a var `g'.
 
   user> (def g (core/load-graph \"/home/horn/Repos/uni/funtg/test/greqltestgraph.tg\"))
 
-We import the FunRL namespace.
+We import the relational namespace.
 
-  user> (use 'funnyqt.tg.funrl)
+  user> (use 'funnyqt.tg.relational)
 
 Now, we can generate relations and facts for a graph and its schema.  The first
 argument is the graph, and the second argument is a new namespace name.  That
