@@ -93,21 +93,39 @@
   (fn [& args]
     (reduce xor (map #(apply % args) ps))))
 
+(defn and-fn
+  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  logical true, iff all predicates return true.
+  If no predicate is given, the returned fn returns constantly true."
+  [& ps]
+  (if (seq ps)
+    (fn [& args]
+      (apply (apply every-pred ps) args))
+    (constantly true)))
+
 (defn nand-fn
   "Takes a seq of predicates `ps' and returns a varargs function that returns
-  logical true, iff at least one predicate returns false."
+  logical true, iff at least one predicate returns false.
+  If no predicate is given, the returned fn returns constantly false."
   [& ps]
-  (let [ep (apply every-pred ps)]
+  (complement (apply and-fn ps)))
+
+(defn or-fn
+  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  logical true, iff at least one of the predicates returns true.
+  If no predicate is given, the returned fn returns constantly false."
+  [& ps]
+  (if (seq ps)
     (fn [& args]
-      (not (apply ep args)))))
+      (apply (apply some-fn ps) args))
+    (constantly false)))
 
 (defn nor-fn
   "Takes a seq of predicates `ps' and returns a varargs function that returns
-  logical true, iff none of the predicate returns true."
+  logical true, iff none of the predicate returns true.
+  If no predicate is given, the returned fn returns constantly true."
   [& ps]
-  (let [sf (apply some-fn ps)]
-    (fn [& args]
-      (not (apply sf args)))))
+  (complement (apply or-fn ps)))
 
 ;;* Sorting
 

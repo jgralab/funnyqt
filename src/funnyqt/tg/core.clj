@@ -1,5 +1,4 @@
-(ns
-  funnyqt.tg.core
+(ns funnyqt.tg.core
   "Core functions for accessing and manipulating TGraphs."
   (:use funnyqt.generic)
   (:use funnyqt.utils)
@@ -352,12 +351,12 @@ See `tgtree', `show-graph', and `dot-graph'.")
    (coll? ts)  (if (seq ts)
                   (let [f (first ts)
                         [op r] (case f
-                                 :and  [every-pred (next ts)]
-                                 :nand [nand-fn    (next ts)]
-                                 :or   [some-fn    (next ts)]
-                                 :nor  [nor-fn     (next ts)]
-                                 :xor  [xor-fn     (next ts)]
-                                 [some-fn    ts])
+                                 :and  [and-fn  (next ts)]
+                                 :nand [nand-fn (next ts)]
+                                 :or   [or-fn   (next ts)]
+                                 :nor  [nor-fn  (next ts)]
+                                 :xor  [xor-fn  (next ts)]
+                                 [or-fn ts])
                         t-matchers (map #(type-matcher (schema g) %) r)]
                     (apply op t-matchers))
                   ;; Empty collection given: (), [], that's also ok
