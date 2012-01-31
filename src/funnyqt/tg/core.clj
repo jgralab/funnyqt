@@ -54,6 +54,18 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 ;;* Utility Functions and Macros
 
+(defn- impl-type
+  [kw]
+  (or
+   (when (instance? ImplementationType kw) kw)
+   (case kw
+     :generic     ImplementationType/GENERIC
+     :standard    ImplementationType/STANDARD
+     :transaction ImplementationType/TRANSACTION
+     :database    ImplementationType/DATABASE
+     ;; Don't error with "no matching clause"
+     nil)
+   (error (format "No such implementation type %s" kw))))
 
 ;;** Graph utilities
 
@@ -135,41 +147,48 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 (declare qname)
 (defn load-schema
-  "Loads a schema from `file', and possibly compile it for
-  implementation type `impl' (default GENERIC, i.e., don't compile)."
+  "Loads a schema from `file', and possibly compile it for implementation type
+  `impl' (default :generic, i.e., don't compile).  Supported impl types
+  are :generic, :standard, :transaction, and :database."
   ([file]
      (load-schema file ImplementationType/GENERIC))
   ([file impl]
-     (let [^Schema s (GraphIO/loadSchemaFromFile file)]
+     (let [^Schema s (GraphIO/loadSchemaFromFile file)
+           it (impl-type impl)]
        (.finish s)
        ;; TODO: What if the schema has already been compiled for this impl
        ;; type?
-       (if (and impl (not= impl ImplementationType/GENERIC))
+       (if (and it (not= it ImplementationType/GENERIC))
          (do
+           #_(println
+              (format "Loading schema %s, and compiling for implementation type %s."
+                      file it))
            (.compile s
                      (cond
-                      (= impl ImplementationType/STANDARD)
+                      (= it ImplementationType/STANDARD)
                          CodeGeneratorConfiguration/MINIMAL
-                      (= impl ImplementationType/TRANSACTION)
+                      (= it ImplementationType/TRANSACTION)
                          CodeGeneratorConfiguration/WITH_TRANSACTION_SUPPORT
-                      (= impl ImplementationType/DATABASE)
+                      (= it ImplementationType/DATABASE)
                          CodeGeneratorConfiguration/WITH_DATABASE_SUPPORT))
            (let [qn  (name (qname s))
                  scm (SchemaClassManager/instance qn)
                  sc  (Class/forName qn true scm)
                  im  (.getMethod sc "instance" (into-array Class []))]
              (.invoke im nil (to-array []))))
-         s))))
+         (do
+           #_(println "Loading schema" file "generically.")
+           s)))))
 
 (defn load-graph
   "Loads a graph from `file' using ImplementationType `impl',
-  defauling to GENERIC.
-  The schema will be compiled automagically if needed."
+  defauling to :generic.  The schema will be compiled automagically if needed.
+  Supported impl types are :generic, :standard, :transaction, and :database."
   ([file]
      (load-graph file ImplementationType/GENERIC))
-  ([file impl]
+  ([^String file impl]
      (GraphIO/loadGraphFromFile
-        file impl (ConsoleProgressFunction. "Loading"))))
+      file ^ImplementationType (impl-type impl) (ConsoleProgressFunction. "Loading"))))
 
 (defn save-graph
   "Saves `g' to `file'."
@@ -677,21 +696,19 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 ;;** Creations
 
-;; TODO: Use the generic Schema.createGraph() method.  But why doesn't that
-;; allow for setting the graph id anymore???
+;; TODO: Basically, the impl should be determined by the schema.  Ask Volker!
 (defn create-graph
-  "Creates a graph with id `gid', `vmax', and `emax' of the given `schema'
-  class using the given `impl' type.  `vmax' and `emax' default to 1000, `impl'
-  to ImplementationType/GENERIC.
-  For non-generic implementation types, the schema has to be a compiled schema."
+  "Creates a graph with id `gid' of the given `schema' using implementation type `impl'.
+  Supported impl types are :generic, :standard, :transaction, and :database.
+  The graph id defaults to a creation timestamp, and the impl type to GENERIC."
+  ([schema]
+     (create-graph schema (format "Created: %s" (str (java.util.Date.)))))
   ([schema gid]
-     (create-graph schema gid ImplementationType/GENERIC 1000 1000))
-  ([schema gid impl]
-     (create-graph schema gid impl                       1000 1000))
-  ([^Schema schema gid ^ImplementationType impl vmax emax]
-     (.createGraph schema impl gid
-                   (Integer/valueOf (int vmax))
-                   (Integer/valueOf (int emax)))))
+     (create-graph schema gid ImplementationType/GENERIC))
+  ([^Schema schema ^String gid impl]
+     (.createGraph schema (impl-type impl) gid
+                   (Integer/valueOf 500)
+                   (Integer/valueOf 500))))
 
 (defn create-vertex!
   "Creates a new vertex of type `cls' in `g'.

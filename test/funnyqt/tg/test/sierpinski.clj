@@ -12,9 +12,7 @@
   "Returns a sierpienki triangle."
   [vc ec]
   (let [g (create-graph (load-schema "test/sierpinski.tg")
-                        "Sierpinski"
-                        3000000
-                        6000000)
+                        "Sierpinski")
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)
         r (create-vertex! g 'V)]

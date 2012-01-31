@@ -10,9 +10,7 @@
   "Returns a sierpienki triangle."
   []
   (let [g (create-graph (load-schema "test/mintree.tg")
-                        "MinTree"
-                        3000000
-                        6000000)]
+                        "MinTree")]
     (create-vertex! g 'Tree)
     g))
 
