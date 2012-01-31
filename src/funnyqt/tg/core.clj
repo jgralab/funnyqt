@@ -135,18 +135,25 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 (declare qname)
 (defn load-schema
-  "Loads a schema from `file' and possibly compile it using
-  CodeGeneratorConfiguration `cg-conf' (default MINIMAL)."
+  "Loads a schema from `file', and possibly compile it for
+  implementation type `impl' (default GENERIC, i.e., don't compile)."
   ([file]
-     (load-schema file CodeGeneratorConfiguration/MINIMAL))
-  ([file cg-conf]
+     (load-schema file ImplementationType/GENERIC))
+  ([file impl]
      (let [^Schema s (GraphIO/loadSchemaFromFile file)]
        (.finish s)
        ;; TODO: What if the schema has already been compiled for this impl
        ;; type?
-       (if cg-conf
+       (if (and impl (not= impl ImplementationType/GENERIC))
          (do
-           (.compile s cg-conf)
+           (.compile s
+                     (cond
+                      (= impl ImplementationType/STANDARD)
+                         CodeGeneratorConfiguration/MINIMAL
+                      (= impl ImplementationType/TRANSACTION)
+                         CodeGeneratorConfiguration/WITH_TRANSACTION_SUPPORT
+                      (= impl ImplementationType/DATABASE)
+                         CodeGeneratorConfiguration/WITH_DATABASE_SUPPORT))
            (let [qn  (name (qname s))
                  scm (SchemaClassManager/instance qn)
                  sc  (Class/forName qn true scm)

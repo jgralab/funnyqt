@@ -3,7 +3,9 @@
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.match-replace)
   (:use funnyqt.tg.query)
-  (:use clojure.test))
+  (:use clojure.test)
+  (:import
+   (de.uni_koblenz.jgralab ImplementationType)))
 
 
 (defn binary-eval
@@ -87,8 +89,8 @@
     ;; Evaluate binaries with 2 constants
     (iteratively replace-binary g start-block)))
 
-(def firm1 (memoize #(load-graph "test/firm_small_46.tg")))
-(def firm2 (memoize #(load-graph "test/firm_medium_1248803056.tg")))
+(def firm1 (memoize #(load-graph "test/firm_small_46.tg" ImplementationType/STANDARD)))
+(def firm2 (memoize #(load-graph "test/firm_medium_1248803056.tg" ImplementationType/STANDARD)))
 
 (deftest constant-folding-1
   (let [g (firm1)]

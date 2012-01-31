@@ -52,7 +52,8 @@
   []
   (let [g (create-graph
            (load-schema
-            "test/binop-tree-schema.tg")
+            "test/binop-tree-schema.tg"
+            ImplementationType/STANDARD)
            "ExampleBinaryGraphFunML")
         v1 (create-vertex! g 'Div)
         v2 (create-vertex! g 'Add)
