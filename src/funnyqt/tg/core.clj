@@ -15,7 +15,7 @@
                                   AttributedElementClass NamedElement
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass)
-   (de.uni_koblenz.jgralab.schema.impl.compilation  SchemaClassManager)
+   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
    (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
    (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
    (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
@@ -133,6 +133,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
      (into-array AttributedElementClass (map #(attributed-element-class g %)
                                              reversed-ecs)))))
 
+(declare qname)
 (defn load-schema
   "Loads a schema from `file' and possibly compile it using
   CodeGeneratorConfiguration `cg-conf' (default MINIMAL)."
@@ -143,25 +144,25 @@ See `tgtree', `show-graph', and `dot-graph'.")
        (.finish s)
        ;; TODO: What if the schema has already been compiled for this impl
        ;; type?
-       (when cg-conf
-         (.compile s cg-conf))
-       s)))
+       (if cg-conf
+         (do
+           (.compile s cg-conf)
+           (let [qn  (name (qname s))
+                 scm (SchemaClassManager/instance qn)
+                 sc  (Class/forName qn true scm)
+                 im  (.getMethod sc "instance" (into-array Class []))]
+             (.invoke im nil (to-array []))))
+         s))))
 
 (defn load-graph
-  "Loads a graph from `file' using ImplementationType `impl'.
+  "Loads a graph from `file' using ImplementationType `impl',
+  defauling to GENERIC.
   The schema will be compiled automagically if needed."
   ([file]
-     (load-graph file ImplementationType/STANDARD))
+     (load-graph file ImplementationType/GENERIC))
   ([file impl]
-     (let [cg-config (cond
-                      (= impl ImplementationType/GENERIC)     false
-                      (= impl ImplementationType/STANDARD)    CodeGeneratorConfiguration/MINIMAL
-                      (= impl ImplementationType/TRANSACTION) CodeGeneratorConfiguration/WITH_TRANSACTION_SUPPORT
-                      (= impl ImplementationType/DATABASE)    CodeGeneratorConfiguration/WITH_DATABASE_SUPPORT
-                      :else CodeGeneratorConfiguration/MINIMAL)
-           s (load-schema file cg-config)]
-       (GraphIO/loadGraphFromFile
-        file s (ConsoleProgressFunction. "Loading") impl))))
+     (GraphIO/loadGraphFromFile
+        file impl (ConsoleProgressFunction. "Loading"))))
 
 (defn save-graph
   "Saves `g' to `file'."
@@ -674,12 +675,13 @@ See `tgtree', `show-graph', and `dot-graph'.")
 (defn create-graph
   "Creates a graph with id `gid', `vmax', and `emax' of the given `schema'
   class using the given `impl' type.  `vmax' and `emax' default to 1000, `impl'
-  to ImplementationType/STANDARD."
+  to ImplementationType/GENERIC.
+  For non-generic implementation types, the schema has to be a compiled schema."
   ([schema gid]
-     (create-graph schema gid 1000 1000 ImplementationType/STANDARD))
-  ([schema gid vmax emax]
-     (create-graph schema gid vmax emax ImplementationType/STANDARD))
-  ([^Schema schema gid vmax emax ^ImplementationType impl]
+     (create-graph schema gid ImplementationType/GENERIC 1000 1000))
+  ([schema gid impl]
+     (create-graph schema gid impl                       1000 1000))
+  ([^Schema schema gid ^ImplementationType impl vmax emax]
      (.createGraph schema impl gid
                    (Integer/valueOf (int vmax))
                    (Integer/valueOf (int emax)))))
