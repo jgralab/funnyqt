@@ -148,6 +148,11 @@
        [:div
         [:a {:href (str "#" (make-id s))} (escape-html s)]])]]])
 
+(defn indent
+  [s]
+  (for [line (str/split-lines s)]
+    (str "  " line "\n")))
+
 (defn gen-public-vars-details
   "Generates detailed docs for the public vars pubs."
   [pubs]
@@ -164,11 +169,12 @@
            [:pre "Arglists:\n=========\n\n"
             (escape-html
              (html
-              (for [al (:arglists (meta v))]
-                (for [x (str/split
-                         (with-out-str
-                           (pp/pprint al)) #"\n")]
-                  (str "  " x "\n")))))
+              (binding [pp/*print-miser-width*  60
+                        pp/*print-right-margin* 80]
+                (map #(let [sig `(~s ~@%)]
+                        (indent (with-out-str
+                                  (pp/pprint sig))))
+                     (:arglists (meta v))))))
             "\nDocstring:\n==========\n\n  "
             (escape-html
              (or (:doc (meta v))
