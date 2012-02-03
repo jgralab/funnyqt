@@ -3,12 +3,12 @@
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
   changes.  Ok, you've been warned, but have fun anyway. :-)"
-  :dependencies [[org.clojure/clojure "1.3.0"]
-		 [de.uni-koblenz.ist/jgralab "[6.0.0,)"]
-                 [org.clojure/core.logic "[0.6.1,)"]
-                 [org.clojure/core.match "[0.2.0-alpha8,)"]
-		 [ordered "1.0.0"]
-                 [org.clojure/tools.macro "[0.1.1,)"]
+  :dependencies [[org.clojure/clojure "1.4.0-beta1"]
+		 [de.uni-koblenz.ist/jgralab "[6.0.1,)"]
+                 [org.clojure/core.logic "0.6.1"]
+                 [org.clojure/core.match "0.2.0-alpha8"]
+		 [ordered "1.0.0" :exclusions [org.clojure/clojure]]
+                 [org.clojure/tools.macro "0.1.1"]
                  ;; EMF Stuff (the xmi-jar pulls in common and ecore, too)
                  [org.eclipse.emf/org.eclipse.emf.ecore.xmi "[2.5.0.v20100521-1846,)"]]
   :dev-dependencies [[hiccup "0.3.7"]]
