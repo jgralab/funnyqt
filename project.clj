@@ -1,4 +1,4 @@
-(defproject funnyqt "0.0.1"
+(defproject funnyqt "0.0.2"
   :description "A model querying and transformation library.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
@@ -7,7 +7,7 @@
 		 [de.uni-koblenz.ist/jgralab "[6.0.0,)"]
                  [org.clojure/core.logic "[0.6.1,)"]
                  [org.clojure/core.match "[0.2.0-alpha8,)"]
-		 [ordered "[0.3,)"]
+		 [ordered "1.0.0"]
                  [org.clojure/tools.macro "[0.1.1,)"]
                  ;; EMF Stuff (the xmi-jar pulls in common and ecore, too)
                  [org.eclipse.emf/org.eclipse.emf.ecore.xmi "[2.5.0.v20100521-1846,)"]]
