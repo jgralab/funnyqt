@@ -10,9 +10,9 @@
 
 (defn sierpinski-init
   "Returns a sierpienki triangle."
-  [vc ec]
-  (let [g (create-graph (load-schema "test/sierpinski.tg")
-                        "Sierpinski")
+  [vc ec variant]
+  (let [g (create-graph (load-schema "test/sierpinski.tg" variant)
+                        "Sierpinski" variant)
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)
         r (create-vertex! g 'V)]
@@ -99,9 +99,14 @@
          (triangulate-recursively g lv)
          (triangulate-recursively g rv)))))
 
+(defn impl-label [g]
+  (if (instance? de.uni_koblenz.jgralab.impl.generic.GenericGraphImpl g)
+    "gen"
+    "std"))
+
 (defn run
   [g f title n correct-vc correct-ec]
-  (print "  ==>" title ": ")
+  (print (format "  ==> %s (%s): " title (impl-label g)))
   (time (dotimes [_ n] (f g)))
   (let [vc (vcount g), ec (ecount g)]
     (is (== correct-vc vc))
@@ -110,18 +115,20 @@
 (deftest sierpinski
   (println "Sierpinski Triangles")
   (println "====================")
-  (doseq [n (range 7 12)]
-    (let [correct-vc (* 3/2 (inc (Math/pow 3 n)))
-          correct-ec (Math/pow 3 (inc n))]
-      (System/gc)
-      (println "No. of generations:" n)
-      (run (sierpinski-init correct-vc correct-ec)
-          #(triangulate-sequential %)
-        "SEQUEN" n correct-vc correct-ec)
-      (run (sierpinski-init correct-vc correct-ec)
-          #(triangulate-recursively %)
-        "RECURS" n correct-vc correct-ec)
-      (run (sierpinski-init correct-vc correct-ec)
-          #(trampoline (triangulate-trampolined %))
-        "TRAMPO" n correct-vc correct-ec))))
+  (doseq [variant [:generic :standard]]
+    (doseq [n (range 8 13)]
+      (let [correct-vc (int (* 3/2 (inc (Math/pow 3 n))))
+            correct-ec (int (Math/pow 3 (inc n)))]
+        (System/gc)
+        (println (format "No. of generations: %s (%s vertices, %s edges)"
+                         n correct-vc correct-ec))
+        (run (sierpinski-init correct-vc correct-ec variant)
+            #(triangulate-sequential %)
+          "SEQUEN" n correct-vc correct-ec)
+        (run (sierpinski-init correct-vc correct-ec variant)
+            #(triangulate-recursively %)
+          "RECURS" n correct-vc correct-ec)
+        (run (sierpinski-init correct-vc correct-ec variant)
+            #(trampoline (triangulate-trampolined %))
+          "TRAMPO" n correct-vc correct-ec)))))
 
