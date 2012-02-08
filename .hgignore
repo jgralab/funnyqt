@@ -1,9 +1,0 @@
-syntax: glob
-.gitignore
-.lein*
-.cake/
-lib/
-classes/
-docs/
-pom.xml
-gen-docs.out
