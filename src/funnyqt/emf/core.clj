@@ -34,6 +34,31 @@
       (register-epackages pkgs)
       pkgs)))
 
+(def ^:dynamic *ns-uris* nil)
+(defmacro with-ns-uris [uris & body]
+  `(binding [*ns-uris* ~uris]
+     ~@body))
+
+(defn epackages
+  "The lazy seq (pkg subpkg...).
+  If no package is given, the lazy seq of all registered packages is returned."
+  ([]
+     (mapcat #(epackages (.getEPackage epackage-registry %))
+             (or *ns-uris* (keys epackage-registry))))
+  ([pkg]
+     (when pkg
+       (cons pkg (map epackages (.getESubpackages pkg))))))
+
+(defn eclassifier
+  "Returns the eclassifier with the given `name'."
+  ([name pkg]
+     (.getEClassifier pkg name))
+  ([name]
+     (loop [pkgs (epackages)]
+       (if-let [c (eclassifier name (first pkgs))]
+         c
+         (recur (rest pkgs))))))
+
 (defn load-model
   "Loads an EMF model from the XMI file `f'.
   Returns a seq of the models top-level elements."
