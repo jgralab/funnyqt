@@ -5,7 +5,7 @@
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI]
-   [org.eclipse.emf.ecore EPackage EObject EModelElement]))
+   [org.eclipse.emf.ecore EPackage EObject EModelElement EClassifier EClass EDataType]))
 
 (add-long-doc! "TODO")
 
@@ -49,15 +49,16 @@
      (when pkg
        (cons pkg (map epackages (.getESubpackages pkg))))))
 
+(defn eclassifiers
+  "The lazy seq of EClassifiers."
+  []
+  (mapcat #(.getEClassifiers %) (epackages)))
+
 (defn eclassifier
   "Returns the eclassifier with the given `name'."
-  ([name pkg]
-     (.getEClassifier pkg name))
-  ([name]
-     (loop [pkgs (epackages)]
-       (if-let [c (eclassifier name (first pkgs))]
-         c
-         (recur (rest pkgs))))))
+  [name]
+  (some #(when (= (.getName %) (clojure.core/name name)) %)
+        (eclassifiers)))
 
 (defn load-model
   "Loads an EMF model from the XMI file `f'.
@@ -134,3 +135,41 @@
      (eobjects-internal x identity))
   ([x ts]
      (eobjects-internal x (type-matcher ts))))
+
+
+;;** Printing
+
+(defn- feature-str
+  "Returns a description of enabled features `fs'.
+  fs => [test-function desc-str]*"
+  ([elem fs]
+     (feature-str elem [] fs))
+  ([elem s fs]
+     (if (seq fs)
+       (let [[f n] (first fs)]
+         (recur elem (if (f elem)
+                       (conj s n)
+                       s)
+                (rest fs)))
+       (when-let [r (seq s)]
+         (str " " r)))))
+
+;; Normal toString()
+(defmethod print-method EClass
+  [^EClass ec ^java.io.Writer out]
+  (.write out
+          (str "#<EClass "
+               (.getName ec)
+               (feature-str
+                ec [[#(.isAbstract %)  :abstract]
+                    [#(.isInterface %) :interface]])
+               ">")))
+
+(defmethod print-method EDataType
+  [^EDataType edt ^java.io.Writer out]
+  (.write out
+          (str "#<EDataType " (.getName edt)
+               (feature-str
+                edt [[#(.isSerializable %) :serializable]])
+               ">")))
+

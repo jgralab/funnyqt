@@ -20,4 +20,11 @@
 
 (def family-mm (load-metamodel "test/Families.ecore"))
 
+(deftest test-eclassifier
+  (let [fmodel (eclassifier 'FamilyModel)
+        family (eclassifier 'Family)
+        person (eclassifier 'Member)]
+    (is fmodel)
+    (is family)
+    (is person)))
 
