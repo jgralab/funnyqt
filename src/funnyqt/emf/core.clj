@@ -11,6 +11,8 @@
 
 ;;* Code
 
+;;** Metamodel
+
 (def epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
 
 (defn- register-epackages
@@ -54,11 +56,18 @@
   []
   (mapcat #(.getEClassifiers %) (epackages)))
 
+(defn eclasses
+  "The lazy seq of EClasses."
+  []
+  (filter #(instance? EClass %) (eclassifiers)))
+
 (defn eclassifier
   "Returns the eclassifier with the given `name'."
   [name]
   (some #(when (= (.getName %) (clojure.core/name name)) %)
         (eclassifiers)))
+
+;;** Model
 
 (defn load-model
   "Loads an EMF model from the XMI file `f'.
@@ -70,26 +79,6 @@
       (.load (.getDefaultLoadOptions res)))
     (seq (.getContents res))))
 
-(defprotocol EObjects
-  (eobjects-internal [this tm]
-    "Returns a seq of all directly and indirectly contained EObjects
-  whose type matches the type-matcher tm."))
-
-(extend-protocol EObjects
-  EObject
-  (eobjects-internal [this tm]
-    (filter tm (cons this (iterator-seq (.eAllContents this)))))
-  clojure.lang.ISeq
-  (eobjects-internal [this tm]
-    (mapcat #(eobjects-internal % tm) this)))
-
-(defn- get-eclassifier
-  [qn]
-  (let [[pn n _] (split-qname qn)]
-    (if-let [p (.getEPackage epackage-registry pn)]
-      (.getEClassifier p n)
-      (error "No such package!"))))
-
 (defn- type-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [c]
@@ -97,7 +86,7 @@
         neg   (v 0)
         qname (v 1)
         exact (v 2)
-        type  (get-eclassifier qname)]
+        type  (eclassifier qname)]
     (cond
      (and (not neg) (not exact)) (fn [x] (.isInstance type x))
      (and (not neg) exact)       (fn [x] (identical? type (.eClass x)))
@@ -129,6 +118,19 @@
                   identity)
    :else (RuntimeException.
           (format "Don't know how to create a type matcher for %s" ts))))
+
+(defprotocol EObjects
+  (eobjects-internal [this tm]
+    "Returns a seq of all directly and indirectly contained EObjects
+  whose type matches the type-matcher tm."))
+
+(extend-protocol EObjects
+  EObject
+  (eobjects-internal [this tm]
+    (filter tm (cons this (iterator-seq (.eAllContents this)))))
+  clojure.lang.ISeq
+  (eobjects-internal [this tm]
+    (mapcat #(eobjects-internal % tm) this)))
 
 (defn eobjects
   ([x]
@@ -172,4 +174,17 @@
                (feature-str
                 edt [[#(.isSerializable %) :serializable]])
                ">")))
+
+(defmethod print-method EObject
+  [^EObject eo ^java.io.Writer out]
+  (.write out
+          (let [ec (.eClass eo)]
+            (str "#<" (-> ec .getName)
+                 " "
+                 (apply hash-map
+                        (mapcat (fn [attr]
+                                  [(keyword (.getName attr)) (.eGet eo attr)])
+                                (seq (.getEAttributes ec))))
+                 ">"))))
+
 
