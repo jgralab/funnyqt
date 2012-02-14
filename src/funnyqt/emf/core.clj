@@ -7,7 +7,8 @@
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
-    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference]))
+    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
+    EStructuralFeature]))
 
 (add-long-doc! "TODO")
 
@@ -228,7 +229,15 @@
 
 (defprotocol EmfToClj
   (emf2clj [this]
-    "Converts an EMF thingy to a clojure thingy."))
+    "Converts an EMF thingy to a clojure thingy.
+
+  EMF Type     | Clojure Type
+  -------------+-------------
+  UniqueEList  | ordered-set
+  EMap         | hash-map
+  EList        | seq
+
+  All other objects are kept as-is."))
 
 (extend-protocol EmfToClj
   UniqueEList
@@ -242,12 +251,55 @@
   nil
   (emf2clj [_] nil))
 
+(defprotocol CljToEmf
+  (clj2emf [this]
+    "Converts a Clojure thingy to an EMF thingy.
+
+  Clojure Type | EMF Type
+  -------------+-------------
+  ordered-set  | UniqueEList
+  hash-map     | EMap
+  seq          | EList
+
+  All other objects are kept as-is."))
+
+(extend-protocol CljToEmf
+  ordered.set.OrderedSet
+  (clj2emf [this]
+    (let [ul (org.eclipse.emf.common.util.UniqueEList. (count this))]
+      (doseq [item this]
+        (.add ul (clj2emf item)))
+      ul))
+  clojure.lang.IPersistentMap
+  (clj2emf [this]
+    (let [em (org.eclipse.emf.common.util.BasicEMap. (count this))]
+      (doseq [[k v] this]
+        (.put em (clj2emf k) (clj2emf v)))
+      em))
+  clojure.lang.ISeq
+  (clj2emf [this]
+    (let [em (org.eclipse.emf.common.util.BasicEList. (count this))]
+      (doseq [[k v] this]
+        (.put em (clj2emf k) (clj2emf v)))
+      em))
+  java.lang.Object
+  (clj2emf [this] this))
+
 (defn eget
+  "Returns the value of `eo's structural feature `sf'.
+  The value is converted to some clojure type (see EmfToClj protocol)."
   [^EObject eo sf]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (emf2clj (.eGet eo sfeat))
-    (error (format "No such structural feature %s for %s." sf eo))))
+    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
+(defn eset!
+  "Sets `eo's structural feature `sf' to `value'.
+  The value is converted to some EMF type (see CljToEmf protocol)."
+  [^EObject eo sf value]
+  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+    (.eSet eo sfeat (clj2emf value))
+    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 ;;** Printing
 
@@ -276,14 +328,20 @@
                (feature-str
                 [[(.isAbstract ec)  :abstract]
                  [(.isInterface ec) :interface]])
+               (let [m (into {}
+                             (map (fn [^EAttribute attr]
+                                    [(keyword (.getName attr)) (.getEType attr)])
+                                  (seq (.getEAttributes ec))))]
+                 (when (seq m)
+                   (str " " m)))
                ">")))
 
 (defmethod print-method EDataType
   [^EDataType edt ^java.io.Writer out]
   (.write out
           (str "#<EDataType " (.getName edt)
-               (feature-str
-                [[(.isSerializable edt) :serializable]])
+               #_(feature-str
+                  [[(.isSerializable edt) :serializable]])
                ">")))
 
 (defmethod print-method EPackage
@@ -294,12 +352,12 @@
                  "EcorePackage "
                  "EPackage ")
                (.getName ep)
-               (let [m (apply hash-map
-                              (mapcat (fn [[v k]]
-                                        (when v
-                                          [k v]))
-                                      [[(.getNsPrefix ep) :nsPrefix]
-                                       [(.getNsURI ep)    :nsURI]]))]
+               (let [m (into {}
+                             (map (fn [[v k]]
+                                    (when v
+                                      [k v]))
+                                  [[(.getNsPrefix ep) :nsPrefix]
+                                   [(.getNsURI ep)    :nsURI]]))]
                  (when (seq m)
                    (str " " m)))
                ">")))
@@ -325,10 +383,10 @@
             (let [ec (.eClass eo)]
               (str "#<"
                    (-> ec .getName)
-                   (let [m (apply hash-map
-                                  (mapcat (fn [^EAttribute attr]
-                                            [(keyword (.getName attr)) (.eGet eo attr)])
-                                          (seq (.getEAttributes ec))))]
+                   (let [m (into {}
+                                 (map (fn [^EAttribute attr]
+                                        [(keyword (.getName attr)) (.eGet eo attr)])
+                                      (seq (.getEAttributes ec))))]
                      (when (seq m)
                        (str " " m)))
                    ">")))))

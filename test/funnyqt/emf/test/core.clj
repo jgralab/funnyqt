@@ -66,3 +66,13 @@
             (count (ecrossrefs fsmith :daughters))))
     (is (== 3 (count (ecrossrefs fsmith :sons))))))
 
+(deftest test-eget
+  (let [fm (the family-model)
+        fsmith (first (econtents fm 'Family))]
+    (is (= (next (econtents fm))
+           (concat (eget fm :families)
+                   (eget fm :members))))
+    (is (= (econtents fm 'Family)
+           (eget fm :families)))
+    (is (= (econtents fm 'Member)
+           (eget fm :members)))))
