@@ -18,9 +18,15 @@
   epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
 
 (defn- register-epackages
+  "Registeres the given packages at the EPackage$Registry by their nsURI.
+  Skips already registered packages."
   [pkgs]
   (doseq [^EPackage p pkgs]
-    (.put epackage-registry (.getNsURI p) p)
+    (when-let [uri (.getNsURI p)]
+      ;; Empty URI or already registered -> skip it
+      (when (and (seq uri)
+                 (nil? (.get epackage-registry uri)))
+        (.put epackage-registry (.getNsURI p) p)))
     (let [subs (.getESubpackages p)]
       (when (seq subs)
         (register-epackages subs)))))
@@ -125,25 +131,43 @@
    :else (RuntimeException.
           (format "Don't know how to create a type matcher for %s" ts))))
 
-(defprotocol EObjects
-  (eobjects-internal [this tm]
-    "Returns a seq of all directly and indirectly contained EObjects
-  whose type matches the type-matcher tm."))
+(defprotocol EContents
+  (eallcontents-internal [this tm]
+    "Returns a seq of this and all directly and indirectly contained EObjects
+  whose type matches the type-matcher `tm'.")
+  (econtents-internal [this tm]
+    "Returns a seq of this and all directly contained EObjects whose type
+  matches the type-matcher `tm'.")
+  (econtainer [this]
+    "Returns the EObject containing this."))
 
-(extend-protocol EObjects
+(extend-protocol EContents
   EObject
-  (eobjects-internal [this tm]
+  (econtents-internal [this tm]
+    (filter tm (cons this (seq (.eContents this)))))
+  (eallcontents-internal [this tm]
     (filter tm (cons this (iterator-seq (.eAllContents this)))))
+  (econtainer [this]
+    (.eContainer this))
   clojure.lang.ISeq
-  (eobjects-internal [this tm]
-    (mapcat #(eobjects-internal % tm) this)))
+  (econtents-internal [this tm]
+    (mapcat #(econtents-internal % tm) this))
+  (eallcontents-internal [this tm]
+    (mapcat #(eallcontents-internal % tm) this)))
 
-(defn eobjects
+(defn eallcontents
+  "Returns a seq of `x' and all contents of `x' matching the type spec `ts'."
   ([x]
-     (eobjects-internal x identity))
+     (eallcontents-internal x identity))
   ([x ts]
-     (eobjects-internal x (type-matcher ts))))
+     (eallcontents-internal x (type-matcher ts))))
 
+(defn econtents
+  "Returns a seq of `x' and its direct contents matching the type spec `ts'."
+  ([x]
+     (econtents-internal x identity))
+  ([x ts]
+     (econtents-internal x (type-matcher ts))))
 
 ;;** Printing
 

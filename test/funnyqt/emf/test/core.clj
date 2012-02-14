@@ -1,5 +1,6 @@
 (ns funnyqt.emf.test.core
   (:use [funnyqt.emf.core])
+  (:use [funnyqt.generic])
   (:use [clojure.test])
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
@@ -22,8 +23,9 @@
 (def family-model (load-model "test/example.families"))
 
 (deftest test-eclassifiers
-  (is (== 3 (with-ns-uris ["http://families/1.0"] (count (eclasses)))))
-  (is (== 3 (with-ns-uris ["http://families/1.0"] (count (eclassifiers))))))
+  (with-ns-uris ["http://families/1.0"]
+    (is (== 3 (count (eclasses))))
+    (is (== 3 (count (eclassifiers))))))
 
 (deftest test-eclassifier
   (let [fmodel (eclassifier 'FamilyModel)
@@ -32,3 +34,16 @@
     (is fmodel)
     (is family)
     (is person)))
+
+(deftest test-eallcontents
+  (let [all   (eallcontents family-model)
+        mems  (eallcontents family-model 'Member)
+        fams  (eallcontents family-model 'Family)
+        fmods (eallcontents family-model 'FamilyModel)]
+    (is (== 17 (count all)))
+    (is (== 1  (count fmods)))
+    (is (== 3  (count fams)))
+    (is (== 13 (count mems)))
+    ;; The FamilyModel is the container of all Members and Families.
+    (doseq [x (concat mems fams)]
+      (is (the fmods) (econtainer x)))))
