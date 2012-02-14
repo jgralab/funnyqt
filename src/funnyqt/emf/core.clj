@@ -2,9 +2,10 @@
   "Core functions for accessing and manipulating EMF models."
   (:use funnyqt.utils)
   (:use funnyqt.generic)
+  (:use ordered.set)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.common.util URI]
+   [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference]))
 
@@ -224,6 +225,29 @@
      (ecrossrefs-internal eo identity))
   ([eo rs]
      (ecrossrefs-internal eo (ref-matcher rs))))
+
+(defprotocol EmfToClj
+  (emf2clj [this]
+    "Converts an EMF thingy to a clojure thingy."))
+
+(extend-protocol EmfToClj
+  UniqueEList
+  (emf2clj [this] (into (ordered-set) (seq this)))
+  EMap
+  (emf2clj [this] (into {} (seq this)))
+  EList
+  (emf2clj [this] (seq this))
+  EObject
+  (emf2clj [this] this)
+  nil
+  (emf2clj [_] nil))
+
+(defn eget
+  [^EObject eo sf]
+  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+    (emf2clj (.eGet eo sfeat))
+    (error (format "No such structural feature %s for %s." sf eo))))
+
 
 ;;** Printing
 
