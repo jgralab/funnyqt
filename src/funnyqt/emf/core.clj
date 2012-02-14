@@ -6,7 +6,7 @@
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
-    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute]))
+    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference]))
 
 (add-long-doc! "TODO")
 
@@ -168,6 +168,62 @@
      (econtents-internal x identity))
   ([x ts]
      (econtents-internal x (type-matcher ts))))
+
+(defn ref-matcher
+  "Returns a reference matcher for the reference spec `rs'.
+  A reference matcher is a function of arity one that gets an EReference and
+  returns logical true if that ref should be accepted, false otherwise.
+
+  Semantics depend on `rs':
+
+    nil           => accept all references
+    :foo          => accept only references named foo
+    [:foo :bar]   => accept both foo and bar refs
+    (fn [r] ...)  => simply use that"
+  [rs]
+  (cond
+   (nil? rs)   identity
+   (fn? rs)    rs
+   (qname? rs) (let [n (name rs)]
+                 (fn [^EReference ref]
+                   (= n (.getName ref))))
+   (coll? rs)  (if (seq rs)
+                 (apply some-fn (map ref-matcher rs))
+                  ;; Empty collection given: (), [], that's also ok
+                  identity)
+   :else (RuntimeException.
+          (format "Don't know how to create a reference matcher for %s" rs))))
+
+(defprotocol ECrossReferences
+  (ecrossrefs-internal [this rm]
+    "Returns a seq of cross-referenced EObjects accepted by reference-matcher
+    `rm'."))
+
+(extend-protocol ECrossReferences
+  EObject
+  (ecrossrefs-internal [this rm]
+    (let [^org.eclipse.emf.ecore.util.EContentsEList$FeatureIterator it
+          (-> this .eCrossReferences .iterator)]
+      (loop [r []]
+        (if (.hasNext it)
+          (let [eo (.next it)]
+            (recur (if (rm (.feature it))
+                     (conj r eo)
+                     r)))
+          r))))
+  clojure.lang.ISeq
+  (ecrossrefs-internal [this rm]
+    (mapcat #(ecrossrefs-internal % rm) this)))
+
+(defn ecrossrefs
+  "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
+  the reference spec `rs'.  `eo' may be an EObject or a seq of EObjects.  For
+  the syntax and semantics of `rs', see `ref-matcher'.
+  In EMF, crossrefs are all non-containment refs (including their opposites)."
+  ([eo]
+     (ecrossrefs-internal eo identity))
+  ([eo rs]
+     (ecrossrefs-internal eo (ref-matcher rs))))
 
 ;;** Printing
 

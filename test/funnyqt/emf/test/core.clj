@@ -35,7 +35,7 @@
     (is family)
     (is person)))
 
-(deftest test-eallcontents
+(deftest test-econtents-eallcontents
   (let [all   (eallcontents family-model)
         mems  (eallcontents family-model 'Member)
         fams  (eallcontents family-model 'Family)
@@ -46,4 +46,23 @@
     (is (== 13 (count mems)))
     ;; The FamilyModel is the container of all Members and Families.
     (doseq [x (concat mems fams)]
-      (is (the fmods) (econtainer x)))))
+      (is (the fmods) (econtainer x)))
+    ;; In this concrete case, econtents and eallcontents equal
+    (is (= (eallcontents family-model) (econtents family-model)))
+    (is (= (eallcontents family-model 'FamilyModel)
+           (econtents family-model    'FamilyModel)))
+    (is (= (eallcontents family-model 'Member)
+           (econtents family-model    'Member)))
+    (is (= (eallcontents family-model 'Family)
+           (econtents family-model    'Family)))))
+
+(deftest test-ecrossrefs
+  (let [fsmith (first (econtents family-model 'Family))]
+    (is (= (ecrossrefs fsmith)
+           (ecrossrefs fsmith [:father :mother :sons :daughters])))
+    (is (== 1
+            (count (ecrossrefs fsmith :father))
+            (count (ecrossrefs fsmith :mother))
+            (count (ecrossrefs fsmith :daughters))))
+    (is (== 3 (count (ecrossrefs fsmith :sons))))))
+
