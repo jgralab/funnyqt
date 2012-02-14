@@ -22,8 +22,8 @@
 (def family-model (load-model "test/example.families"))
 
 (deftest test-eclassifiers
-  (is (== 3 (with-ns-uris ["http://families/1.0"] (eclasses))))
-  (is (== 3 (with-ns-uris ["http://families/1.0"] (eclassifiers)))))
+  (is (== 3 (with-ns-uris ["http://families/1.0"] (count (eclasses)))))
+  (is (== 3 (with-ns-uris ["http://families/1.0"] (count (eclassifiers))))))
 
 (deftest test-eclassifier
   (let [fmodel (eclassifier 'FamilyModel)

@@ -5,7 +5,8 @@
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI]
-   [org.eclipse.emf.ecore EPackage EObject EModelElement EClassifier EClass EDataType]))
+   [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
+    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute]))
 
 (add-long-doc! "TODO")
 
@@ -13,7 +14,8 @@
 
 ;;** Metamodel
 
-(def epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
+(def ^org.eclipse.emf.ecore.EPackage$Registry
+  epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
 
 (defn- register-epackages
   [pkgs]
@@ -47,14 +49,16 @@
   ([]
      (mapcat #(epackages (.getEPackage epackage-registry %))
              (or *ns-uris* (keys epackage-registry))))
-  ([pkg]
+  ([^EPackage pkg]
      (when pkg
        (cons pkg (map epackages (.getESubpackages pkg))))))
 
 (defn eclassifiers
   "The lazy seq of EClassifiers."
   []
-  (mapcat #(.getEClassifiers %) (epackages)))
+  (mapcat (fn [^EPackage ep]
+            (.getEClassifiers ep))
+          (epackages)))
 
 (defn eclasses
   "The lazy seq of EClasses."
@@ -64,7 +68,9 @@
 (defn eclassifier
   "Returns the eclassifier with the given `name'."
   [name]
-  (some #(when (= (.getName %) (clojure.core/name name)) %)
+  (some (fn [^EClassifier ec]
+          (when (= (.getName ec) (clojure.core/name name))
+            ec))
         (eclassifiers)))
 
 ;;** Model
@@ -86,12 +92,12 @@
         neg   (v 0)
         qname (v 1)
         exact (v 2)
-        type  (eclassifier qname)]
+        ^EClassifier type  (eclassifier qname)]
     (cond
-     (and (not neg) (not exact)) (fn [x] (.isInstance type x))
-     (and (not neg) exact)       (fn [x] (identical? type (.eClass x)))
-     (and neg       (not exact)) (fn [x] (not (.isInstance type x)))
-     :default                    (fn [x] (not (identical? type (.eClass x)))))))
+     (and (not neg) (not exact)) (fn [^EClass x] (.isInstance type x))
+     (and (not neg) exact)       (fn [^EClass x] (identical? type (.eClass x)))
+     (and neg       (not exact)) (fn [^EClass x] (not (.isInstance type x)))
+     :default                    (fn [^EClass x] (not (identical? type (.eClass x)))))))
 
 (defn type-matcher
   "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
@@ -141,30 +147,31 @@
 
 ;;** Printing
 
+;;*** Normal toString() output
+
+;; TODO: We don't handle EFactories, ETypedElements, and EAnnotations yet.
+
 (defn- feature-str
   "Returns a description of enabled features `fs'.
-  fs => [test-function desc-str]*"
-  ([elem fs]
-     (feature-str elem [] fs))
-  ([elem s fs]
+  fs => [test-val desc-str]*"
+  ([fs]
+     (feature-str [] fs))
+  ([s fs]
      (if (seq fs)
        (let [[f n] (first fs)]
-         (recur elem (if (f elem)
-                       (conj s n)
-                       s)
+         (recur (if f (conj s n) s)
                 (rest fs)))
        (when-let [r (seq s)]
          (str " " r)))))
 
-;; Normal toString()
 (defmethod print-method EClass
   [^EClass ec ^java.io.Writer out]
   (.write out
           (str "#<EClass "
                (.getName ec)
                (feature-str
-                ec [[#(.isAbstract %)  :abstract]
-                    [#(.isInterface %) :interface]])
+                [[(.isAbstract ec)  :abstract]
+                 [(.isInterface ec) :interface]])
                ">")))
 
 (defmethod print-method EDataType
@@ -172,19 +179,54 @@
   (.write out
           (str "#<EDataType " (.getName edt)
                (feature-str
-                edt [[#(.isSerializable %) :serializable]])
+                [[(.isSerializable edt) :serializable]])
+               ">")))
+
+(defmethod print-method EPackage
+  [^EPackage ep ^java.io.Writer out]
+  (.write out
+          (str "#<"
+               (if (instance? EcorePackage ep)
+                 "EcorePackage "
+                 "EPackage ")
+               (.getName ep)
+               (let [m (apply hash-map
+                              (mapcat (fn [[v k]]
+                                        (when v
+                                          [k v]))
+                                      [[(.getNsPrefix ep) :nsPrefix]
+                                       [(.getNsURI ep)    :nsURI]]))]
+                 (when (seq m)
+                   (str " " m)))
+               ">")))
+
+(defmethod print-method EEnumLiteral
+  [^EEnumLiteral el ^java.io.Writer out]
+  (.write out
+          (str "#<EEnumLiteral"
+               (-> el .getEEnum .getName)
+               "/"
+               (.getLiteral el)
                ">")))
 
 (defmethod print-method EObject
   [^EObject eo ^java.io.Writer out]
   (.write out
-          (let [ec (.eClass eo)]
-            (str "#<" (-> ec .getName)
-                 " "
-                 (apply hash-map
-                        (mapcat (fn [attr]
-                                  [(keyword (.getName attr)) (.eGet eo attr)])
-                                (seq (.getEAttributes ec))))
-                 ">"))))
+          (if (or (instance? EFactory      eo)
+                  (instance? ETypedElement eo)
+                  (instance? EAnnotation   eo))
+            ;; Usual toString() for those
+            (str eo)
+            ;; Custom toString() for the others
+            (let [ec (.eClass eo)]
+              (str "#<"
+                   (-> ec .getName)
+                   (let [m (apply hash-map
+                                  (mapcat (fn [^EAttribute attr]
+                                            [(keyword (.getName attr)) (.eGet eo attr)])
+                                          (seq (.getEAttributes ec))))]
+                     (when (seq m)
+                       (str " " m)))
+                   ">")))))
 
 
