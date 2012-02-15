@@ -197,12 +197,16 @@
    :else (RuntimeException.
           (format "Don't know how to create a reference matcher for %s" rs))))
 
-(defprotocol ECrossReferences
+(defprotocol EReferences
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
-    `rm'."))
+    `rm'.  Cross-referenced objects are those that are referenced by a
+    non-containment relationship.")
+  (erefs-internal [this rm]
+    "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
+    In contrast to ecrossrefs-internal, containment refs are not excluded."))
 
-(extend-protocol ECrossReferences
+(extend-protocol EReferences
   EObject
   (ecrossrefs-internal [this rm]
     (let [^org.eclipse.emf.ecore.util.EContentsEList$FeatureIterator it
@@ -214,19 +218,42 @@
                      (conj r eo)
                      r)))
           r))))
+  (erefs-internal [this rm]
+    (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
+      (if (seq refs)
+        (let [ref (first refs)]
+          (recur (if (rm ref)
+                   (if (.isMany ref)
+                     (conj r (.eGet this ref))
+                     (into r (.eGet this ref)))
+                   r)
+                 (rest refs)))
+        r)))
   clojure.lang.ISeq
   (ecrossrefs-internal [this rm]
-    (mapcat #(ecrossrefs-internal % rm) this)))
+    (mapcat #(ecrossrefs-internal % rm) this))
+  (erefs-internal [this rm]
+    (mapcat #(erefs-internal % rm) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
   the reference spec `rs'.  `eo' may be an EObject or a seq of EObjects.  For
   the syntax and semantics of `rs', see `ref-matcher'.
-  In EMF, crossrefs are all non-containment refs (including their opposites)."
+  In EMF, crossrefs are all non-containment refs."
   ([eo]
      (ecrossrefs-internal eo identity))
   ([eo rs]
      (ecrossrefs-internal eo (ref-matcher rs))))
+
+(defn erefs
+  "Returns a seq of EObjects referenced by `eo', possibly restricted by the
+  reference spec `rs'.  `eo' may be an EObject or a seq of EObjects.  For the
+  syntax and semantics of `rs', see `ref-matcher'.  In contrast to
+  `ecrossrefs', this function doesn't ignore containment refs."
+  ([eo]
+     (erefs-internal eo identity))
+  ([eo rs]
+     (erefs-internal eo (ref-matcher rs))))
 
 (defprotocol EmfToClj
   (emf2clj [this]
@@ -288,7 +315,8 @@
 
 (defn eget
   "Returns the value of `eo's structural feature `sf'.
-  The value is converted to some clojure type (see EmfToClj protocol)."
+  The value is converted to some clojure type (see EmfToClj protocol).
+  Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (emf2clj (.eGet eo sfeat))
@@ -296,7 +324,8 @@
 
 (defn eset!
   "Sets `eo's structural feature `sf' to `value'.
-  The value is converted to some EMF type (see CljToEmf protocol)."
+  The value is converted to some EMF type (see CljToEmf protocol).
+  Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (.eSet eo sfeat (clj2emf value))
