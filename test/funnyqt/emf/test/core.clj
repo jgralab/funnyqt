@@ -141,3 +141,28 @@
            (eget fm :families)))
     (is (= (econtents fm 'Member)
            (eget fm :members)))))
+
+(deftest test-erefs-and-ecrossrefs
+  (let [fm (the family-model)
+        fsmith (first (econtents fm 'Family))]
+    (are [x] (= (eget fm x) (erefs fm x))
+         :families
+         :members)
+    (are [x] (= (let [r (eget fsmith x)]
+                  (if (coll? r) r [r]))
+                (erefs fsmith x)
+                (ecrossrefs fsmith x))
+         :father
+         :mother
+         :sons
+         :daughters)
+    ;; Those are all crossrefs, so erefs and ecrossrefs should equal
+    (are [x] (= (erefs fsmith x) (ecrossrefs fsmith x))
+         :father
+         :mother
+         :sons
+         :daughters
+         [:father :mother]
+         [:sons :daughters]
+         [:father :sons]
+         [:mother :daughters])))
