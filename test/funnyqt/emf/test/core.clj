@@ -1,6 +1,8 @@
 (ns funnyqt.emf.test.core
   (:use [funnyqt.emf.core])
   (:use [funnyqt.generic])
+  (:use [ordered.set])
+  (:use [ordered.map])
   (:use [clojure.test])
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
@@ -34,6 +36,69 @@
     (is fmodel)
     (is family)
     (is person)))
+
+(defn- make-uniqueelist
+  []
+  (let [ul (org.eclipse.emf.common.util.UniqueEList.)]
+    (doseq [i [0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0]]
+      (.add ul i))
+    ul))
+
+(defn- make-elist
+  []
+  (let [el (org.eclipse.emf.common.util.BasicEList.)]
+      (doseq [item [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]]
+        (.add el item))
+      el))
+
+(defn- make-emap
+  []
+  (let [em (org.eclipse.emf.common.util.BasicEMap.)]
+    (doseq [[k v] [[:a "a"] [:b "b"] [:c "c"] [:d "d"]]]
+      (.put em k v))
+    em))
+
+(deftest test-emf2clj-conversion
+  ;; UniqueEList -> OrderedSet
+  (let [uel (make-uniqueelist)
+        clj-uel (emf2clj uel)]
+    (is (instance? ordered.set.OrderedSet clj-uel))
+    (is (== (count uel) (count clj-uel)))
+    (is (= (seq uel) (seq clj-uel))))
+  ;; EList -> ISeq
+  (let [el (make-elist)
+        clj-el (emf2clj el)]
+    (is (seq? clj-el))
+    (is (== (count el) (count clj-el)))
+    (is (= (seq el) clj-el)))
+  ;; EMap -> IPersistentMap
+  (let [^org.eclipse.emf.common.util.EMap em (make-emap)
+        clj-em (emf2clj em)]
+    (is (map? clj-em))
+    (is (== (count em) (count clj-em)))
+    (doseq [k (keys clj-em)]
+      (is (.containsKey em k))
+      (is (= (.get em k) (clj-em k))))))
+
+(deftest test-emf2clj-and-back
+  (let [m  (make-emap)
+        l  (make-elist)
+        ul (make-uniqueelist)]
+    ;; Conversion back and fourth
+    (are [x y] (= x (-> y emf2clj clj2emf))
+         m  m
+         l  l
+         ul ul)
+    ;; Conversion from clojure
+    (are [x y] (= x (clj2emf y))
+         m  (ordered-map :a "a", :b "b", :c "c", :d "d")
+         l  [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]
+         ul (ordered-set 0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0))
+    ;; Conversion to clojure
+    (are [x y] (= x (emf2clj y))
+         (ordered-map :a "a", :b "b", :c "c", :d "d")      m
+         [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]         l
+         (ordered-set 0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0) ul)))
 
 (deftest test-econtents-eallcontents
   (let [all   (eallcontents family-model)

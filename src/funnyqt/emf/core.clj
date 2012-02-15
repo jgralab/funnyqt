@@ -3,6 +3,7 @@
   (:use funnyqt.utils)
   (:use funnyqt.generic)
   (:use ordered.set)
+  (:use ordered.map)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
@@ -234,7 +235,7 @@
   EMF Type     | Clojure Type
   -------------+-------------
   UniqueEList  | ordered-set
-  EMap         | hash-map
+  EMap         | ordered-map
   EList        | seq
 
   All other objects are kept as-is."))
@@ -243,7 +244,7 @@
   UniqueEList
   (emf2clj [this] (into (ordered-set) (seq this)))
   EMap
-  (emf2clj [this] (into {} (seq this)))
+  (emf2clj [this] (into (ordered-map) (seq this)))
   EList
   (emf2clj [this] (seq this))
   EObject
@@ -258,7 +259,7 @@
   Clojure Type | EMF Type
   -------------+-------------
   ordered-set  | UniqueEList
-  hash-map     | EMap
+  map          | EMap
   seq          | EList
 
   All other objects are kept as-is."))
@@ -278,10 +279,10 @@
       em))
   clojure.lang.ISeq
   (clj2emf [this]
-    (let [em (org.eclipse.emf.common.util.BasicEList. (count this))]
-      (doseq [[k v] this]
-        (.put em (clj2emf k) (clj2emf v)))
-      em))
+    (let [el (org.eclipse.emf.common.util.BasicEList. (count this))]
+      (doseq [item this]
+        (.add el (clj2emf item)))
+      el))
   java.lang.Object
   (clj2emf [this] this))
 
