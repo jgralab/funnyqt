@@ -60,36 +60,6 @@
            (clojure.string/replace "+" "PLUS")
            (clojure.string/replace "?" "QMARK"))))
 
-(defn getting-started
-  []
-  [:section
-   [:h2 "Getting Started"]
-   [:ol
-    [:li "Clone the FunnyQT Mercurial repository."
-     [:pre (escape-html "$ hg clone https://<user>@hg.uni-koblenz.de/horn/funnyqt")]]
-
-    [:li "Get the Leiningen build and dependency management tool.  It's just a
-         shell script.  The Linux/UNIX/MacOS version is "
-     [:a {:href "https://raw.github.com/technomancy/leiningen/stable/bin/lein"} "here"]
-     ", the Windows version is "
-     [:a {:href "https://raw.github.com/technomancy/leiningen/stable/bin/lein.bat"} "here"]
-     ".  Simply put that script somewhere into your PATH."]
-    [:li "Change into the " [:code "funnyqt"] " directory and let leiningen fetch FunTG's
-         dependencies like Clojure and JGraLab."
-     [:pre "$ cd funnyqt\n$ lein deps"]]
-    [:li "Fire up a Read-Eval-Print-Loop (REPL) and start experimenting."
-     [:pre "$ lein repl\nuser=> (+ 1 2 3) ;; We are in Clojure now\n6"]]
-    [:li "Import some FunnyQT namespace to get access to its functions."
-     [:pre "user=> (use 'funnyqt.tg.core)\nnil\n"
-      "user=> (use 'funnyqt.tg.query)\nnil\n"
-      "user=> ;; Load the greql test graph...\n"
-      "user=> (def g (load-graph \"test/greqltestgraph.tg\"))\nnil\n"
-      "user=> ;; Get all cities that have more than 1000 inhabitants...\n"
-      (escape-html
-       "user=> (filter #(> (value % :inhabitants) 1000) (vseq g 'localities.City))\n")
-      (escape-html
-       "(#<v6: localities.City>\n #<v7: localities.City>\n #<v8: localities.City>)")]]]])
-
 (defn gen-index-page
   "Generates an index page."
   [nsps]
@@ -107,7 +77,10 @@
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
   changes.  Ok, you've been warned, but have fun anyway. :-)"]]
-     (getting-started)
+     [:section
+      "Docs and everything else can be found on the "
+      [:a {:href "http://github.com/jgralab/funnyqt"} "FunnyQT GitHub page"]
+      "."]
      [:section {:id "ns-toc"}
       [:h2 "Namespaces"]
       [:table
@@ -214,9 +187,10 @@
                 (load-file f))
               (let [nsps (filter #(and (re-matches #"^funnyqt\..*" (name %))
                                        (not (re-matches #".*\.test\..*" (name %))))
-                                 (sort (map ns-name (all-ns))))]
-                (spit "docs/index.html"
-                      (gen-index-page nsps))
+                                 (sort (map ns-name (all-ns))))
+                    index-file "docs/index.html"]
+                (clojure.java.io/make-parents index-file)
+                (spit index-file (gen-index-page nsps))
                 (println)
                 (println "Generating Documentation")
                 (println "========================")

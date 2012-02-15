@@ -5,7 +5,7 @@
   changes.  Ok, you've been warned, but have fun anyway. :-)"
   :dependencies [[org.clojure/clojure "1.4.0-beta1"]
 		 [de.uni-koblenz.ist/jgralab "[6.0.5,)"]
-                 [org.clojure/core.logic "0.6.1"]
+                 [org.clojure/core.logic "0.6.7"]
                  [org.clojure/core.match "0.2.0-alpha9"]
 		 [ordered "1.0.0" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.macro "0.1.1"]
