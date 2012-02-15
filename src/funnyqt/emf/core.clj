@@ -221,11 +221,11 @@
   (erefs-internal [this rm]
     (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
       (if (seq refs)
-        (let [ref (first refs)]
+        (let [^EStructuralFeature ref (first refs)]
           (recur (if (rm ref)
                    (if (.isMany ref)
-                     (conj r (.eGet this ref))
-                     (into r (.eGet this ref)))
+                     (into r (.eGet this ref))
+                     (conj r (.eGet this ref)))
                    r)
                  (rest refs)))
         r)))
