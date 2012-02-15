@@ -75,12 +75,15 @@
   (filter #(instance? EClass %) (eclassifiers)))
 
 (defn eclassifier
-  "Returns the eclassifier with the given `name'."
+  "Returns the eclassifier with the given `name'.
+  Throws an exception if no such classifier could be found."
   [name]
-  (some (fn [^EClassifier ec]
-          (when (= (.getName ec) (clojure.core/name name))
-            ec))
-        (eclassifiers)))
+  (let [n (clojure.core/name name)]
+    (or (some (fn [^EClassifier ec]
+                (when (= (.getName ec) n)
+                  ec))
+              (eclassifiers))
+        (error (format "No such EClassifier %s." n)))))
 
 ;;** Model
 
@@ -286,6 +289,7 @@
   Clojure Type | EMF Type
   -------------+-------------
   ordered-set  | UniqueEList
+  set          | UniqueEList
   map          | EMap
   seq          | EList
 
@@ -293,6 +297,12 @@
 
 (extend-protocol CljToEmf
   ordered.set.OrderedSet
+  (clj2emf [this]
+    (let [ul (org.eclipse.emf.common.util.UniqueEList. (count this))]
+      (doseq [item this]
+        (.add ul (clj2emf item)))
+      ul))
+  clojure.lang.IPersistentSet
   (clj2emf [this]
     (let [ul (org.eclipse.emf.common.util.UniqueEList. (count this))]
       (doseq [item this]
@@ -323,13 +333,26 @@
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eset!
-  "Sets `eo's structural feature `sf' to `value'.
+  "Sets `eo's structural feature `sf' to `value' and returns `value'.
   The value is converted to some EMF type (see CljToEmf protocol).
   Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
-    (.eSet eo sfeat (clj2emf value))
+    (do (.eSet eo sfeat (clj2emf value)) value)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
+;;** EObject Creation
+
+(defn ecreate
+  "Creates an EObject of EClass `ecls'.
+  `ecls' may either be an EClass or just an EClass name given as symbol,
+  string, or keyword."
+  [ecls]
+  (let [^EClassifier ecl (if (instance? EClass ecls)
+                           ecls
+                           (eclassifier ecls))
+        ^EFactory f (-> ecl .getEPackage .getEFactoryInstance)]
+    (.create f ecl)))
 
 ;;** Printing
 

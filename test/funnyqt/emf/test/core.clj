@@ -166,3 +166,51 @@
          [:sons :daughters]
          [:father :sons]
          [:mother :daughters])))
+
+(defn- make-test-familymodel
+  "Creates a more or less random FamilyModel with `fnum' families and `mnum'
+  members.  The references (father, mother, sons, daughters) are set randomly."
+  [fnum mnum]
+  (let [fm (ecreate 'FamilyModel)
+        make-family (fn [i]
+                      (doto (ecreate 'Family)
+                        (eset! :lastName (str "Family" i))
+                        (eset! :street   (str "Some Street " i))
+                        (eset! :town     (str i "Sometown"))))
+        make-member (fn [i]
+                      (doto (ecreate 'Member)
+                        (eset! :firstName (str "Member" i))
+                        (eset! :age       (Integer/valueOf (mod i 80)))))
+        random-members (fn [mems]
+                         (loop [r #{}, i (rand-int 7)]
+                           (if (pos? i)
+                             (recur (conj r (rand-nth mems)) (dec i))
+                             r)))]
+    (eset! fm :families
+           (loop [fams [], i fnum]
+             (if (pos? i)
+               (recur (conj fams (make-family i)) (dec i))
+               fams)))
+    (eset! fm :members
+           (loop [mems [], i mnum]
+             (if (pos? i)
+               (recur (conj mems (make-member i)) (dec i))
+               mems)))
+    (let [mems (vec (eget fm :members))]
+      (doseq [fam (eget fm :families)]
+        (eset! fam :father    (rand-nth mems))
+        (eset! fam :mother    (rand-nth mems))
+        (eset! fam :sons      (random-members mems))
+        (eset! fam :daughters (random-members mems)) ))
+    fm))
+
+(deftest test-ecreate
+  (let [fm (make-test-familymodel 100 1000)]
+    (are [c s] (== c
+                   (count (econtents fm s))
+                   (count (eallcontents fm s)))
+         1101 nil
+         1    'FamilyModel
+         100  'Family
+         1000 'Member
+         1100 '[Family Member])))
