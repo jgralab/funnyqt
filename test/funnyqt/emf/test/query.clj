@@ -43,10 +43,6 @@
   [m]
   (aunts-or-uncles m :sons))
 
-(deftest broken-test
-  (are [a b c] (= a b c)
-       1  0))
-
 (deftest test-relationships
   (let [diana (the (filter #(= (eget % :firstName) "Diana")
                            (econtents family-model 'Member)))
