@@ -257,18 +257,20 @@
             (recur (if (rm (.feature it))
                      (conj r eo)
                      r)))
-          r))))
+          (seq r)))))
   (erefs-internal [this rm]
     (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
       (if (seq refs)
         (let [^EReference ref (first refs)]
           (recur (if (rm ref)
-                   (if (.isMany ref)
-                     (into r (.eGet this ref))
-                     (conj r (.eGet this ref)))
+                   (if-let [x (.eGet this ref)]
+                     (if (.isMany ref)
+                       (into r x)
+                       (conj r x))
+                     r)
                    r)
                  (rest refs)))
-        r)))
+        (seq r))))
   (inv-erefs-internal [this rm container]
     (if container
       (search-ereferencers this erefs-internal rm container)
