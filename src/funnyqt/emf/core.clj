@@ -203,17 +203,21 @@
 (defprotocol EReferences
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
-    `rm'.  Cross-referenced objects are those that are referenced by a
-    non-containment relationship.")
+  `rm'.  Cross-referenced objects are those that are referenced by a
+  non-containment relationship.")
   (erefs-internal [this rm]
     "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
-    In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (inv-ecrossrefs-internal [this rm]
+  In contrast to ecrossrefs-internal, containment refs are not excluded.")
+  (inv-ecrossrefs-internal [this rm container]
     "Returns a seq of EObjects that cross-reference `this' with a ref matching
-    `rm'.  Cross-referenced objects are those that are referenced by a
-    non-containment relationship.")
-  (inv-erefs-internal [this rm]
-    "Returns a seq of EObjects that reference `this' with a ref matching `rm'."))
+  `rm'.  Cross-referenced objects are those that are referenced by a
+  non-containment relationship.  If `container' is nil, check only opposites of
+  this object's ref, else do a search over all objects in `container' and
+  `container' itself.")
+  (inv-erefs-internal [this rm container]
+    "Returns a seq of EObjects that reference `this' with a ref matching `rm'.
+  If `container' is nil, check only opposites of this object's ref, else do a
+  search over all objects in `container' and `container' itself."))
 
 (defn- eopposite-refs
   "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
@@ -255,23 +259,33 @@
                    r)
                  (rest refs)))
         r)))
-  (inv-erefs-internal [this rm]
-    (if-let [opposites (eopposite-refs this rm)]
-      (erefs-internal this (eref-matcher opposites))
-      (error "No opposite EReferences found.")))
-  (inv-ecrossrefs-internal [this rm]
-    (if-let [opposites (eopposite-refs this rm)]
-      (ecrossrefs-internal this (eref-matcher opposites))
-      (error "No opposite EReferences found.")))
+  (inv-erefs-internal [this rm container]
+    (if container
+      (mapcat (fn [o]
+                (when (member? this (erefs o rm))
+                  [o]))
+              (eallcontents container))
+      (if-let [opposites (eopposite-refs this rm)]
+        (erefs-internal this (eref-matcher opposites))
+        (error "No opposite EReferences found."))))
+  (inv-ecrossrefs-internal [this rm container]
+    (if container
+      (mapcat (fn [o]
+                (when (member? this (ecrossrefs o rm))
+                  [o]))
+              (eallcontents container))
+      (if-let [opposites (eopposite-refs this rm)]
+        (ecrossrefs-internal this (eref-matcher opposites))
+        (error "No opposite EReferences found."))))
   clojure.lang.IPersistentCollection
   (ecrossrefs-internal [this rm]
     (mapcat #(ecrossrefs-internal % rm) this))
   (erefs-internal [this rm]
     (mapcat #(erefs-internal % rm) this))
-  (inv-erefs-internal [this rm]
-    (mapcat #(inv-erefs-internal % rm) this))
-  (inv-ecrossrefs-internal [this rm]
-    (mapcat #(inv-ecrossrefs-internal % rm) this)))
+  (inv-erefs-internal [this rm container]
+    (mapcat #(inv-erefs-internal % rm container) this))
+  (inv-ecrossrefs-internal [this rm container]
+    (mapcat #(inv-ecrossrefs-internal % rm container) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
@@ -297,17 +311,21 @@
   "Returns the seq of EOjects that reference `eo' with an EReference described
   by `rs'.  `eo' may also be a collection of eobjects."
   ([eo]
-     (inv-erefs-internal eo identity))
+     (inv-erefs-internal eo identity nil))
   ([eo rs]
-     (inv-erefs-internal eo (eref-matcher rs))))
+     (inv-erefs-internal eo (eref-matcher rs) nil))
+  ([eo rs container]
+     (inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference `eo' with an EReference
   described by `rs'.  `eo' may also be a collection of eobjects."
   ([eo]
-     (inv-ecrossrefs-internal eo identity))
+     (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
-     (inv-ecrossrefs-internal eo (eref-matcher rs))))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
+  ([eo rs container]
+     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
 (defprotocol EmfToClj
   (emf2clj [this]
