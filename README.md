@@ -6,7 +6,7 @@ going to support) TGraph and EMF models.
 ## Installation and Building
 
 FunnyQT uses [Leiningen](https://github.com/technomancy/leiningen) for
-retrieveng all its dependencies from various Maven repositories, building,
+retrieving all its dependencies from various Maven repositories, building,
 publishing, and test automation.
 
 Getting started is really simple:
