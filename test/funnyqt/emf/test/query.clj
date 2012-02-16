@@ -14,26 +14,26 @@
     (are [x y n] (let [ox (into-oset x)]
                    (and (= ox y)
                         (== n (count ox))))
-         (erefs fm) (ereachables fm -->>) 16
-         (ecrossrefs fm) (ereachables fm -->) 0
-         (erefs fm :members) (ereachables fm :members) 13
-         (erefs fm :families) (ereachables fm :families) 3
-         (erefs fm [:members :families]) (ereachables fm [ep-alt :members :families]) 16
-         (econtents fm) (ereachables fm [ep-* -->>]) 17)))
+         (erefs fm) (reachables fm -->>) 16
+         (ecrossrefs fm) (reachables fm -->) 0
+         (erefs fm :members) (reachables fm :members) 13
+         (erefs fm :families) (reachables fm :families) 3
+         (erefs fm [:members :families]) (reachables fm [p-alt :members :families]) 16
+         (econtents fm) (reachables fm [p-* -->>]) 17)))
 
 (defn- parents
   [m]
-  (ereachables m [ep-seq
-                  [ep-alt :familySon :familyDaughter]
-                  [ep-alt :father :mother]]))
+  (reachables m [p-seq
+                  [p-alt :familySon :familyDaughter]
+                  [p-alt :father :mother]]))
 
 (defn- aunts-or-uncles
   [m r]
   (let [ps (parents m)]
-    (ereachables ps [ep-seq
-                     [ep-alt :familySon :familyDaughter]
+    (reachables ps [p-seq
+                     [p-alt :familySon :familyDaughter]
                      r
-                     [ep-restr nil #(not (member? % ps))]])))
+                     [p-restr nil #(not (member? % ps))]])))
 
 (defn- aunts
   [m]

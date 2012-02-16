@@ -41,7 +41,7 @@
 (def ^{:doc "Synonym for inv-erefs."}
   <<-- inv-erefs)
 
-(defn ereachables
+(defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path
   description `p'.
   `obj' may be an EObject or a seq of EObjects."
@@ -49,69 +49,69 @@
   (cond
    ;; funs: -->
    (fn? p) (into-oset (p obj))
-   ;; funs with params: [--> :foo], [ep-alt :foo :bar]
+   ;; funs with params: [--> :foo], [p-alt :foo :bar]
    (coll? p) (apply (first p) obj (rest p))
    ;; EReference names
    (qname? p) (into-oset (mapcat #(erefs % p) (into-oset obj)))
    :else (error (format "Don't know how to apply %s." p))))
 
 
-(defn ep-seq
+(defn p-seq
   "Path sequence starting at `obj' and traversing `p'.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `p' is a varargs seq of path descriptions."
   [obj & p]
   (if (seq p)
-    (recur (ereachables obj (first p)) (rest p))
+    (recur (reachables obj (first p)) (rest p))
     (into-oset obj)))
 
-(defn ep-opt
+(defn p-opt
   "Path option starting at `obj' and maybe traversing `p'.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `p' is a path description."
   [obj p]
-  (into-oset obj (ereachables obj p)))
+  (into-oset obj (reachables obj p)))
 
-(defn ep-alt
+(defn p-alt
   "Path alternative starting at `obj' and traversing one of `p'.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `p' is a varags seq of the alternative path descriptions."
   [obj & p]
-  (into-oset (mapcat #(ereachables obj %) p)))
+  (into-oset (mapcat #(reachables obj %) p)))
 
-(defn ep-+
+(defn p-+
   "Path iteration starting at `obj' and traversing `p' one or many times.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `p' is a path description."
   ([obj p]
-     (ep-+ obj p false true))
+     (p-+ obj p false true))
   ([obj p d skip-obj]
      (let [obj  (into-oset obj)
-           n  (ereachables (if (false? d) obj d) p)
+           n  (reachables (if (false? d) obj d) p)
            df (clojure.set/difference n obj)
            sv (if skip-obj n (into-oset obj n))]
        (if (seq df)
          (recur sv p df false)
          sv))))
 
-(defn ep-*
+(defn p-*
   "Path iteration starting at `obj' and traversing `p' zero or many times.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `p' is a path description."
   [obj p]
-  (ep-+ obj p false false))
+  (p-+ obj p false false))
 
-(defn ep-exp
+(defn p-exp
   "Path exponent starting at `obj' and traversing `p' `n' times, or at least `l'
   and at most `p' times.
-  `obj' may be a vertex or a seq of vertices.
+  `obj' may be an EObject or a seq of EObjects.
   `n' or `l' and `obj' are integers with `l' <= `b'.
   `p' is a path description."
   ([obj l u p]
      {:pre [(<= l u) (>= l 0) (>= u 0)]}
-     (loop [i (- u l), s (ep-exp obj l p)]
+     (loop [i (- u l), s (p-exp obj l p)]
        (if (pos? i)
-         (let [ns (into s (ereachables s p))]
+         (let [ns (into s (reachables s p))]
            (if (= (count s) (count ns))
              s
              (recur (dec i) ns)))
@@ -120,19 +120,19 @@
      {:pre [(>= n 0)]}
      (if (zero? n)
        (into-oset obj)
-       (recur (ereachables obj p) (dec n) p))))
+       (recur (reachables obj p) (dec n) p))))
 
-(defn ep-restr
-  "Vertex restriction concerning `ts' and `pred' on each object in `objs'.
-  ts is a type specification (see `eclass-matcher')."
+(defn p-restr
+  "EObject restriction concerning `ts' and `pred' on each object in `objs'.
+  ts is a type specification (see `eclass-matcher'), `pred' a predicate."
   ([objs ts]
-     (ep-restr objs ts identity))
+     (p-restr objs ts identity))
   ([objs ts pred]
-     (let [objs (into-oset objs)
-           tm (eclass-matcher ts)]
+     (let [objs (into-oset objs)]
        (into-oset
         (if (seq objs)
-          (filter (every-pred tm pred)
-                  objs)
+          (let [tm (eclass-matcher ts)]
+            (filter (every-pred tm pred)
+                    objs))
           objs)))))
 
