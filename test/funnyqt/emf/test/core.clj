@@ -6,7 +6,7 @@
   (:use [clojure.test])
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.common.util URI]
+   [org.eclipse.emf.common.util URI EList]
    [org.eclipse.emf.ecore EPackage EObject EModelElement]))
 
 (deftest test-load-metamodel
@@ -294,3 +294,16 @@
                    (and (eget f :father)
                         (eget f :mother)))
                  (econtents fm 'Family)))))
+
+(deftest test-eget-raw
+  (let [i 1000
+        fm (ecreate 'FamilyModel)
+        ^EList ms (eget-raw fm :members)]
+    (time (dotimes [_ i]
+            (.add ms (ecreate 'Member))))
+    (is (== i (count (econtents fm 'Member))))
+    (time (eset! fm :members (loop [ims (eget fm :members), x i]
+                               (if (pos? x)
+                                 (recur (conj ims (ecreate 'Member)) (dec x))
+                                 ims))))
+    (is (== (* 2 i) (count (econtents fm 'Member))))))

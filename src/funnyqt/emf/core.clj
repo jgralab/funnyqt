@@ -402,14 +402,25 @@
   java.lang.Object
   (clj2emf [this] this))
 
+(defn eget-raw
+  "Returns the value of `eo's structural feature `sf'.
+  Throws an exception, if there's no EStructuralFeature `sf'.
+
+  The value is kept as-is, i.e., not converted to some immutable clojure data
+  structure as `eget' does.  So if you eget-raw an EList, you can mutate it
+  in-place.  That's totally not stylish, but it might be a last resort when
+  optimizing for performance.  You've been warned!"
+  [^EObject eo sf]
+  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+    (.eGet eo sfeat)
+    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
 (defn eget
   "Returns the value of `eo's structural feature `sf'.
   The value is converted to some clojure type (see EmfToClj protocol).
   Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf]
-  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
-    (emf2clj (.eGet eo sfeat))
-    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+  (emf2clj (eget-raw eo sf)))
 
 (defn eset!
   "Sets `eo's structural feature `sf' to `value' and returns `value'.
