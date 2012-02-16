@@ -236,6 +236,16 @@
                              (when (here-rm o) r)))
                          (seq (-> eo .eClass .getEAllReferences))))))
 
+(defn- search-ereferencers
+  "Returns the seq of objects referencing `refed' by a reference matching `rm'
+  that are contained in `container'.  `reffn' is either erefs-internal or
+  ecrossrefs-internal."
+  [refed reffn rm container]
+  (mapcat (fn [o]
+            (when (member? refed (reffn o rm))
+              [o]))
+          (eallcontents container)))
+
 (extend-protocol EReferences
   EObject
   (ecrossrefs-internal [this rm]
@@ -261,19 +271,13 @@
         r)))
   (inv-erefs-internal [this rm container]
     (if container
-      (mapcat (fn [o]
-                (when (member? this (erefs-internal o rm))
-                  [o]))
-              (eallcontents container))
+      (search-ereferencers this erefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (erefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
   (inv-ecrossrefs-internal [this rm container]
     (if container
-      (mapcat (fn [o]
-                (when (member? this (ecrossrefs-internal o rm))
-                  [o]))
-              (eallcontents container))
+      (search-ereferencers this ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (ecrossrefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
