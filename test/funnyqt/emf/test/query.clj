@@ -18,7 +18,8 @@
          (ecrossrefs fm) (ereachables fm -->) 0
          (erefs fm :members) (ereachables fm :members) 13
          (erefs fm :families) (ereachables fm :families) 3
-         (erefs fm [:members :families]) (ereachables fm [ep-alt :members :families]) 16)))
+         (erefs fm [:members :families]) (ereachables fm [ep-alt :members :families]) 16
+         (econtents fm) (ereachables fm [ep-* -->>]) 17)))
 
 (defn- parents
   [m]
@@ -26,10 +27,39 @@
                   [ep-alt :familySon :familyDaughter]
                   [ep-alt :father :mother]]))
 
-(defn- aunts
-  [m]
+(defn- aunts-or-uncles
+  [m r]
   (let [ps (parents m)]
     (ereachables ps [ep-seq
                      [ep-alt :familySon :familyDaughter]
-                     :daughters
+                     r
                      [ep-restr nil #(not (member? % ps))]])))
+
+(defn- aunts
+  [m]
+  (aunts-or-uncles m :daughters))
+
+(defn- uncles
+  [m]
+  (aunts-or-uncles m :sons))
+
+(deftest broken-test
+  (are [a b c] (= a b c)
+       1  0))
+
+(deftest test-relationships
+  (let [diana (the (filter #(= (eget % :firstName) "Diana")
+                           (econtents family-model 'Member)))
+        ps (parents diana)
+        us (uncles diana)
+        as (aunts diana)]
+    (is (== 2 (count ps)))
+    (is (= #{"Debby" "Dennis"}
+           (into #{} (map #(eget % :firstName) ps))))
+    (is (== 2 (count us)))
+    (is (= #{"Stu" "Sven"}
+           (into #{} (map #(eget % :firstName) us))))
+    (is (== 3 (count as)))
+    (is (= #{"Stella" "Carol" "Conzuela"}
+           (into #{} (map #(eget % :firstName) as))))))
+
