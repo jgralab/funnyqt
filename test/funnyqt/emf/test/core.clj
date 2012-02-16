@@ -131,6 +131,73 @@
             (count (ecrossrefs fsmith :daughters))))
     (is (== 3 (count (ecrossrefs fsmith :sons))))))
 
+(deftest test-inv-erefs
+  (let [[f1 f2 f3] (econtents family-model 'Family)]
+    (are [x y z cnt] (and (== cnt (count x) (count y) (count z))
+                        (= (apply hash-set x)
+                           (apply hash-set y)
+                           (apply hash-set z)))
+         ;; 7, cause the FamilyModel is also included
+         (erefs f1)
+         (inv-erefs f1)
+         (inv-erefs f1 nil family-model)
+         7
+         ;; Here, it's not included (cross-refs only)
+         (ecrossrefs f1)
+         (inv-ecrossrefs f1)
+         (inv-ecrossrefs f1 nil family-model)
+         6
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (erefs f1 :father)
+         (inv-erefs f1 :familyFather)
+         (inv-erefs f1 :familyFather family-model)
+         1
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (ecrossrefs f1 :father)
+         (inv-ecrossrefs f1 :familyFather)
+         (inv-ecrossrefs f1 :familyFather family-model)
+         1
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (erefs f1 [:mother :father])
+         (inv-erefs f1 [:familyMother :familyFather])
+         (inv-erefs f1 [:familyMother :familyFather] family-model)
+         2
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (ecrossrefs f1 [:mother :father])
+         (inv-ecrossrefs f1 [:familyMother :familyFather])
+         (inv-ecrossrefs f1 [:familyMother :familyFather] family-model)
+         2
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (erefs f2 :father)
+         (inv-erefs f2 :familyFather)
+         (inv-erefs f2 :familyFather family-model)
+         1
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (ecrossrefs f2 :father)
+         (inv-ecrossrefs f2 :familyFather)
+         (inv-ecrossrefs f2 :familyFather family-model)
+         1
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (erefs f3 :sons)
+         (inv-erefs f3 :familySon)
+         (inv-erefs f3 :familySon family-model)
+         0
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (ecrossrefs f3 :sons)
+         (inv-ecrossrefs f3 :familySon)
+         (inv-ecrossrefs f3 :familySon family-model)
+         0
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (erefs f3 [:daughters])
+         (inv-erefs f3 :familyDaughter)
+         (inv-erefs f3 :familyDaughter family-model)
+         3
+         ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+         (ecrossrefs f3 [:daughters])
+         (inv-ecrossrefs f3 :familyDaughter)
+         (inv-ecrossrefs f3 :familyDaughter family-model)
+         3)))
+
 (deftest test-eget
   (let [fm (the family-model)
         fsmith (first (econtents fm 'Family))]

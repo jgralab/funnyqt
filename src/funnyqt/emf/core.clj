@@ -262,7 +262,7 @@
   (inv-erefs-internal [this rm container]
     (if container
       (mapcat (fn [o]
-                (when (member? this (erefs o rm))
+                (when (member? this (erefs-internal o rm))
                   [o]))
               (eallcontents container))
       (if-let [opposites (eopposite-refs this rm)]
@@ -271,7 +271,7 @@
   (inv-ecrossrefs-internal [this rm container]
     (if container
       (mapcat (fn [o]
-                (when (member? this (ecrossrefs o rm))
+                (when (member? this (ecrossrefs-internal o rm))
                   [o]))
               (eallcontents container))
       (if-let [opposites (eopposite-refs this rm)]
