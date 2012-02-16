@@ -176,32 +176,40 @@
                       (doto (ecreate 'Family)
                         (eset! :lastName (str "Family" i))
                         (eset! :street   (str "Some Street " i))
-                        (eset! :town     (str i "Sometown"))))
+                        (eset! :town     (str i " Sometown"))))
         make-member (fn [i]
                       (doto (ecreate 'Member)
                         (eset! :firstName (str "Member" i))
                         (eset! :age       (Integer/valueOf ^Long (mod i 80)))))
+        random-free-member (fn [mems ref]
+                             (loop [m (rand-nth mems)]
+                               (if (eget m ref)
+                                 (recur (rand-nth mems))
+                                 m)))
         random-members (fn [mems]
                          (loop [r #{}, i (rand-int 7)]
                            (if (pos? i)
                              (recur (conj r (rand-nth mems)) (dec i))
                              r)))]
     (eset! fm :families
-           (loop [fams [], i fnum]
-             (if (pos? i)
-               (recur (conj fams (make-family i)) (dec i))
+           (loop [fams [], i 1]
+             (if (<= i fnum)
+               (recur (conj fams (make-family i)) (inc i))
                fams)))
     (eset! fm :members
-           (loop [mems [], i mnum]
-             (if (pos? i)
-               (recur (conj mems (make-member i)) (dec i))
+           (loop [mems [], i 1]
+             (if (<= i mnum)
+               (recur (conj mems (make-member i)) (inc i))
                mems)))
     (let [mems (vec (eget fm :members))]
-      (doseq [fam (eget fm :families)]
-        (eset! fam :father    (rand-nth mems))
-        (eset! fam :mother    (rand-nth mems))
-        (eset! fam :sons      (random-members mems))
-        (eset! fam :daughters (random-members mems)) ))
+      (loop [fams (eget fm :families), r []]
+        (when (seq fams)
+          (let [fam (first fams)]
+            (eset! fam :father    (random-free-member mems :familyFather))
+            (eset! fam :mother    (random-free-member mems :familyMother))
+            (eset! fam :sons      (random-members mems))
+            (eset! fam :daughters (random-members mems))
+            (recur (rest fams) (conj r fam))))))
     fm))
 
 (deftest test-ecreate
@@ -213,4 +221,9 @@
          1    'FamilyModel
          100  'Family
          1000 'Member
-         1100 '[Family Member])))
+         1100 '[Family Member])
+    ;; Every family has its father/mother refs set
+    (is (forall? (fn [f]
+                   (and (eget f :father)
+                        (eget f :mother)))
+                 (econtents fm 'Family)))))
