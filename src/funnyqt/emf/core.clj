@@ -175,7 +175,7 @@
   ([x ts]
      (econtents-internal x (type-matcher ts))))
 
-(defn ref-matcher
+(defn eref-matcher
   "Returns a reference matcher for the reference spec `rs'.
   A reference matcher is a function of arity one that gets an EReference and
   returns logical true if that ref should be accepted, false otherwise.
@@ -196,7 +196,7 @@
                     (= n (.getName ref))))
    (instance? EReference rs) (fn [r] (= rs r))
    (coll? rs)  (if (seq rs)
-                 (apply some-fn (map ref-matcher rs))
+                 (apply some-fn (map eref-matcher rs))
                   ;; Empty collection given: (), [], that's also ok
                   identity)
    :else (RuntimeException.
@@ -210,7 +210,12 @@
   (erefs-internal [this rm]
     "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
     In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (inv-erefs-internal [this rm]))
+  (inv-ecrossrefs-internal [this rm]
+    "Returns a seq of EObjects that cross-reference `this' with a ref matching
+    `rm'.  Cross-referenced objects are those that are referenced by a
+    non-containment relationship.")
+  (inv-erefs-internal [this rm]
+    "Returns a seq of EObjects that reference `this' with a ref matching `rm'."))
 
 (defn- eopposite-refs
   "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
@@ -219,10 +224,10 @@
               f \\
                  `---- c [Car]
 
-  Given a Foo object and a ref-matcher matching f, returns a seq of the
+  Given a Foo object and a eref-matcher matching f, returns a seq of the
   EReferences b and c, because those are the opposites of the matched f.  Of
   course, if `here-rm' matches only one specific EReference, i.e., it was
-  constructed by (ref-matcher fERef) and not (ref-matcher :f)."
+  constructed by (eref-matcher fERef) and not (eref-matcher :f)."
   [^EObject eo here-rm]
   (seq (remove nil? (map (fn [^EReference r]
                            (when-let [o (.getEOpposite r)]
@@ -254,7 +259,11 @@
         r)))
   (inv-erefs-internal [this rm]
     (if-let [opposites (eopposite-refs this rm)]
-      (erefs-internal this (ref-matcher opposites))
+      (erefs-internal this (eref-matcher opposites))
+      (error "No opposite EReferences found.")))
+  (inv-ecrossrefs-internal [this rm]
+    (if-let [opposites (eopposite-refs this rm)]
+      (ecrossrefs-internal this (eref-matcher opposites))
       (error "No opposite EReferences found.")))
   clojure.lang.IPersistentCollection
   (ecrossrefs-internal [this rm]
@@ -262,27 +271,29 @@
   (erefs-internal [this rm]
     (mapcat #(erefs-internal % rm) this))
   (inv-erefs-internal [this rm]
-    (mapcat #(inv-erefs-internal % rm) this)))
+    (mapcat #(inv-erefs-internal % rm) this))
+  (inv-ecrossrefs-internal [this rm]
+    (mapcat #(inv-ecrossrefs-internal % rm) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
   the reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs', see `ref-matcher'.  In EMF, crossrefs
+  For the syntax and semantics of `rs', see `eref-matcher'.  In EMF, crossrefs
   are all non-containment refs."
   ([eo]
      (ecrossrefs-internal eo identity))
   ([eo rs]
-     (ecrossrefs-internal eo (ref-matcher rs))))
+     (ecrossrefs-internal eo (eref-matcher rs))))
 
 (defn erefs
   "Returns a seq of EObjects referenced by `eo', possibly restricted by the
   reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs', see `ref-matcher'.  In contrast to
+  For the syntax and semantics of `rs', see `eref-matcher'.  In contrast to
   `ecrossrefs', this function doesn't ignore containment refs."
   ([eo]
      (erefs-internal eo identity))
   ([eo rs]
-     (erefs-internal eo (ref-matcher rs))))
+     (erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference `eo' with an EReference described
@@ -290,7 +301,15 @@
   ([eo]
      (inv-erefs-internal eo identity))
   ([eo rs]
-     (inv-erefs-internal eo (ref-matcher rs))))
+     (inv-erefs-internal eo (eref-matcher rs))))
+
+(defn inv-ecrossrefs
+  "Returns the seq of EOjects that cross-reference `eo' with an EReference
+  described by `rs'.  `eo' may also be a collection of eobjects."
+  ([eo]
+     (inv-ecrossrefs-internal eo identity))
+  ([eo rs]
+     (inv-ecrossrefs-internal eo (eref-matcher rs))))
 
 (defprotocol EmfToClj
   (emf2clj [this]
