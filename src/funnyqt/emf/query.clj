@@ -48,7 +48,7 @@
   [obj p]
   (cond
    ;; funs: -->
-   (fn? p) (p obj)
+   (fn? p) (into-oset (p obj))
    ;; funs with params: [--> :foo], [ep-alt :foo :bar]
    (coll? p) (apply (first p) obj (rest p))
    ;; EReference names
@@ -123,16 +123,16 @@
        (recur (ereachables obj p) (dec n) p))))
 
 (defn ep-restr
-  "Vertex restriction concerning `ts' and `pred' on each vertex in `vs'.
-  ts is a type specification (see `type-matcher')."
-  ([vs ts]
-     (ep-restr vs ts identity))
-  ([vs ts pred]
-     (let [vs (into-oset vs)]
+  "Vertex restriction concerning `ts' and `pred' on each object in `objs'.
+  ts is a type specification (see `eclass-matcher')."
+  ([objs ts]
+     (ep-restr objs ts identity))
+  ([objs ts pred]
+     (let [objs (into-oset objs)
+           tm (eclass-matcher ts)]
        (into-oset
-        (if (seq vs)
-          (let [tm (type-matcher (first vs) ts)]
-            (filter (every-pred tm pred)
-                    vs))
-          vs)))))
+        (if (seq objs)
+          (filter (every-pred tm pred)
+                  objs)
+          objs)))))
 

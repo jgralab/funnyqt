@@ -354,6 +354,10 @@
   (emf2clj [this] (seq this))
   EObject
   (emf2clj [this] this)
+  Number
+  (emf2clj [this] this)
+  String
+  (emf2clj [this] this)
   nil
   (emf2clj [_] nil))
 
