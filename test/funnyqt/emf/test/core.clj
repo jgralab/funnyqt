@@ -180,7 +180,7 @@
         make-member (fn [i]
                       (doto (ecreate 'Member)
                         (eset! :firstName (str "Member" i))
-                        (eset! :age       (Integer/valueOf (mod i 80)))))
+                        (eset! :age       (Integer/valueOf ^Long (mod i 80)))))
         random-members (fn [mems]
                          (loop [r #{}, i (rand-int 7)]
                            (if (pos? i)

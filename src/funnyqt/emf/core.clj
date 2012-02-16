@@ -97,7 +97,7 @@
       (.load (.getDefaultLoadOptions res)))
     (seq (.getContents res))))
 
-(defn- type-matcher-1
+(defn- eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [c]
   (let [v     (type-with-modifiers (name c))
@@ -111,7 +111,7 @@
      (and neg       (not exact)) (fn [^EClass x] (not (.isInstance type x)))
      :default                    (fn [^EClass x] (not (identical? type (.eClass x)))))))
 
-(defn type-matcher
+(defn eclass-matcher
   "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
   or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
   the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
@@ -120,7 +120,7 @@
   (cond
    (nil? ts)   identity
    (fn? ts)    ts
-   (qname? ts) (type-matcher-1 ts)
+   (qname? ts) (eclass-matcher-1 ts)
    (coll? ts)  (if (seq ts)
                   (let [f (first ts)
                         [op r] (case f
@@ -129,21 +129,19 @@
                                  :or   [some-fn    (next ts)]
                                  :nor  [nor-fn     (next ts)]
                                  :xor  [xor-fn     (next ts)]
-                                 [some-fn    ts])
-                        t-matchers (map type-matcher r)]
-                    (apply op t-matchers))
+                                 [some-fn    ts])]
+                    (apply op (map eclass-matcher r)))
                   ;; Empty collection given: (), [], that's also ok
                   identity)
-   :else (RuntimeException.
-          (format "Don't know how to create a type matcher for %s" ts))))
+   :else (error (format "Don't know how to create a type matcher for %s" ts))))
 
 (defprotocol EContents
   (eallcontents-internal [this tm]
     "Returns a seq of this and all directly and indirectly contained EObjects
-  whose type matches the type-matcher `tm'.")
+  whose type matches the eclass-matcher `tm'.")
   (econtents-internal [this tm]
     "Returns a seq of this and all directly contained EObjects whose type
-  matches the type-matcher `tm'.")
+  matches the eclass-matcher `tm'.")
   (econtainer [this]
     "Returns the EObject containing this."))
 
@@ -166,14 +164,14 @@
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
-     (eallcontents-internal x (type-matcher ts))))
+     (eallcontents-internal x (eclass-matcher ts))))
 
 (defn econtents
   "Returns a seq of `x' and its direct contents matching the type spec `ts'."
   ([x]
      (econtents-internal x identity))
   ([x ts]
-     (econtents-internal x (type-matcher ts))))
+     (econtents-internal x (eclass-matcher ts))))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs'.
