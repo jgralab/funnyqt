@@ -155,7 +155,7 @@
     (filter tm (cons this (iterator-seq (.eAllContents this)))))
   (econtainer [this]
     (.eContainer this))
-  clojure.lang.ISeq
+  clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
     (mapcat #(econtents-internal % tm) this))
   (eallcontents-internal [this tm]
@@ -256,17 +256,19 @@
     (if-let [opposites (eopposite-refs this rm)]
       (erefs-internal this (ref-matcher opposites))
       (error "No opposite EReferences found.")))
-  clojure.lang.ISeq
+  clojure.lang.IPersistentCollection
   (ecrossrefs-internal [this rm]
     (mapcat #(ecrossrefs-internal % rm) this))
   (erefs-internal [this rm]
-    (mapcat #(erefs-internal % rm) this)))
+    (mapcat #(erefs-internal % rm) this))
+  (inv-erefs-internal [this rm]
+    (mapcat #(inv-erefs-internal % rm) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
-  the reference spec `rs'.  `eo' may be an EObject or a seq of EObjects.  For
-  the syntax and semantics of `rs', see `ref-matcher'.
-  In EMF, crossrefs are all non-containment refs."
+  the reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
+  For the syntax and semantics of `rs', see `ref-matcher'.  In EMF, crossrefs
+  are all non-containment refs."
   ([eo]
      (ecrossrefs-internal eo identity))
   ([eo rs]
@@ -274,8 +276,8 @@
 
 (defn erefs
   "Returns a seq of EObjects referenced by `eo', possibly restricted by the
-  reference spec `rs'.  `eo' may be an EObject or a seq of EObjects.  For the
-  syntax and semantics of `rs', see `ref-matcher'.  In contrast to
+  reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
+  For the syntax and semantics of `rs', see `ref-matcher'.  In contrast to
   `ecrossrefs', this function doesn't ignore containment refs."
   ([eo]
      (erefs-internal eo identity))
@@ -284,7 +286,7 @@
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference `eo' with an EReference described
-  by `rs'."
+  by `rs'.  `eo' may also be a collection of eobjects."
   ([eo]
      (inv-erefs-internal eo identity))
   ([eo rs]
