@@ -183,16 +183,18 @@
   Semantics depend on `rs':
 
     nil           => accept all references
+    someERef      => accept only this EReference
     :foo          => accept only references named foo
     [:foo :bar]   => accept both foo and bar refs
     (fn [r] ...)  => simply use that"
   [rs]
   (cond
-   (nil? rs)   identity
-   (fn? rs)    rs
-   (qname? rs) (let [n (name rs)]
-                 (fn [^EReference ref]
-                   (= n (.getName ref))))
+   (nil? rs)    identity
+   (fn? rs)     rs
+   (qname? rs)  (let [n (name rs)]
+                  (fn [^EReference ref]
+                    (= n (.getName ref))))
+   (instance? EReference rs) (fn [r] (= rs r))
    (coll? rs)  (if (seq rs)
                  (apply some-fn (map ref-matcher rs))
                   ;; Empty collection given: (), [], that's also ok
@@ -207,7 +209,25 @@
     non-containment relationship.")
   (erefs-internal [this rm]
     "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
-    In contrast to ecrossrefs-internal, containment refs are not excluded."))
+    In contrast to ecrossrefs-internal, containment refs are not excluded.")
+  (inv-erefs-internal [this rm]))
+
+(defn- eopposite-refs
+  "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
+
+  Example: [Foo] f --- b [Bar]
+              f \\
+                 `---- c [Car]
+
+  Given a Foo object and a ref-matcher matching f, returns a seq of the
+  EReferences b and c, because those are the opposites of the matched f.  Of
+  course, if `here-rm' matches only one specific EReference, i.e., it was
+  constructed by (ref-matcher fERef) and not (ref-matcher :f)."
+  [^EObject eo here-rm]
+  (seq (remove nil? (map (fn [^EReference r]
+                           (when-let [o (.getEOpposite r)]
+                             (when (here-rm o) r)))
+                         (seq (-> eo .eClass .getEAllReferences))))))
 
 (extend-protocol EReferences
   EObject
@@ -224,7 +244,7 @@
   (erefs-internal [this rm]
     (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
       (if (seq refs)
-        (let [^EStructuralFeature ref (first refs)]
+        (let [^EReference ref (first refs)]
           (recur (if (rm ref)
                    (if (.isMany ref)
                      (into r (.eGet this ref))
@@ -232,6 +252,10 @@
                    r)
                  (rest refs)))
         r)))
+  (inv-erefs-internal [this rm]
+    (if-let [opposites (eopposite-refs this rm)]
+      (erefs-internal this (ref-matcher opposites))
+      (error "No opposite EReferences found.")))
   clojure.lang.ISeq
   (ecrossrefs-internal [this rm]
     (mapcat #(ecrossrefs-internal % rm) this))
@@ -257,6 +281,14 @@
      (erefs-internal eo identity))
   ([eo rs]
      (erefs-internal eo (ref-matcher rs))))
+
+(defn inv-erefs
+  "Returns the seq of EOjects that reference `eo' with an EReference described
+  by `rs'."
+  ([eo]
+     (inv-erefs-internal eo identity))
+  ([eo rs]
+     (inv-erefs-internal eo (ref-matcher rs))))
 
 (defprotocol EmfToClj
   (emf2clj [this]
