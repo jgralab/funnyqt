@@ -48,7 +48,11 @@
       pkgs)))
 
 (def ^:dynamic *ns-uris* nil)
-(defmacro with-ns-uris [uris & body]
+(defmacro with-ns-uris
+  "Restricts the EClassifier lookup in the dynamic scope of `body' to those
+  contained in EPackages registered with the given URIs at the EPackage
+  registry."
+  [uris & body]
   `(binding [*ns-uris* ~uris]
      ~@body))
 
@@ -61,6 +65,35 @@
   ([^EPackage pkg]
      (when pkg
        (cons pkg (map epackages (.getESubpackages pkg))))))
+
+(defn epackage
+  "Returns the EPackage with the given qualified name."
+  ([qn]
+     (let [ps (clojure.string/split (name qn) #"\.")
+           f (first ps)
+           r (rest ps)
+           tops (seq (filter
+                      (fn [^EPackage p]
+                        (= (.getName p) f))
+                      (mapcat #(epackages (.getEPackage epackage-registry %))
+                              (or *ns-uris* (keys epackage-registry)))))]
+       (when-not tops
+         (error (format "No such root package %s." f)))
+       (when (next (next tops))
+         (error (format "Multiple root packages named %s: %s\n%s" f tops
+                        "Restrict the search space using `with-ns-uris'.")))
+       (if (seq r)
+         (apply epackage (first tops) r)
+         (first tops))))
+  ([^EPackage ep & subqns]
+     (if (seq subqns)
+       (let [f (first subqns)
+             subps (filter (fn [^EPackage p] (= (.getName p) f))
+                           (.getESubpackages ep))]
+         (if (seq subps)
+           (recur (the subps) (rest subqns))
+           (error (format "No such subpackage %s in %s." f (print-str ep)))))
+       ep)))
 
 (defn eclassifiers
   "The lazy seq of EClassifiers."
@@ -78,12 +111,17 @@
   "Returns the eclassifier with the given `name'.
   Throws an exception if no such classifier could be found."
   [name]
-  (let [n (clojure.core/name name)]
-    (or (some (fn [^EClassifier ec]
-                (when (= (.getName ec) n)
-                  ec))
-              (eclassifiers))
-        (error (format "No such EClassifier %s." n)))))
+  (let [^String n (clojure.core/name name)
+        ld (.lastIndexOf n ".")]
+    (if (>= ld 0)
+      (let [^EPackage ep (epackage (subs n 0 ld))]
+        (or (.getEClassifier ep (subs n (inc ld)))
+            (error (format "No such EClassifier %s in %s." n (print-str ep)))))
+      (or (some (fn [^EClassifier ec]
+                  (when (= (.getName ec) n)
+                    ec))
+                (eclassifiers))
+          (error (format "No such EClassifier %s." n))))))
 
 ;;** Model
 
