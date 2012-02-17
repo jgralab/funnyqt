@@ -391,7 +391,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
    :else (RuntimeException.
           (format "Don't know how to create a type matcher for %s" ts))))
 
-(defn has-type?
+(defn type?
   "Returns true, iff attributed element `ae' has type `ts'.
   `ts' can be given as anything `type-matcher' understands."
   [ae ts]

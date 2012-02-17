@@ -14,21 +14,21 @@
   (let [v1 (value c1 :value)
         v2 (value c2 :value)]
     (cond
-     (has-type? b 'Add) (+ v1 v2)
-     (has-type? b 'Sub) (- v1 v2)
-     (has-type? b 'Mul) (* v1 v2)
-     (has-type? b 'Div) (quot v1 v2)
+     (type? b 'Add) (+ v1 v2)
+     (type? b 'Sub) (- v1 v2)
+     (type? b 'Mul) (* v1 v2)
+     (type? b 'Div) (quot v1 v2)
      :default (RuntimeException. ^String (format "Unknown binary op: %s" b)))))
 
 (defrule pull-up-consts
   "Pulls up constants to make replace-binary apply."
   [g] [b (vseq g '[Add Mul])
-       e1 (filter #(has-type? (that %) 'Const)
+       e1 (filter #(type? (that %) 'Const)
                   (iseq b 'Dataflow :out))
        e2 (filter #(= (class %) (class b))
                   (iseq b 'Dataflow :out))
        :let [b2 (omega e2)]
-       e3 (filter #(has-type? (that %) '[:and !Block !Const])
+       e3 (filter #(type? (that %) '[:and !Block !Const])
                   (iseq b2 'Dataflow :out))]
   ;; Switch edges & set position
   (let [e1p (value e1 :position)
@@ -56,9 +56,9 @@
   "Find and replace a Binary connected to two Consts with a Const representing
   the evaluation result."
   [g start-block] [b (vseq g 'Binary)
-                   e1 (filter #(has-type? (that %) 'Const)
+                   e1 (filter #(type? (that %) 'Const)
                               (iseq b 'Dataflow :out))
-                   e2 (filter #(has-type? (that %) 'Const)
+                   e2 (filter #(type? (that %) 'Const)
                               (iseq b 'Dataflow :out))
                    :when (= (value e1 :position) 0)
                    :when (= (value e2 :position) 1)

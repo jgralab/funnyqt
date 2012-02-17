@@ -191,6 +191,12 @@
                   identity)
    :else (error (format "Don't know how to create a type matcher for %s" ts))))
 
+(defn type?
+  "Returns true, iff the EObject `obj' has type `ts'.
+  `ts' can be given as anything `eclass-matcher' understands."
+  [obj ts]
+  ((eclass-matcher ts) obj))
+
 (defprotocol EContents
   (eallcontents-internal [this tm]
     "Returns a seq of this and all directly and indirectly contained EObjects
