@@ -10,10 +10,9 @@
   (:use clojure.test))
 
 (deftest test-basic
-  (let [fm family-model]
+  (let [fm (the family-model)]
     (are [x y n] (let [ox (into-oset x)]
-                   (and (= ox y)
-                        (== n (count ox))))
+                   (and (= ox y) (== n (count ox))))
          (erefs fm) (reachables fm -->>) 16
          (ecrossrefs fm) (reachables fm -->) 0
          (erefs fm :members) (reachables fm :members) 13
@@ -21,19 +20,26 @@
          (erefs fm [:members :families]) (reachables fm [p-alt :members :families]) 16
          (econtents fm) (reachables fm [p-* -->>]) 17)))
 
+(deftest test--<>
+  (let [fm (the family-model)]
+    (doseq [mf (econtents fm ['Family 'Member])]
+      (is (= #{fm}
+             (into-oset (--<> mf))
+             (reachables fm [p-seq [p-alt :families :members] --<>]))))))
+
 (defn- parents
   [m]
   (reachables m [p-seq
-                  [p-alt :familySon :familyDaughter]
-                  [p-alt :father :mother]]))
+                 [p-alt :familySon :familyDaughter]
+                 [p-alt :father :mother]]))
 
 (defn- aunts-or-uncles
   [m r]
   (let [ps (parents m)]
     (reachables ps [p-seq
-                     [p-alt :familySon :familyDaughter]
-                     r
-                     [p-restr nil #(not (member? % ps))]])))
+                    [p-alt :familySon :familyDaughter]
+                    r
+                    [p-restr nil #(not (member? % ps))]])))
 
 (defn- aunts
   [m]

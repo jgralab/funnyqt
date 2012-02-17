@@ -4,11 +4,12 @@
 
 (defn into-oset
   "Returns an ordered-set of all given arguments.  Collection args are
-  converted into ordered-sets and united."
+  converted into ordered-sets and united.  (into-oset nil) => #{}."
   ([]
      (ordered-set))
   ([to]
      (cond
+      (nil? to)                             (ordered-set)
       (instance? ordered.set.OrderedSet to) to
       (coll? to)                            (into (ordered-set) to)
       :else                                 (ordered-set to)))

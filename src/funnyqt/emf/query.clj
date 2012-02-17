@@ -13,27 +13,45 @@
 
 ;;** Regular Path Descriptions
 
-(def ^{:doc "Synonym for econtents."}
-  <>-- econtents)
+(defn <>--
+  ([obj]
+     (mapcat econtents (into-oset obj)))
+  ([obj ts]
+     (mapcat #(econtents % ts) (into-oset obj))))
 
-(def ^{:doc "Synonym for ecrossrefs."}
-  --> ecrossrefs)
+(defn -->
+  ([obj]
+     (mapcat ecrossrefs (into-oset obj)))
+  ([obj rs]
+     (mapcat #(ecrossrefs % rs) (into-oset obj))))
 
-(def ^{:doc "Synonym for erefs."}
-  -->> erefs)
+(defn -->>
+  ([obj]
+     (mapcat erefs (into-oset obj)))
+  ([obj rs]
+     (mapcat #(erefs % rs) (into-oset obj))))
 
 (defn --<>
-  "Returns an ordered set containing `obj's container, or nil if `obj' has no
-  container."
+  "Returns an ordered set containing `obj's container.  If there's none,
+  returns the empty set."
   [obj]
-  (when-let [c (econtainer obj)]
-    (into-oset obj)))
+  (map econtainer (into-oset obj)))
 
-(def ^{:doc "Synonym for inv-ecrossrefs."}
-  <-- inv-ecrossrefs)
+(defn <--
+  ([obj]
+     (mapcat inv-ecrossrefs (into-oset obj)))
+  ([obj rs]
+     (mapcat #(inv-ecrossrefs % rs) (into-oset obj)))
+  ([obj rs container]
+     (mapcat #(inv-ecrossrefs % rs container) (into-oset obj))))
 
-(def ^{:doc "Synonym for inv-erefs."}
-  <<-- inv-erefs)
+(defn <<--
+  ([obj]
+     (mapcat inv-erefs (into-oset obj)))
+  ([obj rs]
+     (mapcat #(inv-erefs % rs) (into-oset obj)))
+  ([obj rs container]
+     (mapcat #(inv-erefs % rs container) (into-oset obj))))
 
 (defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path
@@ -44,7 +62,7 @@
    ;; funs: -->
    (fn? p) (into-oset (p obj))
    ;; funs with params: [--> :foo], [p-alt :foo :bar]
-   (coll? p) (apply (first p) obj (rest p))
+   (coll? p) (into-oset (apply (first p) obj (rest p)))
    ;; EReference names
    (qname? p) (into-oset (mapcat #(erefs % p) (into-oset obj)))
    :else (error (format "Don't know how to apply %s." p))))
@@ -80,10 +98,10 @@
   ([obj p]
      (p-+ obj p false true))
   ([obj p d skip-obj]
-     (let [obj  (into-oset obj)
-           n  (reachables (if (false? d) obj d) p)
-           df (clojure.set/difference n obj)
-           sv (if skip-obj n (into-oset obj n))]
+     (let [obj (into-oset obj)
+           n   (reachables (if (false? d) obj d) p)
+           sv  (if skip-obj n (into-oset obj n))
+           df  (clojure.set/difference n obj)]
        (if (seq df)
          (recur sv p df false)
          sv))))
