@@ -5,8 +5,10 @@
   (:use ordered.set)
   (:use ordered.map)
   (:import
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
+   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
+   [org.eclipse.emf.ecore.resource ResourceSet]
+   [org.eclipse.emf.ecore.resource.impl ResourceSetImpl]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
     EStructuralFeature]))
@@ -134,6 +136,22 @@
     (doto res
       (.load (.getDefaultLoadOptions res)))
     (seq (.getContents res))))
+
+(defn save-model
+  "Saves the model `m' to the xmi file `f'.
+  `m' may be an EObject or a seq of EObjects."
+  [m f]
+  (let [rs (ResourceSetImpl.)]
+    (-> rs
+        .getResourceFactoryRegistry
+        .getExtensionToFactoryMap
+        (.put "xmi" (XMIResourceFactoryImpl.)))
+    (let [uri (URI/createURI f)
+          res (.createResource rs uri)]
+      (doseq [o (if (coll? m) m [m])]
+        (when-not (=  (.eResource o) res)
+          (-> res .getContents (.add o))))
+      (.save res nil))))
 
 (defn- eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
