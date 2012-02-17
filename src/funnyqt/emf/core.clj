@@ -7,7 +7,7 @@
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
-   [org.eclipse.emf.ecore.resource ResourceSet]
+   [org.eclipse.emf.ecore.resource Resource ResourceSet]
    [org.eclipse.emf.ecore.resource.impl ResourceSetImpl]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
@@ -147,8 +147,8 @@
         .getExtensionToFactoryMap
         (.put "xmi" (XMIResourceFactoryImpl.)))
     (let [uri (URI/createURI f)
-          res (.createResource rs uri)]
-      (doseq [o (if (coll? m) m [m])]
+          ^Resource res (.createResource rs uri)]
+      (doseq [^EObject o (if (coll? m) m [m])]
         (when-not (=  (.eResource o) res)
           (-> res .getContents (.add o))))
       (.save res nil))))

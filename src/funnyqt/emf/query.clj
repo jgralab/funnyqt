@@ -5,13 +5,7 @@
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf.core)
-  (:require clojure.set)
-  (:import
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.common.util URI EList UniqueEList EMap]
-   [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
-    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
-    EStructuralFeature]))
+  (:require clojure.set))
 
 (add-long-doc! "TODO")
 
