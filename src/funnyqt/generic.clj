@@ -31,14 +31,16 @@
   (some #(= e %) coll))
 
 (defn the
-  "Returns the only element of seq `s' and errors if `s' contains more or less
-  elements."
-  [s]
-  (if-let [f (first s)]
-    (if (next s)
-      (error (format "seq contains more than one element!"))
-      f)
-    (error (format "seq contains zero elements!"))))
+  "Returns the only element of seq `s' (which satisfies `pred') and errors if
+  `s' contains more or less elements."
+  ([s]
+     (if-let [f (first s)]
+       (if (next s)
+         (error (format "seq contains more than one element!"))
+         f)
+       (error (format "seq contains zero elements!"))))
+  ([pred s]
+     (the (filter pred s))))
 
 (defn- pred-seq-internal
   [s p acc]
