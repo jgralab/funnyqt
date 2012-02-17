@@ -567,7 +567,7 @@
                    (let [m (into {}
                                  (map (fn [^EAttribute attr]
                                         [(keyword (.getName attr)) (.eGet eo attr)])
-                                      (seq (.getEAttributes ec))))]
+                                      (seq (.getEAllAttributes ec))))]
                      (when (seq m)
                        (str " " m)))
                    ">")))))
