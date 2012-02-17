@@ -18,6 +18,16 @@
   ([to from & froms]
      (reduce into-oset (into-oset to from) froms)))
 
+(defmacro assert-flat-oset
+  "Asserts that obj is an ordered set containing no collections, only flat
+  objects.  (Only evaluates, iff clojure.core/*assert* is true.)"
+  [obj]
+  `(assert
+    (let [s# ~obj]
+      (and (instance? ordered.set.OrderedSet s#)
+           (every? (complement coll?) s#)))
+    "The given object is no OrderedSet, or it is but is not flat."))
+
 (defn qname?
   "Returns true, iff `n' is possibly a element qualified name.
   Only checks, if `n' is a symbol, a keyword, or a string."

@@ -6,10 +6,8 @@
 
 ;;* Quantified Expressions
 
-(defn forall?
-  "Returns logical true, iff `pred' holds forall elements in `coll'."
-  [pred coll]
-  (not (some (complement pred) coll)))
+(def ^{:doc "Returns logical true, iff `pred' holds forall elements in `coll'."}
+  forall? every?)
 
 (defn exists?
   "Returns logical true, iff `pred' holds at least for one element in `coll'."
