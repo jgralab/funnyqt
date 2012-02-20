@@ -1,7 +1,8 @@
 (ns funnyqt.tg.query
   "FunQL: Functional TGraph querying."
   (:use funnyqt.tg.core)
-  (:use [funnyqt.utils])
+  (:use funnyqt.generic-protocols)
+  (:use funnyqt.utils)
   (:use ordered.set)
   (:use funnyqt.generic)
   (:require clojure.set)
@@ -676,11 +677,6 @@ can compute that like so:
           vs)))))
 
 ;;* Describe Schema and Graph Elements
-
-(defprotocol Describable
-  "A protocol for elements supporting describe."
-  (describe [this]
-    "Describes `this' attributed element or attributed element class."))
 
 (defn- attr-desc
   "Returns a map of aec's own attributes as name-domain pairs."

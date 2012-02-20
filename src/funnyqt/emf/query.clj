@@ -2,6 +2,7 @@
   "More sophisticated constructs for querying EMF models."
   (:use funnyqt.utils)
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf.core)
@@ -147,4 +148,22 @@
             (filter (every-pred tm pred)
                     objs))
           objs)))))
+
+;;** Describing EObjects and EClasses
+
+(extend-protocol Describable
+  org.eclipse.emf.ecore.EClass
+  (describe [this]
+    {:name (.getName this)
+     :abstract (.isAbstract this)
+     :interface (.isInterface this)
+     :superclasses (seq (.getESuperTypes this))
+     :attributes (into {}
+                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
+                              [(keyword (.getName attr)) (.getEType attr)])
+                            (seq (.getEAttributes this))))
+     :references (into {}
+                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
+                              [(keyword (.getName ref)) (.getEReferenceType ref)])
+                            (seq (.getEReferences this))))}))
 
