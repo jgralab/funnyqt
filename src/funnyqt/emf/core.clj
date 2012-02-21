@@ -588,12 +588,6 @@
             (let [ec (.eClass eo)]
               (str "#<"
                    (-> ec .getName)
-                   (let [m (into {}
-                                 (map (fn [^EAttribute attr]
-                                        [(keyword (.getName attr)) (.eGet eo attr)])
-                                      (seq (.getEAllAttributes ec))))]
-                     (when (seq m)
-                       (str " " m)))
                    ">")))))
 
 
