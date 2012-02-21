@@ -165,5 +165,19 @@
      :references (into {}
                        (map (fn [^org.eclipse.emf.ecore.EReference ref]
                               [(keyword (.getName ref)) (.getEReferenceType ref)])
-                            (seq (.getEReferences this))))}))
+                            (seq (.getEReferences this))))})
+  org.eclipse.emf.ecore.EObject
+  (describe [this]
+    {:eclass (.getName (.eClass this))
+     :container (econtainer this)
+     :attr-slots (into {}
+                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
+                              (let [kw (keyword (.getName attr))]
+                                [kw (eget this kw)]))
+                            (seq (.getEAllAttributes (.eClass this)))))
+     :ref-slots (into {}
+                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
+                              (let [kw (keyword (.getName ref))]
+                                [kw (eget this kw)]))
+                            (seq (.getEAllReferences (.eClass this)))))}))
 
