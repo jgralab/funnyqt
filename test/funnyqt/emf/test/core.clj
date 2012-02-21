@@ -1,6 +1,7 @@
 (ns funnyqt.emf.test.core
   (:use [funnyqt.emf.core])
   (:use [funnyqt.generic])
+  (:use [funnyqt.generic-protocols])
   (:use [ordered.set])
   (:use [ordered.map])
   (:use [clojure.test])

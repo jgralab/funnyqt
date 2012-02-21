@@ -2,6 +2,7 @@
   "Core functions for accessing and manipulating EMF models."
   (:use funnyqt.utils)
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:import
@@ -97,6 +98,11 @@
            (error (format "No such subpackage %s in %s." f (print-str ep)))))
        ep)))
 
+(extend-protocol Abstractness
+  EClass
+  (abstract? [this]
+    (.isAbstract this)))
+
 (defn eclassifiers
   "The lazy seq of EClassifiers."
   []
@@ -111,7 +117,8 @@
 
 (defn eclassifier
   "Returns the eclassifier with the given `name'.
-  Throws an exception if no such classifier could be found."
+  `name' may be a simple or qualified name.  Throws an exception, if no such
+  classifier could be found, or if the given simple name is ambiguous."
   [name]
   (let [^String n (clojure.core/name name)
         ld (.lastIndexOf n ".")]
@@ -119,13 +126,35 @@
       (let [^EPackage ep (epackage (subs n 0 ld))]
         (or (.getEClassifier ep (subs n (inc ld)))
             (error (format "No such EClassifier %s in %s." n (print-str ep)))))
-      (or (some (fn [^EClassifier ec]
-                  (when (= (.getName ec) n)
-                    ec))
-                (eclassifiers))
-          (error (format "No such EClassifier %s." n))))))
+      (let [classifiers (filter (fn [^EClassifier ec]
+                                  (= (.getName ec) n))
+                                (eclassifiers))]
+        (cond
+         (empty? classifiers) (error (format "No such EClassifier %s." n))
+         (next classifiers)   (error
+                               (format "EClassifier %s is ambiguous: %s\n%s"
+                                       n (print-str classifiers)
+                                       "Restrict the search space using `with-ns-uris'."))
+         :else (first classifiers))))))
 
 ;;** Model
+
+(extend-protocol QualifiedName
+  EClassifier
+  (qname [this]
+    (symbol (str (qname (.getEPackage this))
+                 "." (.getName this))))
+
+  EPackage
+  (qname [this]
+    (loop [p (.getESuperPackage this), n (.getName this)]
+      (if p
+        (recur (.getESuperPackage p) (str (.getName this) "." n))
+        (symbol n))))
+
+  EObject
+  (qname [o]
+    (qname (.eClass o))))
 
 (defn load-model
   "Loads an EMF model from the XMI file `f'.
@@ -529,7 +558,7 @@
   [^EClass ec ^java.io.Writer out]
   (.write out
           (str "#<EClass "
-               (.getName ec)
+               (qname ec)
                (feature-str
                 [[(.isAbstract ec)  :abstract]
                  [(.isInterface ec) :interface]])
@@ -544,7 +573,7 @@
 (defmethod print-method EDataType
   [^EDataType edt ^java.io.Writer out]
   (.write out
-          (str "#<EDataType " (.getName edt)
+          (str "#<EDataType " (qname edt)
                #_(feature-str
                   [[(.isSerializable edt) :serializable]])
                ">")))
@@ -556,7 +585,7 @@
                (if (instance? EcorePackage ep)
                  "EcorePackage "
                  "EPackage ")
-               (.getName ep)
+               (qname ep)
                (let [m (into {}
                              (map (fn [[v k]]
                                     (when v
@@ -585,9 +614,8 @@
             ;; Usual toString() for those
             (str eo)
             ;; Custom toString() for the others
-            (let [ec (.eClass eo)]
-              (str "#<"
-                   (-> ec .getName)
-                   ">")))))
+            (str "#<"
+                 (qname eo)
+                 ">"))))
 
 
