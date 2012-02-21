@@ -154,7 +154,7 @@
 (extend-protocol Describable
   org.eclipse.emf.ecore.EClass
   (describe [this]
-    {:name (.getName this)
+    {:name (qname this)
      :abstract (.isAbstract this)
      :interface (.isInterface this)
      :superclasses (seq (.getESuperTypes this))
