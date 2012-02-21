@@ -5,6 +5,7 @@
   (:use [clojure.core.logic])
   (:use [funnyqt.tg.relational.generic])
   (:require [funnyqt.tg.core :as core])
+  (:require [funnyqt.generic-protocols :as genprots])
   (:require [funnyqt.tg.query :as query])
   ;; (:require [funnyqt.tg.query :as q])
   (:import
@@ -255,7 +256,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
 (defn- create-attr-relation
   "Creates relations for the given attribute."
   [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having such an attr
-  (let [ts     (vec (map #(core/qname %) aecs)) ;; a type spec
+  (let [ts     (vec (map #(genprots/qname %) aecs)) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.tg.query/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.tg.query/eseq
