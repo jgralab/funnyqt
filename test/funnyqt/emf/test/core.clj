@@ -102,10 +102,10 @@
          (ordered-set 0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0) ul)))
 
 (deftest test-econtents-eallcontents
-  (let [all   (eallcontents family-model)
+  (let [all   (eallobjects family-model)
         mems  (eallcontents family-model 'Member)
         fams  (eallcontents family-model 'Family)
-        fmods (eallcontents family-model 'FamilyModel)]
+        fmods (eallobjects family-model 'FamilyModel)]
     (is (== 17 (count all)))
     (is (== 1  (count fmods)))
     (is (== 3  (count fams)))
@@ -115,7 +115,10 @@
       (is (the fmods) (econtainer x)))
     ;; In this concrete case, econtents and eallcontents equal
     (is (= (eallcontents family-model) (econtents family-model)))
-    (is (= (eallcontents family-model 'FamilyModel)
+    ;; Those are empty, cause the contents methods only get the contents but
+    ;; not the arg.
+    (is (= []
+           (eallcontents family-model 'FamilyModel)
            (econtents family-model    'FamilyModel)))
     (is (= (eallcontents family-model 'Member)
            (econtents family-model    'Member)))
@@ -202,7 +205,7 @@
 (deftest test-eget
   (let [fm (the family-model)
         fsmith (first (econtents fm 'Family))]
-    (is (= (next (econtents fm))
+    (is (= (econtents fm)
            (concat (eget fm :families)
                    (eget fm :members))))
     (is (= (econtents fm 'Family)
@@ -283,8 +286,7 @@
 (deftest test-ecreate
   (let [fm (make-test-familymodel 100 1000)]
     (are [c s] (== c
-                   (count (econtents fm s))
-                   (count (eallcontents fm s)))
+                   (count (eallobjects fm s)))
          1101 nil
          1    'FamilyModel
          100  'Family

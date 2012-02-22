@@ -18,7 +18,7 @@
          (erefs fm :members) (reachables fm :members) 13
          (erefs fm :families) (reachables fm :families) 3
          (erefs fm [:members :families]) (reachables fm [p-alt :members :families]) 16
-         (econtents fm) (reachables fm [p-* -->>]) 17)))
+         (eallobjects fm) (reachables fm [p-* -->>]) 17)))
 
 (defn get-member
   [first-name]

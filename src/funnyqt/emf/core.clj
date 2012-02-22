@@ -228,20 +228,20 @@
 
 (defprotocol EContents
   (eallcontents-internal [this tm]
-    "Returns a seq of this and all directly and indirectly contained EObjects
-  whose type matches the eclass-matcher `tm'.")
-  (econtents-internal [this tm]
-    "Returns a seq of this and all directly contained EObjects whose type
+    "Returns a seq of all directly and indirectly contained EObjects whose type
   matches the eclass-matcher `tm'.")
+  (econtents-internal [this tm]
+    "Returns a seq of all directly contained EObjects whose type matches the
+  eclass-matcher `tm'.")
   (econtainer [this]
     "Returns the EObject containing this."))
 
 (extend-protocol EContents
   EObject
   (econtents-internal [this tm]
-    (filter tm (cons this (seq (.eContents this)))))
+    (filter tm (seq (.eContents this))))
   (eallcontents-internal [this tm]
-    (filter tm (cons this (iterator-seq (.eAllContents this)))))
+    (filter tm (iterator-seq (.eAllContents this))))
   (econtainer [this]
     (.eContainer this))
   clojure.lang.IPersistentCollection
@@ -263,6 +263,31 @@
      (econtents-internal x identity))
   ([x ts]
      (econtents-internal x (eclass-matcher ts))))
+
+(defprotocol EAllObjects
+  (eallobjects-internal [this tm]
+    "Returns a seq of this EObject and all its direct and indirect contents
+  whose type matches the eclass-matcher `tm'.  this may also be a seq of
+  EObjects."))
+
+(extend-protocol EAllObjects
+  EObject
+  (eallobjects-internal [this tm]
+    (let [c (eallcontents-internal this tm)]
+      (if (tm this)
+        (cons this c)
+        c)))
+  clojure.lang.IPersistentCollection
+  (eallobjects-internal [this tm]
+    (concat (filter tm this) (eallcontents-internal this tm))))
+
+(defn eallobjects
+  "Returns a seq of `obj' and all its direct and indirect contents whose type
+  matches the eclass-matcher `tm'.  `obj' may also be a seq of EObjects."
+  ([obj]
+     (eallobjects-internal obj identity))
+  ([obj ts]
+     (eallobjects-internal obj (eclass-matcher ts))))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs'.
@@ -335,7 +360,7 @@
   (mapcat (fn [o]
             (when (member? refed (reffn o rm))
               [o]))
-          (eallcontents container)))
+          (eallobjects-internal container identity)))
 
 (extend-protocol EReferences
   EObject

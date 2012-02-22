@@ -1,4 +1,4 @@
-(defproject funnyqt "0.0.5"
+(defproject funnyqt "0.0.6"
   :description "A model querying and transformation library.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
