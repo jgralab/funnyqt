@@ -190,7 +190,7 @@
                             (seq (.getEReferences this))))})
   org.eclipse.emf.ecore.EObject
   (describe [this]
-    {:eclass (.getName (.eClass this))
+    {:eclass (qname this)
      :container (econtainer this)
      :attr-slots (into {}
                        (map (fn [^org.eclipse.emf.ecore.EAttribute attr]

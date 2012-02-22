@@ -1,5 +1,6 @@
 (ns funnyqt.utils
   "Generic utility functions."
+  (:require clojure.pprint)
   (:use ordered.set))
 
 (defn into-oset
@@ -80,6 +81,18 @@
      (error msg nil))
   ([msg cause]
      (throw (RuntimeException. msg cause))))
+
+;;** Debugging
+
+(defn pr-identity
+  "Returns and pretty prints the given argument `x' (preceeded by an optional
+  `title'."
+  ([x]
+     (clojure.pprint/pprint x)
+     x)
+  ([x title]
+     (println title)
+     (pr-identity x)))
 
 ;;** Compilation
 
