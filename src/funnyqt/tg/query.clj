@@ -405,7 +405,8 @@ can compute that like so:
 (defn adjs
   "Get vertices adjacent to `v' via `role', or vertices reachable by traversing
   `role' and `more' roles.  The role names may be given as symbol, keyword, or
-  string."
+  string.  If there's no such role at the given vertex, an exception is
+  thrown."
   ([^Vertex v role]
      (try
        (seq (.adjacences v (name role)))
@@ -416,6 +417,18 @@ can compute that like so:
        (if (seq more)
          (mapcat #(apply adjs % (first more) (rest more)) ads)
          ads))))
+
+(defn adjs-no-error
+  "Like `adjs', but doesn't error if the given role is not defined.  In that
+  case, it simly returns nil."
+  [^Vertex v role]
+  (when-let [dec (.getDirectedEdgeClassForFarEndRole
+                  ^VertexClass (attributed-element-class v)
+                  (name role))]
+    (let [ec (.getEdgeClass dec)
+          dir (.getDirection dec)]
+      (map that
+           (iseq v (fn [e] (instance-of? e ec)) dir)))))
 
 (defn adj
   "Returns the vertex adjacent to `v' via `role' or `more' roles.
@@ -436,7 +449,7 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (qname? p) (into-oset (mapcat #(adjs % p) (into-oset v)))
+   (qname? p) (into-oset (mapcat #(adjs-no-error % p) (into-oset v)))
    :else (error (format "Don't know how to apply %s." p))))
 
 (defn- ---
