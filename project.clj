@@ -1,4 +1,4 @@
-(defproject funnyqt "0.0.4"
+(defproject funnyqt "0.0.5"
   :description "A model querying and transformation library.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
@@ -9,8 +9,7 @@
                  [org.clojure/core.match "0.2.0-alpha9"]
 		 [ordered "1.0.0" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.macro "0.1.1"]
-                 ;; EMF Stuff (the xmi-jar pulls in common and ecore, too)
-                 [org.eclipse.emf/org.eclipse.emf.ecore.xmi "[2.5.0.v20100521-1846,)"]]
+                 [emf-xsd-sdk "2.7.1"]]
   :dev-dependencies [[hiccup "0.3.7"]]
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/" ;; exclude version control stuff

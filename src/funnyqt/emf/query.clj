@@ -15,30 +15,48 @@
 ;;** Regular Path Descriptions
 
 (defn <>--
+  "Returns the (direct) contents of EObject`obj' restricted by the type
+  specification `ts' (see `eclass-matcher' for details).  `obj' may also be a
+  collection of EObjects."
   ([obj]
      (mapcat econtents (into-oset obj)))
   ([obj ts]
      (mapcat #(econtents % ts) (into-oset obj))))
 
 (defn -->
+  "Returns the EObjects cross-referenced by `obj' where the references may be
+  restricted by `rs', a reference specification (see `ref-matcher' for
+  details).  `obj' may also be a collection of EObjects.  In EMF,
+  cross-referenced means referenced by a non-containment EReference."
   ([obj]
      (mapcat ecrossrefs (into-oset obj)))
   ([obj rs]
      (mapcat #(ecrossrefs % rs) (into-oset obj))))
 
 (defn -->>
+  "Returns the EObjects referenced by `obj' where the references may be
+  restricted by `rs', a reference specification (see `ref-matcher' for
+  details).  `obj' may also be a collection of EObjects.  In contrast to `-->',
+  this function includes both cross-references and containments."
   ([obj]
      (mapcat erefs (into-oset obj)))
   ([obj rs]
      (mapcat #(erefs % rs) (into-oset obj))))
 
 (defn --<>
-  "Returns an ordered set containing `obj's container.  If there's none,
+  "Returns a seq containing `obj's container.  If there's none,
   returns the empty set."
   [obj]
-  (map econtainer (into-oset obj)))
+  (mapcat #(when-let [c (econtainer %)]
+             [c])
+          (into-oset obj)))
 
 (defn <--
+  "Returns all EObjects cross-referencing `obj' with a reference matching the
+  reference specification `rs' (see `ref-matcher' for details).  `obj' may also
+  be a collection of EObjects, in which case all objects cross-referencing any
+  of the objects in `obj' is returned.  In EMF, cross-referenced means
+  referenced by a non-containment EReference."
   ([obj]
      (mapcat inv-ecrossrefs (into-oset obj)))
   ([obj rs]
@@ -47,6 +65,11 @@
      (mapcat #(inv-ecrossrefs % rs container) (into-oset obj))))
 
 (defn <<--
+  "Returns all EObjects referencing `obj' with a reference matching the
+  reference specification `rs' (see `ref-matcher' for details).  `obj' may also
+  be a collection of EObjects, in which case all objects referencing any of the
+  objects in `obj' is returned.  In contrast to `<--', this function includes
+  both cross-references and containments."
   ([obj]
      (mapcat inv-erefs (into-oset obj)))
   ([obj rs]
@@ -56,8 +79,7 @@
 
 (defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path
-  description `p'.
-  `obj' may be an EObject or a seq of EObjects."
+  description `p'.  `obj' may be an EObject or a seq of EObjects."
   [obj p]
   (cond
    ;; funs: -->
