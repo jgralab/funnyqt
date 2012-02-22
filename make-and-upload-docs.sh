@@ -1,5 +1,11 @@
 #!/bin/zsh
 
+echo "Deleting the old docs"
+rm docs/*
+ssh horn@helena.uni-koblenz.de 'rm /home/horn/public_html/funnyqt-docs/*'
+
+lein gen-docs
+
 scp -r docs/* horn@helena.uni-koblenz.de:/home/horn/public_html/funnyqt-docs/
 
 ssh horn@helena.uni-koblenz.de \
