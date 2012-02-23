@@ -19,9 +19,9 @@
   specification `ts' (see `eclass-matcher' for details).  `obj' may also be a
   collection of EObjects."
   ([obj]
-     (mapcat econtents (into-oset obj)))
+     (mapcat econtents (to-oset obj)))
   ([obj ts]
-     (mapcat #(econtents % ts) (into-oset obj))))
+     (mapcat #(econtents % ts) (to-oset obj))))
 
 (defn -->
   "Returns the EObjects cross-referenced by `obj' where the references may be
@@ -29,9 +29,9 @@
   details).  `obj' may also be a collection of EObjects.  In EMF,
   cross-referenced means referenced by a non-containment EReference."
   ([obj]
-     (mapcat ecrossrefs (into-oset obj)))
+     (mapcat ecrossrefs (to-oset obj)))
   ([obj rs]
-     (mapcat #(ecrossrefs % rs) (into-oset obj))))
+     (mapcat #(ecrossrefs % rs) (to-oset obj))))
 
 (defn -->>
   "Returns the EObjects referenced by `obj' where the references may be
@@ -39,9 +39,9 @@
   details).  `obj' may also be a collection of EObjects.  In contrast to `-->',
   this function includes both cross-references and containments."
   ([obj]
-     (mapcat erefs (into-oset obj)))
+     (mapcat erefs (to-oset obj)))
   ([obj rs]
-     (mapcat #(erefs % rs) (into-oset obj))))
+     (mapcat #(erefs % rs) (to-oset obj))))
 
 (defn --<>
   "Returns a seq containing `obj's container.  If there's none,
@@ -49,7 +49,7 @@
   [obj]
   (mapcat #(when-let [c (econtainer %)]
              [c])
-          (into-oset obj)))
+          (to-oset obj)))
 
 (defn <--
   "Returns all EObjects cross-referencing `obj' with a reference matching the
@@ -58,13 +58,13 @@
   of the objects in `obj' is returned.  In EMF, cross-referenced means
   referenced by a non-containment EReference."
   ([obj]
-     (mapcat inv-ecrossrefs (into-oset obj)))
+     (mapcat inv-ecrossrefs (to-oset obj)))
   ([obj rs]
-     (mapcat #(inv-ecrossrefs % rs) (into-oset obj)))
+     (mapcat #(inv-ecrossrefs % rs) (to-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-ecrossrefs % rs container) (into-oset obj)))
+     (mapcat #(inv-ecrossrefs % rs container) (to-oset obj)))
   ([obj rs container transitive]
-     (mapcat #(inv-ecrossrefs % rs container transitive) (into-oset obj))))
+     (mapcat #(inv-ecrossrefs % rs container transitive) (to-oset obj))))
 
 (defn <<--
   "Returns all EObjects referencing `obj' with a reference matching the
@@ -73,13 +73,13 @@
   objects in `obj' is returned.  In contrast to `<--', this function includes
   both cross-references and containments."
   ([obj]
-     (mapcat inv-erefs (into-oset obj)))
+     (mapcat inv-erefs (to-oset obj)))
   ([obj rs]
-     (mapcat #(inv-erefs % rs) (into-oset obj)))
+     (mapcat #(inv-erefs % rs) (to-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-erefs % rs container) (into-oset obj)))
+     (mapcat #(inv-erefs % rs container) (to-oset obj)))
   ([obj rs container transitive]
-     (mapcat #(inv-erefs % rs container transitive) (into-oset obj))))
+     (mapcat #(inv-erefs % rs container transitive) (to-oset obj))))
 
 (defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path
@@ -87,11 +87,11 @@
   [obj p]
   (cond
    ;; funs: -->
-   (fn? p) (into-oset (p obj))
+   (fn? p) (to-oset (p obj))
    ;; funs with params: [--> :foo], [p-alt :foo :bar]
-   (coll? p) (into-oset (apply (first p) obj (rest p)))
+   (coll? p) (to-oset (apply (first p) obj (rest p)))
    ;; EReference names
-   (qname? p) (into-oset (mapcat #(erefs % p) (into-oset obj)))
+   (qname? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
    :else (error (format "Don't know how to apply %s." p))))
 
 
@@ -102,7 +102,7 @@
   [obj & p]
   (if (seq p)
     (recur (reachables obj (first p)) (rest p))
-    (into-oset obj)))
+    (to-oset obj)))
 
 (defn p-opt
   "Path option starting at `obj' and maybe traversing `p'.
@@ -116,7 +116,7 @@
   `obj' may be an EObject or a seq of EObjects.
   `p' is a varags seq of the alternative path descriptions."
   [obj & p]
-  (into-oset (mapcat #(reachables obj %) p)))
+  (to-oset (mapcat #(reachables obj %) p)))
 
 (defn p-+
   "Path iteration starting at `obj' and traversing `p' one or many times.
@@ -125,7 +125,7 @@
   ([obj p]
      (p-+ obj p false true))
   ([obj p d skip-obj]
-     (let [obj (into-oset obj)
+     (let [obj (to-oset obj)
            n   (reachables (if (false? d) obj d) p)
            sv  (if skip-obj n (into-oset obj n))
            df  (clojure.set/difference n obj)]
@@ -158,7 +158,7 @@
   ([obj n p]
      {:pre [(>= n 0)]}
      (if (zero? n)
-       (into-oset obj)
+       (to-oset obj)
        (recur (reachables obj p) (dec n) p))))
 
 (defn p-restr
@@ -167,8 +167,8 @@
   ([objs ts]
      (p-restr objs ts identity))
   ([objs ts pred]
-     (let [objs (into-oset objs)]
-       (into-oset
+     (let [objs (to-oset objs)]
+       (to-oset
         (if (seq objs)
           (let [tm (eclass-matcher ts)]
             (filter (every-pred tm pred)

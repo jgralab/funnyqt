@@ -3,21 +3,36 @@
   (:require clojure.pprint)
   (:use ordered.set))
 
+(defprotocol OrderedSetConvertible
+  (to-oset [this]
+    "Converts this into an ordered set."))
+
+(extend-protocol OrderedSetConvertible
+  ordered.set.OrderedSet
+  (to-oset [this]
+    this)
+
+  java.util.Collection
+  (to-oset [this]
+    (into (ordered-set) this))
+
+  Object
+  (to-oset [this]
+    (ordered-set this))
+
+  nil
+  (to-oset [this] (ordered-set)))
+
 (defn into-oset
   "Returns an ordered-set of all given arguments.  Collection args are
   converted into ordered-sets and united.  (into-oset nil) => #{}."
-  ([]
-     (ordered-set))
-  ([to]
-     (cond
-      (nil? to)                             (ordered-set)
-      (instance? ordered.set.OrderedSet to) to
-      (coll? to)                            (into (ordered-set) to)
-      :else                                 (ordered-set to)))
   ([to from]
-     (into (into-oset to) (into-oset from)))
+     (into (to-oset to)
+           (if (coll? from)
+             from
+             (to-oset from))))
   ([to from & froms]
-     (reduce into-oset (into-oset to from) froms)))
+     (reduce into (into-oset to from) froms)))
 
 (defmacro assert-flat-oset
   "Asserts that obj is an ordered set containing no collections, only flat

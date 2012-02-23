@@ -449,7 +449,7 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (qname? p) (into-oset (mapcat #(adjs-no-error % p) (into-oset v)))
+   (qname? p) (to-oset (mapcat #(adjs-no-error % p) (to-oset v)))
    :else (error (format "Don't know how to apply %s." p))))
 
 (defn- ---
@@ -458,7 +458,7 @@ can compute that like so:
   [v dir this-aks that-aks ts pred]
   (if (or (nil? v)
           (and (coll? v) (empty? v)))
-    (into-oset)
+    (ordered-set)
     (let [pred (or pred identity)
           this-a (if (seq this-aks)
                    #(member? (.getThisAggregationKind ^Edge %) this-aks)
@@ -467,12 +467,12 @@ can compute that like so:
                    #(member? (.getThatAggregationKind ^Edge %) that-aks)
                    identity)
           complete-pred (every-pred pred this-a that-a)]
-      (into-oset
+      (to-oset
        (mapcat (fn [sv]
                  (map that
                       (filter complete-pred
                               (iseq sv ts dir))))
-               (into-oset v))))))
+               (to-oset v))))))
 
 (defn -->
   "Returns the vertices reachable from `v' via outgoing incidences,
@@ -616,7 +616,7 @@ can compute that like so:
   [v & p]
   (if (seq p)
     (recur (reachables v (first p)) (rest p))
-    (into-oset v)))
+    (to-oset v)))
 
 (defn p-opt
   "Path option starting at `v' and maybe traversing `p'.
@@ -630,7 +630,7 @@ can compute that like so:
   `v' may be a vertex or a seq of vertices.
   `p' is a varags seq of the alternative path descriptions."
   [v & p]
-  (into-oset (mapcat #(reachables v %) p)))
+  (to-oset (mapcat #(reachables v %) p)))
 
 (defn p-+
   "Path iteration starting at `v' and traversing `p' one or many times.
@@ -639,7 +639,7 @@ can compute that like so:
   ([v p]
      (p-+ v p false true))
   ([v p d skip-v]
-     (let [v  (into-oset v)
+     (let [v  (to-oset v)
            n  (reachables (if (false? d) v d) p)
            df (clojure.set/difference n v)
            sv (if skip-v n (into-oset v n))]
@@ -672,7 +672,7 @@ can compute that like so:
   ([v n p]
      {:pre [(>= n 0)]}
      (if (zero? n)
-       (into-oset v)
+       (to-oset v)
        (recur (reachables v p) (dec n) p))))
 
 (defn p-restr
@@ -681,8 +681,8 @@ can compute that like so:
   ([vs ts]
      (p-restr vs ts identity))
   ([vs ts pred]
-     (let [vs (into-oset vs)]
-       (into-oset
+     (let [vs (to-oset vs)]
+       (to-oset
         (if (seq vs)
           (let [tm (type-matcher (first vs) ts)]
             (filter (every-pred tm pred)
