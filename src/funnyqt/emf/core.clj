@@ -377,7 +377,7 @@
             (recur (if (rm (.feature it))
                      (conj r eo)
                      r)))
-          (seq r)))))
+          r))))
   (erefs-internal [this rm]
     (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
       (if (seq refs)
@@ -390,7 +390,7 @@
                      r)
                    r)
                  (rest refs)))
-        (seq r))))
+        r)))
   (inv-erefs-internal [this rm container transitive]
     (if container
       (search-ereferencers this erefs-internal rm container transitive)
