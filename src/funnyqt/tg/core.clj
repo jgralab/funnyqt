@@ -740,24 +740,20 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 ;;** Deletions
 
-(defprotocol Delete
-  "A protocol for deleting elements."
-  (internal-delete [this]
-    "Deletes this vertex or edge."))
-
-(extend-protocol Delete
-  Vertex (internal-delete [v] (dograph! (.delete v)))
-  Edge   (internal-delete [e] (dograph! (.delete e))))
-
-(alter-meta! (var internal-delete) assoc :private true)
-
-(defn delete!
-  "Deletes the given graph `elems'.
-  Returns the deleted, invalid `elems', or nil, if no element was given."
-  [& elems]
-  (doseq [ge elems]
-    (internal-delete ^GraphElement ge))
-  elems)
+(extend-protocol Deletable
+  Vertex
+  (delete!
+    ([v] (dograph! (.delete v)) v)
+    ([v recursive]
+       ;; Not recursive, so delete all incidences first.
+       (when-not recursive
+         (while (when-let [e (first-inc v)]
+                  (delete! e))))
+       (delete! v)))
+  Edge
+  (delete!
+    ([e]   (dograph! (.delete e)) e)
+    ([e _] (dograph! (.delete e)) e)))
 
 ;;** Relinking edges
 

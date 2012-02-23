@@ -64,3 +64,25 @@
   java.lang.Class
   (instance-of? [class object]
     (instance? class object)))
+
+;;** Deletion
+
+(defprotocol Deletable
+  "A protocol for deleting elements."
+  (delete! [this] [this recursive]
+    "Deletes this element and returns it.  If `recursive' is true (default),
+  delete also elements contained by `this'.  Of course, `recursive' has no
+  meaning for edges.  Implementations are provided for Vertex, Edge, EObject,
+  and collections thereof."))
+
+(extend-protocol Deletable
+  java.util.Collection
+  (delete!
+    ([this]
+       (doseq [x this]
+         (delete! x))
+       this)
+    ([this recursive]
+       (doseq [x this]
+         (delete! x recursive))
+       this)))

@@ -78,7 +78,7 @@
   (let [c (create-vertex! g 'Const)]
     (set-value! c :value (eval-exp b))
     (relink! b c nil :in))
-  (delete! b a1 a2))
+  (delete! [b a1 a2]))
 
 (deftest test-replace-binops
   (let [tree (bin-tree)]

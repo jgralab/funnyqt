@@ -1,5 +1,6 @@
 (ns funnyqt.tg.test.mutual-exclusion
   (:use funnyqt.tg.core)
+  (:use funnyqt.generic-protocols)
   (:use funnyqt.tg.match-replace)
   (:use funnyqt.tg.query)
   (:use clojure.test))
@@ -73,7 +74,7 @@
               :when (= p (alpha rq))]
      (take-rule g r t p rq))
   ([g r t p rq]
-     (delete! t rq)
+     (delete! [t rq])
      ;; Return a vec of the resource, HeldBy and process for param passing
      [r (create-edge! 'HeldBy r p) p]))
 
@@ -142,7 +143,7 @@
        :let [p (omega hb)]
        b  (iseq r 'Blocked :out)
        :when (= p (omega b))]
-  (delete! hb b)
+  (delete! [hb b])
   (create-edge! 'Release r p))
 
 (defn apply-mutual-exclusion-sts
