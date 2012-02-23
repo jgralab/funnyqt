@@ -326,16 +326,17 @@
   (erefs-internal [this rm]
     "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
   In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (inv-ecrossrefs-internal [this rm container]
+  (inv-ecrossrefs-internal [this rm container transitive]
     "Returns a seq of EObjects that cross-reference `this' with a ref matching
   `rm'.  Cross-referenced objects are those that are referenced by a
   non-containment relationship.  If `container' is nil, check only opposites of
-  this object's ref, else do a search over all objects in `container' and
-  `container' itself.")
-  (inv-erefs-internal [this rm container]
+  this object's ref, else do a search over all objects in `container', and
+  their contents, if `transitive' is true.")
+  (inv-erefs-internal [this rm container transitive]
     "Returns a seq of EObjects that reference `this' with a ref matching `rm'.
   If `container' is nil, check only opposites of this object's ref, else do a
-  search over all objects in `container' and `container' itself."))
+  search over all objects in `container', and their contents, if `transitive'
+  is true."))
 
 (defn- eopposite-refs
   "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
@@ -358,11 +359,14 @@
   "Returns the seq of objects referencing `refed' by a reference matching `rm'
   that are contained in `container'.  `reffn' is either erefs-internal or
   ecrossrefs-internal."
-  [refed reffn rm container]
+  [refed reffn rm container transitive]
   (mapcat (fn [o]
             (when (member? refed (reffn o rm))
               [o]))
-          (eallobjects-internal container identity)))
+          (if transitive
+            (eallobjects-internal container identity)
+            (if (coll? container)
+              container [container]))))
 
 (extend-protocol EReferences
   EObject
@@ -389,15 +393,15 @@
                    r)
                  (rest refs)))
         (seq r))))
-  (inv-erefs-internal [this rm container]
+  (inv-erefs-internal [this rm container transitive]
     (if container
-      (search-ereferencers this erefs-internal rm container)
+      (search-ereferencers this erefs-internal rm container transitive)
       (if-let [opposites (eopposite-refs this rm)]
         (erefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
-  (inv-ecrossrefs-internal [this rm container]
+  (inv-ecrossrefs-internal [this rm container transitive]
     (if container
-      (search-ereferencers this ecrossrefs-internal rm container)
+      (search-ereferencers this ecrossrefs-internal rm container transitive)
       (if-let [opposites (eopposite-refs this rm)]
         (ecrossrefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
@@ -406,10 +410,10 @@
     (mapcat #(ecrossrefs-internal % rm) this))
   (erefs-internal [this rm]
     (mapcat #(erefs-internal % rm) this))
-  (inv-erefs-internal [this rm container]
-    (mapcat #(inv-erefs-internal % rm container) this))
-  (inv-ecrossrefs-internal [this rm container]
-    (mapcat #(inv-ecrossrefs-internal % rm container) this)))
+  (inv-erefs-internal [this rm container transitive]
+    (mapcat #(inv-erefs-internal % rm container transitive) this))
+  (inv-ecrossrefs-internal [this rm container transitive]
+    (mapcat #(inv-ecrossrefs-internal % rm container transitive) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
@@ -432,24 +436,34 @@
      (erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
-  "Returns the seq of EOjects that reference `eo' with an EReference described
-  by `rs'.  `eo' may also be a collection of eobjects."
+  "Returns the seq of EOjects that reference `eo' with an EReference matching
+  `rs' (see `eref-matcher').  `eo' may also be a collection of eobjects.  If no
+  `container' is given, then only check the opposite refs of `eo'.  Else, all
+  objects in `container' are tested if they reference `eo'.  If `transitive' is
+  true, check also the eallcontents of `container'."
   ([eo]
-     (inv-erefs-internal eo identity nil))
+     (inv-erefs-internal eo identity nil false))
   ([eo rs]
-     (inv-erefs-internal eo (eref-matcher rs) nil))
+     (inv-erefs-internal eo (eref-matcher rs) nil false))
   ([eo rs container]
-     (inv-erefs-internal eo (eref-matcher rs) container)))
+     (inv-erefs-internal eo (eref-matcher rs) container false))
+  ([eo rs container transitive]
+     (inv-erefs-internal eo (eref-matcher rs) container transitive)))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference `eo' with an EReference
-  described by `rs'.  `eo' may also be a collection of eobjects."
+  matching `rs' (see `eref-matcher').  `eo' may also be a collection of
+  eobjects.  If no `container' is given, then only check the opposite refs of
+  `eo'.  Else, all objects in `container' are tested if they cross-reference
+  `eo'.  If `transitive' is true, check also the eallcontents of `container'."
   ([eo]
-     (inv-ecrossrefs-internal eo identity nil))
+     (inv-ecrossrefs-internal eo identity nil false))
   ([eo rs]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) nil false))
   ([eo rs container]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) container false))
+  ([eo rs container transitive]
+     (inv-ecrossrefs-internal eo (eref-matcher rs) container transitive)))
 
 (defprotocol EmfToClj
   (emf2clj [this]

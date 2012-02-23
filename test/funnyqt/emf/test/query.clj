@@ -52,6 +52,9 @@
     (is (= #{(get-family "Smithway 17")}
            (reachables dennis [--> :familyFather])
            (reachables dennis [<-- :father (econtents family-model)])))
+    (is (= #{(get-family "Smithway 17")}
+           (reachables dennis [--> :familyFather])
+           (reachables dennis [<-- :father family-model true])))
     (is (= #{(get-family "Smithway 17")
              (get-family "Smith Avenue 4")}
            (reachables dennis [--> [:familyFather :familySon]])

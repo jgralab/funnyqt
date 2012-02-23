@@ -144,62 +144,62 @@
          ;; 7, cause the FamilyModel is also included
          (erefs f1)
          (inv-erefs f1)
-         (inv-erefs f1 nil family-model)
+         (inv-erefs f1 nil family-model true)
          7
          ;; Here, it's not included (cross-refs only)
          (ecrossrefs f1)
          (inv-ecrossrefs f1)
-         (inv-ecrossrefs f1 nil family-model)
+         (inv-ecrossrefs f1 nil family-model true)
          6
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f1 :father)
          (inv-erefs f1 :familyFather)
-         (inv-erefs f1 :familyFather family-model)
+         (inv-erefs f1 :familyFather family-model true)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f1 :father)
          (inv-ecrossrefs f1 :familyFather)
-         (inv-ecrossrefs f1 :familyFather family-model)
+         (inv-ecrossrefs f1 :familyFather family-model true)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f1 [:mother :father])
          (inv-erefs f1 [:familyMother :familyFather])
-         (inv-erefs f1 [:familyMother :familyFather] family-model)
+         (inv-erefs f1 [:familyMother :familyFather] family-model true)
          2
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f1 [:mother :father])
          (inv-ecrossrefs f1 [:familyMother :familyFather])
-         (inv-ecrossrefs f1 [:familyMother :familyFather] family-model)
+         (inv-ecrossrefs f1 [:familyMother :familyFather] family-model true)
          2
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f2 :father)
          (inv-erefs f2 :familyFather)
-         (inv-erefs f2 :familyFather family-model)
+         (inv-erefs f2 :familyFather family-model true)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f2 :father)
          (inv-ecrossrefs f2 :familyFather)
-         (inv-ecrossrefs f2 :familyFather family-model)
+         (inv-ecrossrefs f2 :familyFather family-model true)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f3 :sons)
          (inv-erefs f3 :familySon)
-         (inv-erefs f3 :familySon family-model)
+         (inv-erefs f3 :familySon family-model true)
          0
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f3 :sons)
          (inv-ecrossrefs f3 :familySon)
-         (inv-ecrossrefs f3 :familySon family-model)
+         (inv-ecrossrefs f3 :familySon family-model true)
          0
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f3 [:daughters])
          (inv-erefs f3 :familyDaughter)
-         (inv-erefs f3 :familyDaughter family-model)
+         (inv-erefs f3 :familyDaughter family-model true)
          3
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f3 [:daughters])
          (inv-ecrossrefs f3 :familyDaughter)
-         (inv-ecrossrefs f3 :familyDaughter family-model)
+         (inv-ecrossrefs f3 :familyDaughter family-model true)
          3)))
 
 (deftest test-eget

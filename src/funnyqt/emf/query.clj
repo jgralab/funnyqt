@@ -25,7 +25,7 @@
 
 (defn -->
   "Returns the EObjects cross-referenced by `obj' where the references may be
-  restricted by `rs', a reference specification (see `ref-matcher' for
+  restricted by `rs', a reference specification (see `eref-matcher' for
   details).  `obj' may also be a collection of EObjects.  In EMF,
   cross-referenced means referenced by a non-containment EReference."
   ([obj]
@@ -35,7 +35,7 @@
 
 (defn -->>
   "Returns the EObjects referenced by `obj' where the references may be
-  restricted by `rs', a reference specification (see `ref-matcher' for
+  restricted by `rs', a reference specification (see `eref-matcher' for
   details).  `obj' may also be a collection of EObjects.  In contrast to `-->',
   this function includes both cross-references and containments."
   ([obj]
@@ -53,7 +53,7 @@
 
 (defn <--
   "Returns all EObjects cross-referencing `obj' with a reference matching the
-  reference specification `rs' (see `ref-matcher' for details).  `obj' may also
+  reference specification `rs' (see `eref-matcher' for details).  `obj' may also
   be a collection of EObjects, in which case all objects cross-referencing any
   of the objects in `obj' is returned.  In EMF, cross-referenced means
   referenced by a non-containment EReference."
@@ -62,11 +62,13 @@
   ([obj rs]
      (mapcat #(inv-ecrossrefs % rs) (into-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-ecrossrefs % rs container) (into-oset obj))))
+     (mapcat #(inv-ecrossrefs % rs container) (into-oset obj)))
+  ([obj rs container transitive]
+     (mapcat #(inv-ecrossrefs % rs container transitive) (into-oset obj))))
 
 (defn <<--
   "Returns all EObjects referencing `obj' with a reference matching the
-  reference specification `rs' (see `ref-matcher' for details).  `obj' may also
+  reference specification `rs' (see `eref-matcher' for details).  `obj' may also
   be a collection of EObjects, in which case all objects referencing any of the
   objects in `obj' is returned.  In contrast to `<--', this function includes
   both cross-references and containments."
@@ -75,7 +77,9 @@
   ([obj rs]
      (mapcat #(inv-erefs % rs) (into-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-erefs % rs container) (into-oset obj))))
+     (mapcat #(inv-erefs % rs container) (into-oset obj)))
+  ([obj rs container transitive]
+     (mapcat #(inv-erefs % rs container transitive) (into-oset obj))))
 
 (defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path
