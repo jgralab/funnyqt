@@ -465,12 +465,14 @@ can compute that like so:
                              identity)
                            (if (seq that-aks)
                              #(member? (.getThatAggregationKind ^Edge %) that-aks)
-                             identity))]
+                             identity))
+            tm (type-matcher (first vs) ts)
+            dm (direction-matcher dir)]
         (to-oset
          (mapcat (fn [sv]
                    (map that
                         (filter complete-pred
-                                (iseq sv ts dir))))
+                                (iseq-internal sv tm dm))))
                  vs)))
       (ordered-set))))
 
