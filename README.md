@@ -3,6 +3,11 @@
 FunnyQT is a model querying and transformation library.  It supports (or is
 going to support) TGraph and EMF models.
 
+## Documentation
+
+The FunnyQT API docs are
+[here](http://userpages.uni-koblenz.de/~horn/funnyqt-docs/).
+
 ## Installation and Building
 
 FunnyQT uses [Leiningen](https://github.com/technomancy/leiningen) for

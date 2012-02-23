@@ -62,7 +62,7 @@
 
 (defn gen-index-page
   "Generates an index page."
-  [nsps]
+  [version nsps]
   (html
    html-header
    [:html
@@ -72,11 +72,14 @@
      [:style {:type "text/css"} css]]
     [:body
      [:header
-      [:h1 "FunnyQT"]
+      [:h1 (str "FunnyQT")]
       [:h4 "A mode query and transformation library.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
-  changes.  Ok, you've been warned, but have fun anyway. :-)"]]
+  changes.  Ok, you've been warned, but have fun anyway. :-)"]
+      [:h4 (str "These API docs were generated for FunnyQT-"
+                (:version version) ", corresponding to the Git commit "
+                (html [:code (:revision version)]) ".")]]
      [:section
       "Docs and everything else can be found on the "
       [:a {:href "http://github.com/jgralab/funnyqt"} "FunnyQT GitHub page"]
@@ -169,15 +172,13 @@
   "Evaluates exprs in a context in which *out* is bound to a fresh
   StringWriter.  Returns the string created by any nested printing
   calls."
-  {:added "1.0"}
   [& body]
   `(let [s# (new java.io.StringWriter)]
      (binding [*err* s#]
        ~@body
        (str s#))))
 
-(defn gen-docs
-  []
+(defn gen-docs [version]
   (let [err (with-err-str
               (println "Loading Files")
               (println "=============")
@@ -190,7 +191,7 @@
                                  (sort (map ns-name (all-ns))))
                     index-file "docs/index.html"]
                 (clojure.java.io/make-parents index-file)
-                (spit index-file (gen-index-page nsps))
+                (spit index-file (gen-index-page version nsps))
                 (println)
                 (println "Generating Documentation")
                 (println "========================")

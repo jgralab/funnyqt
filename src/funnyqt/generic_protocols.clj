@@ -19,25 +19,48 @@
   "A protocol for qualified names."
   (qname [this]
     "Returns the qualified name of this named element's class or named element
-    class as a symbol.  For collection domains, it returns a vector of symbols:
-    [List Integer] where Integer is the base domain, or [Map Integer String]
-    where Integer is the key domain and String is the value domain.  Of course,
-    that may be recursive, so [Map Integer [List String]] corresponds to the
-    java domain Map<Integer, List<String>>."))
+  class as a symbol.  For collection domains, it returns a vector of symbols:
+  [List Integer] where Integer is the base domain, or [Map Integer String]
+  where Integer is the key domain and String is the value domain.  Of course,
+  that may be recursive, so [Map Integer [List String]] corresponds to the java
+  domain Map<Integer, List<String>>."))
 
 ;;** Abstractness
 
 (defprotocol Abstractness
   "A protocol for checking if an element class is abstract."
   (abstract? [this]
-    "Returns true, iff the element class is abstract."))
+    "Returns true, iff the element class is abstract.
+  Implementations are provided for:
+
+    - java.lang.Class: default impl in this namespace
+    - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg.core
+    - org.eclipse.emf.ecore.EClass: funnyqt.emf.core"))
+
+(extend-protocol Abstractness
+  java.lang.Class
+  (abstract? [this]
+    (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
 ;;** Instance Check
 
 (defprotocol InstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
   (instance-of? [class object]
-    "Returns true, iff `object' is an instance of `class'.")
-  (type-of? [object spec]
-    "Returns true, iff `object's type matches `spec'."))
+    "Returns true, iff `object' is an instance of `class'.
+  Implementations are provided for:
 
+    - java.lang.Class: default impl in this namespace (synonym to clojure.core/instance?)
+    - de.uni_koblenz.jgralab.schema.AttributedElementClass: funnyqt.tg.core
+    - org.eclipse.emf.ecore.EClassifier: funnyqt.emf.core")
+  (type-of? [object spec]
+    "Returns true, iff `object's type matches `spec'.
+  Implementations are provided for:
+
+    - de.uni_koblenz.jgralab.AttributedElement: funnyqt.tg.core
+    - org.eclipse.emf.ecore.EObject: funnyqt.emf.core"))
+
+(extend-protocol InstanceOf
+  java.lang.Class
+  (instance-of? [class object]
+    (instance? class object)))

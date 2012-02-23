@@ -5,5 +5,5 @@
 (defn compile-schemas [project]
   (eval-in-project
    project
-   '(leiningen.compile-schemas.core/compile-schemas)
+   `(leiningen.compile-schemas.core/compile-schemas)
    nil nil '(require 'leiningen.compile-schemas.core)))
