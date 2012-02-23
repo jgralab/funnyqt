@@ -456,23 +456,23 @@ can compute that like so:
   "Returns the vertices reachable from `v' via incidences with direction `dir'
   and aggregation kinds, restricted by `ts', and `pred' (on the edges)."
   [v dir this-aks that-aks ts pred]
-  (if (or (nil? v)
-          (and (coll? v) (empty? v)))
-    (ordered-set)
-    (let [pred (or pred identity)
-          this-a (if (seq this-aks)
-                   #(member? (.getThisAggregationKind ^Edge %) this-aks)
-                   identity)
-          that-a (if (seq that-aks)
-                   #(member? (.getThatAggregationKind ^Edge %) that-aks)
-                   identity)
-          complete-pred (every-pred pred this-a that-a)]
-      (to-oset
-       (mapcat (fn [sv]
-                 (map that
-                      (filter complete-pred
-                              (iseq sv ts dir))))
-               (to-oset v))))))
+  (let [vs (to-oset v)]
+    (if (seq vs)
+      (let [complete-pred (every-pred
+                           (or pred identity)
+                           (if (seq this-aks)
+                             #(member? (.getThisAggregationKind ^Edge %) this-aks)
+                             identity)
+                           (if (seq that-aks)
+                             #(member? (.getThatAggregationKind ^Edge %) that-aks)
+                             identity))]
+        (to-oset
+         (mapcat (fn [sv]
+                   (map that
+                        (filter complete-pred
+                                (iseq sv ts dir))))
+                 vs)))
+      (ordered-set))))
 
 (defn -->
   "Returns the vertices reachable from `v' via outgoing incidences,
