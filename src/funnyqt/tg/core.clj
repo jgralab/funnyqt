@@ -330,12 +330,6 @@ See `tgtree', `show-graph', and `dot-graph'.")
   (schema [this]
     this))
 
-(defn instance-of?
-  "Return true, iff `elem' is an instance of the attributed element class
-  `attr-elem-class'."
-  [^AttributedElement elem ^AttributedElementClass attr-elem-class]
-  (.isInstanceOf elem attr-elem-class))
-
 (defn- type-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [g c]
@@ -345,9 +339,9 @@ See `tgtree', `show-graph', and `dot-graph'.")
         exact (v 2)
         type  (attributed-element-class g qname)]
     (cond
-     (and (not neg) (not exact)) (fn [x] (instance-of? x type))
+     (and (not neg) (not exact)) (fn [^AttributedElement x] (.isInstanceOf x type))
      (and (not neg) exact)       (fn [x] (identical? type (attributed-element-class x)))
-     (and neg       (not exact)) (fn [x] (not (instance-of? x type)))
+     (and neg       (not exact)) (fn [^AttributedElement x] (not (.isInstanceOf x type)))
      :default                    (fn [x] (not (identical? type (attributed-element-class x)))))))
 
 (defn type-matcher
@@ -376,11 +370,25 @@ See `tgtree', `show-graph', and `dot-graph'.")
    :else (RuntimeException.
           (format "Don't know how to create a type matcher for %s" ts))))
 
-(defn type?
-  "Returns true, iff attributed element `ae' has type `ts'.
-  `ts' can be given as anything `type-matcher' understands."
-  [ae ts]
-  ((type-matcher ae ts) ae))
+(extend-protocol InstanceOf
+  GraphClass
+  (instance-of? [class object]
+    (if (instance? Graph object)
+      (.isInstanceOf ^Graph object class)
+      false))
+  VertexClass
+  (instance-of? [class object]
+    (if (instance? Vertex object)
+      (.isInstanceOf ^Vertex object class)
+      false))
+  EdgeClass
+  (instance-of? [class object]
+    (if (instance? Edge object)
+      (.isInstanceOf ^Edge object class)
+      false))
+  AttributedElement
+  (type-of? [obj spec]
+    ((type-matcher obj spec) obj)))
 
 ;;* Graph Access
 

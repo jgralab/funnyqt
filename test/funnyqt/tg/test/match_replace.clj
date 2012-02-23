@@ -1,5 +1,6 @@
 (ns funnyqt.tg.test.match-replace
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.match-replace)
   (:use funnyqt.tg.query)
@@ -15,7 +16,7 @@
                :when (> (value a :inhabitants) 252)
                e (iseq a nil :in)
                :let [b (that e)]
-               :when (type? b 'localities.County)]
+               :when (type-of? b 'localities.County)]
     (is (= (vertex (rg) 2) a))
     (is (= (vertex (rg) 12) b))
     (is (= (edge (rg) 23) (normal-edge e)))))
@@ -24,8 +25,8 @@
   (with-match [hc (eseq (rg) 'localities.HasCapital)
                :let [b (alpha hc)
                      a (omega hc)]
-               :when (type? a 'localities.City)
-               :when (type? b 'localities.County)
+               :when (type-of? a 'localities.City)
+               :when (type-of? b 'localities.County)
                cl (iseq b 'localities.ContainsLocality :out)
                :when (= (omega cl) a)]
     (is (= (vertex (rg) 6)  a))
@@ -37,8 +38,8 @@
   (is (not (with-match [hc (eseq (rg) 'localities.HasCapital)
                         :let [b (alpha hc)
                               a (omega hc)]
-                        :when (type? a 'localities.City)
-                        :when (type? b 'localities.County)
+                        :when (type-of? a 'localities.City)
+                        :when (type-of? b 'localities.County)
                         cl (iseq b 'localities.ContainsLocality :out)
                         :when (= (omega cl) a)
                         ;; that's impossible, so body must not be executed
@@ -72,8 +73,8 @@
   a constant of the result."
   [g] [b     (vseq g 'BinaryOp)
        :let  [[a1 a2] (vec (--> b 'HasArg))]
-       :when (type? a1 'Const)
-       :when (type? a2 'Const)]
+       :when (type-of? a1 'Const)
+       :when (type-of? a2 'Const)]
   (let [c (create-vertex! g 'Const)]
     (set-value! c :value (eval-exp b))
     (relink! b c nil :in))

@@ -28,6 +28,16 @@
 ;;** Abstractness
 
 (defprotocol Abstractness
-  "A protocol for checking if a element class is abstract."
+  "A protocol for checking if an element class is abstract."
   (abstract? [this]
     "Returns true, iff the element class is abstract."))
+
+;;** Instance Check
+
+(defprotocol InstanceOf
+  "A protocol for checking if an element is an instance of some meta-class."
+  (instance-of? [class object]
+    "Returns true, iff `object' is an instance of `class'.")
+  (type-of? [object spec]
+    "Returns true, iff `object's type matches `spec'."))
+

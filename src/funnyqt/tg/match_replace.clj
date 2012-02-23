@@ -34,8 +34,8 @@ value.
     a constant of the result.\"
     [g] [b     (vseq g 'BinaryOp)
          :let [[a1 a2] (vec (--> b 'HasArg))]
-         :when (type? a1 'Const)
-         :when (type? a2 'Const)]
+         :when (type-of? a1 'Const)
+         :when (type-of? a2 'Const)]
     (let [c (create-vertex! g 'Const)]
       (set-value! c :value (eval-exp b))
       (relink! b c nil :in))

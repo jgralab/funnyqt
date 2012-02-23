@@ -428,7 +428,7 @@ can compute that like so:
     (let [ec (.getEdgeClass dec)
           dir (.getDirection dec)]
       (map that
-           (iseq v (fn [e] (instance-of? e ec)) dir)))))
+           (iseq v (fn [e] (instance-of? ec e)) dir)))))
 
 (defn adj
   "Returns the vertex adjacent to `v' via `role' or `more' roles.

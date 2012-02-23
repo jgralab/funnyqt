@@ -1,5 +1,6 @@
 (ns funnyqt.tg.test.constant-folding
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.match-replace)
   (:use funnyqt.tg.query)
@@ -14,21 +15,21 @@
   (let [v1 (value c1 :value)
         v2 (value c2 :value)]
     (cond
-     (type? b 'Add) (+ v1 v2)
-     (type? b 'Sub) (- v1 v2)
-     (type? b 'Mul) (* v1 v2)
-     (type? b 'Div) (quot v1 v2)
+     (type-of? b 'Add) (+ v1 v2)
+     (type-of? b 'Sub) (- v1 v2)
+     (type-of? b 'Mul) (* v1 v2)
+     (type-of? b 'Div) (quot v1 v2)
      :default (RuntimeException. ^String (format "Unknown binary op: %s" b)))))
 
 (defrule pull-up-consts
   "Pulls up constants to make replace-binary apply."
   [g] [b (vseq g '[Add Mul])
-       e1 (filter #(type? (that %) 'Const)
+       e1 (filter #(type-of? (that %) 'Const)
                   (iseq b 'Dataflow :out))
        e2 (filter #(= (class %) (class b))
                   (iseq b 'Dataflow :out))
        :let [b2 (omega e2)]
-       e3 (filter #(type? (that %) '[:and !Block !Const])
+       e3 (filter #(type-of? (that %) '[:and !Block !Const])
                   (iseq b2 'Dataflow :out))]
   ;; Switch edges & set position
   (let [e1p (value e1 :position)
@@ -56,9 +57,9 @@
   "Find and replace a Binary connected to two Consts with a Const representing
   the evaluation result."
   [g start-block] [b (vseq g 'Binary)
-                   e1 (filter #(type? (that %) 'Const)
+                   e1 (filter #(type-of? (that %) 'Const)
                               (iseq b 'Dataflow :out))
-                   e2 (filter #(type? (that %) 'Const)
+                   e2 (filter #(type-of? (that %) 'Const)
                               (iseq b 'Dataflow :out))
                    :when (= (value e1 :position) 0)
                    :when (= (value e2 :position) 1)

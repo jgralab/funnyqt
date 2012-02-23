@@ -1,6 +1,7 @@
 (ns funnyqt.tg.test.core
   (:use [ordered.set])
   (:use [funnyqt.tg.core])
+  (:use funnyqt.generic-protocols)
   (:use [clojure.test])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)))
 
@@ -58,4 +59,23 @@
            (rg)
            #{1 2 (vertex (rg) 1)}]]
     (is (= x (tg-read-str (tg-pr-str x) (rg))))))
+
+(deftest test-instance-of?
+  (let [g     (rg)
+        gc    (attributed-element-class g)
+        city  (vertex g 7)
+        cityc (attributed-element-class city)
+        hw    (edge g 28)
+        hwc   (attributed-element-class hw)]
+    (is (instance-of? gc g))
+    (is (instance-of? cityc city))
+    (is (instance-of? hwc hw))
+
+    (let [loc (attributed-element-class g 'localities.Locality)]
+      (is (not (instance-of? loc g)))
+      (is (instance-of? loc city))
+      (is (not (instance-of? loc hw)))
+
+      (is (not (instance-of? loc 1)))
+      (is (not (instance-of? loc "Foo"))))))
 

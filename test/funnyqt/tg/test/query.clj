@@ -1,5 +1,6 @@
 (ns funnyqt.tg.test.query
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use funnyqt.utils)
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query)
@@ -256,7 +257,7 @@
 	      [p-restr 'classifiers.Class
 	       (fn [v]
 		 (empty? (filter
-			  #(type? %1 'modifiers.Abstract)
+			  #(type-of? %1 'modifiers.Abstract)
 			  (adjs v :annotationsAndModifiers))))]]))))))
 
 (defn coupled-classes
@@ -303,11 +304,11 @@
   (let [eval-args #(map eval-bin-tree
                         (--> % 'HasArg))]
     (cond
-     (type? v 'Const) (value v :value)
-     (type? v 'Add)   (reduce + (eval-args v))
-     (type? v 'Sub)   (reduce - (eval-args v))
-     (type? v 'Mul)   (reduce * (eval-args v))
-     (type? v 'Div)   (reduce / (eval-args v)))))
+     (type-of? v 'Const) (value v :value)
+     (type-of? v 'Add)   (reduce + (eval-args v))
+     (type-of? v 'Sub)   (reduce - (eval-args v))
+     (type-of? v 'Mul)   (reduce * (eval-args v))
+     (type-of? v 'Div)   (reduce / (eval-args v)))))
 
 (defprotocol BinTreeEval (eval-exp [this]))
 
