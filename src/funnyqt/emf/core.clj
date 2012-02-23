@@ -360,9 +360,7 @@
   that are contained in `container'.  `reffn' is either erefs-internal or
   ecrossrefs-internal."
   [refed reffn rm container transitive]
-  (mapcat (fn [o]
-            (when (member? refed (reffn o rm))
-              [o]))
+  (filter (fn [o] (member? refed (reffn o rm)))
           (if transitive
             (eallobjects-internal container identity)
             (if (coll? container)
