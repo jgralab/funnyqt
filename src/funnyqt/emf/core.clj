@@ -173,6 +173,9 @@
 
 (defprotocol EMFModelBasics
   (init-model [this])
+  ;; TODO: Maybe varags are supported in newer clojure versions?
+  (add-eobject [this eo])
+  (add-eobjects [this eos])
   (clone-model [this])
   (save-model [this] [this file]))
 
@@ -181,6 +184,14 @@
   (init-model [this]
     (.load resource ;(.getDefaultLoadOptions resource)
            nil))
+  (add-eobject [this eo]
+    (doto (.getContents resource)
+      (.add eo))
+    eo)
+  (add-eobjects [this eos]
+    (doto (.getContents resource)
+      (.addAll eos))
+    eos)
   (clone-model [this]
     (let [nres (ResourceImpl.)
           nconts (.getContents nres)]
@@ -596,10 +607,12 @@
   EObject
   (delete!
     ([this]
-       (EcoreUtil/delete this true))
+       (EcoreUtil/delete this true)
+       this)
     ([this recursive]
        ;; Gotta provide a real boolean, not just a truthy thingy
-       (EcoreUtil/delete this (if recursive true false)))))
+       (EcoreUtil/delete this (if recursive true false))
+       this)))
 
 ;;** Printing
 

@@ -195,14 +195,6 @@ See `tgtree', `show-graph', and `dot-graph'.")
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
-(defmacro dograph!
-  "Like `clojure.core/io!', but with a more appropriate name and message."
-  [& body]
-  `(io!
-    "Graph modification in a transaction!"
-    ~@body))
-
-
 ;;* Schema Access
 
 (extend-protocol QualifiedName
@@ -612,7 +604,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
     (.getAttribute ae (name attr)))
 
   (set-value! [ae attr val]
-    (dograph! (doto ae (.setAttribute (name attr) (clj2jgval val)))))
+    (doto ae (.setAttribute (name attr) (clj2jgval val))))
 
   Record
   (value [rec comp]
@@ -672,18 +664,18 @@ See `tgtree', `show-graph', and `dot-graph'.")
   Vertex
   (before? [this other]     (.isBefore this other))
   (after? [this other]      (.isAfter this other))
-  (put-before! [this other] (dograph! (.putBefore this other)))
-  (put-after! [this other]  (dograph! (.putAfter this other)))
+  (put-before! [this other] (.putBefore this other))
+  (put-after! [this other]  (.putAfter this other))
 
   Edge
   (before? [this other]     (.isBeforeEdge this other))
   (after? [this other]      (.isAfterEdge this other))
-  (put-before! [this other] (dograph! (.putBeforeEdge this other)))
-  (put-after! [this other]  (dograph! (.putAfterEdge this other)))
+  (put-before! [this other] (.putBeforeEdge this other))
+  (put-after! [this other]  (.putAfterEdge this other))
   (before-inc? [this other] (.isBeforeIncidence this other))
   (after-inc? [this other]  (.isAfterIncidence this other))
-  (put-before-inc! [this other] (dograph! (.putIncidenceBefore this other)))
-  (put-after-inc! [this other]  (dograph! (.putIncidenceAfter this other))))
+  (put-before-inc! [this other] (.putIncidenceBefore this other))
+  (put-after-inc! [this other]  (.putIncidenceAfter this other)))
 
 ;;* Modifications
 
@@ -708,7 +700,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
   `cls' is a qualified name given as string, symbol, or keyword."
   [^Graph g cls]
   (let [^VertexClass aec (attributed-element-class g cls)]
-    (dograph! (.createVertex g aec))))
+    (.createVertex g aec)))
 
 (defn create-edge!
   "Creates a new edge of type `cls' starting at `from' and ending at `to'.
@@ -716,27 +708,27 @@ See `tgtree', `show-graph', and `dot-graph'.")
   [cls ^Vertex from ^Vertex to]
   (let [^Graph g (.getGraph from)
         ^EdgeClass aec (attributed-element-class g cls)]
-    (dograph! (.createEdge g aec from to))))
+    (.createEdge g aec from to)))
 
 (defn set-alpha!
   "Sets the start vertex of `e' to `v' and returns `e'."
   [^Edge e ^Vertex v]
-  (dograph! (doto e (.setAlpha v))))
+  (doto e (.setAlpha v)))
 
 (defn set-omega!
   "Sets the end vertex of `e' to `v' and returns `e'."
   [^Edge e ^Vertex v]
-  (dograph! (doto e (.setOmega v))))
+  (doto e (.setOmega v)))
 
 (defn set-this!
   "Sets the this vertex of `i' to `v' and returns `i'."
   [^Edge i ^Vertex v]
-  (dograph! (doto i (.setThis v))))
+  (doto i (.setThis v)))
 
 (defn set-that!
   "Sets the that vertex of `i' to `v' and returns `i'."
   [^Edge i ^Vertex v]
-  (dograph! (doto i (.setThat v))))
+  (doto i (.setThat v)))
 
 ;;** Deletions
 
@@ -749,7 +741,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
 (extend-protocol Deletable
   Vertex
   (delete!
-    ([v] (dograph! (.delete v)) v)
+    ([v] (.delete v) v)
     ([v recursive]
        ;; Not recursive, so delete all incidences first.
        (when-not recursive
@@ -757,8 +749,8 @@ See `tgtree', `show-graph', and `dot-graph'.")
        (delete! v)))
   Edge
   (delete!
-    ([e]   (dograph! (.delete e)) e)
-    ([e _] (dograph! (.delete e)) e)))
+    ([e]   (.delete e) e)
+    ([e _] (.delete e) e)))
 
 ;;** Relinking edges
 
@@ -771,14 +763,13 @@ See `tgtree', `show-graph', and `dot-graph'.")
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts dir]
-     (dograph!
-      (let [tm (type-matcher from ts)
-            dm (direction-matcher dir)]
-        (loop [inc (first-inc from tm dm)]
-          (when inc
-            (set-this! inc to)
-            (recur (first-inc from tm dm)))))
-      from)))
+     (let [tm (type-matcher from ts)
+           dm (direction-matcher dir)]
+       (loop [inc (first-inc from tm dm)]
+         (when inc
+           (set-this! inc to)
+           (recur (first-inc from tm dm)))))
+     from))
 
 ;;* toString/Serialization/Deserialization
 
