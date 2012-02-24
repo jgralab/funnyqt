@@ -740,6 +740,12 @@ See `tgtree', `show-graph', and `dot-graph'.")
 
 ;;** Deletions
 
+(defn unlink!
+  "Unlinks the given vertex, i.e., deletes all incident edges."
+  [^Vertex v]
+  (while (when-let [e (first-inc v)]
+           (delete! e))))
+
 (extend-protocol Deletable
   Vertex
   (delete!
@@ -747,8 +753,7 @@ See `tgtree', `show-graph', and `dot-graph'.")
     ([v recursive]
        ;; Not recursive, so delete all incidences first.
        (when-not recursive
-         (while (when-let [e (first-inc v)]
-                  (delete! e))))
+         (unlink! v))
        (delete! v)))
   Edge
   (delete!

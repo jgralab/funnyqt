@@ -150,6 +150,8 @@
 
 ;;** Model
 
+;;*** Qualified Names
+
 (extend-protocol QualifiedName
   EClassifier
   (qname [this]
@@ -167,8 +169,11 @@
   (qname [o]
     (qname (.eClass o))))
 
+;;*** EMF Model def
+
 (defprotocol EMFModelBasics
   (init-model [this])
+  (clone-model [this])
   (save-model [this] [this file]))
 
 (deftype EMFModel [^Resource resource]
@@ -176,16 +181,23 @@
   (init-model [this]
     (.load resource ;(.getDefaultLoadOptions resource)
            nil))
+  (clone-model [this]
+    (let [nres (ResourceImpl.)
+          nconts (.getContents nres)]
+      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
+        (.add nconts o))
+      (EMFModel. nres)))
   (save-model [this]
-    (.save resource nil))
+    (if (.getURI resource)
+      (.save resource nil)
+      (error (str "You tried to save a non-file-Resource!\n"
+                  "Use (save-model m \"foo.xmi\") instead."))))
   (save-model [this file]
-    ;; TODO
-    (error "Not yet implemented: We'd need to clone the model first!")
     (let [uri (URI/createFileURI file)
-          ^Resource nres (XMIResourceImpl. uri)
-          contents (.getContents nres)]
-      (doseq [^EObject o (seq (.getContents resource))]
-        (.add contents o))
+          nres (XMIResourceImpl. uri)
+          nconts (.getContents nres)]
+      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
+        (.add nconts o))
       (println "Saving model to " (.toFileString uri))
       (.save nres nil))))
 
@@ -197,6 +209,8 @@
         res (XMIResourceImpl. uri)]
     (doto (EMFModel. res)
       init-model)))
+
+;;*** Traversal stuff
 
 (defn- eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
@@ -284,14 +298,14 @@
     (mapcat #(eallcontents-internal % tm) this)))
 
 (defn eallcontents
-  "Returns a seq of `x' and all contents of `x' matching the type spec `ts'."
+  "Returns a seq of `x' and all nconts of `x' matching the type spec `ts'."
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
      (eallcontents-internal x (eclass-matcher ts))))
 
 (defn econtents
-  "Returns a seq of `x' and its direct contents matching the type spec `ts'."
+  "Returns a seq of `x' and its direct nconts matching the type spec `ts'."
   ([x]
      (econtents-internal x identity))
   ([x ts]
@@ -336,12 +350,12 @@
     "Returns a seq of EObjects that cross-reference `this' with a ref matching
   `rm'.  Cross-referenced objects are those that are referenced by a
   non-containment relationship.  If `container' is nil, check only opposites of
-  this object's ref, else do a search over the contents of `container', which
+  this object's ref, else do a search over the nconts of `container', which
   may be an EMFModel or a collection of EObjects.")
   (inv-erefs-internal [this rm container]
     "Returns a seq of EObjects that reference `this' with a ref matching `rm'.
   If `container' is nil, check only opposites of this object's ref, else do a
-  search over the contents of `container', which may be an EMFModel or a
+  search over the nconts of `container', which may be an EMFModel or a
   collection of EObjects."))
 
 (defn- eopposite-refs
@@ -578,7 +592,14 @@
 
 ;;*** EObject Deletion
 
-
+(extend-protocol Deletable
+  EObject
+  (delete!
+    ([this]
+       (EcoreUtil/delete this true))
+    ([this recursive]
+       ;; Gotta provide a real boolean, not just a truthy thingy
+       (EcoreUtil/delete this (if recursive true false)))))
 
 ;;** Printing
 
