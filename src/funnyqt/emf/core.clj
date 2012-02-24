@@ -5,6 +5,7 @@
   (:use funnyqt.generic-protocols)
   (:use ordered.set)
   (:use ordered.map)
+  (:require clojure.java.shell)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
@@ -570,7 +571,9 @@
   in-place.  That's totally not stylish, but it might be a last resort when
   optimizing for performance.  You've been warned!"
   [^EObject eo sf]
-  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+  (if-let [sfeat (if (instance? EStructuralFeature sf)
+                   sf
+                   (.getEStructuralFeature (.eClass eo) (name sf)))]
     (.eGet eo sfeat)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
@@ -589,6 +592,93 @@
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (do (.eSet eo sfeat (clj2emf value)) value)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
+;;*** Visualization
+
+(defn- dot-id [eo]
+  (str "O" (Integer/toString (hash eo) (Character/MAX_RADIX))))
+
+(defn- dot-attributes [^EObject eo]
+  (reduce str
+          (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
+                :let [n (.getName attr)]]
+            (str n " = \\\"" (eget eo n) "\\\"\\l"))))
+
+(defn- dot-eobject [eo]
+  (let [h (dot-id eo)]
+    (str "  " h
+         " [label=\"{{" (qname eo) "}|"
+         (dot-attributes eo)
+         "}\", shape=record, fontname=Sans, fontsize=14];\n")))
+
+(defn- dot-content-refs [^EObject eo]
+  (let [h (dot-id eo)]
+    (reduce str
+            (for [^EReference ref (.getEAllContainments (.eClass eo))
+                  :let [oref (.getEOpposite ref)
+                        n (.getName ref)]
+                  t (eget eo ref)]
+              (str "  " h " -> " (dot-id t)
+                   " [dir="
+                   (if oref "none" "forward")
+                   ", arrowtail=diamondnormal, fontname=Sans, "
+                   "headlabel=\"" n "\""
+                   (when oref
+                     (str ", taillabel=\"" (.getName oref)))
+                   "\"];\n")))))
+
+(def ^{:private true, :dynamic true}
+  *done-refs*)
+
+(defn- dot-cross-refs [^EObject eo]
+  (let [h (dot-id eo)]
+    (reduce str
+            (for [^EReference ref (.getEAllReferences (.eClass eo))
+                  :when (not (or (.isContainment ref)
+                                 (.isContainer ref)))
+                  :let [n (.getName ref)
+                        oref (.getEOpposite ref)
+                        on (when oref (.getName oref))
+                        x (eget eo ref)]
+                  :when x
+                  t (if (coll? x) x [x])
+                  :let [h2 (dot-id t)
+                        s #{n on h h2}]
+                  :when (not (member? s @*done-refs*))]
+              (do
+                ;(println @done)
+                (swap! *done-refs* conj s)
+                (str "  " h " -> " h2
+                     " [dir="
+                     (if oref "none" "forward")
+                     ", fontname=Sans, "
+                     "headlabel=\"" n "\""
+                     (when oref
+                       (str ", taillabel=\"" (.getName oref)))
+                     "\"];\n"))))))
+
+(defn- dot-ereferences [eo]
+  (str (dot-content-refs eo)
+       (dot-cross-refs eo)))
+
+(defn- dot-model [m]
+  (str "digraph EMFModel {"
+       "  ranksep = \"1.2\";\n\n"
+       (reduce str
+               (map dot-eobject
+                    (eallobjects m)))
+       (binding [*done-refs* (atom #{})]
+         (reduce str
+                 (map dot-ereferences
+                      (eallobjects m))))
+       "}"))
+
+(defn pdf-print-model [m f]
+  (let [ds (dot-model m)
+        r (clojure.java.shell/sh "dot" "-Tpdf" "-o" f
+                                 :in ds)]
+    (when-not (zero? (:exit r))
+      (error (format "Dotting failed: %s" (:err r))))))
 
 ;;*** EObject Creation
 
