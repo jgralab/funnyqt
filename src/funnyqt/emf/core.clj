@@ -9,7 +9,7 @@
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore.resource Resource ResourceSet]
-   [org.eclipse.emf.ecore.resource.impl ResourceSetImpl]
+   [org.eclipse.emf.ecore.resource.impl ResourceImpl]
    [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
     EStructuralFeature]))
@@ -37,18 +37,28 @@
       (when (seq subs)
         (register-epackages subs)))))
 
+(defprotocol EcoreModelBasics
+  (load-and-register [this])
+  ;; TODO: Implement me.
+  (save [this file]))
+
+(deftype EcoreModel [^Resource resource]
+  EcoreModelBasics
+  (load-and-register [this]
+    (.load resource  ;(.getDefaultLoadOptions resource)
+           nil)
+    (doto (seq (.getContents resource))
+      register-epackages)))
+
 (defn load-metamodel
   "Loads the Ecore metamodel from the ecore file `f'.
   Returns as seq of (usually one) root EPackages.
   All EPackages are registered recursively."
   [f]
-  (let [uri (URI/createURI f)
+  (let [uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto res
-      (.load (.getDefaultLoadOptions res)))
-    (let [pkgs (seq (.getContents res))]
-      (register-epackages pkgs)
-      pkgs)))
+    (doto (EcoreModel. res)
+      load-and-register)))
 
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
@@ -156,31 +166,36 @@
   (qname [o]
     (qname (.eClass o))))
 
+(defprotocol EMFModelBasics
+  (init-model [this])
+  (save-model [this] [this file]))
+
+(deftype EMFModel [^Resource resource]
+  EMFModelBasics
+  (init-model [this]
+    (.load resource ;(.getDefaultLoadOptions resource)
+           nil))
+  (save-model [this]
+    (.save resource nil))
+  (save-model [this file]
+    ;; TODO
+    (error "Not yet implemented: We'd need to clone the model first!")
+    (let [uri (URI/createFileURI file)
+          ^Resource nres (XMIResourceImpl. uri)
+          contents (.getContents nres)]
+      (doseq [^EObject o (seq (.getContents resource))]
+        (.add contents o))
+      (println "Saving model to " (.toFileString uri))
+      (.save nres nil))))
+
 (defn load-model
   "Loads an EMF model from the XMI file `f'.
   Returns a seq of the models top-level elements."
   [f]
-  (let [uri (URI/createURI f)
+  (let [uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto res
-      (.load (.getDefaultLoadOptions res)))
-    (seq (.getContents res))))
-
-(defn save-model
-  "Saves the model `m' to the xmi file `f'.
-  `m' may be an EObject or a seq of EObjects."
-  [m f]
-  (let [rs (ResourceSetImpl.)]
-    (-> rs
-        .getResourceFactoryRegistry
-        .getExtensionToFactoryMap
-        (.put "xmi" (XMIResourceFactoryImpl.)))
-    (let [uri (URI/createURI f)
-          ^Resource res (.createResource rs uri)]
-      (doseq [^EObject o (if (coll? m) m [m])]
-        (when-not (=  (.eResource o) res)
-          (-> res .getContents (.add o))))
-      (.save res nil))))
+    (doto (EMFModel. res)
+      init-model)))
 
 (defn- eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
@@ -236,7 +251,10 @@
     "Returns a seq of all directly contained EObjects whose type matches the
   eclass-matcher `tm'.")
   (econtainer [this]
-    "Returns the EObject containing this."))
+    "Returns the EObject containing this.")
+  (eallobjects [this] [this ts]
+    "Returns a seq of all objects matching the type specification `ts' (see
+  `eclass-matcher') that are contained in this EMFModel."))
 
 (extend-protocol EContents
   EObject
@@ -246,6 +264,18 @@
     (filter tm (iterator-seq (.eAllContents this))))
   (econtainer [this]
     (.eContainer this))
+
+  EMFModel
+  (econtents-internal [this tm]
+    (filter tm (seq (.getContents ^Resource (.resource this)))))
+  (eallcontents-internal [this tm]
+    (filter tm (iterator-seq (.getAllContents ^Resource (.resource this)))))
+  (eallobjects
+    ([this]
+       (eallcontents-internal this identity))
+    ([this ts]
+       (eallcontents-internal this (eclass-matcher ts))))
+
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
     (mapcat #(econtents-internal % tm) this))
@@ -265,31 +295,6 @@
      (econtents-internal x identity))
   ([x ts]
      (econtents-internal x (eclass-matcher ts))))
-
-(defprotocol EAllObjects
-  (eallobjects-internal [this tm]
-    "Returns a seq of this EObject and all its direct and indirect contents
-  whose type matches the eclass-matcher `tm'.  this may also be a seq of
-  EObjects."))
-
-(extend-protocol EAllObjects
-  EObject
-  (eallobjects-internal [this tm]
-    (let [c (eallcontents-internal this tm)]
-      (if (tm this)
-        (cons this c)
-        c)))
-  clojure.lang.IPersistentCollection
-  (eallobjects-internal [this tm]
-    (concat (filter tm this) (eallcontents-internal this tm))))
-
-(defn eallobjects
-  "Returns a seq of `obj' and all its direct and indirect contents whose type
-  matches the eclass-matcher `tm'.  `obj' may also be a seq of EObjects."
-  ([obj]
-     (eallobjects-internal obj identity))
-  ([obj ts]
-     (eallobjects-internal obj (eclass-matcher ts))))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs'.
@@ -326,17 +331,17 @@
   (erefs-internal [this rm]
     "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
   In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (inv-ecrossrefs-internal [this rm container transitive]
+  (inv-ecrossrefs-internal [this rm container]
     "Returns a seq of EObjects that cross-reference `this' with a ref matching
   `rm'.  Cross-referenced objects are those that are referenced by a
   non-containment relationship.  If `container' is nil, check only opposites of
-  this object's ref, else do a search over all objects in `container', and
-  their contents, if `transitive' is true.")
-  (inv-erefs-internal [this rm container transitive]
+  this object's ref, else do a search over the contents of `container', which
+  may be an EMFModel or a collection of EObjects.")
+  (inv-erefs-internal [this rm container]
     "Returns a seq of EObjects that reference `this' with a ref matching `rm'.
   If `container' is nil, check only opposites of this object's ref, else do a
-  search over all objects in `container', and their contents, if `transitive'
-  is true."))
+  search over the contents of `container', which may be an EMFModel or a
+  collection of EObjects."))
 
 (defn- eopposite-refs
   "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
@@ -359,12 +364,13 @@
   "Returns the seq of objects referencing `refed' by a reference matching `rm'
   that are contained in `container'.  `reffn' is either erefs-internal or
   ecrossrefs-internal."
-  [refed reffn rm container transitive]
+  [refed reffn rm container]
   (filter (fn [o] (member? refed (reffn o rm)))
-          (if transitive
-            (eallobjects-internal container identity)
-            (if (coll? container)
-              container [container]))))
+          (cond
+           (instance? EMFModel container) (eallobjects container)
+           (coll? container)              container
+           :else (error (format "container is neither an EMFModel nor a collection: %s"
+                                container)))))
 
 (extend-protocol EReferences
   EObject
@@ -391,27 +397,28 @@
                    r)
                  (rest refs)))
         r)))
-  (inv-erefs-internal [this rm container transitive]
+  (inv-erefs-internal [this rm container]
     (if container
-      (search-ereferencers this erefs-internal rm container transitive)
+      (search-ereferencers this erefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (erefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
-  (inv-ecrossrefs-internal [this rm container transitive]
+  (inv-ecrossrefs-internal [this rm container]
     (if container
-      (search-ereferencers this ecrossrefs-internal rm container transitive)
+      (search-ereferencers this ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (ecrossrefs-internal this (eref-matcher opposites))
         (error "No opposite EReferences found."))))
+
   clojure.lang.IPersistentCollection
   (ecrossrefs-internal [this rm]
     (mapcat #(ecrossrefs-internal % rm) this))
   (erefs-internal [this rm]
     (mapcat #(erefs-internal % rm) this))
-  (inv-erefs-internal [this rm container transitive]
-    (mapcat #(inv-erefs-internal % rm container transitive) this))
-  (inv-ecrossrefs-internal [this rm container transitive]
-    (mapcat #(inv-ecrossrefs-internal % rm container transitive) this)))
+  (inv-erefs-internal [this rm container]
+    (mapcat #(inv-erefs-internal % rm container) this))
+  (inv-ecrossrefs-internal [this rm container]
+    (mapcat #(inv-ecrossrefs-internal % rm container) this)))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
@@ -437,31 +444,27 @@
   "Returns the seq of EOjects that reference `eo' with an EReference matching
   `rs' (see `eref-matcher').  `eo' may also be a collection of eobjects.  If no
   `container' is given, then only check the opposite refs of `eo'.  Else, all
-  objects in `container' are tested if they reference `eo'.  If `transitive' is
-  true, check also the eallcontents of `container'."
+  objects in `container' are tested if they reference `eo'.  `container' may be
+  either an EMFModel or a collection of EObjects."
   ([eo]
-     (inv-erefs-internal eo identity nil false))
+     (inv-erefs-internal eo identity nil))
   ([eo rs]
-     (inv-erefs-internal eo (eref-matcher rs) nil false))
+     (inv-erefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (inv-erefs-internal eo (eref-matcher rs) container false))
-  ([eo rs container transitive]
-     (inv-erefs-internal eo (eref-matcher rs) container transitive)))
+     (inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference `eo' with an EReference
   matching `rs' (see `eref-matcher').  `eo' may also be a collection of
   eobjects.  If no `container' is given, then only check the opposite refs of
   `eo'.  Else, all objects in `container' are tested if they cross-reference
-  `eo'.  If `transitive' is true, check also the eallcontents of `container'."
+  `eo'. `container' may be either an EMFModel or a collection of EObjects. "
   ([eo]
-     (inv-ecrossrefs-internal eo identity nil false))
+     (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) nil false))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) container false))
-  ([eo rs container transitive]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) container transitive)))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
 (defprotocol EmfToClj
   (emf2clj [this]

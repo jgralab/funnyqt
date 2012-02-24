@@ -62,9 +62,7 @@
   ([obj rs]
      (mapcat #(inv-ecrossrefs % rs) (to-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-ecrossrefs % rs container) (to-oset obj)))
-  ([obj rs container transitive]
-     (mapcat #(inv-ecrossrefs % rs container transitive) (to-oset obj))))
+     (mapcat #(inv-ecrossrefs % rs container) (to-oset obj))))
 
 (defn <<--
   "Returns all EObjects referencing `obj' with a reference matching the
@@ -77,9 +75,7 @@
   ([obj rs]
      (mapcat #(inv-erefs % rs) (to-oset obj)))
   ([obj rs container]
-     (mapcat #(inv-erefs % rs container) (to-oset obj)))
-  ([obj rs container transitive]
-     (mapcat #(inv-erefs % rs container transitive) (to-oset obj))))
+     (mapcat #(inv-erefs % rs container) (to-oset obj))))
 
 (defn reachables
   "Returns the ordered set of EObjects reachable from `obj' by via the path

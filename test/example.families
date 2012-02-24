@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<families:FamilyModel xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:families="http://families/1.0" xsi:schemaLocation="http://families/1.0 ../metamodel/Families.ecore">
+<families:FamilyModel xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:families="http://families/1.0" xsi:schemaLocation="http://families/1.0 test/Families.ecore">
   <families father="//@members.1" mother="//@members.2" sons="//@members.3 //@members.4 //@members.5" daughters="//@members.0" lastName="Smith" street="Smith Avenue 4" town="Smithtown"/>
   <families father="//@members.5" mother="//@members.8" sons="//@members.7" daughters="//@members.6" lastName="Smith" street="Smithway 17" town="Smithtown"/>
   <families father="//@members.9" mother="//@members.10" daughters="//@members.8 //@members.11 //@members.12" lastName="Carter" street="Carter Street 2" town="Cartertown"/>

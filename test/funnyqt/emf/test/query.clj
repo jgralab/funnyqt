@@ -10,7 +10,7 @@
   (:use clojure.test))
 
 (deftest test-basic
-  (let [fm (the family-model)]
+  (let [fm (the (econtents family-model))]
     (are [x y n] (let [ox (to-oset x)]
                    (and (= ox y) (== n (count ox))))
          (erefs fm) (reachables fm -->>) 16
@@ -18,26 +18,26 @@
          (erefs fm :members) (reachables fm :members) 13
          (erefs fm :families) (reachables fm :families) 3
          (erefs fm [:members :families]) (reachables fm [p-alt :members :families]) 16
-         (eallobjects fm) (reachables fm [p-* -->>]) 17)))
+         (eallobjects family-model) (reachables fm [p-* -->>]) 17)))
 
 (defn get-member
   [first-name]
   (the (filter #(= (eget % :firstName) first-name)
-               (econtents family-model 'Member))))
+               (eallcontents family-model 'Member))))
 
 (defn get-family
   [street]
   (the (filter #(= (eget % :street) street)
-               (econtents family-model 'Family))))
+               (eallcontents family-model 'Family))))
 
 (deftest test--<>
-  (let [fm (the family-model)
+  (let [fm (the (econtents family-model))
         diana (get-member "Diana")]
     (is (= #{fm} (reachables diana --<>)))
-    (is (= #{}  (reachables fm --<>)))))
+    (is (= #{}   (reachables fm --<>)))))
 
 (deftest test<--
-  (let [fm (the family-model)
+  (let [fm (the (econtents family-model))
         diana (get-member "Diana")
         dennis (get-member "Dennis")]
     (is (= #{(get-family "Smithway 17")} (reachables diana <--)))
@@ -51,17 +51,20 @@
     ;; Using search
     (is (= #{(get-family "Smithway 17")}
            (reachables dennis [--> :familyFather])
-           (reachables dennis [<-- :father (econtents family-model)])))
+           (reachables dennis [<-- :father (econtents fm)])))
     (is (= #{(get-family "Smithway 17")}
            (reachables dennis [--> :familyFather])
-           (reachables dennis [<-- :father family-model true])))
+           (reachables dennis [<-- :father family-model])))
+    (is (= #{(get-family "Smithway 17")}
+           (reachables dennis [--> :familyFather])
+           (reachables dennis [<-- :father (eallobjects family-model 'Family)])))
     (is (= #{(get-family "Smithway 17")
              (get-family "Smith Avenue 4")}
            (reachables dennis [--> [:familyFather :familySon]])
            (reachables dennis [<-- [:father :sons]])))))
 
 (deftest test<<--
-  (let [fm (the family-model)
+  (let [fm (the (econtents family-model))
         diana (get-member "Diana")
         dennis (get-member "Dennis")]
     (is (= #{fm (get-family "Smithway 17")} (reachables diana <<--)))
@@ -77,7 +80,7 @@
     ;; Using search
     (is (= #{(get-family "Smithway 17")}
            (reachables dennis [-->> :familyFather])
-           (reachables dennis [<<-- :father (econtents family-model)])))
+           (reachables dennis [<<-- :father (econtents fm)])))
     (is (= #{(get-family "Smithway 17")
              (get-family "Smith Avenue 4")}
            (reachables dennis [-->> [:familyFather :familySon]])

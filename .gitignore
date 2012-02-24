@@ -11,3 +11,4 @@ test/firm_medium-after-opt.tg
 test/firm_small-after-opt.tg
 test/genealogy.tg
 funnyqt-?.?.?.jar
+hs_err_pid*.log

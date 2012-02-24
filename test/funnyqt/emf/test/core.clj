@@ -12,12 +12,7 @@
 
 (deftest test-load-metamodel
   (let [mm (load-metamodel "test/Families.ecore")]
-    (is (== 1 (count mm)))
-    (is (instance? EPackage (first mm)))
-    (is (== 1 (count (epackages (first mm)))))
-    ;; We know 3: the EMF-XML stuff pkg, the ECore package, and the families
-    ;; package.
-    (is (== 3 (count (epackages))))
+    (is (instance? funnyqt.emf.core.EcoreModel mm))
     ;; Restricting to our custom one by its nsURI...
     (with-ns-uris ["http://families/1.0"]
       (is (== 1 (count (epackages)))))))
@@ -113,20 +108,18 @@
     ;; The FamilyModel is the container of all Members and Families.
     (doseq [x (concat mems fams)]
       (is (the fmods) (econtainer x)))
-    ;; In this concrete case, econtents and eallcontents equal
-    (is (= (eallcontents family-model) (econtents family-model)))
-    ;; Those are empty, cause the contents methods only get the contents but
-    ;; not the arg.
-    (is (= []
-           (eallcontents family-model 'FamilyModel)
+    ;; In this concrete case, this is true
+    (is (= (eallcontents family-model '!FamilyModel)
+           (econtents (econtents family-model))))
+    (is (= (eallcontents family-model 'FamilyModel)
            (econtents family-model    'FamilyModel)))
     (is (= (eallcontents family-model 'Member)
-           (econtents family-model    'Member)))
+           (econtents (econtents family-model) 'Member)))
     (is (= (eallcontents family-model 'Family)
-           (econtents family-model    'Family)))))
+           (econtents (econtents family-model) 'Family)))))
 
 (deftest test-ecrossrefs
-  (let [fsmith (first (econtents family-model 'Family))]
+  (let [fsmith (first (eallobjects family-model 'Family))]
     (is (= (ecrossrefs fsmith)
            (ecrossrefs fsmith [:father :mother :sons :daughters])))
     (is (== 1
@@ -136,7 +129,7 @@
     (is (== 3 (count (ecrossrefs fsmith :sons))))))
 
 (deftest test-inv-erefs
-  (let [[f1 f2 f3] (econtents family-model 'Family)]
+  (let [[f1 f2 f3] (eallobjects family-model 'Family)]
     (are [x y z cnt] (and (== cnt (count x) (count y) (count z))
                         (= (apply hash-set x)
                            (apply hash-set y)
@@ -144,66 +137,66 @@
          ;; 7, cause the FamilyModel is also included
          (erefs f1)
          (inv-erefs f1)
-         (inv-erefs f1 nil family-model true)
+         (inv-erefs f1 nil family-model)
          7
          ;; Here, it's not included (cross-refs only)
          (ecrossrefs f1)
          (inv-ecrossrefs f1)
-         (inv-ecrossrefs f1 nil family-model true)
+         (inv-ecrossrefs f1 nil family-model)
          6
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f1 :father)
          (inv-erefs f1 :familyFather)
-         (inv-erefs f1 :familyFather family-model true)
+         (inv-erefs f1 :familyFather family-model)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f1 :father)
          (inv-ecrossrefs f1 :familyFather)
-         (inv-ecrossrefs f1 :familyFather family-model true)
+         (inv-ecrossrefs f1 :familyFather family-model)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f1 [:mother :father])
          (inv-erefs f1 [:familyMother :familyFather])
-         (inv-erefs f1 [:familyMother :familyFather] family-model true)
+         (inv-erefs f1 [:familyMother :familyFather] family-model)
          2
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f1 [:mother :father])
          (inv-ecrossrefs f1 [:familyMother :familyFather])
-         (inv-ecrossrefs f1 [:familyMother :familyFather] family-model true)
+         (inv-ecrossrefs f1 [:familyMother :familyFather] family-model)
          2
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f2 :father)
          (inv-erefs f2 :familyFather)
-         (inv-erefs f2 :familyFather family-model true)
+         (inv-erefs f2 :familyFather family-model)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f2 :father)
          (inv-ecrossrefs f2 :familyFather)
-         (inv-ecrossrefs f2 :familyFather family-model true)
+         (inv-ecrossrefs f2 :familyFather family-model)
          1
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f3 :sons)
          (inv-erefs f3 :familySon)
-         (inv-erefs f3 :familySon family-model true)
+         (inv-erefs f3 :familySon family-model)
          0
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f3 :sons)
          (inv-ecrossrefs f3 :familySon)
-         (inv-ecrossrefs f3 :familySon family-model true)
+         (inv-ecrossrefs f3 :familySon family-model)
          0
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (erefs f3 [:daughters])
          (inv-erefs f3 :familyDaughter)
-         (inv-erefs f3 :familyDaughter family-model true)
+         (inv-erefs f3 :familyDaughter family-model)
          3
          ;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (ecrossrefs f3 [:daughters])
          (inv-ecrossrefs f3 :familyDaughter)
-         (inv-ecrossrefs f3 :familyDaughter family-model true)
+         (inv-ecrossrefs f3 :familyDaughter family-model)
          3)))
 
 (deftest test-eget
-  (let [fm (the family-model)
+  (let [fm (the (econtents family-model))
         fsmith (first (econtents fm 'Family))]
     (is (= (econtents fm)
            (concat (eget fm :families)
@@ -214,7 +207,7 @@
            (eget fm :members)))))
 
 (deftest test-erefs-and-ecrossrefs
-  (let [fm (the family-model)
+  (let [fm (the (econtents family-model))
         fsmith (first (econtents fm 'Family))]
     (are [x] (= (eget fm x) (erefs fm x))
          :families
@@ -286,9 +279,10 @@
 (deftest test-ecreate
   (let [fm (make-test-familymodel 100 1000)]
     (are [c s] (== c
-                   (count (eallobjects fm s)))
-         1101 nil
-         1    'FamilyModel
+                   (count (eallcontents fm s)))
+         ;; Note: The FamilyModel itself is not a content
+         1100 nil
+         0    'FamilyModel
          100  'Family
          1000 'Member
          1100 '[Family Member])
@@ -302,9 +296,11 @@
   (let [i 1000
         fm (ecreate 'FamilyModel)
         ^EList ms (eget-raw fm :members)]
+    (print "Adding" i "Members (raw): \t")
     (time (dotimes [_ i]
             (.add ms (ecreate 'Member))))
     (is (== i (count (econtents fm 'Member))))
+    (print "Adding" i "Members (eset!): \t")
     (time (eset! fm :members (loop [ims (eget fm :members), x i]
                                (if (pos? x)
                                  (recur (conj ims (ecreate 'Member)) (dec x))
