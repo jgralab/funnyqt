@@ -4,7 +4,7 @@
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
   changes.  Ok, you've been warned, but have fun anyway. :-)"
   :dependencies [[org.clojure/clojure "1.4.0-beta1"]
-		 [de.uni-koblenz.ist/jgralab "[6.0.5,)"]
+		 [de.uni-koblenz.ist/jgralab "[6.1.0,)"]
                  [org.clojure/core.logic "0.6.7"]
                  [org.clojure/core.match "0.2.0-alpha9"]
 		 [ordered "1.0.0" :exclusions [org.clojure/clojure]]

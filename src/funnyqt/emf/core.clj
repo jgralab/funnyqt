@@ -7,6 +7,7 @@
   (:use ordered.map)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
+   [org.eclipse.emf.ecore.util EcoreUtil]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore.resource Resource ResourceSet]
    [org.eclipse.emf.ecore.resource.impl ResourceImpl]
@@ -564,18 +565,20 @@
     (do (.eSet eo sfeat (clj2emf value)) value)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
-;;** EObject Creation
+;;*** EObject Creation
 
 (defn ecreate
   "Creates an EObject of EClass `ecls'.
-  `ecls' may either be an EClass or just an EClass name given as symbol,
+  `ecls' may be either an EClass or just an EClass name given as symbol,
   string, or keyword."
   [ecls]
-  (let [^EClassifier ecl (if (instance? EClass ecls)
-                           ecls
-                           (eclassifier ecls))
-        ^EFactory f (-> ecl .getEPackage .getEFactoryInstance)]
-    (.create f ecl)))
+  (EcoreUtil/create (if (instance? EClass ecls)
+                      ecls
+                      (eclassifier ecls))))
+
+;;*** EObject Deletion
+
+
 
 ;;** Printing
 
