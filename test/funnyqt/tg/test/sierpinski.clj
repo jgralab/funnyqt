@@ -1,6 +1,6 @@
 (ns funnyqt.tg.test.sierpinski
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import [java.util.concurrent Executors ExecutorService Future]

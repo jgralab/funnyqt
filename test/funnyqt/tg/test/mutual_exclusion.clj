@@ -1,7 +1,7 @@
 (ns funnyqt.tg.test.mutual-exclusion
   (:use funnyqt.tg.core)
   (:use funnyqt.generic-protocols)
-  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
   (:use clojure.test))
 

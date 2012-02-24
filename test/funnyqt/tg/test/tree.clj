@@ -1,13 +1,13 @@
 (ns funnyqt.tg.test.tree
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]))
 
 
 (defn mintree-init
-  "Returns a sierpienki triangle."
+  "Returns a mintree graph with one Tree vertex."
   []
   (let [g (create-graph (load-schema "test/mintree.tg")
                         "MinTree")]

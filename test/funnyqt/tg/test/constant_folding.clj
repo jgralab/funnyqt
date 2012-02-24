@@ -2,7 +2,7 @@
   (:use funnyqt.generic)
   (:use funnyqt.generic-protocols)
   (:use funnyqt.tg.core)
-  (:use funnyqt.tg.match-replace)
+  (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import
