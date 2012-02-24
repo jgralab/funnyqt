@@ -330,7 +330,8 @@
       (is (== 17 (count (eallobjects fm))))
       (add-eobjects fm (econtents (delete! (the (eallobjects fm 'FamilyModel)) nil)))
       (is (== 16 (count (eallobjects fm))))
-      (save-model fm "faa.xmi"))))
+      ;;(save-model fm "faa.xmi")
+      )))
 
 (deftest test-recursive-delete!
   (let [fm (clone-model family-model)]
@@ -338,3 +339,13 @@
     ;; Default is recursive
     (delete! (the (eallobjects fm 'FamilyModel)))
     (is (zero? (count (eallobjects fm))))))
+
+(deftest test-deletion-while-iteration
+  (let [fm (clone-model family-model)]
+    (is (== 17 (count (eallobjects fm))))
+    ;; Ok, deletion while iteration won't do, so we have to get rid of lazyness
+    ;; doall.
+    (doseq [o (doall (eallobjects fm))]
+      (when-not (type-of? o 'FamilyModel)
+        (delete! o)))
+    (is (== 1 (count (eallobjects fm))))))
