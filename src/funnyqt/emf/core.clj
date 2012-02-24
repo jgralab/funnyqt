@@ -663,7 +663,7 @@
 
 (defn- dot-model [m]
   (str "digraph EMFModel {"
-       "  ranksep = \"1.2\";\n\n"
+       "  ranksep = \"2\";\n\n"
        (reduce str
                (map dot-eobject
                     (eallobjects m)))
