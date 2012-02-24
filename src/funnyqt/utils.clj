@@ -111,25 +111,22 @@
 
 ;;** Compilation
 
-(defmacro ignore-if-not
-  "Evaluate `body' only if `exp' evaluates to true and doesn't throw an
-  exception.  Useful for stuff that requires JDK 1.7 classes.
+(defmacro compile-if
+  "Evaluate `exp' and if it returns logical true and doesn't error, expand to
+  `then'.  Else expand to `else'.
 
-  (ignore-if-not (Class/forName \"java.util.concurrent.ForkJoinTask\")
+  (compile-if (Class/forName \"java.util.concurrent.ForkJoinTask\")
     (defn my-cool-fj-fn
       \"Do Stuff with ForkJoinTask\"
       [x]
       (magick x))"
-  [exp & body]
-  (let [[r m] (try
-                [(eval exp) "Ok!"]
-                (catch Exception e
-                  [nil (str (.getMessage e))]))]
-    (if r
-      `(do ~@body)
-      `(do
-         (println ~(format "%s: so some stuff won't be compiled." m))
-         (comment ~@body)))))
+  [exp then else]
+  (if (try (eval exp)
+           (catch Throwable _ false))
+    `(do ~then)
+    `(do
+       (comment ~then)
+       ~else)))
 
 ;;** Docs
 
