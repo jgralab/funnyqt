@@ -44,11 +44,12 @@
   #toc { position: fixed; right: 0; top: auto;
          height: 90%;
          width: auto;
-         margin: 5px; }
+         margin: 10px; }
   #toc-listing-outer { height: 85%;
-                       overflow: auto; overflow-x: hidden; }
+                       overflow: auto;
+                       overflow-x: hidden; }
   #toc-listing-inner { border: 2px dashed #D1C7AC;
-                       padding: 5px; }")
+                       padding: 10px; }")
 
 (defn make-id
   [x]
@@ -131,9 +132,20 @@
   (for [line (str/split-lines s)]
     (str "  " line "\n")))
 
+(defn source-link
+  [project v]
+  (when v
+    (if-let [f (:file (meta v))]
+      (str (:html5-docs-repository-src-url project)
+           (.replaceFirst ^String f
+                          (:source-path project)
+                          "")
+           "#L" (:line (meta v)))
+      (source-link project (:protocol (meta v))))))
+
 (defn gen-public-vars-details
   "Generates detailed docs for the public vars pubs."
-  [pubs]
+  [project pubs]
   [:section {:id "details"}
    [:h2 "Details of Public Vars"]
    (for [[s v] pubs]
@@ -143,8 +155,15 @@
         (if (fn? (deref v))
           ;; A Function
           [:div
-           [:h3 (if (:macro (meta v)) "Macro: " "Function: ") es]
-           [:pre "Arglists:\n=========\n\n"
+           [:h3 (cond
+                 (:macro (meta v))    "Macro: "
+                 (:protocol (meta v)) "Protocol Method: "
+                 :else                "Function: ")
+            es]
+           [:pre
+            (when-let [prot (:name (meta (:protocol (meta v))))]
+              (str "Specified by protocol " (name prot) ".\n\n"))
+            "Arglists:\n=========\n\n"
             (escape-html
              (html
               (binding [pp/*print-miser-width*  60
@@ -164,9 +183,7 @@
                        (or (:doc (meta v))
                            "No docs attached."))]])
         ;; Link to sources
-        [:a {:href (str "https://hg.uni-koblenz.de/horn/funnyqt/file/tip/src/"
-                        (.replaceFirst ^String (:file (meta v)) ".*/funnyqt/src/" "")
-                        "#l" (:line (meta v)))} "View Source"]
+        [:a {:href (source-link project v)} "View Source"]
         " "
         [:a {:href "#top"} "Back to top"]]))])
 
@@ -214,8 +231,7 @@
                            [:meta {:charset "utf-8"}]
                            [:title (str "Namespace " nsp)]
                            [:style {:type "text/css"} css]]
-                          (let [pubs (filter (fn [[_ v]]
-                                               (:file (meta v)))
+                          (let [pubs (filter identity ;;(fn [[_ v]] (:file (meta v)))
                                              (sort (ns-publics nsp)))]
                             [:body
                              ;; Namespace Header
@@ -231,7 +247,7 @@
                               ;; Namespace TOC
                               (gen-ns-toc nsp nsps)
                               ;; Contents
-                              (gen-public-vars-details pubs)
+                              (gen-public-vars-details project pubs)
                               ;; TOC of Vars
                               (gen-public-vars-toc pubs)]
                              (page-footer)])]))))

@@ -37,6 +37,7 @@ used as well as that of the covered work."}
   :html5-docs-ns-includes #"^funnyqt\..*"
   :html5-docs-ns-excludes #".*\.test\..*"
   :html5-docs-docs-dir nil ;; => "docs"
+  :html5-docs-repository-src-url "https://github.com/jgralab/funnyqt/blob/master/src"
   ;; Pretty print results at the REPL
   :project-init (require 'clojure.pprint)
   :repl-options [:print clojure.pprint/pprint])

@@ -310,14 +310,15 @@
     (mapcat #(eallcontents-internal % tm) this)))
 
 (defn eallcontents
-  "Returns a seq of `x' and all nconts of `x' matching the type spec `ts'."
+  "Returns a seq of `x's direct and indirect contents matching the type spec
+`ts'."
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
      (eallcontents-internal x (eclass-matcher ts))))
 
 (defn econtents
-  "Returns a seq of `x' and its direct nconts matching the type spec `ts'."
+  "Returns a seq of `x's direct contents matching the type spec `ts'."
   ([x]
      (econtents-internal x identity))
   ([x ts]
