@@ -63,14 +63,15 @@
 (defn gen-index-page
   "Generates an index page."
   [project nsps]
-  (html
-   html-header
-   [:html
-    [:head
-     [:meta {:charset "utf-8"}]
-     [:title "FunnyQT Namespace Overview"]
-     [:style {:type "text/css"} css]]
-    (let [pname (or (:html5-name project) (:name project))]
+  (let [pname (or (:html5-docs-name project) (:name project))]
+    (html
+     html-header
+     [:html
+      [:head
+       [:meta {:charset "utf-8"}]
+       [:title (or (:html5-docs-page-title project)
+                   (str pname " API Documentation"))]
+       [:style {:type "text/css"} css]]
       [:body
        [:header
         [:h1 pname [:small " (version " (:version project) ")"]]
@@ -94,7 +95,7 @@
                   (name nsp)]]
             [:td [:div {:class "ns-toc-entry-desc"}
                   (:doc (meta (find-ns nsp)))]]])]]
-       (page-footer)])]))
+       (page-footer)]])))
 
 (defn gen-ns-toc
   "Generate a TOC of the other namespaces.
@@ -181,17 +182,21 @@
 
 (defn html5-docs
   [project]
-  (let [err (with-err-str
+  (let [docs-dir (or (:html5-docs-docs-dir project) "docs")
+        err (with-err-str
               (println "Loading Files")
               (println "=============")
               (println)
-              (doseq [f (files-in "src/funnyqt" #".*\.clj")]
+              (doseq [f (files-in (or (:html5-docs-source-path project)
+                                      (:source-path project))
+                                  #".*\.clj")]
                 (println "  -" f)
                 (load-file f))
-              (let [nsps (filter #(and (re-matches #"^funnyqt\..*" (name %))
-                                       (not (re-matches #".*\.test\..*" (name %))))
+              (let [nsps (filter #(and
+                                   (re-matches (:html5-docs-ns-includes project) (name %))
+                                   (not (re-matches (:html5-docs-ns-excludes project) (name %))))
                                  (sort (map ns-name (all-ns))))
-                    index-file "docs/index.html"]
+                    index-file (str docs-dir "/index.html")]
                 (clojure.java.io/make-parents index-file)
                 (spit index-file (gen-index-page project nsps))
                 (println)
@@ -199,7 +204,7 @@
                 (println "========================")
                 (println)
                 (doseq [nsp nsps]
-                  (spit (let [hf (str "docs/" (name nsp) ".html")]
+                  (spit (let [hf (str docs-dir "/" (name nsp) ".html")]
                           (println "  -" hf)
                           hf)
                         (html

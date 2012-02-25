@@ -2,7 +2,7 @@
   :description "A model querying and transformation library.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
-  changes.  Ok, you've been warned, but have fun anyway. :-)"
+  changes.  You've been warned, but have fun anyway."
   :dependencies [[org.clojure/clojure "1.4.0-beta1"]
 		 [de.uni-koblenz.ist/jgralab "[6.1.0,)"]
                  [org.clojure/core.logic "0.6.7"]
@@ -30,7 +30,13 @@ resulting work.  Corresponding Source for a non-source form of such a
 combination shall include the source code for the parts of FunnyQT and JGraLab
 used as well as that of the covered work."}
   :url "https://github.com/jgralab/funnyqt"
-  :html5-name "FunnyQT"
+  ;; Stuff specific to generating API docs
+  :html5-docs-name "FunnyQT"
+  :html5-docs-page-title nil ;; => "FunnyQT API Documentation"
+  :html5-docs-source-path "src/funnyqt"
+  :html5-docs-ns-includes #"^funnyqt\..*"
+  :html5-docs-ns-excludes #".*\.test\..*"
+  :html5-docs-docs-dir nil ;; => "docs"
   ;; Pretty print results at the REPL
   :project-init (require 'clojure.pprint)
   :repl-options [:print clojure.pprint/pprint])
