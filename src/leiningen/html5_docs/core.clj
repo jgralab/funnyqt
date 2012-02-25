@@ -1,4 +1,4 @@
-(ns leiningen.gen-docs.core
+(ns leiningen.html5-docs.core
   (:use hiccup.core)
   (:use clojure.java.io)
   (:require [clojure.string :as str])
@@ -62,7 +62,7 @@
 
 (defn gen-index-page
   "Generates an index page."
-  [version nsps]
+  [project nsps]
   (html
    html-header
    [:html
@@ -70,30 +70,31 @@
      [:meta {:charset "utf-8"}]
      [:title "FunnyQT Namespace Overview"]
      [:style {:type "text/css"} css]]
-    [:body
-     [:header
-      [:h1 (str "FunnyQT")]
-      [:h4 "A mode query and transformation library.
-
-  Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
-  changes.  Ok, you've been warned, but have fun anyway. :-)"]
-      [:h4 (str "These API docs were generated for FunnyQT-"
-                (:version version) ", corresponding to the Git commit "
-                (html [:code (:revision version)]) ".")]]
-     [:section
-      "Docs and everything else can be found on the "
-      [:a {:href "http://github.com/jgralab/funnyqt"} "FunnyQT GitHub page"]
-      "."]
-     [:section {:id "ns-toc"}
-      [:h2 "Namespaces"]
-      [:table
-       (for [nsp nsps]
-         [:tr
-          [:td [:a {:href (str (name nsp) ".html")}
-                (name nsp)]]
-          [:td [:div {:class "ns-toc-entry-desc"}
-                (:doc (meta (find-ns nsp)))]]])]]
-     (page-footer)]]))
+    (let [pname (or (:html5-name project) (:name project))]
+      [:body
+       [:header
+        [:h1 pname [:small " (version " (:version project) ")"]]
+        [:h4 (:description project)]]
+       (when-let [url (:url project)]
+         [:section
+          "For more information, visit the "
+          [:a {:href url} pname " Homepage"]
+          "."])
+       (when-let [lic (:license project)]
+         [:section
+          pname " is licensed under the "
+          [:a {:href (:url lic)} (:name lic)]
+          ". " [:small (:comments lic)]])
+       [:section {:id "ns-toc"}
+        [:h2 "Namespaces"]
+        [:table
+         (for [nsp nsps]
+           [:tr
+            [:td [:a {:href (str (name nsp) ".html")}
+                  (name nsp)]]
+            [:td [:div {:class "ns-toc-entry-desc"}
+                  (:doc (meta (find-ns nsp)))]]])]]
+       (page-footer)])]))
 
 (defn gen-ns-toc
   "Generate a TOC of the other namespaces.
@@ -178,7 +179,8 @@
        ~@body
        (str s#))))
 
-(defn gen-docs [version]
+(defn html5-docs
+  [project]
   (let [err (with-err-str
               (println "Loading Files")
               (println "=============")
@@ -191,7 +193,7 @@
                                  (sort (map ns-name (all-ns))))
                     index-file "docs/index.html"]
                 (clojure.java.io/make-parents index-file)
-                (spit index-file (gen-index-page version nsps))
+                (spit index-file (gen-index-page project nsps))
                 (println)
                 (println "Generating Documentation")
                 (println "========================")
@@ -231,6 +233,6 @@
               (println)
               (println "Finished."))]
     (when (seq err)
-      (println "Some warnings occured, see gen-docs.out.")
-      (spit "gen-docs.out" err))))
+      (println "Some warnings occured, see html5-docs.log.")
+      (spit "html5-docs.log" err))))
 
