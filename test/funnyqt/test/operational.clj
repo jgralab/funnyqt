@@ -19,7 +19,11 @@
         (emf/eget m :familySon)    (emf/eget m :familyDaughter)))
 
   (defn set-person-props [p m]
-    )
+    (emf/eset! p :fullName (str (emf/eget m :firstName) " "
+                                (emf/eget (family m) :lastName)))
+    (emf/eset! p :ageGroup (emf/eenum-literal (if (>= (emf/eget m :age) 18)
+                                                'AgeGroup.ADULT
+                                                'AgeGroup.CHILD))))
 
   (defmapping member2male [m]
     (doto (emf/ecreate 'Male)

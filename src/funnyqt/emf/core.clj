@@ -122,11 +122,6 @@
             (.getEClassifiers ep))
           (epackages)))
 
-(defn eclasses
-  "The lazy seq of EClasses."
-  []
-  (filter #(instance? EClass %) (eclassifiers)))
-
 (defn eclassifier
   "Returns the eclassifier with the given `name'.
   `name' may be a simple or qualified name.  Throws an exception, if no such
@@ -148,6 +143,15 @@
                                        n (print-str classifiers)
                                        "Restrict the search space using `with-ns-uris'."))
          :else (first classifiers))))))
+
+(defn eenum-literal
+  "Returns the EEnumLiteral specified by its `qname'."
+  [qname]
+  (let [[eenum elit] (split-qname qname)
+        enum-cls (eclassifier eenum)]
+    (or (.getEEnumLiteral enum-cls elit)
+        (error (format "%s has no EEnumLiteral with name %s."
+                       (print-str enum-cls) elit)))))
 
 ;;** Model
 
@@ -743,6 +747,14 @@
                                   (seq (.getEAttributes ec))))]
                  (when (seq m)
                    (str " " m)))
+               ">")))
+
+(defmethod print-method EEnum
+  [^EEnum en ^java.io.Writer out]
+  (.write out
+          (str "#<EEnum " (qname en)
+               #_(feature-str
+                  [[(.isSerializable en) :serializable]])
                ">")))
 
 (defmethod print-method EDataType
