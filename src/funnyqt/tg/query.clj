@@ -434,7 +434,11 @@ can compute that like so:
   "Returns the vertex adjacent to `v' via `role' or `more' roles.
   If there are more than one such vertices, an exception is thrown."
   [v role & more]
-  (the (apply adjs v role more)))
+  (let [a (apply adjs v role more)]
+    (if (next a)
+      (error (format "There is more than one adjacent vertex of %s: %s"
+                     v a))
+      (first a))))
 
 ;;* Path Functions
 

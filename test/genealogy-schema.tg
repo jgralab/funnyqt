@@ -1,0 +1,16 @@
+// JGraLab - The Java graph laboratory
+//   Version : 6.1.1
+//   Codename: Falkarius
+
+TGraph 2;
+Schema de.genealogy.GenealogySchema;
+GraphClass Genealogy;
+EnumDomain AgeGroup (ADULT, CHILD);
+VertexClass Address { street: String, town: String };
+VertexClass Female: Person;
+VertexClass Male: Person;
+VertexClass Person { fullName: String, ageGroup: AgeGroup };
+EdgeClass HasChild: HasRelative from Person (0,2) role parents to Person (0,*) role children;
+EdgeClass HasRelative from Person (0,*) to Person (0,*);
+EdgeClass HasSpouse: HasRelative from Male (0,1) role husband to Female (0,1) role wife;
+EdgeClass LivesAt from Person (0,*) role persons to Address (1,1) role address;

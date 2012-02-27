@@ -51,7 +51,7 @@ functions `record' and `enum'.
 Visualization
 =============
 
-See `tgtree', `show-graph', and `dot-graph'.")
+See `tgtree', `show-graph', and `print-graph'.")
 
 ;;* Utility Functions and Macros
 
@@ -124,27 +124,27 @@ See `tgtree', `show-graph', and `dot-graph'.")
       (.setVisible true)))
 
 (declare attributed-element-class)
-(defn dot-graph
+(defn print-graph
   "Generates a visualization of `g' and saves it as `file'.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
   gif, pdf) and defaults to PDF.  If `reversed' it true, the edges will point
   upwards.  `reversed-ecs' may be a seq of type names (as symbols) for which
   edges should be vizualized with the opposite of `reversed's value."
-  [^Graph g file reversed & reversed-ecs]
-  (let [suffix (second (re-matches #".*\.([^.]+)$" file))]
+  [^Graph g ^String file reversed & reversed-ecs]
+  (let [suffix (second (re-matches #".*\.([^.]+)$" file))
+        ^GraphVizOutputFormat of (cond
+                                  (= suffix "dot")  GraphVizOutputFormat/DOT
+                                  (= suffix "xdot") GraphVizOutputFormat/XDOT
+                                  (= suffix "ps")   GraphVizOutputFormat/POSTSCRIPT
+                                  (= suffix "svg")  GraphVizOutputFormat/SVG
+                                  (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
+                                  (= suffix "png")  GraphVizOutputFormat/PNG
+                                  (= suffix "gif")  GraphVizOutputFormat/GIF
+                                  :else             GraphVizOutputFormat/PDF)
+        ary (into-array EdgeClass (map #(attributed-element-class g %)
+                                       reversed-ecs))]
     (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
-     g file reversed
-     (cond
-      (= suffix "dot")  GraphVizOutputFormat/DOT
-      (= suffix "xdot") GraphVizOutputFormat/XDOT
-      (= suffix "ps")   GraphVizOutputFormat/POSTSCRIPT
-      (= suffix "svg")  GraphVizOutputFormat/SVG
-      (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
-      (= suffix "png")  GraphVizOutputFormat/PNG
-      (= suffix "gif")  GraphVizOutputFormat/GIF
-      :else             GraphVizOutputFormat/PDF)
-     (into-array AttributedElementClass (map #(attributed-element-class g %)
-                                             reversed-ecs)))))
+     g file reversed of ary)))
 
 (defn load-schema
   "Loads a schema from `file', and possibly compile it for implementation type
@@ -729,6 +729,20 @@ See `tgtree', `show-graph', and `dot-graph'.")
   "Sets the that vertex of `i' to `v' and returns `i'."
   [^Edge i ^Vertex v]
   (doto i (.setThat v)))
+
+(defn add-adj!
+  "Creates an edge matching `role' between `v' and `adjv'."
+  ([^Vertex v role adjv]
+     (.addAdjacence v (name role) adjv))
+  ([v role adjv & more]
+     (doseq [a (cons adjv more)]
+       (add-adj! v role a))))
+
+(defn add-adjs!
+  "Creates edges matching `role' between `v' and every vertex in `adjvs'."
+  [^Vertex v role adjvs]
+  (doseq [av adjvs]
+    (add-adj! v role av)))
 
 ;;** Deletions
 
