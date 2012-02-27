@@ -9,8 +9,9 @@
    (de.uni_koblenz.jgralab Graph Vertex Edge)
    (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.schema AggregationKind Attribute
-                                  AttributedElementClass GraphClass EdgeClass
-                                  Schema VertexClass RecordDomain EnumDomain)
+                                  AttributedElementClass GraphElementClass
+                                  GraphClass EdgeClass Schema VertexClass
+                                  RecordDomain EnumDomain)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
    (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
 
@@ -209,7 +210,7 @@ transformation.
 
 (defn- merge-into-mappings
   "Merges into oldmap the new mappings for cls (an GraphElementClass)."
-  [oldmap ^AttributedElementClass cls new]
+  [oldmap ^GraphElementClass cls new]
   (let [kvs (flatten
              (map (fn [c]
                     (let [old (oldmap c)

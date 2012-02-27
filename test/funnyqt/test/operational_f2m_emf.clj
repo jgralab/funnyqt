@@ -1,4 +1,4 @@
-(ns funnyqt.test.operational
+(ns funnyqt.test.operational-f2m-emf
   (:use funnyqt.operational)
   (:use funnyqt.generic)
   (:use funnyqt.utils)

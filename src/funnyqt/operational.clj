@@ -85,8 +85,8 @@
   All helpers, mappings, and the main form have access to the `args' of the
   transformation."
    :arglists '([name doc-string? meta-map? [args] & body])}
-  [name & more]
-  (let [[name more] (m/name-with-attributes name more)
+  [tname & more]
+  (let [[tname more] (m/name-with-attributes tname more)
         args (first more)
         body (next more)]
     ;; Validate
@@ -98,14 +98,13 @@
            #(let [x (first %)]
               (and (symbol? x)
                    (re-matches #"^(?:(?:.*)/)?def(?:helper|mapping)$"
-                               ;; Why do I get a null pointer if I use (name x)?
-                               (.getName ^clojure.lang.Symbol x))))
+                               (name x))))
            body)]
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
                        (count main-form) (print-str main-form))))
       ;; Ok, here we go.
-      `(defn ~name ~(meta name)
+      `(defn ~tname ~(meta tname)
          ~args
          (letfn [~@(map macroexpand-1 mappings-and-helpers)]
            (binding [*traceability-mappings* (atom {})

@@ -4,10 +4,7 @@
   (:use funnyqt.tg.transform)
   (:use funnyqt.tg.test.core)
   (:use funnyqt.generic)
-  (:use clojure.test)
-  (:import
-   (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)
-   (de.uni_koblenz.jgralab.schema EdgeClass VertexClass EnumDomain Attribute)))
+  (:use clojure.test))
 
 (deftransformation transformation-1
   "Creates a graph with 4 vertices and 3 edges."

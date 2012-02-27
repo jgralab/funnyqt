@@ -22,7 +22,6 @@
 
 (deftest test-eclassifiers
   (with-ns-uris ["http://families/1.0"]
-    (is (== 3 (count (eclasses))))
     (is (== 3 (count (eclassifiers))))))
 
 (deftest test-eclassifier
