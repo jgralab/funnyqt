@@ -38,6 +38,8 @@
            (eenum-literal (if (>= (eget m :age) 18)
                             'AgeGroup.ADULT
                             'AgeGroup.CHILD)))
+    (eset! p :address
+           (resolve-in family2address (family m)))
     (deferred
       (eset! p :parents
              (resolve-all-in member2person (parents-of m)))))
@@ -66,12 +68,22 @@
       (member2male m)
       (member2female m)))
 
-  (defmapping familymodel2genealogy [fm]
+  (defmapping family2address [f]
+    (doto (ecreate out 'Address)
+      (eset! :street (eget f :street))
+      (eset! :town (eget f :town))))
+
+  (defmapping familymodel2genealogy []
+    (doseq [f (eallobjects in 'Family)]
+      (family2address f))
     (doto (ecreate out 'Genealogy)
       (eset! :persons (map member2person
                            (eallobjects in 'Member)))))
 
-  (familymodel2genealogy in))
+  ;; The main form
+  (do
+    (familymodel2genealogy)
+    out))
 
 (load-metamodel "test/Families.ecore")
 (load-metamodel "test/Genealogy.ecore")
@@ -82,5 +94,9 @@
   (let [gen (Families2GenealogyEMF (load-model "test/example.families")
                                    (new-model))]
     (pdf-print-model gen "genealogy.pdf")
+    (save-model gen "genealogy.xmi")
     (is gen)
-    (is (== 13 (count (eallobjects gen 'Person))))))
+    (is (== 13 (count (eallobjects gen 'Person))))
+    (is (== 7  (count (eallobjects gen 'Female))))
+    (is (== 6  (count (eallobjects gen 'Male))))
+    (is (== 3  (count (eallobjects gen 'Address))))))
