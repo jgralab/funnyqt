@@ -735,7 +735,8 @@ See `tgtree', `show-graph', and `print-graph'.")
   ([^Vertex v role adjv]
      (.addAdjacence v (name role) adjv))
   ([v role adjv & more]
-     (doseq [a (cons adjv more)]
+     (add-adj! v role adjv)
+     (doseq [a more]
        (add-adj! v role a))))
 
 (defn add-adjs!
