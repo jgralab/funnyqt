@@ -148,8 +148,8 @@
   "Returns the EEnumLiteral specified by its `qname'."
   [qname]
   (let [[eenum elit] (split-qname qname)
-        enum-cls (eclassifier eenum)]
-    (or (.getEEnumLiteral enum-cls elit)
+        ^EEnum enum-cls (eclassifier eenum)]
+    (or (.getEEnumLiteral enum-cls ^String elit)
         (error (format "%s has no EEnumLiteral with name %s."
                        (print-str enum-cls) elit)))))
 
@@ -216,6 +216,11 @@
         (.add nconts o))
       (println "Saving model to " (.toFileString uri))
       (.save nres nil))))
+
+(defn new-model
+  "Creates and returns a new, empty EMFModel."
+  []
+  (EMFModel. (ResourceImpl.)))
 
 (defn load-model
   "Loads an EMF model from the XMI file `f'.

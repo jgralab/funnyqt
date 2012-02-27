@@ -2,7 +2,9 @@
   (:use funnyqt.operational)
   (:use funnyqt.generic)
   (:use funnyqt.utils)
+  (:use clojure.test)
   (:require [funnyqt.emf.core :as emf])
+  (:require [funnyqt.emf.query :as emfq])
   (:import [funnyqt.emf.core EMFModel]))
 
 (deftransformation Families2GenealogyEMF [in out]
@@ -18,38 +20,66 @@
     (or (emf/eget m :familyFather) (emf/eget m :familyMother)
         (emf/eget m :familySon)    (emf/eget m :familyDaughter)))
 
+  (defn parents-of
+    "Returns a set of m's parents."
+    [m]
+    (emfq/reachables
+     m [emfq/p-seq
+        [emfq/p-alt :familySon :familyDaughter]
+        [emfq/p-alt :father :mother]]))
+
+  (declare member2person)
   (defn set-person-props [p m]
-    (emf/eset! p :fullName (str (emf/eget m :firstName) " "
-                                (emf/eget (family m) :lastName)))
-    (emf/eset! p :ageGroup (emf/eenum-literal (if (>= (emf/eget m :age) 18)
-                                                'AgeGroup.ADULT
-                                                'AgeGroup.CHILD))))
+    (emf/eset! p :fullName
+               (str (emf/eget m :firstName) " "
+                    (emf/eget (family m) :lastName)))
+    (emf/eset! p :ageGroup
+               (emf/eenum-literal (if (>= (emf/eget m :age) 18)
+                                    'AgeGroup.ADULT
+                                    'AgeGroup.CHILD)))
+    (deferred
+      (emf/eset! p :parents
+                 (resolve-all-in member2person (parents-of m)))))
+
+  (defn wife
+    "Returns the wife member of m."
+    [m]
+    (when-let [w (seq (emfq/reachables
+                       m [emfq/p-seq :familyFather :mother]))]
+      (the w)))
 
   (defmapping member2male [m]
-    (doto (emf/ecreate 'Male)
-      (set-person-props m)))
+    (let [male (emf/ecreate 'Male)]
+      (set-person-props male m)
+      (deferred
+        (emf/eset! male :wife
+                   (resolve-in member2person (wife m))))
+      male))
 
   (defmapping member2female [m]
     (doto (emf/ecreate 'Female)
       (set-person-props m)))
 
   (defmapping member2person [m]
-    (pr-identity (if (male? m)
-                   (member2male m)
-                   (member2female m))))
+    (if (male? m)
+      (member2male m)
+      (member2female m)))
 
-  (defmapping family-model2-genealogy [fm]
+  (defmapping familymodel2genealogy [fm]
     (doto (emf/ecreate out 'Genealogy)
       (emf/eset! :persons (map member2person
                                (emf/eallobjects in 'Member)))))
 
-  (do
-    (family-model2-genealogy in)
-    (emf/save-model out "genealogy.xmi")
-    (emf/pdf-print-model out "genealogy.pdf")))
+  (familymodel2genealogy in))
 
 (emf/load-metamodel "test/Families.ecore")
 (emf/load-metamodel "test/Genealogy.ecore")
 
-;(Families2GenealogyEMF (emf/load-model "test/example.families")
-;                       (EMFModel. (org.eclipse.emf.ecore.resource.impl.ResourceImpl.)))
+;; Run it!
+
+(deftest test-transformation
+  (let [gen (Families2GenealogyEMF (emf/load-model "test/example.families")
+                                   (emf/new-model))]
+    (emf/pdf-print-model gen "genealogy.pdf")
+    (is gen)))
+
