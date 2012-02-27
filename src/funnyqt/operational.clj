@@ -16,39 +16,36 @@
   *deferred-actions*)
 
 (defmacro defmapping
-  {:arglists '([name doc-string? attr-map? [args] & body]
-                 [name doc-string? attr-map? ([args] & body)+])}
+  {:arglists '([name [args] & body]
+                 [name ([args] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
         args (first more)
         body (next more)]
     (if (vector? args)
-      `(defn ~name
-         ~(meta name)
-         ~args
-         (let [result# (do ~@body)
-               current# (get @*mappings* ~name)]
-           (swap! *mappings* #(assoc % ~name
-                                     (assoc current#
-                                       ~(first args) result#)))
-           result#))
+      `(~name
+        ~args
+        (let [result# (do ~@body)
+              current# (get @*mappings* ~name)]
+          (swap! *mappings* #(assoc % ~name
+                                    (assoc current#
+                                      ~(first args) result#)))
+          result#))
       (error (format "Invalid defmapping form: expected arg vector but got %s."
                      args)))))
 
-#_(defmacro defmainmapping
-  {:arglists '([name doc-string? attr-map? [] & body]
-                 [name doc-string? attr-map? ([] & body)+])}
+(defmacro defhelper
+  {:arglists '([name [args] & body]
+                 [name ([args] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
-        args (first more)]
-    (if (and (vector? args) (empty? args))
-      `(if @main-mapping
-         (error (format "Main mapping already defined as %s."
-                        (:name (meta @main-mapping))))
-         (do
-           (defmapping ~name ~@more)
-           (swap! main-mapping (constantly ~name))))
-      (error (format "The main mapping must have an empty args vector but got %s."
+        args (first more)
+        body (next more)]
+    (if (vector? args)
+      `(~name
+        ~args
+        ~@body)
+      (error (format "Invalid defhelper form: expected arg vector but got %s."
                      args)))))
 
 (defmacro deferred
@@ -70,15 +67,15 @@
 ;; TODO: Revamp to use name-with-attributes
 (defmacro deftransformation [name args & mappings]
   `(defn ~name ~args
-     ~@(butlast mappings)
-     (binding [*mappings* (atom {})
-               *deferred-actions* (atom [])]
-       ~(last mappings)
-       (doseq [da# @*deferred-actions*]
-         (da#))
-       ~(last args)
-       ;; TODO: remove debugging code.
-       ;;(clojure.pprint/pprint @*mappings*)
-       )))
+     (letfn [~@(map macroexpand-1 (butlast mappings))]
+       (binding [*mappings* (atom {})
+                 *deferred-actions* (atom [])]
+         ~(last mappings)
+         (doseq [da# @*deferred-actions*]
+           (da#))
+         ~(last args)
+         ;; TODO: remove debugging code.
+         ;;(clojure.pprint/pprint @*mappings*)
+         ))))
 
 

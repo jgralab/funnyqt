@@ -3,61 +3,62 @@
   (:use funnyqt.generic)
   (:use funnyqt.utils)
   (:use clojure.test)
-  (:require [funnyqt.emf.core :as emf])
-  (:require [funnyqt.emf.query :as emfq])
+  (:use funnyqt.emf.core)
+  (:use funnyqt.emf.query)
   (:import [funnyqt.emf.core EMFModel]))
 
 (deftransformation Families2GenealogyEMF [in out]
-  (defn male?
-    "A member m is male if he's a father or a son of some family."
+  (defhelper family
+    "Returns the main family of member m."
     [m]
-    (or (emf/eget m :familyFather)
-        (emf/eget m :familySon)))
+    (or (eget m :familyFather) (eget m :familyMother)
+        (eget m :familySon)    (eget m :familyDaughter)))
 
-  (defn family
-    "Gets the main family of m."
+  (defhelper male?
+    "Returns true, iff member m is male."
     [m]
-    (or (emf/eget m :familyFather) (emf/eget m :familyMother)
-        (emf/eget m :familySon)    (emf/eget m :familyDaughter)))
+    (or (eget m :familyFather)
+        (eget m :familySon)))
 
-  (defn parents-of
-    "Returns a set of m's parents."
+  (defhelper parents-of
+    "Returns the set of parent members of m."
     [m]
-    (emfq/reachables
-     m [emfq/p-seq
-        [emfq/p-alt :familySon :familyDaughter]
-        [emfq/p-alt :father :mother]]))
+    (reachables
+     m [p-seq
+        [p-alt :familySon :familyDaughter]
+        [p-alt :father :mother]]))
 
-  (declare member2person)
-  (defn set-person-props [p m]
-    (emf/eset! p :fullName
-               (str (emf/eget m :firstName) " "
-                    (emf/eget (family m) :lastName)))
-    (emf/eset! p :ageGroup
-               (emf/eenum-literal (if (>= (emf/eget m :age) 18)
-                                    'AgeGroup.ADULT
-                                    'AgeGroup.CHILD)))
+  (defhelper set-person-props
+    "Sets the person p's attributes according to its source member m."
+    [p m]
+    (eset! p :fullName
+           (str (eget m :firstName) " "
+                (eget (family m) :lastName)))
+    (eset! p :ageGroup
+           (eenum-literal (if (>= (eget m :age) 18)
+                            'AgeGroup.ADULT
+                            'AgeGroup.CHILD)))
     (deferred
-      (emf/eset! p :parents
-                 (resolve-all-in member2person (parents-of m)))))
+      (eset! p :parents
+             (resolve-all-in member2person (parents-of m)))))
 
-  (defn wife
-    "Returns the wife member of m."
+  (defhelper wife
+    "Returns the wife member of member m."
     [m]
-    (when-let [w (seq (emfq/reachables
-                       m [emfq/p-seq :familyFather :mother]))]
+    (when-let [w (seq (reachables
+                       m [p-seq :familyFather :mother]))]
       (the w)))
 
   (defmapping member2male [m]
-    (let [male (emf/ecreate 'Male)]
+    (let [male (ecreate 'Male)]
       (set-person-props male m)
       (deferred
-        (emf/eset! male :wife
-                   (resolve-in member2person (wife m))))
+        (eset! male :wife
+               (resolve-in member2person (wife m))))
       male))
 
   (defmapping member2female [m]
-    (doto (emf/ecreate 'Female)
+    (doto (ecreate 'Female)
       (set-person-props m)))
 
   (defmapping member2person [m]
@@ -66,20 +67,20 @@
       (member2female m)))
 
   (defmapping familymodel2genealogy [fm]
-    (doto (emf/ecreate out 'Genealogy)
-      (emf/eset! :persons (map member2person
-                               (emf/eallobjects in 'Member)))))
+    (doto (ecreate out 'Genealogy)
+      (eset! :persons (map member2person
+                           (eallobjects in 'Member)))))
 
   (familymodel2genealogy in))
 
-(emf/load-metamodel "test/Families.ecore")
-(emf/load-metamodel "test/Genealogy.ecore")
+(load-metamodel "test/Families.ecore")
+(load-metamodel "test/Genealogy.ecore")
 
 ;; Run it!
 
 (deftest test-transformation
-  (let [gen (Families2GenealogyEMF (emf/load-model "test/example.families")
-                                   (emf/new-model))]
-    (emf/pdf-print-model gen "genealogy.pdf")
-    (is gen)))
-
+  (let [gen (Families2GenealogyEMF (load-model "test/example.families")
+                                   (new-model))]
+    (pdf-print-model gen "genealogy.pdf")
+    (is gen)
+    (is (== 13 (count (eallobjects gen 'Person))))))
