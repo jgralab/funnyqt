@@ -561,6 +561,8 @@
         (.add el (clj2emf item)))
       el))
   java.lang.Object
+  (clj2emf [this] this)
+  nil
   (clj2emf [this] this))
 
 (defn eget-raw
@@ -686,11 +688,14 @@
 (defn ecreate
   "Creates an EObject of EClass `ecls'.
   `ecls' may be either an EClass or just an EClass name given as symbol,
-  string, or keyword."
-  [ecls]
-  (EcoreUtil/create (if (instance? EClass ecls)
-                      ecls
-                      (eclassifier ecls))))
+  string, or keyword.  If a `model' is provided, then add the new EObject to
+  it."
+  ([ecls]
+     (EcoreUtil/create (if (instance? EClass ecls)
+                         ecls
+                         (eclassifier ecls))))
+  ([model ecls]
+     (add-eobject model (ecreate ecls))))
 
 ;;*** EObject Deletion
 
