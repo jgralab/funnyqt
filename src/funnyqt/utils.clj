@@ -105,8 +105,8 @@
   ([x]
      (clojure.pprint/pprint x)
      x)
-  ([x title]
-     (println title)
+  ([title x]
+     (print title)
      (pr-identity x)))
 
 ;;** Compilation

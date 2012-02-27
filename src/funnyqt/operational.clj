@@ -58,6 +58,8 @@
     `(~name ~@more)))
 
 (defmacro deferred
+  "Captures a thunk (closure) that evaluates `body' as the last step of the
+  transformation."
   [& body]
   `(swap! *deferred-actions* conj (fn [] ~@body)))
 
@@ -73,9 +75,15 @@
         (map #(resolve-in mapping %)
              objs)))
 
-;; TODO: Revamp to use name-with-attributes
 (defmacro deftransformation
-  {:doc "Defines and operational transformation."
+  {:doc "Defines and operational transformation named `name' with optional
+  `doc-string?', optional `meta-map?, a mandatory `args' vector, and a `body'.
+  The `body' must consist of arbitrary `defmapping' and `defhelper' forms, and
+  exactly one other form, the main entry point of the transformation.  This
+  form is evaluated when the transformation is called.
+
+  All helpers, mappings, and the main form have access to the `args' of the
+  transformation."
    :arglists '([name doc-string? meta-map? [args] & body])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
@@ -85,16 +93,20 @@
     (when-not (vector? args)
       (error (format "No args vector specified for transformation %s."
                      args)))
-    (let [[mappings-and-helpers main-form] ((juxt filter remove)
-                                            #(let [x (first %)]
-                                               (or (= x 'defhelper)
-                                                   (= x 'defmapping)))
-                                            body)]
+    (let [[mappings-and-helpers main-form]
+          ((juxt filter remove)
+           #(let [x (first %)]
+              (and (symbol? x)
+                   (re-matches #"^(?:(?:.*)/)?def(?:helper|mapping)$"
+                               ;; Why do I get a null pointer if I use (name x)?
+                               (.getName ^clojure.lang.Symbol x))))
+           body)]
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
                        (count main-form) (print-str main-form))))
       ;; Ok, here we go.
-      `(defn ~name ~args
+      `(defn ~name ~(meta name)
+         ~args
          (letfn [~@(map macroexpand-1 mappings-and-helpers)]
            (binding [*traceability-mappings* (atom {})
                      *deferred-actions* (atom [])]
@@ -102,5 +114,4 @@
                (doseq [da# @*deferred-actions*]
                  (da#))
                r#)))))))
-
 
