@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="mutualexclusion"
+    nsURI="http://mutualexclusion/1.0" nsPrefix="mutualexclusion">
+  <eClassifiers xsi:type="ecore:EClass" name="Process">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="next" eType="#//Process"
+        eOpposite="#//Process/prev"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="prev" eType="#//Process"
+        eOpposite="#//Process/next"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="blocked_by" upperBound="-1"
+        eType="#//Resource" eOpposite="#//Resource/blocked"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="released" upperBound="-1"
+        eType="#//Resource" eOpposite="#//Resource/releaser"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="held" upperBound="-1" eType="#//Resource"
+        eOpposite="#//Resource/holder"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="requested" upperBound="-1"
+        eType="#//Resource" eOpposite="#//Resource/requester"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="tokens" upperBound="-1"
+        eType="#//Resource" eOpposite="#//Resource/taker"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Resource">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="blocked" upperBound="-1"
+        eType="#//Process" eOpposite="#//Process/blocked_by"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="releaser" eType="#//Process"
+        eOpposite="#//Process/released"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="holder" eType="#//Process"
+        eOpposite="#//Process/held"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="requester" upperBound="-1"
+        eType="#//Process" eOpposite="#//Process/requested"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="taker" eType="#//Process"
+        eOpposite="#//Process/tokens"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="System">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="processes" upperBound="-1"
+        eType="#//Process" containment="true"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="resources" upperBound="-1"
+        eType="#//Resource" containment="true"/>
+  </eClassifiers>
+</ecore:EPackage>
