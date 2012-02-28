@@ -90,4 +90,9 @@
         out-schema (load-schema "test/input/genealogy-schema.tg")
         gen (families2genealogy-tg in (create-graph out-schema))]
     (save-graph gen "test/output/families2genealogy-tg.tg")
-    (print-graph gen "test/output/families2genealogy-tg.pdf" false)))
+    (print-graph gen "test/output/families2genealogy-tg.pdf" false)
+    (is gen)
+    (is (== 13 (count (vseq gen 'Person))))
+    (is (== 7  (count (vseq gen 'Female))))
+    (is (== 6  (count (vseq gen 'Male))))
+    (is (== 3  (count (vseq gen 'Address))))))
