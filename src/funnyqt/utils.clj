@@ -114,7 +114,7 @@
 (defmacro timing
   "TODO"
   [fmt expr & args]
-  nil)
+  )
 
 ;;** Compilation
 
