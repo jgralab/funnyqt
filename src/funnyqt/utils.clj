@@ -1,6 +1,7 @@
 (ns funnyqt.utils
   "Generic utility functions."
   (:require clojure.pprint)
+  (:require [clojure.string :as str])
   (:use ordered.set))
 
 (defprotocol OrderedSetConvertible
@@ -111,10 +112,50 @@
 
 ;;** Timing
 
-;; (defmacro timing
-;;   "TODO"
-;;   [fmt expr & args]
-;;   )
+(defn time-str
+  "Converts a time value `in' in nanoseconds to a string \"<time> <unit>\".
+  Valid units are :nano, :micro, :milli, :sec, and :auto meaning to convert to
+  a unit in which there are at most 4 digits before the decimal separator."
+  [in unit]
+  (case unit
+    :nano  (str in " ns")
+    :micro (str (double (/ in 1000)) " µs")
+    :milli (str (double (/ in 1000000)) " ms")
+    :sec   (str (double (/ in 1000000000)) " s")
+    :auto (cond
+           (> in (Math/pow 10 9)) (time-str in :sec)
+           (> in (Math/pow 10 6)) (time-str in :milli)
+           (> in (Math/pow 10 3)) (time-str in :micro)
+           :else (time-str in :nano))))
+
+(defmacro timing
+  "Times the execution of `form' and returns its result.
+  Additionally, prints (format fmt args), where two new formatters are
+  available:
+
+    %T: the timing information with an appropriate unit
+    %T(nano|micro|milli|sec): forces the given unit
+    %R: the result of evaluating `expr'
+    %F: the input form that is timed
+
+  Example:
+
+    user> (timing \"%s It took %T to eval %F to %R.\" (take 10 (iterate inc 0)) \";\")
+    ; It took 0.031708 msecs to eval (take 10 (iterate inc 0)) to (0 1 2 3 4 5 6 7 8 9).
+    (0 1 2 3 4 5 6 7 8 9)"
+  [fmt form & args]
+  (let [unit (second (re-matches #".*%T([^ ]*).*" fmt))]
+    `(let [st# (System/nanoTime)
+           result# ~form
+           et# (- (System/nanoTime) st#)]
+       (println (format (-> ~fmt
+                            (str/replace #"%T[^ ]*" (time-str et# ~(if unit
+                                                                     (keyword unit)
+                                                                     :auto)))
+                            (str/replace "%R" (print-str result#))
+                            (str/replace "%F" (print-str (quote ~form))))
+                        ~@args))
+       result#)))
 
 ;;** Compilation
 
