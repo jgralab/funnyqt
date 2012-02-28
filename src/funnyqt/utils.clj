@@ -111,10 +111,10 @@
 
 ;;** Timing
 
-(defmacro timing
-  "TODO"
-  [fmt expr & args]
-  )
+;; (defmacro timing
+;;   "TODO"
+;;   [fmt expr & args]
+;;   )
 
 ;;** Compilation
 

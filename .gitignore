@@ -6,7 +6,7 @@ lib/
 classes/
 docs/
 pom.xml
-html5-docs.out
+html5-docs.log
 funnyqt-?.?.?.jar
 hs_err_pid*.log
 test/output/*

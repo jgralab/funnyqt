@@ -8,6 +8,12 @@ going to support) TGraph and EMF models.
 The FunnyQT API docs are
 [here](http://userpages.uni-koblenz.de/~horn/funnyqt-docs/).
 
+## IRC Channel
+
+Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
+(channel `#jgralab` on `irc.freenode.net`).
+
+
 ## Installation and Building
 
 FunnyQT uses [Leiningen](https://github.com/technomancy/leiningen) for
