@@ -7,10 +7,8 @@
 
 ;;* The test graphs
 
-(def rg (memoize #(load-graph "test/greqltestgraph.tg")))
-(def jg (memoize #(load-graph "test/medium-model.tg")))
-(def gbjg (memoize #(load-graph "test/apache_ant_modified.tg.gz")))
-(def mg (memoize #(load-graph "test/foo.tg")))
+(def rg (memoize #(load-graph "test/input/greqltestgraph.tg")))
+(def jg (memoize #(load-graph "test/input/medium-model.tg")))
 
 ;;* Tests
 

@@ -207,7 +207,10 @@
 
 (deftest test-families-to-genealogy
   (let [tg (families-to-genealogy
-            (load-graph "test/familygraph.tg")
+            (load-graph "test/input/familygraph.tg")
             '[de.genealogy.GenealogySchema Genealogy])]
-    (save-graph tg "test/genealogy.tg")))
+    (is (== 13 (count (vseq tg 'Person))))
+    (is (==  6 (count (vseq tg 'Male))))
+    (is (==  7 (count (vseq tg 'Female))))
+    (is (==  3 (count (vseq tg 'Address))))))
 

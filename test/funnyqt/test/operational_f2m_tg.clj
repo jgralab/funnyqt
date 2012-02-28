@@ -86,8 +86,8 @@
 ;; Run it!
 
 (deftest test-transformation
-  (let [in (load-graph "test/familygraph.tg")
-        out-schema (load-schema "test/genealogy-schema.tg")
+  (let [in (load-graph "test/input/familygraph.tg")
+        out-schema (load-schema "test/input/genealogy-schema.tg")
         gen (Families2GenealogyTG in (create-graph out-schema))]
-    (save-graph gen "genealogy.tg")
-    (print-graph gen "genealogy-tg.pdf" false)))
+    (save-graph gen "test/output/Families2GenealogyTG.tg")
+    (print-graph gen "test/output/Families2GenealogyTG.pdf" false)))

@@ -284,7 +284,7 @@
   (memoize
    #(let [g (create-graph
              (load-schema
-              "test/binop-tree-schema.tg" :standard)
+              "test/input/binop-tree-schema.tg" :standard)
              "ExampleBinaryGraph" :standard)
           v1 (create-vertex! g 'Div)
           v2 (create-vertex! g 'Add)

@@ -121,7 +121,7 @@ transformation.
   ;; Run the transformation
   (deftest test-families-to-genealogy
     (let [tg (families-to-genealogy
-              (load-graph \"test/familygraph.tg\")
+              (load-graph \"test/input/familygraph.tg\")
               '[de.genealogy.GenealogySchema Genealogy])]
       (save-graph tg \"test/genealogy.tg\")))")
 

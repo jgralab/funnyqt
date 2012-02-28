@@ -90,8 +90,8 @@
     ;; Evaluate binaries with 2 constants
     (iteratively replace-binary g start-block)))
 
-(def firm1 (memoize #(load-graph "test/firm_small_46.tg" ImplementationType/STANDARD)))
-(def firm2 (memoize #(load-graph "test/firm_medium_1248803056.tg" ImplementationType/STANDARD)))
+(def firm1 (memoize #(load-graph "test/input/firm_small_46.tg" ImplementationType/STANDARD)))
+(def firm2 (memoize #(load-graph "test/input/firm_medium_1248803056.tg" ImplementationType/STANDARD)))
 
 (deftest constant-folding-1
   (let [g (firm1)]
@@ -100,8 +100,7 @@
     (is (= 16 (+ (vcount g) (ecount g))))
     (is (=  7 (vcount g)))
     (is (=  1 (vcount g 'Const)))
-    (is (= 46 (value (the (vseq g 'Const)) :value)))
-    (save-graph g "test/firm_small-after-opt.tg")))
+    (is (= 46 (value (the (vseq g 'Const)) :value)))))
 
 (deftest constant-folding-2
   (let [g (firm2)]
@@ -110,6 +109,5 @@
     (is (= 16 (+ (vcount g) (ecount g))))
     (is (=  7 (vcount g)))
     (is (=  1 (vcount g 'Const)))
-    (is (= 1248803056 (value (the (vseq g 'Const)) :value)))
-    (save-graph g "test/firm_medium-after-opt.tg")))
+    (is (= 1248803056 (value (the (vseq g 'Const)) :value)))))
 

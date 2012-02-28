@@ -11,14 +11,14 @@
    [org.eclipse.emf.ecore EPackage EObject EModelElement]))
 
 (deftest test-load-metamodel
-  (let [mm (load-metamodel "test/Families.ecore")]
+  (let [mm (load-metamodel "test/input/Families.ecore")]
     (is (instance? funnyqt.emf.core.EcoreModel mm))
     ;; Restricting to our custom one by its nsURI...
     (with-ns-uris ["http://families/1.0"]
       (is (== 1 (count (epackages)))))))
 
-(def family-mm (load-metamodel "test/Families.ecore"))
-(def family-model (load-model "test/example.families"))
+(def family-mm (load-metamodel "test/input/Families.ecore"))
+(def family-model (load-model "test/input/example.families"))
 
 (deftest test-eclassifiers
   (with-ns-uris ["http://families/1.0"]

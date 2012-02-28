@@ -85,16 +85,16 @@
     (familymodel2genealogy)
     out))
 
-(load-metamodel "test/Families.ecore")
-(load-metamodel "test/Genealogy.ecore")
+(load-metamodel "test/input/Families.ecore")
+(load-metamodel "test/input/Genealogy.ecore")
 
 ;; Run it!
 
 (deftest test-transformation
-  (let [gen (Families2GenealogyEMF (load-model "test/example.families")
+  (let [gen (Families2GenealogyEMF (load-model "test/input/example.families")
                                    (new-model))]
-    (pdf-print-model gen "genealogy.pdf")
-    (save-model gen "genealogy.xmi")
+    (pdf-print-model gen "test/output/Families2GenealogyEMF.pdf")
+    (save-model gen "test/output/Families2GenealogyEMF.xmi")
     (is gen)
     (is (== 13 (count (eallobjects gen 'Person))))
     (is (== 7  (count (eallobjects gen 'Female))))

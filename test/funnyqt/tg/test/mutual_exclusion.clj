@@ -168,7 +168,7 @@
   "Returns an initial graph for the STS.
   Two Processes connected in a ring by two Next edges."
   [variant]
-  (let [g (create-graph (load-schema "test/mutual-exclusion.tg" variant)
+  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg" variant)
                         "Short transformation sequence."
                         variant)
         p1 (create-vertex! g 'Process)
@@ -241,7 +241,7 @@
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
   [n variant]
-  (let [g (create-graph (load-schema "test/mutual-exclusion.tg" variant)
+  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg" variant)
                         (str "Long transformation sequence, N =" n)
                         variant)]
     (loop [i n, lp nil]

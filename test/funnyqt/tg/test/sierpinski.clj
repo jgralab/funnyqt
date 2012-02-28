@@ -11,7 +11,7 @@
 (defn sierpinski-init
   "Returns a sierpienki triangle."
   [vc ec variant]
-  (let [g (create-graph (load-schema "test/sierpinski.tg" variant)
+  (let [g (create-graph (load-schema "test/input/sierpinski-schema.tg" variant)
                         "Sierpinski" variant)
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)

@@ -52,7 +52,7 @@
 (defn bin-tree
   []
   (let [g (create-graph
-           (load-schema "test/binop-tree-schema.tg" :standard)
+           (load-schema "test/input/binop-tree-schema.tg" :standard)
            "ExampleBinaryGraphFunML" :standard)
         v1 (create-vertex! g 'Div)
         v2 (create-vertex! g 'Add)

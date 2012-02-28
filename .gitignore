@@ -6,9 +6,7 @@ lib/
 classes/
 docs/
 pom.xml
-gen-docs.out
-test/firm_medium-after-opt.tg
-test/firm_small-after-opt.tg
-test/genealogy.tg
+html5-docs.out
 funnyqt-?.?.?.jar
 hs_err_pid*.log
+test/output/*
