@@ -214,7 +214,7 @@
           nconts (.getContents nres)]
       (doseq [o (EcoreUtil/copyAll (.getContents resource))]
         (.add nconts o))
-      (println "Saving model to " (.toFileString uri))
+      (println "Saving model to" (.toFileString uri))
       (.save nres nil))))
 
 (defn new-model
@@ -692,7 +692,7 @@
     (str "digraph " (:name (meta opts)) " {"
          (apply str (interpose
                      ", "
-                     (for [[k v] (dot-options [:foo "bar" ])]
+                     (for [[k v] opts]
                        (str (name k) "=" v))))
          ";\n\n"
          (reduce str
@@ -707,9 +707,12 @@
 (defn print-model
   "Prints a visualization of EMFModel `m' to the file `f'.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
-  gif, pdf) and defaults to PDF.  Additional `opts' may be specified.  Those
-  are usually DOT Graph Attributes (http://www.graphviz.org/content/attrs),
-  e.g.,
+  gif, pdf) and defaults to PDF.  The extension `gtk' has a special meaning: in
+  that case, no file is actually printed, but instead a GTK+ window showing the
+  model is created.
+
+  Additional `opts' may be specified.  Those are usually DOT Graph
+  Attributes (http://www.graphviz.org/content/attrs), e.g.,
 
     (print-model m \"test.pdf\" :ranksep 2.2)
 
@@ -721,15 +724,16 @@
   The :name must be a valid DOT ID."
   [m f & opts]
   (let [ds (dot-model m opts)
-        suffix (second (re-matches #\".*\\.([^.]+)$\" f))
-        r (clojure.java.shell/sh \"dot\"
-                                 ;; Fallback to pdf on unknown extensions.
-                                 (get #{\"dot\" \"xdot\" \"ps\" \"svg\" \"svgz\" \"png\" \"gif\" \"pdf\"}
-                                      suffix \"pdf\")
-                                 \"-o\" f
-                                 :in ds)]
-    (when-not (zero? (:exit r))
-      (error (format \"Dotting failed: %s\" (:err r)))))")
+        suffix (second (re-matches #".*\.([^.]+)$" f))
+        ;; Fallback to pdf on unknown extensions.
+        lang (get #{"dot" "xdot" "ps" "svg" "svgz" "png" "gif" "pdf" "eps" "gtk"}
+                  suffix "pdf")]
+    (if (= lang "gtk")
+      (println "Showing model in a GTK+ window.")
+      (println "Printing model to" f))
+    (let [r (clojure.java.shell/sh "dot" (str "-T" lang) "-o" f :in ds)]
+      (when-not (zero? (:exit r))
+        (error (format "Dotting failed: %s" (:err r)))))))
 
 ;;*** EObject Creation
 
