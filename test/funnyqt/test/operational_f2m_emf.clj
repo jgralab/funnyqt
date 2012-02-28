@@ -7,7 +7,7 @@
   (:use funnyqt.emf.query)
   (:import [funnyqt.emf.core EMFModel]))
 
-(deftransformation Families2GenealogyEMF [in out]
+(deftransformation families2genealogy-emf [in out]
   (defhelper family
     "Returns the main family of member m."
     [m]
@@ -91,10 +91,10 @@
 ;; Run it!
 
 (deftest test-transformation
-  (let [gen (Families2GenealogyEMF (load-model "test/input/example.families")
+  (let [gen (families2genealogy-emf (load-model "test/input/example.families")
                                    (new-model))]
-    (pdf-print-model gen "test/output/Families2GenealogyEMF.pdf")
-    (save-model gen "test/output/Families2GenealogyEMF.xmi")
+    (print-model gen "test/output/families2genealogy-emf.pdf")
+    (save-model gen "test/output/families2genealogy-emf.xmi")
     (is gen)
     (is (== 13 (count (eallobjects gen 'Person))))
     (is (== 7  (count (eallobjects gen 'Female))))

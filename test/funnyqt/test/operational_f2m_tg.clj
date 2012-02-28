@@ -6,7 +6,7 @@
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query))
 
-(deftransformation Families2GenealogyTG [in out]
+(deftransformation families2genealogy-tg [in out]
   (defhelper family
     "Returns the main family of member m."
     [m]
@@ -88,6 +88,6 @@
 (deftest test-transformation
   (let [in (load-graph "test/input/familygraph.tg")
         out-schema (load-schema "test/input/genealogy-schema.tg")
-        gen (Families2GenealogyTG in (create-graph out-schema))]
-    (save-graph gen "test/output/Families2GenealogyTG.tg")
-    (print-graph gen "test/output/Families2GenealogyTG.pdf" false)))
+        gen (families2genealogy-tg in (create-graph out-schema))]
+    (save-graph gen "test/output/families2genealogy-tg.tg")
+    (print-graph gen "test/output/families2genealogy-tg.pdf" false)))

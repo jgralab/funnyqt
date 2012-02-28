@@ -673,24 +673,63 @@
   (str (dot-content-refs eo)
        (dot-cross-refs eo)))
 
-(defn- dot-model [m]
-  (str "digraph EMFModel {"
-       "  ranksep = \"1.2\";\n\n"
-       (reduce str
-               (map dot-eobject
-                    (eallobjects m)))
-       (binding [*done-refs* (atom #{})]
-         (reduce str
-                 (map dot-ereferences
-                      (eallobjects m))))
-       "}"))
+(defn- dot-options [opts]
+  (letfn [(update [m k v]
+            (if (get m k)
+              m
+              (assoc m k v)))]
+    (let [m (apply hash-map opts)
+          gname (or (:name m) "EMFModel")
+          ;; :name is special and no DOT attr, so remove it
+          m (dissoc m :name)
+          ;; Add default values
+          m (update m :ranksep 1.5)]
+      (with-meta m
+        {:name gname}))))
 
-(defn pdf-print-model [m f]
-  (let [ds (dot-model m)
-        r (clojure.java.shell/sh "dot" "-Tpdf" "-o" f
+(defn- dot-model [m opts]
+  (let [opts (dot-options opts)]
+    (str "digraph " (:name (meta opts)) " {"
+         (apply str (interpose
+                     ", "
+                     (for [[k v] (dot-options [:foo "bar" ])]
+                       (str (name k) "=" v))))
+         ";\n\n"
+         (reduce str
+                 (map dot-eobject
+                      (eallobjects m)))
+         (binding [*done-refs* (atom #{})]
+           (reduce str
+                   (map dot-ereferences
+                        (eallobjects m))))
+         "}")))
+
+(defn print-model
+  "Prints a visualization of EMFModel `m' to the file `f'.
+  The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
+  gif, pdf) and defaults to PDF.  Additional `opts' may be specified.  Those
+  are usually DOT Graph Attributes (http://www.graphviz.org/content/attrs),
+  e.g.,
+
+    (print-model m \"test.pdf\" :ranksep 2.2)
+
+  Additionally, the non-DOT :name option may be used to give a name to the
+  model, which affecs the title of the generated PDF for example:
+
+    (print-model m \"test.pdf\" :ranksep 2.2 :name \"MyModel\")
+
+  The :name must be a valid DOT ID."
+  [m f & opts]
+  (let [ds (dot-model m opts)
+        suffix (second (re-matches #\".*\\.([^.]+)$\" f))
+        r (clojure.java.shell/sh \"dot\"
+                                 ;; Fallback to pdf on unknown extensions.
+                                 (get #{\"dot\" \"xdot\" \"ps\" \"svg\" \"svgz\" \"png\" \"gif\" \"pdf\"}
+                                      suffix \"pdf\")
+                                 \"-o\" f
                                  :in ds)]
     (when-not (zero? (:exit r))
-      (error (format "Dotting failed: %s" (:err r))))))
+      (error (format \"Dotting failed: %s\" (:err r)))))")
 
 ;;*** EObject Creation
 
