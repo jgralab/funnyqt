@@ -11,7 +11,9 @@ The FunnyQT API docs are
 ## IRC Channel
 
 Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
-(channel `#jgralab` on `irc.freenode.net`).
+(channel `#jgralab` on `irc.freenode.net`).  If you don't have or don't want to
+install an IRC client, you can also
+[chat directly in your browser](http://webchat.freenode.net/?channels=jgralab).
 
 
 ## Installation and Building
