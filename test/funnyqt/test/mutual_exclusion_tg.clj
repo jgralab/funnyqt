@@ -1,4 +1,4 @@
-(ns funnyqt.tg.test.mutual-exclusion
+(ns funnyqt.test.mutual-exclusion-tg
   (:use funnyqt.tg.core)
   (:use funnyqt.generic-protocols)
   (:use funnyqt.match-replace)
@@ -167,10 +167,9 @@
 (defn g-sts
   "Returns an initial graph for the STS.
   Two Processes connected in a ring by two Next edges."
-  [variant]
-  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg" variant)
-                        "Short transformation sequence."
-                        variant)
+  []
+  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
+                        "Short transformation sequence.")
         p1 (create-vertex! g 'Process)
         p2 (create-vertex! g 'Process)]
     (create-edge! 'Next p1 p2)
@@ -240,10 +239,9 @@
   n processes and n resources.
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
-  [n variant]
-  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg" variant)
-                        (str "Long transformation sequence, N =" n)
-                        variant)]
+  [n]
+  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
+                        (str "Long transformation sequence, N =" n))]
     (loop [i n, lp nil]
       (if (pos? i)
         (let [r (create-vertex! g 'Resource)
@@ -262,46 +260,36 @@
   (println)
   (println "Mutual Exclusion STS")
   (println "====================")
-  (doseq [variant [:generic :standard]]
-    (doseq [n [5, 100, 1000]]
-      (let [g1 (g-sts variant)
-            g2 (g-sts variant)]
-        (print "Impl Type:"
-               (if (instance? de.uni_koblenz.jgralab.impl.generic.GenericGraphImpl g1)
-                 "GENERIC, "
-                 "STANDARD, "))
-        (println "N =" n)
-        (print "  without parameter passing:\t")
-        (time (apply-mutual-exclusion-sts g1 n false))
-        (is (= (inc n) (vcount g1)))
-        (is (= (inc n) (ecount g1)))
+  (doseq [n [5, 100, 1000]]
+    (let [g1 (g-sts)
+          g2 (g-sts)]
+      (println "N =" n)
+      (print "  without parameter passing:\t")
+      (time (apply-mutual-exclusion-sts g1 n false))
+      (is (= (inc n) (vcount g1)))
+      (is (= (inc n) (ecount g1)))
 
-        (print "  with parameter passing:\t")
-        (time (apply-mutual-exclusion-sts g2 n true))
-        (is (= (inc n) (vcount g2)))
-        (is (= (inc n) (ecount g2)))))))
+      (print "  with parameter passing:\t")
+      (time (apply-mutual-exclusion-sts g2 n true))
+      (is (= (inc n) (vcount g2)))
+      (is (= (inc n) (ecount g2))))))
 
 (deftest mutual-exclusion-lts
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
-  (doseq [variant [:generic :standard]]
-    (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
-      (let [g1 (g-lts n variant)
-            vc (vcount g1)
-            ec (ecount g1)
-            g2 (g-lts n variant)]
-        (print "Impl Type:"
-               (if (instance? de.uni_koblenz.jgralab.impl.generic.GenericGraphImpl g1)
-                 "GENERIC, "
-                 "STANDARD, "))
-        (println "N =" n ", R =" r)
-        (print "  without parameter passing:\t")
-        (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
-        (is (= vc (vcount g1)))
-        (is (= ec (ecount g1)))
+  (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
+    (let [g1 (g-lts n)
+          vc (vcount g1)
+          ec (ecount g1)
+          g2 (g-lts n)]
+      (println "N =" n ", R =" r)
+      (print "  without parameter passing:\t")
+      (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
+      (is (= vc (vcount g1)))
+      (is (= ec (ecount g1)))
 
-        (print "  with parameter passing:\t")
-        (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
-        (is (= vc (vcount g2)))
-        (is (= ec (ecount g2)))))))
+      (print "  with parameter passing:\t")
+      (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
+      (is (= vc (vcount g2)))
+      (is (= ec (ecount g2))))))
