@@ -88,7 +88,8 @@
 (deftest test-transformation
   (let [in (load-graph "test/input/familygraph.tg")
         out-schema (load-schema "test/input/genealogy-schema.tg")
-        gen (families2genealogy-tg in (create-graph out-schema))]
+        ng (create-graph out-schema)
+        gen (time (families2genealogy-tg in ng))]
     (save-graph gen "test/output/families2genealogy-tg.tg")
     (print-graph gen "test/output/families2genealogy-tg.pdf" false)
     (is gen)
