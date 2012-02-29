@@ -163,43 +163,30 @@
 
 ;;** Long Transformation Sequence
 
-(comment
 (defrule request-star-rule
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [sys] [r1 (econtents sys 'Resource)
-       h1 (iseq r1 'HeldBy :out)
-       :let [p1 (omega h1)]
-       n  (iseq p1 'Next :in)
-       :let [p2 (alpha n)]
-       h2 (iseq p2 'HeldBy :in)
-       :let [r2 (alpha h2)]
-       :when (not= r1 r2)
-       :when (empty? (filter #(= p1 (alpha %))
-                             (iseq r2 'Request :in)))]
-  (create-edge! 'Request p1 r2))
+         :let [p1 (eget r1 :holder)
+               p2 (eget p1 :next)]
+         r2 (eget p2 :held)
+         :when (not= r1 r2)
+         :when (not (member? p1) (eget r2 :requesters))]
+  (eadd! p1 :requested r2))
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([sys] [p2 (econtents sys 'Process)
-        h2 (iseq p2 'HeldBy :in)
-        :let [r2 (alpha h2)]
-        h1 (iseq p2 'HeldBy :in)
-        :let [r1 (alpha h1)]
-        rq (iseq r1 'Request :in)
-        :let [p1 (alpha rq)]
-        :when (and (not= r1 r2) (not= p1 p2))]
-     (release-star-rule sys r2 h2 p2 h1 r1 rq p1))
-  ([sys r2 h2 p2] [h1 (iseq p2 'HeldBy :in)
-                 :let [r1 (alpha h1)]
-                 rq (iseq r1 'Request :in)
-                 :let [p1 (alpha rq)]
-                 :when (and (not= r1 r2) (not= p1 p2))]
-     (release-star-rule sys r2 h2 p2 h1 r1 rq p1))
-  ([sys r2 h2 p2 h1 r1 rq p1]
-     (delete! h1)
-     (create-edge! 'Release r1 p2)))
+  ([sys] [r2 (econtents sys 'Resource)
+          :let [p2 (eget r2 :holder)]
+          r1 (eget :held p2)
+          :when (not= r1 r2)
+          p1 (eget r1 :requested)
+          :when (not= p1 p2)]
+     (release-star-rule sys r2 p2 r1 p1))
+  ([sys r2 p2 r1 p1]
+     (eset! r1 :holder nil)
+     (eset! r1 :releaser p2)))
 
 (defn apply-mutual-exclusion-lts
   [sys n param-pass]
@@ -227,7 +214,7 @@
   n HeldBy edges assign to each process a resource."
   [n]
   (let [sys (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
-                        (str "Long transformation sequence, N =" n))]
+                          (str "Long transformation sequence, N =" n))]
     (loop [i n, lp nil]
       (if (pos? i)
         (let [r (ecreate! sys 'Resource)
@@ -238,7 +225,7 @@
           (recur (dec i) p))
         (create-edge! 'Next lp (first (econtents sys 'Process)))))
     sys))
-)
+
 
 ;;* Tests
 

@@ -1,5 +1,6 @@
 (ns funnyqt.test.mutual-exclusion-tg
   (:use funnyqt.tg.core)
+  (:use funnyqt.utils)
   (:use funnyqt.generic-protocols)
   (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
@@ -118,16 +119,27 @@
 
 (defrule waiting-rule
   "Moves the blocked state."
-  [g] [r1  (vseq g 'Resource)
-       req (iseq r1 'Request :in)
-       :let [p2 (alpha req)]
-       hb  (iseq r1 'HeldBy :out)
-       :let [p1 (omega hb)]
-       :when (not= p1 p2)
-       b   (iseq p1 'Blocked :in)
-       :let [r2 (alpha b)]]
-  (set-omega! b p2)
-  [r1])
+  ([g] [r1 (vseq g 'Resource)
+        req (iseq r1 'Request :in)
+        :let [p2 (alpha req)]
+        hb  (iseq r1 'HeldBy :out)
+        :let [p1 (omega hb)]
+        b   (iseq p1 'Blocked :in)
+        :let [r2 (alpha b)]
+        :when (not= r1 r2)]
+     (waiting-rule g r1 b p2))
+  ([g r1] [req (iseq r1 'Request :in)
+           :let [p2 (alpha req)]
+           hb  (iseq r1 'HeldBy :out)
+           :let [p1 (omega hb)]
+           b   (iseq p1 'Blocked :in)
+           :let [r2 (alpha b)]
+           :when (not= r1 r2)]
+     (waiting-rule g r1 b p2))
+  ([g r1 b p2]
+     (set-omega! b p2)
+     [g r1]))
+
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
@@ -225,7 +237,8 @@
   (unlock-rule g)
   (blocked-rule g)
   (if param-pass
-    (iteratively* waiting-rule g)
+    (iteratively #(or (iteratively* waiting-rule g)
+                      (waiting-rule g)))
     (iteratively #(waiting-rule g)))
   (ignore-rule g)
   (if param-pass
@@ -280,7 +293,7 @@
   (println "====================")
   (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
     (let [g1 (g-lts n)
-          vc (vcount g1)
+          vc (* 2 n)
           ec (ecount g1)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)

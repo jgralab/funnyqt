@@ -148,7 +148,7 @@
   "Applies the rule `r' as long as it returns logical true.
   On the first application, `r' receives `args'.  The second till last
   application receive the value of the previous successful application.
-  Returns the number of successful applications or nil if it couldn't be
+  Returns the number of successful applications, or nil, if it couldn't be
   applied at least once."
   [r & args]
   (loop [val (apply r args), i 0]
