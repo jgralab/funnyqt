@@ -52,7 +52,7 @@
       (the w)))
 
   (defmapping member2male [m]
-    (let [male (ecreate 'Male)]
+    (let [male (ecreate! 'Male)]
       (set-person-props male m)
       (deferred
         (eset! male :wife
@@ -60,7 +60,7 @@
       male))
 
   (defmapping member2female [m]
-    (doto (ecreate 'Female)
+    (doto (ecreate! 'Female)
       (set-person-props m)))
 
   (defmapping member2person [m]
@@ -69,14 +69,14 @@
       (member2female m)))
 
   (defmapping family2address [f]
-    (doto (ecreate out 'Address)
+    (doto (ecreate! out 'Address)
       (eset! :street (eget f :street))
       (eset! :town (eget f :town))))
 
   (defmapping familymodel2genealogy []
     (doseq [f (eallobjects in 'Family)]
       (family2address f))
-    (doto (ecreate out 'Genealogy)
+    (doto (ecreate! out 'Genealogy)
       (eset! :persons (map member2person
                            (eallobjects in 'Member)))))
 

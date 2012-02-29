@@ -179,8 +179,8 @@
 (defprotocol EMFModelBasics
   (init-model [this])
   ;; TODO: Maybe varags are supported in newer clojure versions?
-  (add-eobject [this eo])
-  (add-eobjects [this eos])
+  (add-eobject! [this eo])
+  (add-eobjects! [this eos])
   (clone-model [this])
   (save-model [this] [this file]))
 
@@ -189,11 +189,11 @@
   (init-model [this]
     (.load resource ;(.getDefaultLoadOptions resource)
            nil))
-  (add-eobject [this eo]
+  (add-eobject! [this eo]
     (doto (.getContents resource)
       (.add eo))
     eo)
-  (add-eobjects [this eos]
+  (add-eobjects! [this eos]
     (doto (.getContents resource)
       (.addAll eos))
     eos)
@@ -758,7 +758,7 @@
 
 ;;*** EObject Creation
 
-(defn ecreate
+(defn ecreate!
   "Creates an EObject of EClass `ecls'.
   `ecls' may be either an EClass or just an EClass name given as symbol,
   string, or keyword.  If a `model' is provided, then add the new EObject to
@@ -768,7 +768,7 @@
                          ecls
                          (eclassifier ecls))))
   ([model ecls]
-     (add-eobject model (ecreate ecls))))
+     (add-eobject! model (ecreate! ecls))))
 
 ;;*** EObject Deletion
 

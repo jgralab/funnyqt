@@ -234,14 +234,14 @@
   "Creates a more or less random FamilyModel with `fnum' families and `mnum'
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
-  (let [fm (ecreate 'FamilyModel)
+  (let [fm (ecreate! 'FamilyModel)
         make-family (fn [i]
-                      (doto (ecreate 'Family)
+                      (doto (ecreate! 'Family)
                         (eset! :lastName (str "Family" i))
                         (eset! :street   (str "Some Street " i))
                         (eset! :town     (str i " Sometown"))))
         make-member (fn [i]
-                      (doto (ecreate 'Member)
+                      (doto (ecreate! 'Member)
                         (eset! :firstName (str "Member" i))
                         (eset! :age       (Integer/valueOf ^Long (mod i 80)))))
         random-free-member (fn [mems ref]
@@ -293,16 +293,16 @@
 
 (deftest test-eget-raw
   (let [i 1000
-        fm (ecreate 'FamilyModel)
+        fm (ecreate! 'FamilyModel)
         ^EList ms (eget-raw fm :members)]
     (print "Adding" i "Members (raw): \t")
     (time (dotimes [_ i]
-            (.add ms (ecreate 'Member))))
+            (.add ms (ecreate! 'Member))))
     (is (== i (count (econtents fm 'Member))))
     (print "Adding" i "Members (eset!): \t")
     (time (eset! fm :members (loop [ims (eget fm :members), x i]
                                (if (pos? x)
-                                 (recur (conj ims (ecreate 'Member)) (dec x))
+                                 (recur (conj ims (ecreate! 'Member)) (dec x))
                                  ims))))
     (is (== (* 2 i) (count (econtents fm 'Member))))))
 
@@ -327,7 +327,7 @@
     ;; Check what happens if we delete the root FamilyModel non-recursive
     (let [fm (clone-model family-model)]
       (is (== 17 (count (eallobjects fm))))
-      (add-eobjects fm (econtents (delete! (the (eallobjects fm 'FamilyModel)) nil)))
+      (add-eobjects! fm (econtents (delete! (the (eallobjects fm 'FamilyModel)) nil)))
       (is (== 16 (count (eallobjects fm))))
       ;;(save-model fm "faa.xmi")
       )))
