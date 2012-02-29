@@ -658,8 +658,8 @@
                    ", arrowtail=diamondnormal, fontname=Sans, "
                    "headlabel=\"" n "\""
                    (when oref
-                     (str ", taillabel=\"" (.getName oref)))
-                   "\"];\n")))))
+                     (str ", taillabel=\"" (.getName oref) "\""))
+                   "];\n")))))
 
 (def ^{:private true, :dynamic true}
   *done-refs*)
@@ -677,10 +677,9 @@
                   :when x
                   t (if (coll? x) x [x])
                   :let [h2 (dot-id t)
-                        s #{n on h h2}]
+                        s #{[n on] h h2}]
                   :when (not (member? s @*done-refs*))]
               (do
-                ;(println @done)
                 (swap! *done-refs* conj s)
                 (str "  " h " -> " h2
                      " [dir="
@@ -688,8 +687,8 @@
                      ", fontname=Sans, "
                      "headlabel=\"" n "\""
                      (when oref
-                       (str ", taillabel=\"" (.getName oref)))
-                     "\"];\n"))))))
+                       (str ", taillabel=\"" (.getName oref) "\""))
+                     "];\n"))))))
 
 (defn- dot-ereferences [eo]
   (str (dot-content-refs eo)
