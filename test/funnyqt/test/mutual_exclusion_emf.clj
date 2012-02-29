@@ -88,8 +88,8 @@
   ([sys] [p1  (econtents sys 'Process)
           r   (eget p1 :released)
           :let [p2 (eget p1 :next)]]
-     (give-rule sys r p1 p2))
-  ([sys r p1 p2]
+     (give-rule sys r p2))
+  ([sys r p2]
      (eset! r :releaser nil)
      (eset! r :taker p2)
      [r p2]))
@@ -119,16 +119,6 @@
          :when (empty? (eget p :held))]
   (eset! p :blocked_by nil))
 
-#_(defrule unlock-rule
-  "Matches a process holding and blocking a resource and releases it."
-  [sys] [r  (econtents sys 'Resource)
-         hb (iseq r 'HeldBy :out)
-         :let [p (omega hb)]
-         b  (iseq r 'Blocked :out)
-         :when (= p (omega b))]
-  (delete! [hb b])
-  (create-edge! 'Release r p))
-
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
   [sys] [r  (econtents sys 'Resource)
@@ -150,7 +140,7 @@
     (dotimes [_ n]
       (request-rule sys))
     ;; Handle the requests...
-    (if false ;param-pass
+    (if param-pass
       (iteratively #(apply give-rule sys (apply release-rule sys (take-rule sys))))
       (iteratively #(do
                       (take-rule sys)
