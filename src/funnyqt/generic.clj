@@ -26,7 +26,9 @@
 (defn member?
   "Returns true, iff `e' is a member of `coll'."
   [e ^java.util.Collection coll]
-  (.contains coll e))
+  (if (seq coll)
+    (.contains coll e)
+    false))
 
 (defn the
   "Returns the only element of seq `s' (which satisfies `pred') and errors if

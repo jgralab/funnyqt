@@ -570,8 +570,6 @@
         (.add el (clj2emf item)))
       el))
   java.lang.Object
-  (clj2emf [this] this)
-  nil
   (clj2emf [this] this))
 
 (defn eget-raw
@@ -599,11 +597,13 @@
 (defn eset!
   "Sets `eo's structural feature `sf' to `value' and returns `eo'.
   The value is converted to some EMF type (see CljToEmf protocol).
+  If `value' is nil, unset this feature.
   Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
-    (doto eo
-      (.eSet sfeat (clj2emf value)))
+    (if (nil? value)
+      (.eUnset eo sfeat)
+      (.eSet eo sfeat (clj2emf value)))
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eadd!

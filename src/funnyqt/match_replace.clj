@@ -35,8 +35,9 @@
   "Establish bindings as specified in `bindings', and execute `body'.
   `bindings' is a vector of bindings with the syntax of `for'.
 
-  If a match could be found, `body' is executed with the established bindings and
-  `body's value is the return value.  If no match is found, nil is returned."
+  If a match could be found, that is, all symbols in `bindings' can be bound to
+  non-nil values, `body' is executed with the established bindings and `body's
+  value is the return value.  If no match is found, nil is returned."
   ;; Nicer arglist in doc
   {:arglists '([[bindings*] & body])}
   [bindings & body]
@@ -45,11 +46,12 @@
   (let [arglist (bindings-to-arglist bindings)
         r `r#]
     `(when-let [~r (first (for ~bindings ~arglist))]
-       (let ~(loop [a arglist, i 0, res []]
-               (if (seq a)
-                 (recur (rest a) (inc i) (concat res [(first a) `(~r ~i)]))
-                 (vec res)))
-         ~@body))))
+       (when (every? (complement nil?) ~r)
+         (let ~(loop [a arglist, i 0, res []]
+                 (if (seq a)
+                   (recur (rest a) (inc i) (concat res [(first a) `(~r ~i)]))
+                   (vec res)))
+           ~@body)))))
 
 (defn- verify-match-vector
   "Ensure that the match vector `match' and the arg vector `args' are disjoint.
