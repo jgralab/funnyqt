@@ -603,7 +603,7 @@
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (doto eo
-      (.eSet eo sfeat (clj2emf value)))
+      (.eSet sfeat (clj2emf value)))
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eadd!
