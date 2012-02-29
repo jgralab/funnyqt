@@ -100,18 +100,26 @@
   [sys] [r   (econtents sys 'Resource)
          p1  (eget r :requester)
          :let [p2 (eget r :holder)]]
-  (eset! r :blocked p1))
+  (eadd! r :blocked p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
-  [sys] [r1  (econtents sys 'Resource)
-         p2  (eget r1 :requester)
-         :let [p1 (eget r1 :holder)]
-         :when (not= p1 p2)
-         r2  (eget p1 :blocked_by)]
-  (eadd! p2 :blocked_by r2)
-  (eremove! p1 :blocked_by r2)
-  [r1])
+  ([sys] [r1  (econtents sys 'Resource)
+          p2  (eget r1 :requester)
+          :let [p1 (eget r1 :holder)]
+          :when p1
+          :when (not= p1 p2)
+          r2  (eget p1 :blocked_by)]
+     (waiting-rule sys r1 r2 p1 p2))
+  ([sys r1] [p2  (eget r1 :requester)
+             :let [p1 (eget r1 :holder)]
+             :when (not= p1 p2)
+             r2  (eget p1 :blocked_by)]
+     (waiting-rule sys r1 r2 p1 p2))
+  ([sys r1 r2 p1 p2]
+     (eadd! p2 :blocked_by r2)
+     (eremove! p1 :blocked_by r2)
+     [sys r1]))
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
@@ -167,11 +175,13 @@
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [sys] [r1 (econtents sys 'Resource)
-         :let [p1 (eget r1 :holder)
-               p2 (eget p1 :next)]
+         :let [p1 (eget r1 :holder)]
+         :when p1
+         :let [p2 (eget p1 :next)]
+         :when p2
          r2 (eget p2 :held)
          :when (not= r1 r2)
-         :when (not (member? p1) (eget r2 :requesters))]
+         :when (not (member? p1 (eget r2 :requester)))]
   (eadd! p1 :requested r2))
 
 (defrule release-star-rule
@@ -179,7 +189,8 @@
   process, and releases the requested one."
   ([sys] [r2 (econtents sys 'Resource)
           :let [p2 (eget r2 :holder)]
-          r1 (eget :held p2)
+          :when p2
+          r1 (eget p2 :held)
           :when (not= r1 r2)
           p1 (eget r1 :requested)
           :when (not= p1 p2)]
@@ -198,7 +209,8 @@
   (unlock-rule sys)
   (blocked-rule sys)
   (if param-pass
-    (iteratively* waiting-rule sys)
+    (iteratively #(or (iteratively* waiting-rule sys)
+                      (waiting-rule sys)))
     (iteratively #(waiting-rule sys)))
   (ignore-rule sys)
   (if param-pass
@@ -213,18 +225,20 @@
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
   [n]
-  (let [sys (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
-                          (str "Long transformation sequence, N =" n))]
+  (let [m (new-model)
+        sys (ecreate! m 'System)]
     (loop [i n, lp nil]
       (if (pos? i)
-        (let [r (ecreate! sys 'Resource)
-              p (ecreate! sys 'Process)]
+        (let [r (ecreate! 'Resource)
+              p (ecreate! 'Process)]
           (when lp
-            (create-edge! 'Next lp p))
-          (create-edge! 'HeldBy r p)
+            (eset! lp :next p))
+          (eset! r :holder p)
+          (eadd! sys :processes p)
+          (eadd! sys :resources r)
           (recur (dec i) p))
-        (create-edge! 'Next lp (first (econtents sys 'Process)))))
-    sys))
+        (eset! lp :next (first (econtents sys 'Process)))))
+    m))
 
 
 ;;* Tests
@@ -247,25 +261,20 @@
       (time (apply-mutual-exclusion-sts g2 n true))
       (is (= (+ 2 n) (count (eallobjects g2)))))))
 
-(comment
 (deftest mutual-exclusion-lts
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
   (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
     (let [g1 (g-lts n)
-          vc (vcount g1)
-          ec (ecount g1)
+          vc (inc (* 2 n))  ;; inc, because of System root node
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
-      (is (= vc (vcount g1)))
-      (is (= ec (ecount g1)))
+      (is (= vc (count (eallobjects g1))))
 
       (print "  with parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
-      (is (= vc (vcount g2)))
-      (is (= ec (ecount g2))))))
-)
+      (is (= vc (count (eallobjects g2)))))))
 
