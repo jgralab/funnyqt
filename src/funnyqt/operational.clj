@@ -97,8 +97,9 @@
           ((juxt filter remove)
            #(let [x (first %)]
               (and (symbol? x)
-                   (re-matches #"^(?:(?:.*)/)?def(?:helper|mapping)$"
-                               (name x))))
+                   (let [var (resolve x)]
+                     (or (= var #'defmapping)
+                         (= var #'defhelper)))))
            body)]
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
