@@ -107,7 +107,6 @@
   ([sys] [r1  (econtents sys 'Resource)
           p2  (eget r1 :requester)
           :let [p1 (eget r1 :holder)]
-          :when p1
           :when (not= p1 p2)
           r2  (eget p1 :blocked_by)]
      (waiting-rule sys r1 r2 p1 p2))
@@ -176,9 +175,7 @@
   makes the successor request its predecessor's resource."
   [sys] [r1 (econtents sys 'Resource)
          :let [p1 (eget r1 :holder)]
-         :when p1
          :let [p2 (eget p1 :next)]
-         :when p2
          r2 (eget p2 :held)
          :when (not= r1 r2)
          :when (not (member? p1 (eget r2 :requester)))]
@@ -189,7 +186,6 @@
   process, and releases the requested one."
   ([sys] [r2 (econtents sys 'Resource)
           :let [p2 (eget r2 :holder)]
-          :when p2
           r1 (eget p2 :held)
           :when (not= r1 r2)
           p1 (eget r1 :requested)

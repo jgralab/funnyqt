@@ -1,6 +1,6 @@
 (ns funnyqt.match-replace
   "Match elements in a structure, and act on them."
-  (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:use [funnyqt.utils :only [error add-long-doc! pr-identity]])
   (:require clojure.set)
   (:use [funnyqt.generic :only [member?]])
   (:require [clojure.tools.macro :as m]))
@@ -30,6 +30,20 @@
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
+(defn- splice-let-vector [lv]
+  (mapcat (fn [[s v]]
+            [:let [s v]
+             :when s])
+          (partition 2 lv)))
+
+(defn- shortcut-bindings [bindings]
+  (loop [p bindings, nb []]
+    (if (seq p)
+      (if (= :let (first p))
+        (recur (rest (rest p))
+               (vec (concat nb (splice-let-vector (first (next p))))))
+        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
+      (vec nb))))
 
 (defmacro with-match
   "Establish bindings as specified in `bindings', and execute `body'.
@@ -44,6 +58,7 @@
   (when (not= 0 (mod (count bindings) 2))
     (error "bindings has to be var-exp pairs"))
   (let [arglist (bindings-to-arglist bindings)
+        sbindings (shortcut-bindings bindings)
         r `r#]
     `(when-let [~r (first (for ~bindings ~arglist))]
        (when (every? (complement nil?) ~r)
