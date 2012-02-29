@@ -597,12 +597,34 @@
   (emf2clj (eget-raw eo sf)))
 
 (defn eset!
-  "Sets `eo's structural feature `sf' to `value' and returns `value'.
+  "Sets `eo's structural feature `sf' to `value' and returns `eo'.
   The value is converted to some EMF type (see CljToEmf protocol).
   Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
-    (do (.eSet eo sfeat (clj2emf value)) value)
+    (doto eo
+      (.eSet eo sfeat (clj2emf value)))
+    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
+(defn eadd!
+  "Adds `value' to `eo's list of attribute/reference values denoted by `sf' and
+  returns `eo'.  Throws an exception, if there's no EStructuralFeature `sf'."
+  [^EObject eo sf value]
+  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+    (let [^EList l (eget-raw eo sf)]
+      (.add l value)
+      eo)
+    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
+(defn eremove!
+  "Removes `value' from `eo's list of attribute/reference values denoted by
+  `sf' and returns `eo'.  Throws an exception, if there's no EStructuralFeature
+  `sf'."
+  [^EObject eo sf value]
+  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+    (let [^EList l (eget-raw eo sf)]
+      (.remove l value)
+      eo)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 ;;*** Visualization
