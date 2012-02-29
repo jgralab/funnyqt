@@ -664,31 +664,31 @@
                      (str ", taillabel=\"" (.getName oref) "\""))
                    "];\n")))))
 
-(def ^{:private true, :dynamic true}
-  *done-refs*)
+(def ^{:private true, :dynamic true
+       :doc "Opposite refs: those are not dotted, cause we already
+  printed them from the other direction."}
+  *opposite-refs*)
 
 (defn- dot-cross-refs [^EObject eo]
   (let [h (dot-id eo)]
     (reduce str
             (for [^EReference ref (.getEAllReferences (.eClass eo))
+                  :when (not (member? ref @*opposite-refs*))
                   :when (not (or (.isContainment ref)
                                  (.isContainer ref)))
-                  :let [n (.getName ref)
-                        oref (.getEOpposite ref)
-                        on (when oref (.getName oref))
+                  :let [oref (.getEOpposite ref)
                         x (eget eo ref)]
                   :when x
                   t (if (coll? x) x [x])
-                  :let [h2 (dot-id t)
-                        s #{[n on] h h2}]
-                  :when (not (member? s @*done-refs*))]
+                  :let [h2 (dot-id t)]]
               (do
-                (swap! *done-refs* conj s)
+                (when oref
+                  (swap! *opposite-refs* conj oref))
                 (str "  " h " -> " h2
                      " [dir="
                      (if oref "none" "forward")
                      ", fontname=Sans, "
-                     "headlabel=\"" n "\""
+                     "headlabel=\"" (.getName ref) "\""
                      (when oref
                        (str ", taillabel=\"" (.getName oref) "\""))
                      "];\n"))))))
@@ -722,7 +722,7 @@
          (reduce str
                  (map dot-eobject
                       (eallobjects m)))
-         (binding [*done-refs* (atom #{})]
+         (binding [*opposite-refs* (atom #{})]
            (reduce str
                    (map dot-ereferences
                         (eallobjects m))))
