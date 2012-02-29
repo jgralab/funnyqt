@@ -40,7 +40,7 @@
     (add-adj! p :address
               (resolve-in family2address (family m)))
     (deferred
-      (add-adjs! p :parents
+      (set-adjs! p :parents
                  (resolve-all-in member2person (parents-of m)))))
 
   (defhelper wife

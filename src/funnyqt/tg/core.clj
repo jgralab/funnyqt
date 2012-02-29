@@ -731,27 +731,40 @@ See `tgtree', `show-graph', and `print-graph'.")
   (doto i (.setThat v)))
 
 (defn add-adj!
-  "Creates an edge matching `role' between `v' and `adjv'."
-  ([^Vertex v role adjv]
-     (.addAdjacence v (name role) adjv))
-  ([v role adjv & more]
-     (add-adj! v role adjv)
-     (doseq [a more]
-       (add-adj! v role a))))
+  "Creates an edge matching `role' between `v' and every vertex in `adjs'."
+  [^Vertex v role & adjs]
+  (doseq [a adjs]
+    (.addAdjacence v (name role) a)))
 
-(defn add-adjs!
-  "Creates edges matching `role' between `v' and every vertex in `adjvs'."
+(defn unlink!
+  "Unlinks the given vertex, i.e., deletes all incident edges matching `ts' and
+  `ds'."
+  ([^Vertex v]
+     (unlink! v identity identity))
+  ([^Vertex v ts]
+     (unlink! v ts identity))
+  ([^Vertex v ts ds]
+     (let [tm (type-matcher v ts)
+           dm (direction-matcher ds)]
+       (while (when-let [e (first-inc v tm dm)]
+                (delete! e))))))
+
+(defn set-adjs!
+  "Sets the `role' adjacency list of `v' to `adjvs'.
+  This means, first all incident edges of that role are deleted, and then new
+  edges are created."
   [^Vertex v role adjvs]
+  (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+        dec (.getDirectedEdgeClassForFarEndRole
+             ^VertexClass (attributed-element-class v)
+             (name role))
+        ec (.getEdgeClass dec)
+        ed (.getDirection dec)]
+    (unlink! v #(instance-of? ec %) ed))
   (doseq [av adjvs]
     (add-adj! v role av)))
 
 ;;** Deletions
-
-(defn unlink!
-  "Unlinks the given vertex, i.e., deletes all incident edges."
-  [^Vertex v]
-  (while (when-let [e (first-inc v)]
-           (delete! e))))
 
 (extend-protocol Deletable
   Vertex

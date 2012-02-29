@@ -607,23 +607,26 @@
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eadd!
-  "Adds `value' to `eo's list of attribute/reference values denoted by `sf' and
-  returns `eo'.  Throws an exception, if there's no EStructuralFeature `sf'."
-  [^EObject eo sf value]
+  "Adds each value in `values' to `eo's list of attribute/reference values
+  denoted by `sf' and returns `eo'.  Throws an exception, if there's no
+  EStructuralFeature `sf'."
+  [^EObject eo sf & values]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (let [^EList l (eget-raw eo sf)]
-      (.add l value)
+      (doseq [v values]
+        (.add l v))
       eo)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eremove!
-  "Removes `value' from `eo's list of attribute/reference values denoted by
-  `sf' and returns `eo'.  Throws an exception, if there's no EStructuralFeature
-  `sf'."
-  [^EObject eo sf value]
+  "Removes each value in `values' from `eo's list of attribute/reference values
+  denoted by `sf' and returns `eo'.  Throws an exception, if there's no
+  EStructuralFeature `sf'."
+  [^EObject eo sf & values]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (let [^EList l (eget-raw eo sf)]
-      (.remove l value)
+      (doseq [v values]
+        (.remove l v))
       eo)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
