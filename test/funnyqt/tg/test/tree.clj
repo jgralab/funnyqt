@@ -2,6 +2,7 @@
   (:use funnyqt.tg.core)
   (:use funnyqt.match-replace)
   (:use funnyqt.tg.query)
+  (:use [funnyqt.utils :only [timing]])
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]))
 
@@ -36,13 +37,12 @@
          (recur g (dec n) nt)))))
 
 (deftest test-snocs
-  (let [g1 (mintree-init)
-        g2 (mintree-init)
-        n 1000]
-    (println "Primitive snoc:")
-    (time (ntimes n snoc g1))
-    (println "snoc-recursively")
-    (time (snoc-recursively g2 n))
+  (dotimes [i 3]
+    (let [g1 (mintree-init)
+          g2 (mintree-init)
+          n 1000]
+      (timing "%s. SNOC SEQ: %Tmilli" (ntimes n snoc g1) (inc i))
+      (timing "%s. SNOC REC: %Tmilli" (snoc-recursively g2 n) (inc i))
 
-    (is (== (vcount g1) (vcount g2)))
-    (is (== (ecount g1) (ecount g2)))))
+      (is (== (inc n) (vcount g1) (vcount g2)))
+      (is (== n (ecount g1) (ecount g2))))))

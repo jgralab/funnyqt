@@ -434,22 +434,23 @@
           [src trg]))))
   EObject
   (ecrossrefs-internal [this rm]
-    (let [^org.eclipse.emf.ecore.util.EContentsEList$FeatureIterator it
-          (-> this .eCrossReferences .iterator)]
-      (loop [r []]
-        (if (.hasNext it)
-          (let [eo (.next it)]
-            (recur (if (rm (.feature it))
-                     (conj r eo)
-                     r)))
-          r))))
-  (erefs-internal [this rm]
-    (mapcat (fn [r]
+    (mapcat (fn [^EReference r]
               (if-let [x (.eGet this r)]
                 (if (.isMany r)
                   x
                   [x])))
-            (for [ref (seq (-> this .eClass .getEAllReferences))
+            (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
+                  :when (and (not (.isContainment ref))
+                             (not (.isContainer ref))
+                             (rm ref))]
+              ref)))
+  (erefs-internal [this rm]
+    (mapcat (fn [^EReference r]
+              (if-let [x (.eGet this r)]
+                (if (.isMany r)
+                  x
+                  [x])))
+            (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
                   :when (rm ref)]
               ref)))
   (inv-erefs-internal [this rm container]

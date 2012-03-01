@@ -260,12 +260,12 @@
       (print "  without parameter passing:\t")
       (time (apply-mutual-exclusion-sts g1 n false))
       (is (= (+ 2 n) (count (eallobjects g1))))
-      (is (= (inc n) (count (ecrosspairs g1))))
+      #_(is (= (inc n) (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))
       (is (= (+ 2 n) (count (eallobjects g2))))
-      (is (= (inc n) (count (ecrosspairs g2))))
+      #_(is (= (inc n) (count (ecrosspairs g2))))
       ;;(print-model g2 ".gtk")
       )))
 
@@ -282,10 +282,11 @@
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
       (is (= vc (count (eallobjects g1))))
-      (is (= ec (count (ecrosspairs g1))))
+      #_(is (= ec (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
       (is (= vc (count (eallobjects g2))))
-      (is (= ec (count (ecrosspairs g2)))))))
+      #_(is (= ec (count (ecrosspairs g2))))
+      )))
 
