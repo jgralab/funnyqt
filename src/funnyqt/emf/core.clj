@@ -444,18 +444,14 @@
                      r)))
           r))))
   (erefs-internal [this rm]
-    (loop [r [], refs (seq (-> this .eClass .getEAllReferences))]
-      (if (seq refs)
-        (let [^EReference ref (first refs)]
-          (recur (if (rm ref)
-                   (if-let [x (.eGet this ref)]
-                     (if (.isMany ref)
-                       (into r x)
-                       (conj r x))
-                     r)
-                   r)
-                 (rest refs)))
-        r)))
+    (mapcat (fn [r]
+              (if-let [x (.eGet this r)]
+                (if (.isMany r)
+                  x
+                  [x])))
+            (for [ref (seq (-> this .eClass .getEAllReferences))
+                  :when (rm ref)]
+              ref)))
   (inv-erefs-internal [this rm container]
     (if container
       (search-ereferencers this erefs-internal rm container)
