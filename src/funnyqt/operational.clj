@@ -1,15 +1,13 @@
 (ns funnyqt.operational
   "Stuff for writing QVT Operational Mappings like transformations."
   (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:use funnyqt.macro-utils)
   (:use [funnyqt.generic :only [the]])
   (:require [clojure.tools.macro :as m]))
 
 (add-long-doc! "TODO")
 
 ;;* Code
-
-(def ^{:dynamic true :private true}
-  *expansion-context* ::external)
 
 (def ^{:dynamic true
        :doc "A map from mapping rule to map from source to target objects."}
@@ -18,14 +16,6 @@
 (def ^{:dynamic true
        :doc "Actions deferred to the end of the transformation."}
   *deferred-actions*)
-
-(defn- expansion-context-defn-maybe [n]
-  "Return a definition form usable to be spliced in depending on
-  *expansion-context*."
-  (cond
-   (= *expansion-context* ::internal) [n]
-   (= *expansion-context* ::external) `[clojure.core/defn ~n ~(meta n)]
-   :else (error (format "Unknown expansion context: %s" *expansion-context*))))
 
 (defmacro defmapping
   {:doc "Defines a mapping function named `name' with optional `doc-string?',
@@ -116,7 +106,7 @@
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
                        (count main-form) (print-str main-form))))
-      (binding [*expansion-context* ::internal]
+      (binding [*expansion-context* :internal]
         ;; Ok, here we go.
         `(defn ~tname ~(meta tname)
            ~args
