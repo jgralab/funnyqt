@@ -361,6 +361,8 @@
           (format "Don't know how to create a reference matcher for %s" rs))))
 
 (defprotocol EReferences
+  (eref-pairs-internal [this here-tm there-tm here-rm there-rm]
+    "TODO")
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
   `rm'.  Cross-referenced objects are those that are referenced by a
@@ -410,6 +412,23 @@
                                 container)))))
 
 (extend-protocol EReferences
+  EMFModel
+  (eref-pairs-internal [this here-tm there-tm here-rm there-rm]
+    (let [done (atom #{})]
+      (for [^EObject src (eallobjects this here-tm)
+            ^EReference ref (seq (-> src .eClass .getEAllReferences))
+            :when (not (member? ref @done))
+            :when (there-rm ref)
+            :let [nthere-rm (eref-matcher ref)
+                  oref (.getEOpposite ref)]
+            :when (if oref
+                    (here-rm oref)
+                    true)
+            trg (erefs-internal src nthere-rm)
+            :when (there-tm trg)]
+        (do
+          (when oref (swap! done conj oref))
+          [src trg]))))
   EObject
   (ecrossrefs-internal [this rm]
     (let [^org.eclipse.emf.ecore.util.EContentsEList$FeatureIterator it
@@ -703,10 +722,8 @@
                   :when (not (member? ref @*opposite-refs*))
                   :when (not (or (.isContainment ref)
                                  (.isContainer ref)))
-                  :let [oref (.getEOpposite ref)
-                        x (eget eo ref)]
-                  :when x
-                  t (if (coll? x) x [x])
+                  :let [oref (.getEOpposite ref)]
+                  t (ecrossrefs eo ref)
                   :let [h2 (dot-id t)]]
               (do
                 (when oref
