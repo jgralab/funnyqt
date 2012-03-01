@@ -24,9 +24,7 @@
   *expansion-context*."
   (cond
    (= *expansion-context* ::internal) [n]
-   (= *expansion-context* ::external) (if-let [doc-string (:doc (meta n))]
-                                        `[clojure.core/defn ~n ~doc-string]
-                                        `[clojure.core/defn ~n])
+   (= *expansion-context* ::external) `[clojure.core/defn ~n ~(meta n)]
    :else (error (format "Unknown expansion context: %s" *expansion-context*))))
 
 (defmacro defmapping
