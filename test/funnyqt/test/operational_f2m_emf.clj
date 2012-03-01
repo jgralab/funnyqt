@@ -7,13 +7,22 @@
   (:use funnyqt.emf.query)
   (:import [funnyqt.emf.core EMFModel]))
 
-(deftransformation families2genealogy-emf [in out]
-  (defhelper family
-    "Returns the main family of member m."
-    [m]
-    (or (eget m :familyFather) (eget m :familyMother)
-        (eget m :familySon)    (eget m :familyDaughter)))
+;; Just for the fun of it, declare some helpers and mapping outside of the
+;; transformation, so that we see if the expansion context works.
 
+(defhelper family
+  "Returns the main family of member m."
+  [m]
+  (or (eget m :familyFather) (eget m :familyMother)
+      (eget m :familySon)    (eget m :familyDaughter)))
+
+(defmapping family2address [f out]
+  (doto (ecreate! out 'Address)
+    (eset! :street (eget f :street))
+    (eset! :town (eget f :town))))
+
+;; Here comes the transformation that uses those external helpers and mappings.
+(deftransformation families2genealogy-emf [in out]
   (defhelper male?
     "Returns true, iff member m is male."
     [m]
@@ -27,6 +36,13 @@
      m [p-seq
         [p-alt :familySon :familyDaughter]
         [p-alt :father :mother]]))
+
+  (defhelper wife
+    "Returns the wife member of member m."
+    [m]
+    (when-let [w (seq (reachables
+                       m [p-seq :familyFather :mother]))]
+      (the w)))
 
   (defhelper set-person-props
     "Sets the person p's attributes according to its source member m."
@@ -44,14 +60,9 @@
       (eset! p :parents
              (resolve-all-in member2person (parents-of m)))))
 
-  (defhelper wife
-    "Returns the wife member of member m."
+  (defmapping member2male
+    "Transforms a Member to a Male."
     [m]
-    (when-let [w (seq (reachables
-                       m [p-seq :familyFather :mother]))]
-      (the w)))
-
-  (defmapping member2male [m]
     (let [male (ecreate! 'Male)]
       (set-person-props male m)
       (deferred
@@ -59,7 +70,9 @@
                (resolve-in member2person (wife m))))
       male))
 
-  (defmapping member2female [m]
+  (defmapping member2female
+    "Transforms a Member to a Female."
+    [m]
     (doto (ecreate! 'Female)
       (set-person-props m)))
 
@@ -68,14 +81,9 @@
       (member2male m)
       (member2female m)))
 
-  (defmapping family2address [f]
-    (doto (ecreate! out 'Address)
-      (eset! :street (eget f :street))
-      (eset! :town (eget f :town))))
-
   (defmapping familymodel2genealogy []
     (doseq [f (eallobjects in 'Family)]
-      (family2address f))
+      (family2address f out))
     (doto (ecreate! out 'Genealogy)
       (eset! :persons (map member2person
                            (eallobjects in 'Member)))))

@@ -8,6 +8,9 @@
 
 ;;* Code
 
+(def ^{:dynamic true :private true}
+  *expansion-context* ::external)
+
 (def ^{:dynamic true
        :doc "A map from mapping rule to map from source to target objects."}
   *traceability-mappings*)
@@ -15,6 +18,16 @@
 (def ^{:dynamic true
        :doc "Actions deferred to the end of the transformation."}
   *deferred-actions*)
+
+(defn- expansion-context-defn-maybe [n]
+  "Return a definition form usable to be spliced in depending on
+  *expansion-context*."
+  (cond
+   (= *expansion-context* ::internal) [n]
+   (= *expansion-context* ::external) (if-let [doc-string (:doc (meta n))]
+                                        `[clojure.core/defn ~n ~doc-string]
+                                        `[clojure.core/defn ~n])
+   :else (error (format "Unknown expansion context: %s" *expansion-context*))))
 
 (defmacro defmapping
   {:doc "Defines a mapping function named `name' with optional `doc-string?',
@@ -35,7 +48,7 @@
         args (first more)
         body (next more)]
     (if (vector? args)
-      `(~name
+      `(~@(expansion-context-defn-maybe name)
         ~args
         ~(if (seq args)
            `(let [result# (do ~@body)
@@ -55,7 +68,8 @@
                  [name doc-string? ([args] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
-    `(~name ~@more)))
+    `(~@(expansion-context-defn-maybe name)
+      ~@more)))
 
 (defmacro deferred
   "Captures a thunk (closure) that evaluates `body' as the last step of the
@@ -82,8 +96,8 @@
   exactly one other form, the main entry point of the transformation.  This
   form is evaluated when the transformation is called.
 
-  All helpers, mappings, and the main form have access to the `args' of the
-  transformation."
+  All helpers, mappings, and the main form of the transformation have access to
+  the `args' of the transformation."
    :arglists '([name doc-string? meta-map? [args] & body])}
   [tname & more]
   (let [[tname more] (m/name-with-attributes tname more)
@@ -104,14 +118,15 @@
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
                        (count main-form) (print-str main-form))))
-      ;; Ok, here we go.
-      `(defn ~tname ~(meta tname)
-         ~args
-         (letfn [~@(map macroexpand-1 mappings-and-helpers)]
-           (binding [*traceability-mappings* (atom {})
-                     *deferred-actions* (atom [])]
-             (let [r# ~(the main-form)]
-               (doseq [da# @*deferred-actions*]
-                 (da#))
-               r#)))))))
+      (binding [*expansion-context* ::internal]
+        ;; Ok, here we go.
+        `(defn ~tname ~(meta tname)
+           ~args
+           (letfn [~@(map macroexpand-1 mappings-and-helpers)]
+             (binding [*traceability-mappings* (atom {})
+                       *deferred-actions* (atom [])]
+               (let [r# ~(the main-form)]
+                 (doseq [da# @*deferred-actions*]
+                   (da#))
+                 r#))))))))
 

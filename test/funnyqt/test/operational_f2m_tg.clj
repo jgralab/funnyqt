@@ -6,27 +6,36 @@
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query))
 
+;; Define some helpers and mappings outside of the transformation to see if
+;; that internal/external stuff works.
+
+(defhelper family
+  "Returns the main family of member m."
+  [m]
+  (or (adj m :familyFather) (adj m :familyMother)
+      (adj m :familySon)    (adj m :familyDaughter)))
+
+(defhelper male?
+  "Returns true, iff member m is male."
+  [m]
+  (or (adj m :familyFather)
+      (adj m :familySon)))
+
+(defhelper parents-of
+  "Returns the set of parent members of m."
+  [m]
+  (reachables
+   m [p-seq
+      [p-alt :familySon :familyDaughter]
+      [p-alt :father :mother]]))
+
+(defmapping family2address [f out]
+  (doto (create-vertex! out 'Address)
+    (set-value! :street (value f :street))
+    (set-value! :town   (value f :town))))
+
+;; Here goes the transformation using those external helpers/mappings...
 (deftransformation families2genealogy-tg [in out]
-  (defhelper family
-    "Returns the main family of member m."
-    [m]
-    (or (adj m :familyFather) (adj m :familyMother)
-        (adj m :familySon)    (adj m :familyDaughter)))
-
-  (defhelper male?
-    "Returns true, iff member m is male."
-    [m]
-    (or (adj m :familyFather)
-        (adj m :familySon)))
-
-  (defhelper parents-of
-    "Returns the set of parent members of m."
-    [m]
-    (reachables
-     m [p-seq
-        [p-alt :familySon :familyDaughter]
-        [p-alt :father :mother]]))
-
   (defhelper set-person-props
     "Sets the person p's attributes according to its source member m."
     [p m]
@@ -67,14 +76,9 @@
       (member2male m)
       (member2female m)))
 
-  (defmapping family2address [f]
-    (doto (create-vertex! out 'Address)
-      (set-value! :street (value f :street))
-      (set-value! :town   (value f :town))))
-
   (defmapping familymodel2genealogy []
     (doseq [f (vseq in 'Family)]
-      (family2address f))
+      (family2address f out))
     (doseq [p (vseq in 'Member)]
       (member2person p)))
 
