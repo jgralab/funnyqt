@@ -260,10 +260,14 @@
       (print "  without parameter passing:\t")
       (time (apply-mutual-exclusion-sts g1 n false))
       (is (= (+ 2 n) (count (eallobjects g1))))
+      (is (= (inc n) (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))
-      (is (= (+ 2 n) (count (eallobjects g2)))))))
+      (is (= (+ 2 n) (count (eallobjects g2))))
+      (is (= (inc n) (count (ecrosspairs g2))))
+      ;;(print-model g2 ".gtk")
+      )))
 
 (deftest mutual-exclusion-lts
   (println)
@@ -272,13 +276,16 @@
   (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
     (let [g1 (g-lts n)
           vc (inc (* 2 n))  ;; inc, because of System root node
+          ec (count (ecrosspairs g1))
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
       (is (= vc (count (eallobjects g1))))
+      (is (= ec (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
-      (is (= vc (count (eallobjects g2)))))))
+      (is (= vc (count (eallobjects g2))))
+      (is (= ec (count (ecrosspairs g2)))))))
 
