@@ -61,7 +61,13 @@
         sbindings (shortcut-bindings bindings)
         r `r#]
     `(when-let [~r (first (for ~bindings ~arglist))]
+       ;; We want no matches with nil values
        (when (every? (complement nil?) ~r)
+         ;; Rip out the individual values of the result and let-bind them.
+         ;; Alternatively, one could create a (apply (fn [args] body) result),
+         ;; but that consumes much more stack space in plain recursive rules
+         ;; (i.e., when one cannot use recur because it is recursed more than
+         ;; once).
          (let ~(loop [a arglist, i 0, res []]
                  (if (seq a)
                    (recur (rest a) (inc i) (concat res [(first a) `(~r ~i)]))
@@ -79,7 +85,7 @@
     match))
 
 (defmacro defpattern
-  "Defines a pattern with `name', optional doc-string', optional `attr-map?',
+  "Defines a pattern with `name', optional `doc-string', optional `attr-map',
   an `args' vector, and a `match' vector.  When invoked, it returns a lazy seq
   of all matches of `match'.
 
