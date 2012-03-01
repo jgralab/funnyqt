@@ -361,8 +361,11 @@
           (format "Don't know how to create a reference matcher for %s" rs))))
 
 (defprotocol EReferences
-  (eref-pairs-internal [this here-tm there-tm here-rm there-rm]
-    "TODO")
+  (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
+    "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
+  May be restricted by reference matchers and eclass matchers on source and
+  target.  `reffn' is either `erefs-internal', `ecrossrefs-internal', or
+  `econtents-internal'.")
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
   `rm'.  Cross-referenced objects are those that are referenced by a
@@ -383,7 +386,7 @@
   collection of EObjects."))
 
 (defn- eopposite-refs
-  "Returns the seq of `eo's EClass' references whose opposites match `here-rm'.
+  "Returns the seq of `eo's EClass' references whose opposites match `src-rm'.
 
   Example: [Foo] f --- b [Bar]
               f \\
@@ -391,12 +394,12 @@
 
   Given a Foo object and a eref-matcher matching f, returns a seq of the
   EReferences b and c, because those are the opposites of the matched f.  Of
-  course, if `here-rm' matches only one specific EReference, i.e., it was
+  course, if `src-rm' matches only one specific EReference, i.e., it was
   constructed by (eref-matcher fERef) and not (eref-matcher :f)."
-  [^EObject eo here-rm]
+  [^EObject eo src-rm]
   (seq (remove nil? (map (fn [^EReference r]
                            (when-let [o (.getEOpposite r)]
-                             (when (here-rm o) r)))
+                             (when (src-rm o) r)))
                          (seq (-> eo .eClass .getEAllReferences))))))
 
 (defn- search-ereferencers
@@ -413,19 +416,19 @@
 
 (extend-protocol EReferences
   EMFModel
-  (eref-pairs-internal [this here-tm there-tm here-rm there-rm]
+  (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
     (let [done (atom #{})]
-      (for [^EObject src (eallobjects this here-tm)
+      (for [^EObject src (eallobjects this src-tm)
             ^EReference ref (seq (-> src .eClass .getEAllReferences))
             :when (not (member? ref @done))
-            :when (there-rm ref)
+            :when (trg-rm ref)
             :let [nthere-rm (eref-matcher ref)
                   oref (.getEOpposite ref)]
             :when (if oref
-                    (here-rm oref)
+                    (src-rm oref)
                     true)
-            trg (erefs-internal src nthere-rm)
-            :when (there-tm trg)]
+            trg (reffn src nthere-rm)
+            :when (trg-tm trg)]
         (do
           (when oref (swap! done conj oref))
           [src trg]))))
@@ -648,6 +651,70 @@
         (.remove l v))
       eo)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+
+;;*** Edges, i.e., src/trg tuples
+
+(defn eallpairs
+  "Returns the seq of all edges in terms of [src trg] pairs.
+  This includes both containment as well as crossreferences.  Restrictions may
+  be defined in terms of reference specs `src-rs' and `trg-rs', and reference
+  specs plus type specs `src-ts' and `trg-ts'."
+  ([m]
+     (epairs-internal m erefs-internal
+                      identity identity
+                      identity identity))
+  ([m src-rs trg-rs]
+     (epairs-internal m erefs-internal
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      identity identity))
+  ([m src-rs trg-rs src-ts trg-ts]
+     (epairs-internal m erefs-internal
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+
+(defn ecrosspairs
+  "Returns the seq of all cross-reference edges in terms of [src trg] pairs.
+  Restrictions may be defined in terms of reference specs `src-rs' and
+  `trg-rs', and reference specs plus type specs `src-ts' and `trg-ts'."
+  ([m]
+     (epairs-internal m ecrossrefs-internal
+                      identity identity
+                      identity identity))
+  ([m src-rs trg-rs]
+     (epairs-internal m ecrossrefs-internal
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      identity identity))
+  ([m src-rs trg-rs src-ts trg-ts]
+     (epairs-internal m ecrossrefs-internal
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+
+(defn- econtents-by-ref
+  [^EObject eo rm]
+  (mapcat #(let [o (eget eo %)]
+             (if (coll? o) o [o]))
+          (for [^EReference r (-> eo .eClass .getEAllReferences)
+                :when (and (.isContainment r) (rm r))]
+            r)))
+
+(defn econtentpairs
+  "Returns the seq of all containment edges in terms of [src trg] pairs.
+  src is the parent, trg is the child.
+  Restrictions may be defined in terms of reference specs `src-rs' and
+  `trg-rs', and reference specs plus type specs `src-ts' and `trg-ts'."
+  ([m]
+     (epairs-internal m econtents-by-ref
+                      identity identity
+                      identity identity))
+  ([m src-rs trg-rs]
+     (epairs-internal m econtents-by-ref
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      identity identity))
+  ([m src-rs trg-rs src-ts trg-ts]
+     (epairs-internal m ecrossrefs-internal
+                      (eref-matcher src-rs) (eref-matcher trg-rs)
+                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+
 
 ;;*** EObject Creation
 

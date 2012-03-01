@@ -194,6 +194,19 @@
          (inv-ecrossrefs f3 :familyDaughter family-model)
          3)))
 
+(deftest test-epairs
+  (is (== 31 (count (eallpairs family-model))))
+  (is (== 15 (count (ecrosspairs family-model))))
+  (is (== 16 (count (econtentpairs family-model))))
+
+  (is (== 16 (count (eallpairs family-model :model nil))))
+  (is (==  3 (count (eallpairs family-model nil :families))))
+  (is (==  3 (count (eallpairs family-model :model :families))))
+
+  (is (==  3 (count (eallpairs family-model nil nil 'FamilyModel 'Family))))
+  (is (== 18 (count (eallpairs family-model nil nil nil 'Family))))
+  (is (==  3 (count (eallpairs family-model :model nil nil 'Family)))))
+
 (deftest test-eget
   (let [fm (the (econtents family-model))
         fsmith (first (econtents fm 'Family))]
