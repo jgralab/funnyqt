@@ -630,6 +630,33 @@
       eo)
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
+;;*** EObject Creation
+
+(defn ecreate!
+  "Creates an EObject of EClass `ecls'.
+  `ecls' may be either an EClass or just an EClass name given as symbol,
+  string, or keyword.  If a `model' is provided, then add the new EObject to
+  it."
+  ([ecls]
+     (EcoreUtil/create (if (instance? EClass ecls)
+                         ecls
+                         (eclassifier ecls))))
+  ([model ecls]
+     (add-eobject! model (ecreate! ecls))))
+
+;;*** EObject Deletion
+
+(extend-protocol Deletable
+  EObject
+  (delete!
+    ([this]
+       (EcoreUtil/delete this true)
+       this)
+    ([this recursive]
+       ;; Gotta provide a real boolean, not just a truthy thingy
+       (EcoreUtil/delete this (if recursive true false))
+       this)))
+
 ;;*** Visualization
 
 (defn- dot-id [eo]
@@ -758,33 +785,6 @@
     (let [r (clojure.java.shell/sh "dot" (str "-T" lang) "-o" f :in ds)]
       (when-not (zero? (:exit r))
         (error (format "Dotting failed: %s" (:err r)))))))
-
-;;*** EObject Creation
-
-(defn ecreate!
-  "Creates an EObject of EClass `ecls'.
-  `ecls' may be either an EClass or just an EClass name given as symbol,
-  string, or keyword.  If a `model' is provided, then add the new EObject to
-  it."
-  ([ecls]
-     (EcoreUtil/create (if (instance? EClass ecls)
-                         ecls
-                         (eclassifier ecls))))
-  ([model ecls]
-     (add-eobject! model (ecreate! ecls))))
-
-;;*** EObject Deletion
-
-(extend-protocol Deletable
-  EObject
-  (delete!
-    ([this]
-       (EcoreUtil/delete this true)
-       this)
-    ([this recursive]
-       ;; Gotta provide a real boolean, not just a truthy thingy
-       (EcoreUtil/delete this (if recursive true false))
-       this)))
 
 ;;** Printing
 
