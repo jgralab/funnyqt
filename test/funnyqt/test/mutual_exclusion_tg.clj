@@ -209,23 +209,24 @@
                                (iseq r2 'Request :in)))]
     (create-edge! 'Request p1 r2))
 
+  (defpattern release-star-pattern
+    "Given a resource and a process, matches another process and resource where
+    the resource is held by the given process and another process requests it."
+    [g r2 p2] [h1 (iseq p2 'HeldBy :in)
+               :let [r1 (alpha h1)]
+               rq (iseq r1 'Request :in)
+               :let [p1 (alpha rq)]
+               :when (and (not= r1 r2) (not= p1 p2))])
+
   (defrule release-star-rule
     "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
     ([g] [p2 (vseq g 'Process)
           h2 (iseq p2 'HeldBy :in)
           :let [r2 (alpha h2)]
-          h1 (iseq p2 'HeldBy :in)
-          :let [r1 (alpha h1)]
-          rq (iseq r1 'Request :in)
-          :let [p1 (alpha rq)]
-          :when (and (not= r1 r2) (not= p1 p2))]
+          [h1 r1 rq p1] (release-star-pattern g r2 p2)]
        (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-    ([g r2 h2 p2] [h1 (iseq p2 'HeldBy :in)
-                   :let [r1 (alpha h1)]
-                   rq (iseq r1 'Request :in)
-                   :let [p1 (alpha rq)]
-                   :when (and (not= r1 r2) (not= p1 p2))]
+    ([g r2 h2 p2] [[h1 r1 rq p1] (release-star-pattern g r2 p2)]
        (release-star-rule g r2 h2 p2 h1 r1 rq p1))
     ([g r2 h2 p2 h1 r1 rq p1]
        (delete! h1)

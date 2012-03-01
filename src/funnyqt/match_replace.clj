@@ -20,21 +20,24 @@
       (cond
        ;; Handle :let [x y, z a]
        (= :let (first p)) (recur (rest (rest p))
-                                 (concat l
-                                         (loop [ls (first (rest p)) bs []]
-                                           (if (seq ls)
-                                             (recur (rest (rest ls))
-                                                    (conj bs (first ls)))
-                                             bs))))
+                                 (vec (concat l
+                                              (loop [ls (first (rest p)) bs []]
+                                                (if (seq ls)
+                                                  (recur (rest (rest ls))
+                                                         (conj bs (first ls)))
+                                                  bs)))))
        ;; Ignore :when (exp ...)
        (keyword? (first p)) (recur (rest (rest p)) l)
-       ;; Don't allow destructuring
-       (coll? (first p)) (error "Destructuring not allowed outside :let")
+       ;; A vector destructuring form
+       (vector? (first p)) (recur (rest (rest p)) (vec (concat l (first p))))
+       ;; Anothen destructuring form
+       (coll? (first p)) (error (format "Only vector destructuring is permitted outside :let, got: %s"
+                                        (first p)))
        ;; That's a normal binding
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
-(defn- splice-let-vector [lv]
+(defn- shortcut-let-vector [lv]
   (mapcat (fn [[s v]]
             [:let [s v]
              :when s])
@@ -45,7 +48,7 @@
     (if (seq p)
       (if (= :let (first p))
         (recur (rest (rest p))
-               (vec (concat nb (splice-let-vector (first (next p))))))
+               (vec (concat nb (shortcut-let-vector (first (next p))))))
         (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
       (vec nb))))
 
@@ -177,8 +180,7 @@
         body (next more)]
     ;; Validate
     (when-not (vector? args)
-      (error (format "No args vector specified for transformation %s."
-                     args)))
+      (error (format "No args vector specified for transformation %s." args)))
     (let [[rules-and-patterns main-form]
           ((juxt filter remove)
            #(let [x (first %)]
