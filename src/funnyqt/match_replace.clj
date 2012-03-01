@@ -1,12 +1,16 @@
 (ns funnyqt.match-replace
   "Match elements in a structure, and act on them."
   (:use [funnyqt.utils :only [error add-long-doc! pr-identity]])
+  (:use [funnyqt.generic :only [the]])
+  (:use funnyqt.macro-utils)
   (:require clojure.set)
   (:use [funnyqt.generic :only [member?]])
   (:require [clojure.tools.macro :as m]))
 
 (add-long-doc!
  "TODO")
+
+;;* Code
 
 ;;** Matching
 
@@ -60,7 +64,7 @@
   (let [arglist (bindings-to-arglist bindings)
         sbindings (shortcut-bindings bindings)
         r `r#]
-    `(when-let [~r (first (for ~bindings ~arglist))]
+    `(when-let [~r (first (for ~sbindings ~arglist))]
        ;; We want no matches with nil values
        (when (every? (complement nil?) ~r)
          ;; Rip out the individual values of the result and let-bind them.
@@ -73,6 +77,8 @@
                    (recur (rest a) (inc i) (concat res [(first a) `(~r ~i)]))
                    (vec res)))
            ~@body)))))
+
+;;** Patterns and Rules
 
 (defn- verify-match-vector
   "Ensure that the match vector `match' and the arg vector `args' are disjoint.
@@ -111,11 +117,10 @@
                   `(~a
                     (for ~(verify-match-vector m a)
                       ~(bindings-to-arglist m))))]
-    `(defn ~name
-       ~(meta name)
-       ~@(if (seq? (first more))
-           (map convert more)
-           (convert more)))))
+    `(~@(expansion-context-defn-maybe name)
+      ~@(if (seq? (first more))
+          (map convert more)
+          (convert more)))))
 
 (defmacro defrule
   "Defines a rule with `name', optional doc-string', optional `attr-map?',
@@ -149,11 +154,50 @@
                             ~@body)))
                       ;; No match given
                       `(~args ~@more))))]
-    `(defn ~name
-       ~(meta name)
-       ~@(if (seq? (first more))
-           (map convert more)
-           (convert more)))))
+    `(~@(expansion-context-defn-maybe name)
+      ~@(if (seq? (first more))
+          (map convert more)
+          (convert more)))))
+
+;;** Transformations
+
+(defmacro deftransformation
+  {:doc "Defines a match-replace transformation named `name' with optional
+  `doc-string?', optional `meta-map?, a mandatory `args' vector, and a `body'.
+  The `body' must consist of arbitrary many `defpattern' and `defrule' forms,
+  and exactly one other form, the main entry point of the transformation.  This
+  form is evaluated when the transformation is called.
+
+  All patterns, rules, and the main form of the transformation have access to
+  the `args' of the transformation."
+   :arglists '([name doc-string? meta-map? [args] & body])}
+  [tname & more]
+  (let [[tname more] (m/name-with-attributes tname more)
+        args (first more)
+        body (next more)]
+    ;; Validate
+    (when-not (vector? args)
+      (error (format "No args vector specified for transformation %s."
+                     args)))
+    (let [[rules-and-patterns main-form]
+          ((juxt filter remove)
+           #(let [x (first %)]
+              (and (symbol? x)
+                   (let [var (resolve x)]
+                     (or (= var #'defpattern)
+                         (= var #'defrule)))))
+           body)]
+      (when (not= (count main-form) 1)
+        (error (format "There must be exactly one main form in a transformation but got %d: %s"
+                       (count main-form) (print-str main-form))))
+      (binding [*expansion-context* :internal]
+        ;; Ok, here we go.
+        `(defn ~tname ~(meta tname)
+           ~args
+           (letfn [~@(map macroexpand-1 rules-and-patterns)]
+             ~(the main-form)))))))
+
+;;** Higher order rules
 
 (defn iteratively
   "Applies the rule `r' with `args' as long as it returns logical true.

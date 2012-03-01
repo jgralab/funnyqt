@@ -2,6 +2,7 @@
   (:use funnyqt.emf.core)
   (:use funnyqt.generic-protocols)
   (:use funnyqt.generic)
+  (:use funnyqt.utils)
   (:use funnyqt.match-replace)
   (:use funnyqt.emf.query)
   (:use clojure.test))
@@ -107,13 +108,15 @@
   ([sys] [r1  (econtents sys 'Resource)
           p2  (eget r1 :requester)
           :let [p1 (eget r1 :holder)]
-          :when (not= p1 p2)
-          r2  (eget p1 :blocked_by)]
+          r2  (eget p1 :blocked_by)
+          :when (not= r1 r2)]
+     ;; (println "(waiting-rule" sys ")")
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1] [p2  (eget r1 :requester)
              :let [p1 (eget r1 :holder)]
-             :when (not= p1 p2)
-             r2  (eget p1 :blocked_by)]
+             r2  (eget p1 :blocked_by)
+             :when (not= r1 r2)]
+     ;; (println "(waiting-rule" sys " " r1 ")")
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1 r2 p1 p2]
      (eadd! p2 :blocked_by r2)
@@ -135,7 +138,8 @@
   (eremove! r :blocked p)
   (eset! r :releaser p))
 
-(defn apply-mutual-exclusion-sts
+(deftransformation apply-mutual-exclusion-sts
+  "Does the STS on `m'."
   [m n param-pass]
   (let [sys (the (econtents m 'System))]
     ;; n-2 times new-rule ==> n processes in a ring
@@ -170,50 +174,54 @@
 
 ;;** Long Transformation Sequence
 
-(defrule request-star-rule
-  "Matches a process and its successor that hold two different resources, and
+(deftransformation apply-mutual-exclusion-lts
+  "Performs the LTS transformation."
+  [m n param-pass]
+
+  (defrule request-star-rule
+    "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
-  [sys] [r1 (econtents sys 'Resource)
-         :let [p1 (eget r1 :holder)]
-         :let [p2 (eget p1 :next)]
-         r2 (eget p2 :held)
-         :when (not= r1 r2)
-         :when (not (member? p1 (eget r2 :requester)))]
-  (eadd! p1 :requested r2))
+    [sys] [r1 (econtents sys 'Resource)
+           :let [p1 (eget r1 :holder)]
+           :let [p2 (eget p1 :next)]
+           r2 (eget p2 :held)
+           :when (not= r1 r2)
+           :when (not (member? p1 (eget r2 :requester)))]
+    (eadd! p1 :requested r2))
 
-(defrule release-star-rule
-  "Matches a process holding 2 resources where one is requested by another
+  (defrule release-star-rule
+    "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([sys] [r2 (econtents sys 'Resource)
-          :let [p2 (eget r2 :holder)]
-          r1 (eget p2 :held)
-          :when (not= r1 r2)
-          p1 (eget r1 :requested)
-          :when (not= p1 p2)]
-     (release-star-rule sys r2 p2 r1 p1))
-  ([sys r2 p2 r1 p1]
-     (eset! r1 :holder nil)
-     (eset! r1 :releaser p2)))
+    ([sys] [r2 (econtents sys 'Resource)
+            :let [p2 (eget r2 :holder)]
+            r1 (eget p2 :held)
+            :when (not= r1 r2)
+            p1 (eget r1 :requester)
+            :when (not= p1 p2)]
+       (release-star-rule sys r2 p2 r1 p1))
+    ([sys r2 p2 r1 p1]
+       (eset! r1 :holder nil)
+       (eset! r1 :releaser p2)))
 
-(defn apply-mutual-exclusion-lts
-  [sys n param-pass]
-  (dotimes [_ n]
-    (request-star-rule sys))
-  (blocked-rule sys)
-  (dotimes [_ (dec n)]
-    (waiting-rule sys))
-  (unlock-rule sys)
-  (blocked-rule sys)
-  (if param-pass
-    (iteratively #(or (iteratively* waiting-rule sys)
-                      (waiting-rule sys)))
-    (iteratively #(waiting-rule sys)))
-  (ignore-rule sys)
-  (if param-pass
-    (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) sys)
-    (iteratively #(do (give-rule sys) (take-rule sys) (release-star-rule sys))))
-  (give-rule sys)
-  (take-rule sys))
+  ;; The main entry point
+  (let [sys (the (econtents m 'System))]
+    (dotimes [_ n]
+      (request-star-rule sys))
+    (blocked-rule sys)
+    (dotimes [_ (dec n)]
+      (waiting-rule sys))
+    (unlock-rule sys)
+    (blocked-rule sys)
+    (if param-pass
+      (iteratively #(or (iteratively* waiting-rule sys)
+                        (waiting-rule sys)))
+      (iteratively #(waiting-rule sys)))
+    (ignore-rule sys)
+    (if param-pass
+      (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) sys)
+      (iteratively #(do (give-rule sys) (take-rule sys) (release-star-rule sys))))
+    (give-rule sys)
+    (take-rule sys)))
 
 (defn g-lts
   "Returns an initial graph for the LTS.

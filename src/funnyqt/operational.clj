@@ -78,7 +78,7 @@
              objs)))
 
 (defmacro deftransformation
-  {:doc "Defines and operational transformation named `name' with optional
+  {:doc "Defines an operational transformation named `name' with optional
   `doc-string?', optional `meta-map?, a mandatory `args' vector, and a `body'.
   The `body' must consist of arbitrary `defmapping' and `defhelper' forms, and
   exactly one other form, the main entry point of the transformation.  This
