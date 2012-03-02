@@ -1,7 +1,8 @@
 # FunnyQT
 
 FunnyQT is a model querying and transformation library.  It supports (or is
-going to support) TGraph and EMF models.
+going to support) TGraph and EMF models.  It's part of Tassilo Horn's
+dissertation studies.
 
 ## Documentation
 

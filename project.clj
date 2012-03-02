@@ -1,5 +1,6 @@
-(defproject funnyqt "0.0.9"
-  :description "A model querying and transformation library.
+(defproject funnyqt "0.1.0"
+  :description "A model querying and transformation library for TGraphs and EMF
+  models developed as part of Tassilo Horn's dissertation studies.
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
   changes.  You've been warned, but have fun anyway."
@@ -19,16 +20,7 @@
   :jvm-opts ["-Xmx2G"]
   :license {:name "GNU General Public License, Version 3"
             :url "http://www.gnu.org/copyleft/gpl.html"
-            :distribution :repo
-            :comments "Additional permission under GNU GPL version 3 section 7
-
-If you modify this Program, or any covered work, by linking or combining it
-with Eclipse (or a modified version of that program or an Eclipse plugin),
-containing parts covered by the terms of the Eclipse Public License (EPL), the
-licensors of this Program grant you additional permission to convey the
-resulting work.  Corresponding Source for a non-source form of such a
-combination shall include the source code for the parts of FunnyQT and JGraLab
-used as well as that of the covered work."}
+            :distribution :repo}
   :url "https://github.com/jgralab/funnyqt"
   ;; Stuff specific to generating API docs
   :html5-docs-name "FunnyQT"
