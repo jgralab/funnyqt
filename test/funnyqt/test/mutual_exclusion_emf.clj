@@ -45,8 +45,7 @@
   "Passes the token to the next process if the current doesn't request it."
   [sys] [r  (econtents sys 'Resource)
          p1 (eget r :taker)
-         :when (empty? (filter #(= % r)
-                               (eget p1 :requested)))
+         :when (not (member? r (eget p1 :requested)))
          p2 (eget p1 :next)]
   (eset! r :taker p2))
 
@@ -62,7 +61,7 @@
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
-  ([sys] [r  (econtents sys 'Resource)
+  ([sys] [r (econtents sys 'Resource)
           :let [p (eget r :taker)]
           :when (member? p (eget r :requester))]
      (take-rule sys r p))
@@ -70,6 +69,8 @@
      (eset! r :taker nil)
      (eremove! r :requester p)
      (eset! r :holder p)))
+
+;; TODO: Check remaining rules!
 
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
@@ -253,23 +254,24 @@
   (println)
   (println "Mutual Exclusion STS")
   (println "====================")
-  (doseq [n [5, 100, 1000]]
+  (doseq [n [5, ;;100, 1000
+             ]]
     (let [g1 (g-sts)
           g2 (g-sts)]
       (println "N =" n)
       (print "  without parameter passing:\t")
       (time (apply-mutual-exclusion-sts g1 n false))
       (is (= (+ 2 n) (count (eallobjects g1))))
-      #_(is (= (inc n) (count (ecrosspairs g1))))
+      (is (= (inc n) (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))
       (is (= (+ 2 n) (count (eallobjects g2))))
-      #_(is (= (inc n) (count (ecrosspairs g2))))
+      (is (= (inc n) (count (ecrosspairs g2))))
       ;;(print-model g2 ".gtk")
       )))
 
-(deftest mutual-exclusion-lts
+#_(deftest mutual-exclusion-lts
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
@@ -282,11 +284,11 @@
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
       (is (= vc (count (eallobjects g1))))
-      #_(is (= ec (count (ecrosspairs g1))))
+      (is (= ec (count (ecrosspairs g1))))
 
       (print "  with parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
       (is (= vc (count (eallobjects g2))))
-      #_(is (= ec (count (ecrosspairs g2))))
+      (is (= ec (count (ecrosspairs g2))))
       )))
 
