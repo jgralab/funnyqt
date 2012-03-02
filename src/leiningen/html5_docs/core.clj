@@ -154,7 +154,7 @@
        (:method-builders v)))
 
 (defn constructor?
-  "Is Var v the constructor fn of a deftype?"
+  "Is Var v the constructor fn of a deftype or defrecord?"
   [v]
   (and (fn? @v)
        (:arglists (meta v))
@@ -164,7 +164,7 @@
 (defn gen-fn-details [v s es]
   [:div
    [:h3 (cond
-         (constructor? v)     "Type Constructor: "
+         (constructor? v)     "Type/Record Constructor: "
          (:macro (meta v))    "Macro: "
          (:protocol (meta v)) "Protocol Method: "
          :else                "Function: ")
@@ -187,6 +187,8 @@
          "No docs attached."))]])
 
 (defn gen-protocol-details [v s es]
+  ;; TODO: We'd also like to show all extenders, unfortunately (extenders
+  ;; MyProt) always returns nil.
   [:div
    [:h3 "Protocol: " es]
    [:pre
