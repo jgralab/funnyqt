@@ -66,21 +66,8 @@ user=> (vseq g 'localities.City)
 
 Copyright (C) 2011-2012 The JGraLab Team <ist@uni-koblenz.de>
 
-Distributed under the General Public License (Version 3), with the following
-additional grant:
-
-```
-Additional permission under GNU GPL version 3 section 7
-
-If you modify this Program, or any covered work, by linking or combining it
-with Eclipse (or a modified version of that program or an Eclipse plugin),
-containing parts covered by the terms of the Eclipse Public License (EPL), the
-licensors of this Program grant you additional permission to convey the
-resulting work.  Corresponding Source for a non-source form of such a
-combination shall include the source code for the parts of FunnyQT and JGraLab
-used as well as that of the covered work.
-```
-
+Distributed under the
+[General Public License, Version 3](http://www.gnu.org/copyleft/gpl.html).
 
 <!-- Local Variables:        -->
 <!-- mode: markdown          -->
