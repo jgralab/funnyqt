@@ -127,11 +127,25 @@
 
 (defmacro defrule
   "Defines a rule with `name', optional doc-string', optional `attr-map?',
-  an `args' vector, a `match' vector, and following `body' code.  Just like
-  `defn', overloading is supported as well.  The `match' vector is actually
-  optional.  If no version has a match, then you should use `defn' directly.
+  an `args' vector, an optional `match' vector, and following `body' code.
+  Just like `defn', overloading is supported as well.  The `match' vector is
+  actually optional.  If no version has a match, then you should use `defn'
+  directly.
 
   `match' specifies what the rule matches (a vector with the syntax of `for').
+  The match vector is optional.  The purpose of this optionality is mainly
+  overloading, i.e., you can have a rule like this:
+
+    (defrule foobar
+      \"Matches a, b, and c, and performs actions on them.\"
+      ([g] [a ..., b ..., c ...] (foobar g a b c))
+      ([g a] [b ..., c ...]      (foobar g a b c))
+      ([g a b] [c ...]           (foobar g a b c))
+      ([g a b c]  ;; No match vector, just actions
+        (action1 a)
+        (action2 b)
+        (action3 c)
+        (action4 a c)))
 
   `body' is applied on the match.
 
