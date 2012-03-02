@@ -129,8 +129,9 @@
 
 (defn indent
   [s]
-  (for [line (str/split-lines s)]
-    (str "  " line "\n")))
+  (reduce str
+          (for [line (str/split-lines s)]
+            (str "  " line "\n"))))
 
 (defn source-link
   [project v]
@@ -143,6 +144,68 @@
            "#L" (:line (meta v)))
       (source-link project (:protocol (meta v))))))
 
+(defn protocol? [v]
+  (and (map? v)
+       (:on-interface v)
+       (:on v)
+       (:sigs v)
+       (:var v) 
+       (:method-map v)
+       (:method-builders v)))
+
+(defn gen-fn-details [v s es]
+  [:div
+   [:h3 (cond
+         (:macro (meta v))    "Macro: "
+         (:protocol (meta v)) "Protocol Method: "
+         :else                "Function: ")
+    es]
+   [:pre
+    (when-let [prot (:name (meta (:protocol (meta v))))]
+      (str "Specified by protocol " (name prot) ".\n\n"))
+    "Arglists:\n=========\n\n"
+    (escape-html
+     (html
+      (binding [pp/*print-miser-width*  60
+                pp/*print-right-margin* 80]
+        (map #(let [sig `(~s ~@%)]
+                (indent (with-out-str
+                          (pp/pprint sig))))
+             (:arglists (meta v))))))
+    "\nDocstring:\n==========\n\n  "
+    (escape-html
+     (or (:doc (meta v))
+         "No docs attached."))]])
+
+(defn gen-protocol-details [v s es]
+  [:div
+   [:h3 "Protocol: " es]
+   [:pre
+    "Signatures:\n===========\n\n"
+    (escape-html
+     (html
+      (binding [pp/*print-miser-width*  60
+                pp/*print-right-margin* 80]
+        (map (fn [[n als d]]
+               (str (indent (with-out-str
+                              (pp/pprint `(~n ~@als))))
+                    (when d
+                      (str (indent (str "\n  " d)) "\n"))))
+             (for [sig (:sigs @v)
+                   :let [s (second sig)]]
+               [(:name s) (:arglists s) (:doc s)])))))
+    "\nDocstring:\n==========\n\n  "
+    (escape-html
+     (or (:doc (meta v))
+         "No docs attached."))]])
+
+(defn gen-var-details [v s es]
+  [:div
+   [:h3 (when (:dynamic (meta v)) "Dynamic ") "Var: " es]
+   [:pre "  " (escape-html
+               (or (:doc (meta v))
+                   "No docs attached."))]])
+
 (defn gen-public-vars-details
   "Generates detailed docs for the public vars pubs."
   [project pubs]
@@ -152,36 +215,10 @@
      (let [es (escape-html s)
            id (make-id s)]
        [:div {:id id}
-        (if (fn? (deref v))
-          ;; A Function
-          [:div
-           [:h3 (cond
-                 (:macro (meta v))    "Macro: "
-                 (:protocol (meta v)) "Protocol Method: "
-                 :else                "Function: ")
-            es]
-           [:pre
-            (when-let [prot (:name (meta (:protocol (meta v))))]
-              (str "Specified by protocol " (name prot) ".\n\n"))
-            "Arglists:\n=========\n\n"
-            (escape-html
-             (html
-              (binding [pp/*print-miser-width*  60
-                        pp/*print-right-margin* 80]
-                (map #(let [sig `(~s ~@%)]
-                        (indent (with-out-str
-                                  (pp/pprint sig))))
-                     (:arglists (meta v))))))
-            "\nDocstring:\n==========\n\n  "
-            (escape-html
-             (or (:doc (meta v))
-                 "No docs attached."))]]
-          ;; A Var
-          [:div
-           [:h3 (when (:dynamic (meta v)) "Dynamic ") "Var: " es]
-           [:pre "  " (escape-html
-                       (or (:doc (meta v))
-                           "No docs attached."))]])
+        (cond
+         (fn? @v)       (gen-fn-details v s es)
+         (protocol? @v) (gen-protocol-details v s es)
+         :else          (gen-var-details v s es))
         ;; Link to sources
         [:a {:href (source-link project v)} "View Source"]
         " "

@@ -40,6 +40,7 @@
         (register-epackages subs)))))
 
 (defprotocol EcoreModelBasics
+  "A protocol for basid EcoreModel operations."
   (load-and-register [this])
   ;; TODO: Implement me.
   (save [this file]))
@@ -177,6 +178,7 @@
 ;;*** EMF Model def
 
 (defprotocol EMFModelBasics
+  "A protocol for basid EMFModel operations."
   (init-model [this])
   ;; TODO: Maybe varags are supported in newer clojure versions?
   (add-eobject! [this eo])
