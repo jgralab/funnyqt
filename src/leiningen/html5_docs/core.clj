@@ -5,8 +5,8 @@
   (:require [clojure.pprint :as pp])
   (:import [java.io File]))
 
-(defn files-in [dirpath pattern]
-  (for [file (-> dirpath File. file-seq)
+(defn files-in [^String dirpath pattern]
+  (for [^java.io.File file (-> dirpath File. file-seq)
         :when (re-matches pattern (.getName file))]
     (.getPath file)))
 
@@ -149,13 +149,22 @@
        (:on-interface v)
        (:on v)
        (:sigs v)
-       (:var v) 
+       (:var v)
        (:method-map v)
        (:method-builders v)))
+
+(defn constructor?
+  "Is Var v the constructor fn of a deftype?"
+  [v]
+  (and (fn? @v)
+       (:arglists (meta v))
+       (:name (meta v))
+       (.startsWith ^String (name (:name (meta v))) "->")))
 
 (defn gen-fn-details [v s es]
   [:div
    [:h3 (cond
+         (constructor? v)     "Type Constructor: "
          (:macro (meta v))    "Macro: "
          (:protocol (meta v)) "Protocol Method: "
          :else                "Function: ")
@@ -216,9 +225,9 @@
            id (make-id s)]
        [:div {:id id}
         (cond
-         (fn? @v)       (gen-fn-details v s es)
-         (protocol? @v) (gen-protocol-details v s es)
-         :else          (gen-var-details v s es))
+         (fn? @v)         (gen-fn-details v s es)
+         (protocol? @v)   (gen-protocol-details v s es)
+         :else            (gen-var-details v s es))
         ;; Link to sources
         [:a {:href (source-link project v)} "View Source"]
         " "
@@ -293,4 +302,3 @@
     (when (seq err)
       (println "Some warnings occured, see html5-docs.log.")
       (spit "html5-docs.log" err))))
-
