@@ -43,9 +43,9 @@
                 (str (value m :firstName) " "
                      (value (family m) :lastName)))
     (set-value! p :ageGroup
-                (enum p 'AgeGroup (if (>= (value m :age) 18)
-                                    'ADULT
-                                    'CHILD)))
+                (enum-constant p (if (>= (value m :age) 18)
+                                   'AgeGroup.ADULT
+                                   'AgeGroup.CHILD)))
     (add-adj! p :address
               (resolve-in family2address (family m)))
     (deferred

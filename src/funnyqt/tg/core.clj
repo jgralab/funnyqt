@@ -621,14 +621,15 @@ See `tgtree', `show-graph', and `print-graph'.")
                    ^java.util.Map (zipmap (map name (keys m))
                                           (vals m)))))
 
-(defn enum
-  "Returns the enum constant `c' of enum type `t' in the schema of element `e'.
-  See `domain' for getting a Domain by its qualified name."
-  [^AttributedElement e t c]
-  (let [^Graph g (if (instance? Graph e) e (graph e))]
+(defn enum-constant
+  "Returns the enum constant `c' in the schema of element `e'.
+  `c' is the qualified name of the constant, e.g., my.Enum.CONSTANT."
+  [^AttributedElement e c]
+  (let [^Graph g (if (instance? Graph e) e (graph e))
+        [enum constant _] (split-qname c)]
     (.getEnumConstant g
-                      ^EnumDomain (domain e t)
-                      ^String (name c))))
+                      ^EnumDomain (domain e enum)
+                      ^String constant)))
 
 ;;** Element Order
 

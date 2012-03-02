@@ -98,9 +98,10 @@
                                                        {:x a :y a})])
                            (keys (img 'Location))))
   (create-attribute! {:qname 'Location.cool :domain 'Cooliness}
-                     #(map (fn [a] [(r-elem a) (enum (r-elem a)
-                                                     'Cooliness
-                                                     (rand-nth ['YAY 'NAY]))])
+                     #(map (fn [a] [(r-elem a) (enum-constant
+                                               (r-elem a)
+                                               (rand-nth ['Cooliness.YAY
+                                                          'Cooliness.NAY]))])
                            (keys (img 'Location)))))
 
 (deftest test-trans-5
