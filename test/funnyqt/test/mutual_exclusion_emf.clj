@@ -117,8 +117,8 @@
              :when (not= r1 r2)]
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1 r2 p1 p2]
-     (eremove! p1 :blocked_by r2)
-     (eadd! p2 :blocked_by r2)
+     (eremove! r2 :blocked p1)
+     (eadd! r2 :blocked p2)
      [sys r1]))
 
 (defrule ignore-rule
@@ -196,11 +196,16 @@
     ([sys] [r2 (econtents sys 'Resource)
             :let [p2 (eget r2 :holder)]
             r1 (eget p2 :held)
-            :when (not= r1 r2)
+            ;:when (not= r1 r2)
             p1 (eget r1 :requester)
-            :when (not= p1 p2)]
-       (release-star-rule sys r2 p2 r1 p1))
-    ([sys r2 p2 r1 p1]
+            ;:when (not= p1 p2)
+            ]
+       (release-star-rule sys r2 p2))
+    ([sys r2 p2] [r1 (eget p2 :held)
+                  ;:when (not= r1 r2)
+                  p1 (eget r1 :requester)
+                  ;:when (not= p1 p2)
+                  ]
        (eunset! r1 :holder)
        (eset! r1 :releaser p2)))
 
@@ -208,19 +213,42 @@
   (let [sys (the (econtents m 'System))]
     (dotimes [_ n]
       (request-star-rule sys))
+    (assert (== 12 (count (ecrosspairs m))))
     (blocked-rule sys)
+    (assert (== 13 (count (ecrosspairs m))))
     (dotimes [_ (dec n)]
       (waiting-rule sys))
+    (print-model m ".gtk" :exclude [sys])
+    (assert (== 13 (count (ecrosspairs m))))
     (unlock-rule sys)
+    (assert (== 12 (count (ecrosspairs m))))
     (blocked-rule sys)
+    (assert (== 13 (count (ecrosspairs m))))
+    (print-model m "/home/horn/me.pdf" :exclude [sys])
     (if param-pass
       (iteratively #(or (iteratively* waiting-rule sys)
                         (waiting-rule sys)))
       (iteratively #(waiting-rule sys)))
+    (assert (== 13 (count (ecrosspairs m))))
+    ;; (print-model m "/home/horn/me.pdf" :exclude [sys])
     (ignore-rule sys)
+    (assert (== 12 (count (ecrosspairs m))))
+    (assert (== 3 (count (ecrosspairs m :held :holder))))
+    (assert (== 4 (count (ecrosspairs m :requester :requested))))
+    (assert (== 4 (count (ecrosspairs m :next :prev))))
+    (assert (== 1 (count (ecrosspairs m :releaser :released))))
+    ;;(print-model m "/home/horn/me.pdf" :exclude [sys])
     (if param-pass
-      (iteratively #(apply release-star-rule (apply take-rule (give-rule %))) sys)
-      (iteratively #(do (give-rule sys) (take-rule sys) (release-star-rule sys))))
+      (iteratively #(apply release-star-rule sys (apply take-rule sys (give-rule sys))))
+      (iteratively #(do
+                      (println "in EC:" (count (ecrosspairs m)))
+                      (pr-identity "gr:" (give-rule sys))
+                      ;;(print-model m ".gtk")
+                      (pr-identity "tr:" (take-rule sys))
+                      (let [r (pr-identity "rsr:" (release-star-rule sys))]
+                        (println "out EC:" (count (ecrosspairs m)))
+                        r))))
+    (assert (== 9 (count (ecrosspairs m))))
     (give-rule sys)
     (take-rule sys)))
 
@@ -271,24 +299,29 @@
       ;;(print-model g2 ".gtk")
       )))
 
-#_(deftest mutual-exclusion-lts
+(deftest mutual-exclusion-lts
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
-  (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
+  (doseq [[n r] [[4, 1] ;;[4, 100] [30, 27] [500, 1]
+                 ]]
     (let [g1 (g-lts n)
           vc (inc (* 2 n))  ;; inc, because of System root node
           ec (count (ecrosspairs g1))
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
+
+      ;;(comment)
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
       (is (= vc (count (eallobjects g1))))
       (is (= ec (count (ecrosspairs g1))))
 
-      (print "  with parameter passing:\t")
-      (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
-      (is (= vc (count (eallobjects g2))))
-      (is (= ec (count (ecrosspairs g2))))
+
+      (comment
+        (print "  with parameter passing:\t")
+        (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
+        (is (= vc (count (eallobjects g2))))
+        (is (= ec (count (ecrosspairs g2)))))
       )))
 

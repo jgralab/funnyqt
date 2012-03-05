@@ -709,6 +709,24 @@
 
 ;;*** Visualization
 
+(def ^{:private true, :dynamic true
+       :doc "Opposite refs: those are not dotted, cause we already
+  printed them from the other direction."}
+  *opposite-refs*)
+
+(def ^{:private true, :dynamic true
+       :doc "Objects to be skipped from printing."}
+  *excluded-eobjects*)
+
+(def ^{:private true, :dynamic true
+       :doc "Only these objects (minus excluded ones) are printed."}
+  *included-eobjects*)
+
+(defn- dot-included? [eo]
+  (and (or (not *included-eobjects*) ;; Not set ==> all are included
+           (*included-eobjects* eo))
+       (not (*excluded-eobjects* eo))))
+
 (defn- dot-id [eo]
   (str "O" (Integer/toString (hash eo) (Character/MAX_RADIX))))
 
@@ -719,11 +737,12 @@
             (str n " = \\\"" (eget eo n) "\\\"\\l"))))
 
 (defn- dot-eobject [eo]
-  (let [h (dot-id eo)]
-    (str "  " h
-         " [label=\"{{" (qname eo) "}|"
-         (dot-attributes eo)
-         "}\", shape=record, fontname=Sans, fontsize=14];\n")))
+  (when-not (*excluded-eobjects* eo)
+    (let [h (dot-id eo)]
+      (str "  " h
+           " [label=\"{{" (qname eo) "}|"
+           (dot-attributes eo)
+           "}\", shape=record, fontname=Sans, fontsize=14];\n"))))
 
 (defn- dot-contentrefs [^EObject eo]
   (let [h (dot-id eo)]
@@ -731,18 +750,14 @@
             (for [^EReference ref (.getEAllContainments (.eClass eo))
                   :let [oref (.getEOpposite ref)
                         n (.getName ref)]
-                  t (eget eo ref)]
+                  t (eget eo ref)
+                  :when (dot-included? t)]
               (str "  " h " -> " (dot-id t)
-                   " [dir=both, labeldistance=2.0, labelfloat=true, arrowtail=diamond, fontname=Sans, "
+                   " [dir=both, labeldistance=3.0, labelfloat=true, arrowtail=diamond, fontname=Sans, "
                    "headlabel=\"" n "\""
                    (when oref
                      (str ", taillabel=\"" (.getName oref) "\""))
                    "];\n")))))
-
-(def ^{:private true, :dynamic true
-       :doc "Opposite refs: those are not dotted, cause we already
-  printed them from the other direction."}
-  *opposite-refs*)
 
 (defn- dot-crossrefs [^EObject eo]
   (let [h (dot-id eo)]
@@ -753,6 +768,7 @@
                                  (.isContainer ref)))
                   :let [oref (.getEOpposite ref)]
                   t (ecrossrefs eo ref)
+                  :when (dot-included? t)
                   :let [h2 (dot-id t)]]
               (do
                 (when oref
@@ -760,15 +776,16 @@
                 (str "  " h " -> " h2
                      " [dir="
                      (if oref "none" "forward")
-                     ", labeldistance=2.0, labelfloat=true, fontname=Sans, "
+                     ", labeldistance=3.0, labelfloat=true, fontname=Sans, "
                      "headlabel=\"" (.getName ref) "\""
                      (when oref
                        (str ", taillabel=\"" (.getName oref) "\""))
                      "];\n"))))))
 
 (defn- dot-ereferences [eo]
-  (str (dot-contentrefs eo)
-       (dot-crossrefs eo)))
+  (when (dot-included? eo)
+    (str (dot-contentrefs eo)
+         (dot-crossrefs eo))))
 
 (defn- dot-options [opts]
   (letfn [(update [m k v]
@@ -776,30 +793,39 @@
               m
               (assoc m k v)))]
     (let [m (apply hash-map opts)
-          gname (or (:name m) "EMFModel")
           ;; :name is special and no DOT attr, so remove it
+          gname (or (:name m) "EMFModel")
           m (dissoc m :name)
+          ;; ditto for :include
+          include (:include m)
+          m (dissoc m :include)
+          ;; ditto for :exclude
+          exclude (:exclude m)
+          m (dissoc m :exclude)
           ;; Add default values
           m (update m :ranksep 1.5)]
       (with-meta m
-        {:name gname}))))
+        {:name gname, :include include, :exclude exclude}))))
 
 (defn- dot-model [m opts]
   (let [opts (dot-options opts)]
-    (str "digraph " (:name (meta opts)) " {"
-         (clojure.string/join
-          \,
-          (for [[k v] opts]
-            (str (name k) "=" v)))
-         ";\n\n"
-         (reduce str
-                 (map dot-eobject
-                      (eallobjects m)))
-         (binding [*opposite-refs* (atom #{})]
+    (binding [*included-eobjects* (when-let [i (:include (meta opts))]
+                                    (set i))
+              *excluded-eobjects* (set (:exclude (meta opts)))]
+      (str "digraph " (:name (meta opts)) " {"
+           (clojure.string/join
+            \,
+            (for [[k v] opts]
+              (str (name k) "=" v)))
+           ";\n\n"
            (reduce str
-                   (map dot-ereferences
-                        (eallobjects m))))
-         "}")))
+                   (map dot-eobject
+                        (eallobjects m)))
+           (binding [*opposite-refs* (atom #{})]
+             (reduce str
+                     (map dot-ereferences
+                          (eallobjects m))))
+           "}"))))
 
 (defn print-model
   "Prints a visualization of EMFModel `m' to the file `f'.
@@ -818,7 +844,8 @@
 
     (print-model m \"test.pdf\" :ranksep 2.2 :name \"MyModel\")
 
-  The :name must be a valid DOT ID."
+  The :name must be a valid DOT ID.  Furthermore, a :exclude option may be given
+  which is a seq of EObjects to exclude from printing."
   [m f & opts]
   (let [ds (dot-model m opts)
         suffix (second (re-matches #".*\.([^.]+)$" f))
