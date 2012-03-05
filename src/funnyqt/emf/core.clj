@@ -744,6 +744,11 @@
            (dot-attributes eo)
            "}\", shape=record, fontname=Sans, fontsize=14];\n"))))
 
+(defn- dot-label [^EReference r ^EReference or]
+  (if or
+    (str (.getName r) "/" (.getName or))
+    (str (.getName r) "/-")))
+
 (defn- dot-contentrefs [^EObject eo]
   (let [h (dot-id eo)]
     (reduce str
@@ -754,6 +759,7 @@
                   :when (dot-included? t)]
               (str "  " h " -> " (dot-id t)
                    " [dir=both, labeldistance=3.0, labelfloat=true, arrowtail=diamond, fontname=Sans, "
+                   "label=\"" (dot-label ref oref) "\", "
                    "headlabel=\"" n "\""
                    (when oref
                      (str ", taillabel=\"" (.getName oref) "\""))
@@ -777,6 +783,7 @@
                      " [dir="
                      (if oref "none" "forward")
                      ", labeldistance=3.0, labelfloat=true, fontname=Sans, "
+                     "label=\"" (dot-label ref oref) "\", "
                      "headlabel=\"" (.getName ref) "\""
                      (when oref
                        (str ", taillabel=\"" (.getName oref) "\""))
