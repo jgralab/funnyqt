@@ -60,10 +60,10 @@
     (is (instance? ordered.set.OrderedSet clj-uel))
     (is (== (count uel) (count clj-uel)))
     (is (= (seq uel) (seq clj-uel))))
-  ;; EList -> ISeq
+  ;; EList -> vector
   (let [el (make-elist)
         clj-el (emf2clj el)]
-    (is (seq? clj-el))
+    (is (vector? clj-el))
     (is (== (count el) (count clj-el)))
     (is (= (seq el) clj-el)))
   ;; EMap -> IPersistentMap
@@ -74,26 +74,6 @@
     (doseq [k (keys clj-em)]
       (is (.containsKey em k))
       (is (= (.get em k) (clj-em k))))))
-
-(deftest test-emf2clj-and-back
-  (let [m  (make-emap)
-        l  (make-elist)
-        ul (make-uniqueelist)]
-    ;; Conversion back and fourth
-    (are [x y] (= x (-> y emf2clj clj2emf))
-         m  m
-         l  l
-         ul ul)
-    ;; Conversion from clojure
-    (are [x y] (= x (clj2emf y))
-         m  (ordered-map :a "a", :b "b", :c "c", :d "d")
-         l  [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]
-         ul (ordered-set 0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0))
-    ;; Conversion to clojure
-    (are [x y] (= x (emf2clj y))
-         (ordered-map :a "a", :b "b", :c "c", :d "d")      m
-         [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]         l
-         (ordered-set 0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0) ul)))
 
 (deftest test-econtents-eallcontents
   (let [all   (eallobjects family-model)

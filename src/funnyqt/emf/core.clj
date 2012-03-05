@@ -532,7 +532,7 @@
   -------------+-------------
   UniqueEList  | ordered-set
   EMap         | ordered-map
-  EList        | seq
+  EList        | vector
 
   All other objects are kept as-is."))
 
@@ -542,7 +542,7 @@
   EMap
   (emf2clj [this] (into (ordered-map) (seq this)))
   EList
-  (emf2clj [this] (seq this))
+  (emf2clj [this] (into (vector) this))
   EObject
   (emf2clj [this] this)
   Number
@@ -551,47 +551,6 @@
   (emf2clj [this] this)
   nil
   (emf2clj [_] nil))
-
-(defprotocol CljToEmf
-  (clj2emf [this]
-    "Converts a Clojure thingy to an EMF thingy.
-
-  Clojure Type | EMF Type
-  -------------+-------------
-  ordered-set  | UniqueEList
-  set          | UniqueEList
-  map          | EMap
-  seq          | EList
-
-  All other objects are kept as-is."))
-
-(extend-protocol CljToEmf
-  ordered.set.OrderedSet
-  (clj2emf [this]
-    (let [ul (org.eclipse.emf.common.util.UniqueEList. (count this))]
-      (doseq [item this]
-        (.add ul (clj2emf item)))
-      ul))
-  clojure.lang.IPersistentSet
-  (clj2emf [this]
-    (let [ul (org.eclipse.emf.common.util.UniqueEList. (count this))]
-      (doseq [item this]
-        (.add ul (clj2emf item)))
-      ul))
-  clojure.lang.IPersistentMap
-  (clj2emf [this]
-    (let [em (org.eclipse.emf.common.util.BasicEMap. (count this))]
-      (doseq [[k v] this]
-        (.put em (clj2emf k) (clj2emf v)))
-      em))
-  clojure.lang.ISeq
-  (clj2emf [this]
-    (let [el (org.eclipse.emf.common.util.BasicEList. (count this))]
-      (doseq [item this]
-        (.add el (clj2emf item)))
-      el))
-  java.lang.Object
-  (clj2emf [this] this))
 
 (defn eget-raw
   "Returns the value of `eo's structural feature `sf'.
@@ -621,8 +580,13 @@
   Throws an exception, if there's no EStructuralFeature `sf'."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
-    (doto eo
-      (.eSet sfeat (clj2emf value)))
+    (if (.isMany sfeat)
+      (do
+        (.eUnset eo sfeat)
+        (.addAll ^EList (.eGet eo sfeat) value)
+        eo)
+      (doto eo
+        (.eSet sfeat value)))
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eunset!
@@ -640,8 +604,7 @@
   EStructuralFeature `sf'."
   [^EObject eo sf & values]
   (let [^EList l (eget-raw eo sf)]
-    (doseq [v values]
-      (.add l v))
+    (.addAll l values)
     eo))
 
 (defn eremove!
@@ -650,8 +613,7 @@
   EStructuralFeature `sf'."
   [^EObject eo sf & values]
   (let [^EList l (eget-raw eo sf)]
-    (doseq [v values]
-      (.remove l v))
+    (.removeAll l values)
     eo))
 
 ;;*** Edges, i.e., src/trg tuples
