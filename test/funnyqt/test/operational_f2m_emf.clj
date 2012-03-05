@@ -66,8 +66,8 @@
     (let [male (ecreate! 'Male)]
       (set-person-props male m)
       (deferred
-        (eset! male :wife
-               (resolve-in member2person (wife m))))
+        (when-let [wife (resolve-in member2person (wife m))]
+          (eset! male :wife wife)))
       male))
 
   (defmapping member2female

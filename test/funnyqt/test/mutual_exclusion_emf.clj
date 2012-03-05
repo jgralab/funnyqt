@@ -66,7 +66,7 @@
           :when (member? p (eget r :requester))]
      (take-rule sys r p))
   ([sys r p]
-     (eset! r :taker nil)
+     (eunset! r :taker)
      (eremove! r :requester p)
      (eset! r :holder p)
      [r p]))
@@ -79,7 +79,7 @@
      (release-rule sys r p))
   ([sys r p]
      (when (empty? (eget p :requested))
-       (eset! r :holder nil)
+       (eunset! r :holder)
        (eset! r :releaser p)
        [r p])))
 
@@ -91,7 +91,7 @@
                 p2 (eget p1 :next)]]
      (give-rule sys r p2))
   ([sys r p2]
-     (eset! r :releaser nil)
+     (eunset! r :releaser)
      (eset! r :taker p2)
      [r p2]))
 
@@ -133,7 +133,7 @@
   [sys] [r (econtents sys 'Resource)
          :let [p (eget r :holder)]
          :when (member? p (eget r :blocked))]
-  (eset! r :holder nil)
+  (eunset! r :holder)
   (eremove! r :blocked p)
   (eset! r :releaser p))
 
@@ -199,7 +199,7 @@
             :when (not= p1 p2)]
        (release-star-rule sys r2 p2 r1 p1))
     ([sys r2 p2 r1 p1]
-       (eset! r1 :holder nil)
+       (eunset! r1 :holder)
        (eset! r1 :releaser p2)))
 
   ;; The main entry point
@@ -261,7 +261,7 @@
       (time (apply-mutual-exclusion-sts g1 n false))
       (is (= (+ 2 n) (count (eallobjects g1))))
       (is (= (inc n) (count (ecrosspairs g1))))
-      (print-model g1 ".gtk")
+      ;;(print-model g1 ".gtk")
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))

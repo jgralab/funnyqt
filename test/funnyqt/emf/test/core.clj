@@ -319,6 +319,24 @@
                                  ims))))
     (is (== (* 2 i) (count (econtents fm 'Member))))))
 
+#_(deftest test-stressy-add-remove
+  (let [fm (new-model)
+        root (ecreate! fm 'FamilyModel)
+        f   (ecreate! 'Member)
+        fam (ecreate! 'Family)
+        s   (ecreate! 'Member)]
+    (eadd! root :members f s)
+    (eadd! root :families fam)
+    (is (== 3 (count (eallpairs fm))))
+    (is (== 3 (count (econtentpairs fm))))
+    (is (zero? (count (ecrosspairs fm))))
+    (dotimes [i 1000]
+      (eadd! fam :sons s))
+    (is (== 1003 (count (eallpairs fm))))
+    (is (==    3 (count (econtentpairs fm))))
+    (is (== 1000 (count (ecrosspairs fm))))
+    ))
+
 (deftest test-non-recursive-delete!
   (let [check (fn [m all mems fams]
                 (is (== all  (count (eallobjects m))))
