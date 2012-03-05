@@ -125,6 +125,40 @@
           (map convert more)
           (convert more)))))
 
+(def ^{:dynamic true
+       :doc "A function that is invoked when a rule matches,
+  mainly for debugging purposes.
+  The function gets the following arguments: [r args match]
+    - r is a symbol denoting the current matched rule
+    - args is the vector of the rule's input arguments
+    - match is the vector of the elements matched by the rule"}
+  *on-matched-rule-fn* nil)
+
+(defmacro defrule-internal
+  [debug name more]
+  (let [[name more] (m/name-with-attributes name more)
+        convert (fn [s]
+                  (let [args  (first s)
+                        more (next s)]
+                    (if (vector? (first more))
+                      ;; match vector given
+                      (let [match (first more)
+                            body (next more)]
+                        `(~args
+                          (with-match ~(verify-match-vector match args)
+                            ~@(when debug
+                                `((when *on-matched-rule-fn*
+                                    (*on-matched-rule-fn* '~name ~args ~(bindings-to-arglist match)))))
+                            ~@body)))
+                      ;; No match given
+                      `(~args ~@more))))]
+    `(~@(expansion-context-defn-maybe name)
+      ~@(if (seq? (first more))
+          (map convert more)
+          (convert more)))))
+
+
+
 (defmacro defrule
   "Defines a rule with `name', optional doc-string', optional `attr-map?',
   an `args' vector, an optional `match' vector, and following `body' code.
@@ -158,23 +192,15 @@
   {:arglists '([name doc-string? attr-map? [args] [match] & body]
                  [name doc-string? attr-map? ([args] [match] & body)+])}
   [name & more]
-  (let [[name more] (m/name-with-attributes name more)
-        convert (fn [s]
-                  (let [args  (first s)
-                        more (next s)]
-                    (if (vector? (first more))
-                      ;; match vector given
-                      (let [match (first more)
-                            body (next more)]
-                        `(~args
-                          (with-match ~(verify-match-vector match args)
-                            ~@body)))
-                      ;; No match given
-                      `(~args ~@more))))]
-    `(~@(expansion-context-defn-maybe name)
-      ~@(if (seq? (first more))
-          (map convert more)
-          (convert more)))))
+  `(defrule-internal false ~name ~more))
+
+(defmacro defrule-debug
+  "Exactly the same as `defrule', but expands into a rule that calls
+`*on-matched-rule-fn*', if that's bound."
+  {:arglists '([name doc-string? attr-map? [args] [match] & body]
+                 [name doc-string? attr-map? ([args] [match] & body)+])}
+  [name & more]
+  `(defrule-internal true ~name ~more))
 
 ;;** Transformations
 
@@ -201,7 +227,8 @@
               (and (symbol? x)
                    (let [var (resolve x)]
                      (or (= var #'defpattern)
-                         (= var #'defrule)))))
+                         (= var #'defrule)
+                         (= var #'defrule-debug)))))
            body)]
       (when (not= (count main-form) 1)
         (error (format "There must be exactly one main form in a transformation but got %d: %s"
@@ -210,7 +237,7 @@
         ;; Ok, here we go.
         `(defn ~tname ~(meta tname)
            ~args
-           (letfn [~@(map macroexpand-1 rules-and-patterns)]
+           (letfn [~@(map macroexpand rules-and-patterns)]
              ~(the main-form)))))))
 
 ;;** Higher order rules

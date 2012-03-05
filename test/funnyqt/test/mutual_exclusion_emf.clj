@@ -11,7 +11,7 @@
 
 ;;** Short Transformation Sequence
 
-(defrule new-rule
+(defrule-debug new-rule
   "Matches 2 connected processes and injects a new process in between."
   [sys] [p1 (econtents sys 'Process)
          :let [p2 (eget p1 :next)]]
@@ -20,7 +20,7 @@
     (eset! p1 :next p)
     (eset! p :next p2)))
 
-(defrule kill-rule
+(defrule-debug kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
   [sys] [p1 (econtents sys 'Process)
          :let [p2 (eget p1 :next)
@@ -28,20 +28,20 @@
   (delete! p2)
   (eset! p1 :next p3))
 
-(defrule mount-rule
+(defrule-debug mount-rule
   "Matches a process and creates and assigns a resource to it."
   [sys] [p (econtents sys 'Process)]
   (let [r (ecreate! 'Resource)]
     (eadd! sys :resources r)
     (eset! r :taker p)))
 
-(defrule unmount-rule
+(defrule-debug unmount-rule
   "Matches a resource assigned to a process and deletes it."
   [sys] [r (econtents sys 'Resource)
          :let [t (eget r :taker)]]
   (delete! r))
 
-(defrule pass-rule
+(defrule-debug pass-rule
   "Passes the token to the next process if the current doesn't request it."
   [sys] [r  (econtents sys 'Resource)
          p1 (eget r :taker)
@@ -49,7 +49,7 @@
          p2 (eget p1 :next)]
   (eset! r :taker p2))
 
-(defrule request-rule
+(defrule-debug request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
   [sys] [p (econtents sys 'Process)
@@ -58,7 +58,7 @@
          :when (not= p (eget r :holder))]
   (eadd! p :requested r))
 
-(defrule take-rule
+(defrule-debug take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
   ([sys] [r (econtents sys 'Resource)
@@ -71,7 +71,7 @@
      (eset! r :holder p)
      [r p]))
 
-(defrule release-rule
+(defrule-debug release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
   ([sys] [r  (econtents sys 'Resource)
@@ -83,7 +83,7 @@
        (eset! r :releaser p)
        [r p])))
 
-(defrule give-rule
+(defrule-debug give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
   ([sys] [r (econtents sys 'Resource)
@@ -95,7 +95,7 @@
        (eset! r :taker p2)
        [r p2])))
 
-(defrule blocked-rule
+(defrule-debug blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
   [sys] [r   (econtents sys 'Resource)
@@ -103,7 +103,7 @@
          :let [p2 (eget r :holder)]]
   (eadd! r :blocked p1))
 
-(defrule waiting-rule
+(defrule-debug waiting-rule
   "Moves the blocked state."
   ([sys] [r1  (econtents sys 'Resource)
           p2  (eget r1 :requester)
@@ -121,14 +121,14 @@
      (eadd! r2 :blocked p2)
      [sys r1]))
 
-(defrule ignore-rule
+(defrule-debug ignore-rule
   "Removes the blocked state if nothing is held anymore."
   [sys] [r (econtents sys 'Resource)
          p (eget r :blocked)
          :when (empty? (eget p :held))]
   (eremove! r :blocked p))
 
-(defrule unlock-rule
+(defrule-debug unlock-rule
   "Matches a process holding and blocking a resource and releases it."
   [sys] [r (econtents sys 'Resource)
          :let [p (eget r :holder)]
@@ -155,9 +155,7 @@
       (iteratively #(do
                       (take-rule sys)
                       (release-rule sys)
-                      (give-rule sys))))
-    ;;(print-model m ".gtk")
-    ))
+                      (give-rule sys))))))
 
 (defn g-sts
   "Returns an initial graph for the STS.
@@ -179,7 +177,7 @@
   "Performs the LTS transformation."
   [m n param-pass]
 
-  (defrule request-star-rule
+  (defrule-debug request-star-rule
     "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
     [sys] [r1 (econtents sys 'Resource)
@@ -190,7 +188,7 @@
            :when (not (member? p1 (eget r2 :requester)))]
     (eadd! p1 :requested r2))
 
-  (defrule release-star-rule
+  (defrule-debug release-star-rule
     "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
     ([sys] [r2 (econtents sys 'Resource)
@@ -210,47 +208,50 @@
        (eset! r1 :releaser p2)))
 
   ;; The main entry point
-  (let [sys (the (econtents m 'System))]
-    (dotimes [_ n]
-      (request-star-rule sys))
-    (assert (== 12 (count (ecrosspairs m))))
-    (blocked-rule sys)
-    (assert (== 13 (count (ecrosspairs m))))
-    (dotimes [_ (dec n)]
-      (waiting-rule sys))
-    (print-model m ".gtk" :exclude [sys])
-    (assert (== 13 (count (ecrosspairs m))))
-    (unlock-rule sys)
-    (assert (== 12 (count (ecrosspairs m))))
-    (blocked-rule sys)
-    (assert (== 13 (count (ecrosspairs m))))
-    (print-model m "/home/horn/me.pdf" :exclude [sys])
-    (if param-pass
-      (iteratively #(or (iteratively* waiting-rule sys)
-                        (waiting-rule sys)))
-      (iteratively #(waiting-rule sys)))
-    (assert (== 13 (count (ecrosspairs m))))
-    ;; (print-model m "/home/horn/me.pdf" :exclude [sys])
-    (ignore-rule sys)
-    (assert (== 12 (count (ecrosspairs m))))
-    (assert (== 3 (count (ecrosspairs m :held :holder))))
-    (assert (== 4 (count (ecrosspairs m :requester :requested))))
-    (assert (== 4 (count (ecrosspairs m :next :prev))))
-    (assert (== 1 (count (ecrosspairs m :releaser :released))))
-    ;;(print-model m "/home/horn/me.pdf" :exclude [sys])
-    (if param-pass
-      (iteratively #(apply release-star-rule sys (apply take-rule sys (give-rule sys))))
-      (iteratively #(do
-                      (println "in EC:" (count (ecrosspairs m)))
-                      (pr-identity "gr:" (give-rule sys))
-                      ;;(print-model m ".gtk")
-                      (pr-identity "tr:" (take-rule sys))
-                      (let [r (pr-identity "rsr:" (release-star-rule sys))]
-                        (println "out EC:" (count (ecrosspairs m)))
-                        r))))
-    (assert (== 9 (count (ecrosspairs m))))
-    (give-rule sys)
-    (take-rule sys)))
+  (let [sys (the (econtents m 'System))
+        cnt (atom 0)]
+    (binding [*on-matched-rule-fn*
+              (fn [rname rargs rmatch]
+                (swap! cnt inc)
+                (print-model m (format "/tmp/me-lts-%02d-%s.pdf"
+                                       @cnt rname)
+                              :exclude [(first rargs)]))]
+      (dotimes [_ n]
+        (request-star-rule sys))
+      (assert (== 12 (count (ecrosspairs m))))
+      (blocked-rule sys)
+      (assert (== 13 (count (ecrosspairs m))))
+      (dotimes [_ (dec n)]
+        (waiting-rule sys))
+      (assert (== 13 (count (ecrosspairs m))))
+      (unlock-rule sys)
+      (assert (== 12 (count (ecrosspairs m))))
+      (blocked-rule sys)
+      (assert (== 13 (count (ecrosspairs m))))
+      (if param-pass
+        (iteratively #(or (iteratively* waiting-rule sys)
+                          (waiting-rule sys)))
+        (iteratively #(waiting-rule sys)))
+      (assert (== 13 (count (ecrosspairs m))))
+      ;; (print-model m "/home/horn/me.pdf" :exclude [sys])
+      (ignore-rule sys)
+      (assert (== 12 (count (ecrosspairs m))))
+      (assert (== 3 (count (ecrosspairs m :held :holder))))
+      (assert (== 4 (count (ecrosspairs m :requester :requested))))
+      (assert (== 4 (count (ecrosspairs m :next :prev))))
+      (assert (== 1 (count (ecrosspairs m :releaser :released))))
+      ;;(print-model m "/home/horn/me.pdf" :exclude [sys])
+      (if param-pass
+        (iteratively #(apply release-star-rule sys
+                             (apply take-rule sys
+                                    (give-rule sys))))
+        (iteratively #(do
+                        (pr-identity "gr:" (give-rule sys))
+                        (pr-identity "tr:" (take-rule sys))
+                        (pr-identity "rsr:" (release-star-rule sys)))))
+      ;;(assert (== 9 (count (ecrosspairs m))))
+      (give-rule sys)
+      (take-rule sys))))
 
 (defn g-lts
   "Returns an initial graph for the LTS.

@@ -851,8 +851,11 @@
 
     (print-model m \"test.pdf\" :ranksep 2.2 :name \"MyModel\")
 
-  The :name must be a valid DOT ID.  Furthermore, a :exclude option may be given
-  which is a seq of EObjects to exclude from printing."
+  The :name must be a valid DOT ID.
+
+  Furthermore, an :include and an :exclude option may be given, both being seqs
+  of EObjects to include/exclude from printing.  If :include is nil, everything
+  is included.  :exclude overrides :include."
   [m f & opts]
   (let [ds (dot-model m opts)
         suffix (second (re-matches #".*\.([^.]+)$" f))
