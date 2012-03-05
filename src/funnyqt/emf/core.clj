@@ -725,7 +725,7 @@
          (dot-attributes eo)
          "}\", shape=record, fontname=Sans, fontsize=14];\n")))
 
-(defn- dot-content-refs [^EObject eo]
+(defn- dot-contentrefs [^EObject eo]
   (let [h (dot-id eo)]
     (reduce str
             (for [^EReference ref (.getEAllContainments (.eClass eo))
@@ -733,7 +733,7 @@
                         n (.getName ref)]
                   t (eget eo ref)]
               (str "  " h " -> " (dot-id t)
-                   " [dir=both, arrowtail=diamond, fontname=Sans, "
+                   " [dir=both, labeldistance=2.0, labelfloat=true, arrowtail=diamond, fontname=Sans, "
                    "headlabel=\"" n "\""
                    (when oref
                      (str ", taillabel=\"" (.getName oref) "\""))
@@ -744,7 +744,7 @@
   printed them from the other direction."}
   *opposite-refs*)
 
-(defn- dot-cross-refs [^EObject eo]
+(defn- dot-crossrefs [^EObject eo]
   (let [h (dot-id eo)]
     (reduce str
             (for [^EReference ref (.getEAllReferences (.eClass eo))
@@ -760,15 +760,15 @@
                 (str "  " h " -> " h2
                      " [dir="
                      (if oref "none" "forward")
-                     ", fontname=Sans, "
+                     ", labeldistance=2.0, labelfloat=true, fontname=Sans, "
                      "headlabel=\"" (.getName ref) "\""
                      (when oref
                        (str ", taillabel=\"" (.getName oref) "\""))
                      "];\n"))))))
 
 (defn- dot-ereferences [eo]
-  (str (dot-content-refs eo)
-       (dot-cross-refs eo)))
+  (str (dot-contentrefs eo)
+       (dot-crossrefs eo)))
 
 (defn- dot-options [opts]
   (letfn [(update [m k v]

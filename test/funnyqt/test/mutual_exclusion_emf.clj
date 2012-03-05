@@ -87,13 +87,13 @@
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
   ([sys] [r (econtents sys 'Resource)
-          :let [p1 (eget r :holder)
-                p2 (eget p1 :next)]]
-     (give-rule sys r p2))
-  ([sys r p2]
-     (eunset! r :releaser)
-     (eset! r :taker p2)
-     [r p2]))
+          :let [p1 (eget r :releaser)]]
+     (give-rule sys r p1))
+  ([sys r p1]
+     (let [p2 (eget p1 :next)]
+       (eunset! r :releaser)
+       (eset! r :taker p2)
+       [r p2])))
 
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
@@ -155,7 +155,9 @@
       (iteratively #(do
                       (take-rule sys)
                       (release-rule sys)
-                      (give-rule sys))))))
+                      (give-rule sys))))
+    ;;(print-model m ".gtk")
+    ))
 
 (defn g-sts
   "Returns an initial graph for the STS.
@@ -252,8 +254,7 @@
   (println)
   (println "Mutual Exclusion STS")
   (println "====================")
-  (doseq [n [5, ;;100, 1000
-             ]]
+  (doseq [n [5, 100, 1000]]
     (let [g1 (g-sts)
           g2 (g-sts)]
       (println "N =" n)
