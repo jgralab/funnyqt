@@ -768,9 +768,7 @@
                         n (.getName ref)]
                   t (eget eo ref)]
               (str "  " h " -> " (dot-id t)
-                   " [dir="
-                   (if oref "none" "forward")
-                   ", arrowtail=diamondnormal, fontname=Sans, "
+                   " [dir=both, arrowtail=diamond, fontname=Sans, "
                    "headlabel=\"" n "\""
                    (when oref
                      (str ", taillabel=\"" (.getName oref) "\""))

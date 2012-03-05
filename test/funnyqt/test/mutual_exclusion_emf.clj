@@ -68,9 +68,8 @@
   ([sys r p]
      (eset! r :taker nil)
      (eremove! r :requester p)
-     (eset! r :holder p)))
-
-;; TODO: Check remaining rules!
+     (eset! r :holder p)
+     [r p]))
 
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
@@ -87,9 +86,9 @@
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
-  ([sys] [p1  (econtents sys 'Process)
-          r   (eget p1 :released)
-          :let [p2 (eget p1 :next)]]
+  ([sys] [r (econtents sys 'Resource)
+          :let [p1 (eget r :holder)
+                p2 (eget p1 :next)]]
      (give-rule sys r p2))
   ([sys r p2]
      (eset! r :releaser nil)
@@ -111,28 +110,27 @@
           :let [p1 (eget r1 :holder)]
           r2  (eget p1 :blocked_by)
           :when (not= r1 r2)]
-     ;; (println "(waiting-rule" sys ")")
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1] [p2  (eget r1 :requester)
              :let [p1 (eget r1 :holder)]
              r2  (eget p1 :blocked_by)
              :when (not= r1 r2)]
-     ;; (println "(waiting-rule" sys " " r1 ")")
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1 r2 p1 p2]
-     (eadd! p2 :blocked_by r2)
      (eremove! p1 :blocked_by r2)
+     (eadd! p2 :blocked_by r2)
      [sys r1]))
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
-  [sys] [p (econtents sys 'Process)
+  [sys] [r (econtents sys 'Resource)
+         p (eget r :blocked)
          :when (empty? (eget p :held))]
-  (eset! p :blocked_by nil))
+  (eremove! r :blocked p))
 
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
-  [sys] [r  (econtents sys 'Resource)
+  [sys] [r (econtents sys 'Resource)
          :let [p (eget r :holder)]
          :when (member? p (eget r :blocked))]
   (eset! r :holder nil)
@@ -219,7 +217,7 @@
       (iteratively #(waiting-rule sys)))
     (ignore-rule sys)
     (if param-pass
-      (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) sys)
+      (iteratively #(apply release-star-rule (apply take-rule (give-rule %))) sys)
       (iteratively #(do (give-rule sys) (take-rule sys) (release-star-rule sys))))
     (give-rule sys)
     (take-rule sys)))
@@ -263,6 +261,7 @@
       (time (apply-mutual-exclusion-sts g1 n false))
       (is (= (+ 2 n) (count (eallobjects g1))))
       (is (= (inc n) (count (ecrosspairs g1))))
+      (print-model g1 ".gtk")
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))
