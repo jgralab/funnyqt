@@ -824,10 +824,10 @@
 (defn- dot-model [m opts]
   (let [opts (dot-options opts)]
     (str "digraph " (:name (meta opts)) " {"
-         (apply str (interpose
-                     ", "
-                     (for [[k v] opts]
-                       (str (name k) "=" v))))
+         (clojure.string/join
+          \,
+          (for [[k v] opts]
+            (str (name k) "=" v)))
          ";\n\n"
          (reduce str
                  (map dot-eobject
