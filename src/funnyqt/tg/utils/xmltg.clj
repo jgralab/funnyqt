@@ -49,8 +49,7 @@ attribute type as string.
 
 (defn- handle-attributes
   [elem ^Attributes attrs]
-  (if (== 0 (.getLength attrs))
-    nil
+  (when-not (zero? (.getLength attrs))
     (loop [i 0, l (.getLength attrs), as []]
       (if (== i l)
         (loop [a as]

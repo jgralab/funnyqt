@@ -102,7 +102,7 @@ See `tgtree', `show-graph', and `print-graph'.")
                             :default 0)
                         i  (.getImage img)
                         io (.getImageObserver img)]
-                    (when-not (== sf 0)
+                    (when-not (zero? sf)
                       (swap! scale + sf)
                       (.setIcon label (ImageIcon. (.getScaledInstance
                                                    i

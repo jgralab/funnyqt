@@ -223,7 +223,7 @@
   (loop [val (apply r args), i 0]
     (if val
       (recur (apply r args) (inc i))
-      (if (zero? i) nil i))))
+      (when-not (zero? i) i))))
 
 (defn iteratively*
   "Applies the rule `r' as long as it returns logical true.
@@ -235,7 +235,7 @@
   (loop [val (apply r args), i 0]
     (if val
       (recur (apply r val) (inc i))
-      (if (zero? i) nil i))))
+      (when-not (zero? i) i))))
 
 (defn ntimes
   "Applies the rule `r' at most `n' times and returns the number of successfull
