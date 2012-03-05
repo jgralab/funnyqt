@@ -215,7 +215,8 @@
                 (swap! cnt inc)
                 (print-model m (format "/tmp/me-lts-%02d-%s.pdf"
                                        @cnt rname)
-                              :exclude [(first rargs)]))]
+                              :exclude [(first rargs)]
+                              :mark (concat rargs rmatch)))]
       (dotimes [_ n]
         (request-star-rule sys))
       (assert (== 12 (count (ecrosspairs m))))

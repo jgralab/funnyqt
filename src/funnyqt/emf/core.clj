@@ -715,12 +715,16 @@
   *opposite-refs*)
 
 (def ^{:private true, :dynamic true
+       :doc "Only these objects (minus excluded ones) are printed."}
+  *included-eobjects*)
+
+(def ^{:private true, :dynamic true
        :doc "Objects to be skipped from printing."}
   *excluded-eobjects*)
 
 (def ^{:private true, :dynamic true
-       :doc "Only these objects (minus excluded ones) are printed."}
-  *included-eobjects*)
+       :doc "These objects are printed in color."}
+  *marked-eobjects*)
 
 (defn- dot-included? [eo]
   (and (or (not *included-eobjects*) ;; Not set ==> all are included
@@ -742,31 +746,40 @@
       (str "  " h
            " [label=\"{{" (qname eo) "}|"
            (dot-attributes eo)
-           "}\", shape=record, fontname=Sans, fontsize=14];\n"))))
+           "}\", shape=record, fontname=Sans, fontsize=14, "
+           "color=" (if (*marked-eobjects* eo)
+                      "red" "black")
+           "];\n"))))
 
 (defn- dot-label [^EReference r ^EReference or]
-  (if or
-    (str (.getName r) "/" (.getName or))
-    (str (.getName r) "/-")))
+  #_(if or
+      (str (.getName r) "/" (.getName or))
+      (str (.getName r) "/-"))
+  "                    ")
 
 (defn- dot-contentrefs [^EObject eo]
-  (let [h (dot-id eo)]
+  (let [h (dot-id eo)
+        dist (atom [2.0 4.0])]
     (reduce str
             (for [^EReference ref (.getEAllContainments (.eClass eo))
                   :let [oref (.getEOpposite ref)
                         n (.getName ref)]
                   t (eget eo ref)
                   :when (dot-included? t)]
-              (str "  " h " -> " (dot-id t)
-                   " [dir=both, labeldistance=3.0, labelfloat=true, arrowtail=diamond, fontname=Sans, "
-                   "label=\"" (dot-label ref oref) "\", "
-                   "headlabel=\"" n "\""
-                   (when oref
-                     (str ", taillabel=\"" (.getName oref) "\""))
-                   "];\n")))))
+              (do
+                (swap! dist (fn [[x y]] [y x]))
+                (str "  " h " -> " (dot-id t)
+                     " [dir=both, arrowtail=diamond, fontname=Sans, "
+                     "labelangle=0, labeldistance= " (first @dist) ", "
+                     "label=\"                    \", "
+                     "headlabel=\"" n "\""
+                     (when oref
+                       (str ", taillabel=\"" (.getName oref) "\""))
+                     "];\n"))))))
 
 (defn- dot-crossrefs [^EObject eo]
-  (let [h (dot-id eo)]
+  (let [h (dot-id eo)
+        dist (atom  [2.0 4.0])]
     (reduce str
             (for [^EReference ref (.getEAllReferences (.eClass eo))
                   :when (not (member? ref @*opposite-refs*))
@@ -779,11 +792,13 @@
               (do
                 (when oref
                   (swap! *opposite-refs* conj oref))
+                (swap! dist (fn [[x y]] [y x]))
                 (str "  " h " -> " h2
                      " [dir="
                      (if oref "none" "forward")
-                     ", labeldistance=3.0, labelfloat=true, fontname=Sans, "
-                     "label=\"" (dot-label ref oref) "\", "
+                     ", fontname=Sans, "
+                     "labelangle=0, labeldistance= " (first @dist) ", "
+                     "label=\"                    \", "
                      "headlabel=\"" (.getName ref) "\""
                      (when oref
                        (str ", taillabel=\"" (.getName oref) "\""))
@@ -809,16 +824,20 @@
           ;; ditto for :exclude
           exclude (:exclude m)
           m (dissoc m :exclude)
+          ;; ditto for :mark
+          mark (:mark m)
+          m (dissoc m :mark)
           ;; Add default values
           m (update m :ranksep 1.5)]
       (with-meta m
-        {:name gname, :include include, :exclude exclude}))))
+        {:name gname, :include include, :exclude exclude, :mark mark}))))
 
 (defn- dot-model [m opts]
   (let [opts (dot-options opts)]
     (binding [*included-eobjects* (when-let [i (:include (meta opts))]
                                     (set i))
-              *excluded-eobjects* (set (:exclude (meta opts)))]
+              *excluded-eobjects* (set (:exclude (meta opts)))
+              *marked-eobjects* (set (:mark (meta opts)))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
             \,
