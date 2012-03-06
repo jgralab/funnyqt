@@ -268,6 +268,8 @@
               p (ecreate! 'Process)]
           (when lp
             (eset! lp :next p))
+          (eset! p :name (str "p" (- (inc n) i)))
+          (eset! r :name (str "r" (- (inc n) i)))
           (eset! r :holder p)
           (eadd! sys :processes p)
           (eadd! sys :resources r)

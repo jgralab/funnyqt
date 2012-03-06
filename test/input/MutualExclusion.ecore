@@ -4,6 +4,7 @@
     xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="mutualexclusion"
     nsURI="http://mutualexclusion/1.0" nsPrefix="mutualexclusion">
   <eClassifiers xsi:type="ecore:EClass" name="Process">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="next" eType="#//Process"
         eOpposite="#//Process/prev"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="prev" eType="#//Process"
@@ -20,6 +21,7 @@
         eType="#//Resource" eOpposite="#//Resource/taker"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Resource">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="blocked" upperBound="-1"
         eType="#//Process" eOpposite="#//Process/blocked_by"/>
     <eStructuralFeatures xsi:type="ecore:EReference" name="releaser" eType="#//Process"
