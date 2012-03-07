@@ -11,12 +11,15 @@
 
 ;;** Short Transformation Sequence
 
+(def counter (atom 1))
+
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
   [sys] [p1 (econtents sys 'Process)
          :let [p2 (eget p1 :next)]]
   (let [p (ecreate! 'Process)]
     (eset! p :name (str "np" @counter))
+    (swap! counter inc)
     (eadd! sys :processes p)
     (eset! p1 :next p)
     (eset! p :next p2)))
@@ -34,6 +37,7 @@
   [sys] [p (econtents sys 'Process)]
   (let [r (ecreate! 'Resource)]
     (eset! r :name (str "nr" @counter))
+    (swap! counter inc)
     (eadd! sys :resources r)
     (eset! r :taker p)))
 
