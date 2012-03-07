@@ -1,6 +1,8 @@
 (ns funnyqt.tg.utils.xmltg
   "XmlTg: Convert XML to DOM-like TGraphs."
   (:use funnyqt.tg.core)
+  (:use funnyqt.tg.query)
+  (:use funnyqt.generic)
   (:use [funnyqt.utils :only [error add-long-doc!]])
   (:require clojure.string)
   (:require [clojure.java.io :as io])
