@@ -34,6 +34,42 @@ attribute type as string.
 
 ;;* Code
 
+;;** XML Graph Utils
+
+(defn xml-children
+  "Returns the children Element vertices of Element vertex `e'.
+  May be restricted to elemenst of `type' given as symbol, keyword, or string."
+  ([e]
+     (adjs e :children))
+  ([e type]
+     (filter (fn [c]
+               (= (value c :name) (name type)))
+             (adjs e :children))))
+
+(defn xml-attr-value
+  "Returns the value of `elem's xml attribute `attr-name'."
+  [elem attr-name]
+  (let [attr (the (filter #(= (value % :name) (name attr-name))
+                          (adjs elem :attributes)))]
+    (value attr :value)))
+
+(defn xml-describe-elem
+  "Returns a map describing the given xml Element vertex `e'."
+  ([e]
+     (xml-describe-elem e true))
+  ([e with-children]
+     {:name (value e :name)
+      :attrs (apply hash-map
+                    (mapcat (fn [a]
+                              [(keyword (value a :name)) (value a :value)])
+                            (adjs e :attributes)))
+      :children (if with-children
+                  (map #(xml-describe-elem % false)
+                       (adjs e :children))
+                  :skipped)}))
+
+;;** Parsing XML -> XMLGraph
+
 (def ^{:dynamic true :private true} *graph*)
 (def ^{:dynamic true :private true} *stack*)
 (def ^{:dynamic true :private true} *current*)
