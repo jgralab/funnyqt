@@ -161,7 +161,7 @@ attribute type as string.
   ([f]
      (xml2graph f false))
   ([f attr-type-fn]
-     (binding [*graph* (create-graph (load-schema "schemas/xml-schema.tg") f)
+     (binding [*graph* (create-graph (load-schema "resources/xml-schema.tg") f)
                *stack*   nil
                *current* nil
                *state*   :between

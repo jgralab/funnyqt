@@ -4,7 +4,7 @@
 
   Everything's totally pre-pre-pre-alpha and subject to frequent, incompatible
   changes.  You've been warned, but have fun anyway."
-  :dependencies [[org.clojure/clojure "1.4.0-beta1"]
+  :dependencies [[org.clojure/clojure "1.4.0-beta3"]
 		 [de.uni-koblenz.ist/jgralab "[6.1.2,)"]
                  [org.clojure/core.logic "0.6.7"]
                  [org.clojure/core.match "0.2.0-alpha9"]
@@ -13,9 +13,8 @@
                  [emf-xsd-sdk "2.7.1"]]
   :dev-dependencies [[hiccup "0.3.7"]]
   ;; Don't put version control dirs into the jar
-  :jar-exclusions [#"(?:^|/).(svn|hg|git)/" ;; exclude version control stuff
-                   #"leiningen/"            ;; exclude lein plugins
-                   ]
+  :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
+  :resource-paths ["resources"]
   :warn-on-reflection true
   :jvm-opts ["-Xmx2G"]
   :license {:name "GNU General Public License, Version 3"
