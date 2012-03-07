@@ -153,7 +153,8 @@ See `tgtree', `show-graph', and `print-graph'.")
   ([file]
      (load-schema file ImplementationType/GENERIC))
   ([file impl]
-     (let [^Schema s (GraphIO/loadSchemaFromFile file)
+     (let [^Schema s (with-open [is (clojure.java.io/input-stream file)]
+                       (GraphIO/loadSchemaFromStream is))
            it (impl-type impl)]
        (.finish s)
        ;; TODO: What if the schema has already been compiled for this impl
@@ -186,9 +187,10 @@ See `tgtree', `show-graph', and `print-graph'.")
   Supported impl types are :generic, :standard, :transaction, and :database."
   ([file]
      (load-graph file ImplementationType/GENERIC))
-  ([^String file impl]
-     (GraphIO/loadGraphFromFile
-      file ^ImplementationType (impl-type impl) (ConsoleProgressFunction. "Loading"))))
+  ([file impl]
+     (with-open [is (clojure.java.io/input-stream file)]
+       (GraphIO/loadGraphFromStream
+        is nil nil ^ImplementationType (impl-type impl) (ConsoleProgressFunction. "Loading")))))
 
 (defn save-graph
   "Saves `g' to `file'."
