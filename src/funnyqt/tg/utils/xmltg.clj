@@ -1,5 +1,7 @@
 (ns funnyqt.tg.utils.xmltg
-  "XmlTg: Convert XML to DOM-like TGraphs."
+  "XmlTg: Convert XML to DOM-like TGraphs.
+
+<img src=\"https://raw.github.com/jgralab/funnyqt/master/resources/xml-schema.png\">"
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query)
   (:use funnyqt.generic)
