@@ -8,11 +8,7 @@
   (:use funnyqt.emf.core)
   (:require clojure.set))
 
-(add-long-doc! "TODO")
-
-;;* Code
-
-;;** Regular Path Descriptions
+;;# Regular Path Descriptions
 
 (defn <>--
   "Returns the (direct) contents of EObject`obj` restricted by the type
@@ -171,7 +167,7 @@
                     objs))
           objs)))))
 
-;;** Describing EObjects and EClasses
+;;# Describing EObjects and EClasses
 
 (extend-protocol Describable
   org.eclipse.emf.ecore.EClass

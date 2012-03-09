@@ -1,30 +1,7 @@
 (ns funnyqt.tg.core
-  "Core functions for accessing and manipulating TGraphs."
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
-  (:use funnyqt.utils)
-  (:import
-   (java.awt.event KeyEvent KeyListener)
-   (java.util Collection)
-   (java.lang.reflect Method)
-   (javax.swing JFrame JScrollPane JLabel ImageIcon JOptionPane WindowConstants)
-   (de.uni_koblenz.jgralab AttributedElement Graph GraphElement Vertex Edge
-			   EdgeDirection GraphIO Record
-                           ImplementationType)
-   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
-                                  ListDomain SetDomain MapDomain
-                                  AttributedElementClass NamedElement
-                                  GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)
-   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
-   (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
-   (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
-   (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
+  "Core functions for accessing and manipulating TGraphs.
 
-(add-long-doc!
- "Loading/Saving
+Loading/Saving
 ==============
 
 See `load-graph`, `save-graph`, and `load-schema`.
@@ -51,9 +28,32 @@ functions `record` and `enum`.
 Visualization
 =============
 
-See `tgtree`, `show-graph`, and `print-graph`.")
+See `tgtree`, `show-graph`, and `print-graph`."
+  (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
+  (:use funnyqt.utils)
+  (:import
+   (java.awt.event KeyEvent KeyListener)
+   (java.util Collection)
+   (java.lang.reflect Method)
+   (javax.swing JFrame JScrollPane JLabel ImageIcon JOptionPane WindowConstants)
+   (de.uni_koblenz.jgralab AttributedElement Graph GraphElement Vertex Edge
+			   EdgeDirection GraphIO Record
+                           ImplementationType)
+   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
+                                  ListDomain SetDomain MapDomain
+                                  AttributedElementClass NamedElement
+                                  GraphClass VertexClass EdgeClass Attribute
+                                  GraphElementClass)
+   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
+   (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
+   (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
+   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
+   (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
+   (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
 
-;;* Utility Functions and Macros
+
+;;# Utility Functions and Macros
 
 (defn- impl-type
   [kw]
@@ -68,7 +68,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
      nil)
    (error (format "No such implementation type %s" kw))))
 
-;;** Graph utilities
+;;## Graph utilities
 
 (defn show-graph
   "Show graph `g` in a JFrame, possibly with `reversed` edges (default false).
@@ -197,7 +197,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
-;;* Schema Access
+;;# Schema Access
 
 (extend-protocol QualifiedName
   AttributedElementClass
@@ -384,14 +384,14 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   (type-of? [obj spec]
     ((type-matcher obj spec) obj)))
 
-;;* Graph Access
+;;# Graph Access
 
 (defn graph
   "Returns the graph containing the graph element `ge`."
   [^GraphElement ge]
   (.getGraph ge))
 
-;;** Access by ID
+;;## Access by ID
 
 (defprotocol IDOps
   "Protocol for types having IDs."
@@ -421,7 +421,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
 	  (-> (.getGraph ge)
 	      (.getVertex id))))
 
-;;** Edge functions
+;;## Edge functions
 
 (defn alpha
   "Returns the start vertex of edge `e`."
@@ -458,7 +458,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   [^Edge e]
   (.isNormal e))
 
-;;** First, next elements
+;;## First, next elements
 
 (defn first-vertex
   "Returns the first vertex of graph `g` accepted by type matcher `tm`."
@@ -545,7 +545,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
          i
          (recur (.getNextIncidence i))))))
 
-;;** Value access (including attribute setting)
+;;## Value access (including attribute setting)
 
 (defprotocol ClojureValues2JGraLabValues
   "Protocol for transforming clojure persistent collections/maps into
@@ -633,7 +633,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
                       ^EnumDomain (domain e enum)
                       ^String constant)))
 
-;;** Element Order
+;;## Element Order
 
 (defprotocol ElementOrder
   "Protocol for querying and setting the global order of vertices and edges,
@@ -680,9 +680,9 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   (put-before-inc! [this other] (.putIncidenceBefore this other))
   (put-after-inc! [this other]  (.putIncidenceAfter this other)))
 
-;;* Modifications
+;;# Modifications
 
-;;** Creations
+;;## Creations
 
 ;; TODO: Basically, the impl should be determined by the schema.  Ask Volker!
 (defn create-graph
@@ -767,7 +767,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   (doseq [av adjvs]
     (add-adj! v role av)))
 
-;;** Deletions
+;;## Deletions
 
 (extend-protocol Deletable
   Vertex
@@ -783,7 +783,7 @@ See `tgtree`, `show-graph`, and `print-graph`.")
     ([e]   (.delete e) e)
     ([e _] (.delete e) e)))
 
-;;** Relinking edges
+;;## Relinking edges
 
 (defn relink!
   "Relinks all incidences of vertex `from` to vertex `to` and returns `from`.
@@ -802,9 +802,10 @@ See `tgtree`, `show-graph`, and `print-graph`.")
            (recur (first-inc from tm dm)))))
      from))
 
-;;* toString/Serialization/Deserialization
+;;# toString/Serialization/Deserialization
 
-;; Normal toString()
+;;## Normal toString()
+
 (defmethod print-method Vertex
   [v out]
   (.write ^java.io.Writer out
@@ -837,7 +838,8 @@ See `tgtree`, `show-graph`, and `print-graph`.")
   (.write ^java.io.Writer out
           (str "#<GraphClass " (qname gc) ">")))
 
-;; Printing `read`-able
+;;## Printing `read`-able
+
 (def ^{:dynamic true :private true}
   *serialization-bindings* nil)
 

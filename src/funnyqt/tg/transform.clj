@@ -1,22 +1,7 @@
 (ns funnyqt.tg.transform
-  "FunTG: Transformations on TGraphs."
-  (:use funnyqt.tg.core)
-  (:use [funnyqt.utils :only [error add-long-doc! split-qname]])
-  (:require clojure.set)
-  (:require clojure.pprint)
-  (:require [clojure.tools.macro :as m])
-  (:import
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
-   (de.uni_koblenz.jgralab.schema AggregationKind Attribute
-                                  AttributedElementClass GraphElementClass
-                                  GraphClass EdgeClass Schema VertexClass
-                                  RecordDomain EnumDomain)
-   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
+  "Schema-creating transformations on TGraphs.
 
-(add-long-doc!
- "FunTL is basically a GReTL implementation in Clojure.  Consequently,
+This is basically a GReTL implementation in Clojure.  Consequently,
 it has elementary creation operations in terms of functions.  In contrast to
 GReTL, `create-edges!` and `create-edge-class!` receive the start and end
 vertices of the edges to be created, not their archetypes.  Similarily,
@@ -123,9 +108,24 @@ transformation.
     (let [tg (families-to-genealogy
               (load-graph \"test/input/familygraph.tg\")
               '[de.genealogy.GenealogySchema Genealogy])]
-      (save-graph tg \"test/genealogy.tg\")))")
+      (save-graph tg \"test/genealogy.tg\")))"
+  (:use funnyqt.tg.core)
+  (:use [funnyqt.utils :only [error split-qname]])
+  (:require clojure.set)
+  (:require clojure.pprint)
+  (:require [clojure.tools.macro :as m])
+  (:import
+   (de.uni_koblenz.jgralab Graph Vertex Edge)
+   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
+   (de.uni_koblenz.jgralab.schema AggregationKind Attribute
+                                  AttributedElementClass GraphElementClass
+                                  GraphClass EdgeClass Schema VertexClass
+                                  RecordDomain EnumDomain)
+   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
+   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
 
-;;* TODO List
+
+;;# TODO List
 
 ;; - The usage of those dynamic Vars is not really optimal.  There's no good
 ;;   reason why you shouldn't be able to use create-vertices! outside of a
@@ -147,9 +147,7 @@ transformation.
 ;;
 ;;   + Blöcke mit eigenen Bindings (with-traceability foo (op1 ...) (op2 ...))
 
-;;* FunTL
-
-;;** Dynamic vars
+;;# Dynamic vars
 
 (def ^{:dynamic true}
   $target-graph  nil)
@@ -180,7 +178,7 @@ transformation.
   to the attributed element class of the current attribute."}
   r-elem nil)
 
-;;** Utility functions
+;;# Utility functions
 
 (defn- aec-internal
   "Gets the AttributedElementClass by the given qname.
@@ -252,7 +250,7 @@ transformation.
   [aec]
   (@$arch (aec-internal aec)))
 
-;;** Instance only functions
+;;# Instance only functions
 
 (defn create-vertices!
   "Creates one vertex of type `cls` for each archetype in `archs`.
@@ -327,9 +325,9 @@ transformation.
                                   (doall (valmap)))]
                (set-value! elem name val))))))
 
-;;** Schema & instance functions
+;;# Schema functions
 
-;;*** Creating Enum & Record domains
+;;## Creating Enum & Record domains
 
 (defn create-record-domain!
   "Creates a RecordDomain of the given `name` and `comp-doms`.
@@ -352,7 +350,7 @@ transformation.
                               (vec (map clojure.core/name
                                         literals)))]))
 
-;;*** Creating VertexClasses
+;;## Creating VertexClasses
 
 (defn- create-vc!
   [{:keys [qname abstract]}]
@@ -376,7 +374,7 @@ transformation.
      (create-vertex-class! props)
      (create-vertices! qname archs)))
 
-;;*** Creating EdgeClasses
+;;## Creating EdgeClasses
 
 (defn- create-ec!
   [{:keys [qname abstract
@@ -418,7 +416,8 @@ transformation.
      (create-edge-class! props)
      (create-edges! qname archs)))
 
-;;*** Creating Attributes
+;;## Creating Attributes
+
 ;; TODO: Handle default values!
 (defn- create-attr!
   [{:keys [qname domain default]}]
@@ -438,7 +437,7 @@ transformation.
      (create-attribute! props)
      (set-values! qname valmap)))
 
-;;*** Creating type hierarchies
+;;## Creating type hierarchies
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
@@ -460,7 +459,7 @@ transformation.
       (doseq [super supers]
         (.addSuperClass ^EdgeClass s ^EdgeClass (aec-internal super))))))
 
-;;** The transformation macro itself
+;;# The transformation macro itself
 
 ;; TODO: Generalize to allow for multiple target graphs.  Hm, thinking 'bout
 ;; it, maybe I should drop all that magic with $target-graph/schema and stuff

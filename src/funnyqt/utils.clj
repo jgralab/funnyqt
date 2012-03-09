@@ -4,6 +4,8 @@
   (:require [clojure.string :as str])
   (:use ordered.set))
 
+;;# Conversion to OrderedSet
+
 (defprotocol OrderedSetConvertible
   (to-oset [this]
     "Converts this into an ordered set."))
@@ -44,6 +46,8 @@
       (and (instance? ordered.set.OrderedSet s#)
            (every? (complement coll?) s#)))
     "The given object is no OrderedSet, or it is but is not flat."))
+
+;;# Fiddeling with qnames
 
 (defn qname?
   "Returns true, iff `n` is possibly a element qualified name.
@@ -89,7 +93,7 @@
             pn (subs qstr 0 liod)]
         [pn sn qstr]))))
 
-;;** Throwing exceptions
+;;# Throwing exceptions
 
 (defn error
   "Throws an exception with the given message and cause."
@@ -98,7 +102,7 @@
   ([msg cause]
      (throw (RuntimeException. msg cause))))
 
-;;** Debugging
+;;# Debugging
 
 (defn pr-identity
   "Returns and pretty prints the given argument `x` (preceeded by an optional
@@ -110,7 +114,7 @@
      (print title)
      (pr-identity x)))
 
-;;** Timing
+;;# Timing
 
 (defn time-str
   "Converts a time value `in` in nanoseconds to a string \"<time> <unit>\".
@@ -157,7 +161,7 @@
                         ~@args))
        result#)))
 
-;;** Compilation
+;;# Compilation
 
 (defmacro compile-if
   "Evaluate `exp` and if it returns logical true and doesn't error, expand to
@@ -176,9 +180,3 @@
        (comment ~then)
        ~else)))
 
-;;** Docs
-
-(defmacro add-long-doc!
-  "Add :long-doc metadata to the current namespace."
-  [doc]
-  `(alter-meta! *ns* assoc :long-doc ~doc))

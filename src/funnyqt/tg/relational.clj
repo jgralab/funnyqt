@@ -1,22 +1,7 @@
 (ns funnyqt.tg.relational
-  "FunRL: Querying graphs using relational programming."
-  (:refer-clojure :exclude [==])
-  (:use [funnyqt.utils :only [add-long-doc!]])
-  (:use [clojure.core.logic])
-  (:use [funnyqt.tg.relational.generic])
-  (:require [funnyqt.tg.core :as core])
-  (:require [funnyqt.generic-protocols :as genprots])
-  (:require [funnyqt.tg.query :as query])
-  ;; (:require [funnyqt.tg.query :as q])
-  (:import
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
-   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
-                                  AttributedElementClass NamedElement
-                                  GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)))
+  "FunRL: Querying graphs using relational programming.
 
-(add-long-doc!
- "Getting Started
+Getting Started
 ===============
 
 For a basic understanding of logic programming using miniKanren, have a look
@@ -186,11 +171,25 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
        ;; or an indirect connection, i.e, there's another crossroad in the
        ;; middle.
        ((connectedo j1 ?middle)
-        (connectedo ?middle j2)))))")
+        (connectedo ?middle j2)))))"
+  (:refer-clojure :exclude [==])
+  (:use [clojure.core.logic])
+  (:use [funnyqt.tg.relational.generic])
+  (:require [funnyqt.tg.core :as core])
+  (:require [funnyqt.generic-protocols :as genprots])
+  (:require [funnyqt.tg.query :as query])
+  ;; (:require [funnyqt.tg.query :as q])
+  (:import
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
+   (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
+                                  AttributedElementClass NamedElement
+                                  GraphClass VertexClass EdgeClass Attribute
+                                  GraphElementClass)))
 
-;;* Code
+;;# Utilities
 
 (defn- class->rel-symbols
+  "Returns a relation symbol for the class `c`."
   [^AttributedElementClass c]
   (let [n (.getUniqueName c)
         fqn (.getQualifiedName c)]
@@ -280,6 +279,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                             :let [v# (core/value e# ~attr)]]
                                         (unify a# [~elem ~val] [e# v#]))
                                       (remove not)))))))))
+
+;;# Main
 
 (defn create-graph-relations-ns
   "Populates the namespace corresponding to schema `s` qname with relations
@@ -399,6 +400,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
     (alter-var-root (ns-resolve nssym '+graph+) (fn [_] g))
     nssym))
 
+;;# How to use...
 
 (comment
   ;; SETUP

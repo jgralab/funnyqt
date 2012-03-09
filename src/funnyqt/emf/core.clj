@@ -16,11 +16,7 @@
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
     EStructuralFeature]))
 
-(add-long-doc! "TODO")
-
-;;* Code
-
-;;** Metamodel
+;;# Metamodel
 
 (def ^org.eclipse.emf.ecore.EPackage$Registry
   epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
@@ -154,9 +150,9 @@
         (error (format "%s has no EEnumLiteral with name %s."
                        (print-str enum-cls) elit)))))
 
-;;** Model
+;;# Model
 
-;;*** Qualified Names
+;;## Qualified Names
 
 (extend-protocol QualifiedName
   EClassifier
@@ -175,7 +171,7 @@
   (qname [o]
     (qname (.eClass o))))
 
-;;*** EMF Model def
+;;## EMF Model def
 
 (defprotocol EMFModelBasics
   "A protocol for basid EMFModel operations."
@@ -233,7 +229,7 @@
     (doto (EMFModel. res)
       init-model)))
 
-;;*** Traversal stuff
+;;## Traversal stuff
 
 (defn- eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
@@ -616,7 +612,7 @@
     (.removeAll l values)
     eo))
 
-;;*** Edges, i.e., src/trg tuples
+;;## Edges, i.e., src/trg tuples
 
 (defn eallpairs
   "Returns the seq of all edges in terms of [src trg] pairs.
@@ -680,7 +676,7 @@
                       (eclass-matcher src-ts) (eclass-matcher trg-ts))))
 
 
-;;*** EObject Creation
+;;## EObject Creation
 
 (defn ecreate!
   "Creates an EObject of EClass `ecls`.
@@ -694,7 +690,7 @@
   ([model ecls]
      (add-eobject! model (ecreate! ecls))))
 
-;;*** EObject Deletion
+;;## EObject Deletion
 
 (extend-protocol Deletable
   EObject
@@ -707,7 +703,7 @@
        (EcoreUtil/delete this (if recursive true false))
        this)))
 
-;;*** Visualization
+;;## Visualization
 
 (def ^{:private true, :dynamic true
        :doc "Opposite refs: those are not dotted, cause we already
@@ -888,9 +884,7 @@
       (when-not (zero? (:exit r))
         (error (format "Dotting failed: %s" (:err r)))))))
 
-;;** Printing
-
-;;*** Normal toString() output
+;;# Printing
 
 ;; TODO: We don't handle EFactories, ETypedElements, and EAnnotations yet.
 

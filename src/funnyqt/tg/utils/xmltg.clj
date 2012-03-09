@@ -1,25 +1,11 @@
 (ns funnyqt.tg.utils.xmltg
   "<p>Convert XML to DOM-like TGraphs.</p>
 
-<img src=\"https://raw.github.com/jgralab/funnyqt/master/resources/xml-schema.png\">"
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query)
-  (:use funnyqt.generic)
-  (:use [funnyqt.utils :only [error add-long-doc!]])
-  (:require clojure.string)
-  (:require [clojure.java.io :as io])
-  (:import
-   (org.xml.sax Attributes SAXException)
-   (org.xml.sax.helpers DefaultHandler)
-   (javax.xml XMLConstants)
-   (javax.xml.parsers SAXParser SAXParserFactory)
-   (javax.xml.validation SchemaFactory)
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
-   (de.uni_koblenz.jgralab.schema Schema)))
+The DOM-like schema looks like this:
 
+<img src=\"https://raw.github.com/jgralab/funnyqt/master/resources/xml-schema.png\">
 
-(add-long-doc!
- "To transform an XML document to a DOM-like TGraph, use
+To transform an XML document to a DOM-like TGraph, use
 
   (xml2graph \"example.xml\")
 
@@ -34,11 +20,23 @@ attribute type as string.
              #(cond ;; Here, we distingish only by 2nd arg, the attr name
                 (= %2 \"id\")        \"ID\"
                 (= %2 \"links\")     \"IDREF\"
-                (= %2 \"children\")  \"IDREFS\"))")
+                (= %2 \"children\")  \"IDREFS\"))"
+  (:use funnyqt.tg.core)
+  (:use funnyqt.tg.query)
+  (:use funnyqt.generic)
+  (:use [funnyqt.utils :only [error]])
+  (:require clojure.string)
+  (:require [clojure.java.io :as io])
+  (:import
+   (org.xml.sax Attributes SAXException)
+   (org.xml.sax.helpers DefaultHandler)
+   (javax.xml XMLConstants)
+   (javax.xml.parsers SAXParser SAXParserFactory)
+   (javax.xml.validation SchemaFactory)
+   (de.uni_koblenz.jgralab Graph Vertex Edge)
+   (de.uni_koblenz.jgralab.schema Schema)))
 
-;;* Code
-
-;;** XML Graph Utils
+;;# XML Graph Utils
 
 (defn xml-children
   "Returns the children Element vertices of Element vertex `e`.
@@ -72,7 +70,9 @@ attribute type as string.
                        (adjs e :children))
                   :skipped)}))
 
-;;** Parsing XML -> XMLGraph
+;;# Parsing XML -> XMLGraph
+
+;;## Internal vars
 
 (def ^{:dynamic true :private true} *graph*)
 (def ^{:dynamic true :private true} *stack*)
@@ -87,6 +87,8 @@ attribute type as string.
 ;; reference multiple elements in terms of a
 ;; IDREFS attr type)
 (def ^{:dynamic true :private true} *attr2refd-ids*)
+
+;;## Internal functions
 
 (defn- handle-attributes
   [elem ^Attributes attrs]
@@ -192,6 +194,8 @@ attribute type as string.
         .newSAXParser
         (.parse uri ch))))
 
+;;# The main function
+
 (defn xml2graph
   "Parse the XML file `f` into a TGraph conforming the generic XML schema.
   IDREF resolving, which is needed for creating References edges, works
@@ -214,3 +218,4 @@ attribute type as string.
                                   (constantly nil))]
        (startparse-sax f (content-handler))
        *graph*)))
+

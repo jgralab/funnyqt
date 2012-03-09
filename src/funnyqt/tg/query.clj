@@ -1,27 +1,7 @@
 (ns funnyqt.tg.query
-  "FunQL: Functional TGraph querying."
-  (:use funnyqt.tg.core)
-  (:use funnyqt.generic-protocols)
-  (:use funnyqt.utils)
-  (:use ordered.set)
-  (:use funnyqt.generic)
-  (:require clojure.set)
-  (:require clojure.string)
-  (:import
-   (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
-   (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
-   (de.uni_koblenz.jgralab.algolib.problems TopologicalOrderSolver AcyclicitySolver)
-   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order KahnKnuthAlgorithm TopologicalOrderWithDFS)
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext)
-   (de.uni_koblenz.jgralab.schema Attribute RecordDomain GraphClass
-                                  GraphElementClass AttributedElementClass VertexClass EdgeClass
-                                  AggregationKind)
-   (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
+  "FunQL: Functional TGraph querying.
 
-;;* Docs
-
-(add-long-doc!
- "Sequence Functions
+Sequence Functions
 ==================
 
 The central elements of this namespace are the functions `vseq`, `eseq`, and
@@ -121,9 +101,26 @@ can compute that like so:
 
   (let [locs (vseq (rg) 'localities.Locality)]
     (/ (reduce-values + 0 locs :foundingDate :year)
-       (count locs)))")
+       (count locs)))"
+  (:use funnyqt.tg.core)
+  (:use funnyqt.generic-protocols)
+  (:use funnyqt.utils)
+  (:use ordered.set)
+  (:use funnyqt.generic)
+  (:require clojure.set)
+  (:require clojure.string)
+  (:import
+   (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
+   (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
+   (de.uni_koblenz.jgralab.algolib.problems TopologicalOrderSolver AcyclicitySolver)
+   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order KahnKnuthAlgorithm TopologicalOrderWithDFS)
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext)
+   (de.uni_koblenz.jgralab.schema Attribute RecordDomain GraphClass
+                                  GraphElementClass AttributedElementClass VertexClass EdgeClass
+                                  AggregationKind)
+   (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
 
-;;* Funlib
+;;# Funlib
 
 (defn reduce-values
   "Reduces `f` thru the `a`-attribute values of the elements in `coll`.
@@ -145,7 +142,7 @@ can compute that like so:
                        #(value % a))
                      coll)))
 
-;;* Lazy Vertex, Edge, Incidence Seqs
+;;# Lazy Vertex, Edge, Incidence Seqs
 
 (defprotocol VSeq
   "Protocol for types supporting vseq."
@@ -241,7 +238,7 @@ can compute that like so:
   ([v ts dir]
      (iseq-internal v (type-matcher v ts) (direction-matcher dir))))
 
-;;* Vertex, edge counts
+;;# Vertex, edge counts
 
 (defprotocol GraphCounts
   "Protocol for getting vertex and edge counts, possibly restricted by a type
@@ -261,7 +258,7 @@ can compute that like so:
     ([g ts] (count (eseq g ts)))))
 
 
-;;* Traversal Context
+;;# Traversal Context
 
 (defmacro on-graph
   "Disables the graph `g`s current traversal context for the execution of
@@ -400,7 +397,7 @@ can compute that like so:
       (coll? pred)      (esubgraph-tc g #(member? % pred) precalc)
       :default          (error (str "Don't know how to handle predicate " pred)))))
 
-;;* Adjacences
+;;# Adjacences
 
 (defn adjs
   "Get vertices adjacent to `v` via `role`, or vertices reachable by traversing
@@ -440,7 +437,7 @@ can compute that like so:
                      v a))
       (first a))))
 
-;;* Path Functions
+;;# Path Functions
 
 (defn reachables
   "Returns the ordered set of vertices reachable from `v` by via the path
@@ -695,7 +692,7 @@ can compute that like so:
                     vs))
           vs)))))
 
-;;* Describe Schema and Graph Elements
+;;# Describe Schema and Graph Elements
 
 (defn- attr-desc
   "Returns a map of aec's own attributes as name-domain pairs."
@@ -788,7 +785,7 @@ can compute that like so:
                 (clojure.string/replace #"\s" "")
                 (clojure.string/replace "," "=>")))))
 
-;;* Funlib
+;;# Funlib
 
 (defn degree
   "Returns the degree of vertex `v`, optionally restricted by `ts` and `dir`."

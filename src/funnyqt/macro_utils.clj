@@ -2,7 +2,7 @@
   "Macro utilities used by various namespaces."
   (:use funnyqt.utils))
 
-;;* Expansion context
+;;# Expansion context
 
 (def ^{:dynamic true}
   *expansion-context* :external)

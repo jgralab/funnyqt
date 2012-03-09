@@ -1,10 +1,8 @@
 (ns funnyqt.generic
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error add-long-doc!]]))
+  (:use [funnyqt.utils :only [error]]))
 
-(add-long-doc! "TODO")
-
-;;* Quantified Expressions
+;;# Quantified Expressions
 
 (def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."}
   forall? every?)
@@ -21,7 +19,7 @@
     ;; There must be one and no other
     (and (seq s) (not (next s)))))
 
-;;* Sequence Functions
+;;# Sequence Functions
 
 (defn member?
   "Returns true, iff `e` is a member of `coll`."
@@ -71,7 +69,7 @@
   [s]
   (succ-seq-internal s []))
 
-;;* Logical (higher-order) funs
+;;# Logical (higher-order) funs
 
 (defn xor
   "Logical XOR: returns true, iff exactly one argument is true.
@@ -134,7 +132,7 @@
   [& ps]
   (complement (apply or-fn ps)))
 
-;;* Sorting
+;;# Sorting
 
 (defn seq-compare
   "Returns a sequence comparator function that compares 2 sequences element by

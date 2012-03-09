@@ -1,18 +1,13 @@
 (ns funnyqt.match-replace
   "Match elements in a structure, and act on them."
-  (:use [funnyqt.utils :only [error add-long-doc! pr-identity]])
+  (:use [funnyqt.utils :only [error pr-identity]])
   (:use [funnyqt.generic :only [the]])
   (:use funnyqt.macro-utils)
   (:require clojure.set)
   (:use [funnyqt.generic :only [member?]])
   (:require [clojure.tools.macro :as m]))
 
-(add-long-doc!
- "TODO")
-
-;;* Code
-
-;;** Matching
+;;# Matching
 
 (defn- bindings-to-arglist [bindings]
   (loop [p bindings l []]
@@ -81,7 +76,7 @@
                    (vec res)))
            ~@body)))))
 
-;;** Patterns and Rules
+;;# Patterns and Rules
 
 (defn- verify-match-vector
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
@@ -202,7 +197,7 @@
   [name & more]
   `(defrule-internal true ~name ~more))
 
-;;** Transformations
+;;# Transformations
 
 (defmacro deftransformation
   {:doc "Defines a match-replace transformation named `name` with optional
@@ -240,7 +235,7 @@
            (letfn [~@(map macroexpand rules-and-patterns)]
              ~(the main-form)))))))
 
-;;** Higher order rules
+;;# Higher order rules
 
 (defn iteratively
   "Applies the rule `r` with `args` as long as it returns logical true.

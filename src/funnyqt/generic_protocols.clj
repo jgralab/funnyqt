@@ -1,19 +1,15 @@
 (ns funnyqt.generic-protocols
-  "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [add-long-doc!]]))
+  "Generic functions like quantified expressions.")
 
-(add-long-doc! "TODO")
 
-;;* Code
-
-;;** Describing Elements
+;;# Describing Elements
 
 (defprotocol Describable
   "A protocol for elements supporting describe."
   (describe [this]
     "Describes `this` attributed element or attributed element class."))
 
-;;** Qualified Names
+;;# Qualified Names
 
 (defprotocol QualifiedName
   "A protocol for qualified names."
@@ -25,7 +21,7 @@
   that may be recursive, so [Map Integer [List String]] corresponds to the java
   domain Map<Integer, List<String>>."))
 
-;;** Abstractness
+;;# Abstractness
 
 (defprotocol Abstractness
   "A protocol for checking if an element class is abstract."
@@ -42,7 +38,7 @@
   (abstract? [this]
     (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
-;;** Instance Check
+;;# Instance Check
 
 (defprotocol InstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
@@ -65,7 +61,7 @@
   (instance-of? [class object]
     (instance? class object)))
 
-;;** Deletion
+;;# Deletion
 
 (defprotocol Deletable
   "A protocol for deleting elements."

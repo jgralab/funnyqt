@@ -1,13 +1,11 @@
 (ns funnyqt.operational
   "Stuff for writing QVT Operational Mappings like transformations."
-  (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:use [funnyqt.utils :only [error]])
   (:use funnyqt.macro-utils)
   (:use [funnyqt.generic :only [the]])
   (:require [clojure.tools.macro :as m]))
 
-(add-long-doc! "TODO")
-
-;;* Code
+;;# Mappings
 
 (def ^{:dynamic true
        :doc "A map from mapping rule to map from source to target objects."}
@@ -18,7 +16,7 @@
   *deferred-actions*)
 
 (defmacro defmapping
-  {:doc "Defines a mapping function named `name` with optional `doc-string?',
+  "Defines a mapping function named `name` with optional `doc-string?',
   an argument vector `args`, and a `body`.  The syntax is the same as for
   `defn`, except that currently overloading is not supported.
 
@@ -27,7 +25,8 @@
   new object is persisted and can later be resolved using `resolve-in` and
   `resolve-all-in`.  If the mapping has no arguments, then no traceability
   mapping is established."
-   :arglists '([name doc-string? [args] & body]
+
+  {:arglists '([name doc-string? [args] & body]
                  ;; FIXME: Also support overloading.
                  ;; [name doc-string? ([args] & body)+]
                  )}
@@ -49,21 +48,28 @@
       (error (format "Invalid defmapping form: expected arg vector but got %s."
                      args)))))
 
+;;# Helpers
+
 (defmacro defhelper
-  {:doc "Defines a helper function.
+  "Defines a helper function.
   The syntax is the same as for `defn`."
-   :arglists '([name doc-string? [args] & body]
+
+  {:arglists '([name doc-string? [args] & body]
                  [name doc-string? ([args] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     `(~@(expansion-context-defn-maybe name)
       ~@more)))
 
+;;# Deferring
+
 (defmacro deferred
   "Captures a thunk (closure) that evaluates `body` as the last step of the
   transformation."
   [& body]
   `(swap! *deferred-actions* conj (fn [] ~@body)))
+
+;;# Resolving
 
 (defn resolve-in
   "Returns the target object created for `obj` in `mapping`."
@@ -77,8 +83,10 @@
         (map #(resolve-in mapping %)
              objs)))
 
+;;# Transformations
+
 (defmacro deftransformation
-  {:doc "Defines an operational transformation named `name` with optional
+  "Defines an operational transformation named `name` with optional
   `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`.
   The `body` must consist of arbitrary `defmapping` and `defhelper` forms, and
   exactly one other form, the main entry point of the transformation.  This
@@ -86,7 +94,8 @@
 
   All helpers, mappings, and the main form of the transformation have access to
   the `args` of the transformation."
-   :arglists '([name doc-string? meta-map? [args] & body])}
+
+  {:arglists '([name doc-string? meta-map? [args] & body])}
   [tname & more]
   (let [[tname more] (m/name-with-attributes tname more)
         args (first more)

@@ -1,15 +1,13 @@
 (ns funnyqt.tg.utils.core-match
-  "An interface for using core.match on Vertices, Edges, and Graphs."
+  "An interface for using core.match on Vertices, Edges, and Graphs.
+
+Yeah, this doesn't have any public vars.  It just extends IMatchLookup to
+vertices, edges, and graphs."
   (:use [clojure.core.match :only [IMatchLookup match]])
-  (:use [funnyqt.utils :only [error add-long-doc!]])
+  (:use [funnyqt.utils :only [error]])
   (:require [funnyqt.tg.core :as core])
   (:require [funnyqt.tg.query :as query]))
 
-(add-long-doc!
- "Yeah, this doesn't have any public vars.  It just extends IMatchLookup to
-vertices, edges, and graphs.")
-
-;;* Code
 
 (defn- match-attribute [this k not-found]
   (let [aec (core/attributed-element-class this)]
