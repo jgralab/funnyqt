@@ -11,13 +11,8 @@ clojure sequence functions like `filter`, `map`, `reduce`, and friends.  For
 example, that's how we can pick out all the Locality vertices whose number of
 inhabitants is greater than 1000:
 
-  (filter #(> (value % :inhabitants) 1000)
-          (vseq my-route-graph 'localities.Locality))
-
-Quantified Expressions
-======================
-
-See `forall?', `exists?', and `exists1?'.
+    (filter #(> (value % :inhabitants) 1000)
+            (vseq my-route-graph 'localities.Locality))
 
 Adjacences
 ==========
@@ -25,12 +20,12 @@ Adjacences
 To traverse the neighboring vertices of some given vertex by role names, there
 is the adjacences function `adjs`.  Here are some examples:
 
-  ;; Returns all Localities contained in the County my-county-vertex.
-  (adjs my-county-vertex :localities)
+    ;; Returns all Localities contained in the County my-county-vertex.
+    (adjs my-county-vertex :localities)
 
-  ;; Returns all Crossroad vertices that are contained in Localities that are
-  ;; contained in the County my-county-vertex
-  (adjs my-county-vertex :localities :crossroads)
+    ;; Returns all Crossroad vertices that are contained in Localities that are
+    ;; contained in the County my-county-vertex
+    (adjs my-county-vertex :localities :crossroads)
 
 Regular Path Expressions
 ========================
@@ -42,31 +37,37 @@ ordered set of reachable vertices.
 The basic path functions traverse one edge at a time given a start vertex or a
 collection of start vertices.
 
-  -->, --->, <--, <---, <->, <-->             (restrict by edge direction)
-  <>--, <_>--, <*>--, --<>, --<_>, --<*>      (restrict by aggregation kind)
+    -->, --->, <--, <---, <->, <-->         ;; restrict by edge direction
+    <>--, <_>--, <*>--, --<>, --<_>, --<*>  ;; restrict by aggregation kind
 
 All of them can be restricted by type (see `type-matcher` in core) and an
 arbitrary predicate on the edges.  These basic path functions can then be
 combined using these regular path expression functions:
 
-  p-seq   (sequence)                  p-opt (option)
-  p-alt   (alternative)               p-exp (iteration by exponent)
-  p-*     (zero-or-many iteration)    p-+   (one-or-many iteration)
-  p-restr (filters vertices by class and predicate)
+    p-seq   ;; sequence
+    p-opt   ;; option
+    p-alt   ;; alternative
+    p-exp   ;; iteration by exponent
+    p-*     ;; zero-or-many iteration
+    p-+     ;; one-or-many iteration
+    p-restr ;; filters vertices by class and predicate
 
 For decoupling what is the \"path description\" from the function application,
 there is the function `reachables` which accepts a start vertex or a collection of
 start vertices and a path description as nested vector and chains the start or
 reachable vertices thru.  Here's an example:
 
-  ;; From a Class `c`, calculates all coupled classes.
-  (reachables c [p-seq [<-- 'IsClassBlockOf]
+    ;; From a Class `c`, calculates all coupled classes.
+    (reachables c [p-seq
+                    [<-- 'IsClassBlockOf]
                     [<-- 'IsMemberOf]
-                    [p-alt [<-- 'IsCalledByMethod]
-                           [p-seq [<-- ['IsBodyOfMethod 'IsFieldCreationOf]]
-                                  [p-* [<-- 'IsStatementOf]]
-                                  [<-- 'IsDeclarationOfAccessedField]
-                                  [--> 'IsFieldCreationOf]]]
+                    [p-alt
+                      [<-- 'IsCalledByMethod]
+                      [p-seq
+                        [<-- ['IsBodyOfMethod 'IsFieldCreationOf]]
+                        [p-* [<-- 'IsStatementOf]]
+                        [<-- 'IsDeclarationOfAccessedField]
+                        [--> 'IsFieldCreationOf]]]
                     [--> 'IsMemberOf]
                     [--> 'IsClassBlockOf]
                     [p-restr nil #(not (= c %1))]])
@@ -84,10 +85,10 @@ traversal context is set, and when leaving the body, the traversal context is
 set to what it was before automatically, even if the body is left because an
 exception is thrown.  Here's an example (taken from the tests):
 
-  (on-subgraph [my-route-graph
-                (vsubgraph my-route-graph 'junctions.Airport)]
-    (is (== 3 (vcount my-route-graph)))
-    (is (== 3 (ecount my-route-graph))))
+    (on-subgraph [my-route-graph
+                  (vsubgraph my-route-graph 'junctions.Airport)]
+      (is (== 3 (vcount my-route-graph)))
+      (is (== 3 (ecount my-route-graph))))
 
 Aggregating Attribute Values
 ============================
@@ -99,9 +100,9 @@ example, to calculate the average founding year of all localities, where the
 founding date is a record with components \"day\", \"month\", and \"year\" we
 can compute that like so:
 
-  (let [locs (vseq (rg) 'localities.Locality)]
-    (/ (reduce-values + 0 locs :foundingDate :year)
-       (count locs)))"
+    (let [locs (vseq (rg) 'localities.Locality)]
+      (/ (reduce-values + 0 locs :foundingDate :year)
+         (count locs)))"
   (:use funnyqt.tg.core)
   (:use funnyqt.generic-protocols)
   (:use funnyqt.utils)

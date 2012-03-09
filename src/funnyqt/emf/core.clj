@@ -386,7 +386,9 @@
 (defn- eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
 
-  Example: [Foo] f --- b [Bar]
+  Example:
+
+           [Foo] f --- b [Bar]
               f \\
                  `---- c [Car]
 
