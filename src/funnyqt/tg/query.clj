@@ -24,10 +24,10 @@
  "Sequence Functions
 ==================
 
-The central elements of this namespace are the functions `vseq', `eseq', and
-`iseq', which return lazy seqs of a graph's vertices or edges, or a lazy seq of
+The central elements of this namespace are the functions `vseq`, `eseq`, and
+`iseq`, which return lazy seqs of a graph's vertices or edges, or a lazy seq of
 a vertex's incidences.  On that lazy seqs, we can simply use all the powerful
-clojure sequence functions like `filter', `map', `reduce', and friends.  For
+clojure sequence functions like `filter`, `map`, `reduce`, and friends.  For
 example, that's how we can pick out all the Locality vertices whose number of
 inhabitants is greater than 1000:
 
@@ -43,7 +43,7 @@ Adjacences
 ==========
 
 To traverse the neighboring vertices of some given vertex by role names, there
-is the adjacences function `adjs'.  Here are some examples:
+is the adjacences function `adjs`.  Here are some examples:
 
   ;; Returns all Localities contained in the County my-county-vertex.
   (adjs my-county-vertex :localities)
@@ -65,7 +65,7 @@ collection of start vertices.
   -->, --->, <--, <---, <->, <-->             (restrict by edge direction)
   <>--, <_>--, <*>--, --<>, --<_>, --<*>      (restrict by aggregation kind)
 
-All of them can be restricted by type (see `type-matcher' in core) and an
+All of them can be restricted by type (see `type-matcher` in core) and an
 arbitrary predicate on the edges.  These basic path functions can then be
 combined using these regular path expression functions:
 
@@ -75,11 +75,11 @@ combined using these regular path expression functions:
   p-restr (filters vertices by class and predicate)
 
 For decoupling what is the \"path description\" from the function application,
-there is the function `reachables' which accepts a start vertex or a collection of
+there is the function `reachables` which accepts a start vertex or a collection of
 start vertices and a path description as nested vector and chains the start or
 reachable vertices thru.  Here's an example:
 
-  ;; From a Class `c', calculates all coupled classes.
+  ;; From a Class `c`, calculates all coupled classes.
   (reachables c [p-seq [<-- 'IsClassBlockOf]
                     [<-- 'IsMemberOf]
                     [p-alt [<-- 'IsCalledByMethod]
@@ -96,10 +96,10 @@ Traversal Contexts
 
 The graph traversal (using the sequence functions above, or the basic accessors
 from core) can be restricted by traversal contexts.  There are the functions
-`vsubgraph' and `esubgraph' for creating traversal contexts corresponding to
+`vsubgraph` and `esubgraph` for creating traversal contexts corresponding to
 vertex or edge induced subgraphs.
 
-To set the traversal contexts, use the macro `on-subgraph'.  In its body, the
+To set the traversal contexts, use the macro `on-subgraph`.  In its body, the
 traversal context is set, and when leaving the body, the traversal context is
 set to what it was before automatically, even if the body is left because an
 exception is thrown.  Here's an example (taken from the tests):
@@ -112,8 +112,8 @@ exception is thrown.  Here's an example (taken from the tests):
 Aggregating Attribute Values
 ============================
 
-Using the function `reduce-values', it's easy to aggregate attribute values.
-It's similar to clojure's `reduce' function with a mandatory starting value,
+Using the function `reduce-values`, it's easy to aggregate attribute values.
+`It`s similar to clojure's `reduce` function with a mandatory starting value,
 but allows for specifying a chain of accessors for composite attributes.  For
 example, to calculate the average founding year of all localities, where the
 founding date is a record with components \"day\", \"month\", and \"year\" we
@@ -126,9 +126,9 @@ can compute that like so:
 ;;* Funlib
 
 (defn reduce-values
-  "Reduces `f' thru the `a'-attribute values of the elements in `coll'.
-  `f' must be a function of 2 args (see `clojure.core/reduce').  `val' is a
-  starting value.  `s' may be additional accessors, if `a' is a composite
+  "Reduces `f` thru the `a`-attribute values of the elements in `coll`.
+  `f` must be a function of 2 args (see `clojure.core/reduce').  `val` is a
+  starting value.  `s` may be additional accessors, if `a` is a composite
   attribute.  Each additional accessor may be either a function (which is
   simply applied) or another keyword, string, or symbol denoting a record
   component."
@@ -150,7 +150,7 @@ can compute that like so:
 (defprotocol VSeq
   "Protocol for types supporting vseq."
   (vseq-internal [this tm]
-        "Returns a lazy seq of the graphs vertices restricted by type matcher `tm'."))
+        "Returns a lazy seq of the graphs vertices restricted by type matcher `tm`."))
 
 (extend-protocol VSeq
   Graph
@@ -169,9 +169,9 @@ can compute that like so:
 (alter-meta! (var vseq-internal) assoc :private true)
 
 (defn vseq
-  "Returns the lazy seq of vertices of `g' restricted by the type spec `ts'.
-  `g' may be a graph or a vertex.  In the latter case, returns all vertices
-  following `g' in the vertex sequence."
+  "Returns the lazy seq of vertices of `g` restricted by the type spec `ts`.
+  `g` may be a graph or a vertex.  In the latter case, returns all vertices
+  following `g` in the vertex sequence."
   ([g]
      (vseq-internal g identity))
   ([g ts]
@@ -200,9 +200,9 @@ can compute that like so:
 (alter-meta! (var eseq-internal) assoc :private true)
 
 (defn eseq
-  "Returns the lazy seq of edges of `e' restricted by `ts'.
-  `g' may be a graph or an edge.  In the latter case, returns all edges
-  following `g' in the edge sequence."
+  "Returns the lazy seq of edges of `e` restricted by `ts`.
+  `g` may be a graph or an edge.  In the latter case, returns all edges
+  following `g` in the edge sequence."
   ([g]
      (eseq-internal g identity))
   ([g ts]
@@ -231,9 +231,9 @@ can compute that like so:
 (alter-meta! (var iseq-internal) assoc :private true)
 
 (defn iseq
-  "Returns the lazy seq of incidences of `v' restricted by `ts' and `dir'.
-  `v' may be a vertex or an edge.  In the latter case, returns all incidences
-  following `v' in the current vertex's incidence sequence."
+  "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
+  `v` may be a vertex or an edge.  In the latter case, returns all incidences
+  following `v` in the current vertex's incidence sequence."
   ([v]
      (iseq-internal v identity identity))
   ([v ts]
@@ -247,9 +247,9 @@ can compute that like so:
   "Protocol for getting vertex and edge counts, possibly restricted by a type
   spec."
   (vcount [g] [g ts]
-    "Returns the vertex count of `g' restricted by `ts'.")
+    "Returns the vertex count of `g` restricted by `ts`.")
   (ecount [g] [g ts]
-    "Returns the edge count of `g' restricted by `ts'."))
+    "Returns the edge count of `g` restricted by `ts`."))
 
 (extend-protocol GraphCounts
   Graph
@@ -264,21 +264,21 @@ can compute that like so:
 ;;* Traversal Context
 
 (defmacro on-graph
-  "Disables the graph `g's current traversal context for the execution of
-  `body'.  Guaranteed to restore the old traversal context after `body'
+  "Disables the graph `g`s current traversal context for the execution of
+  `body`.  Guaranteed to restore the old traversal context after `body`
   finished (even if it errored).
 
-  Also see `on-subgraph', and `on-subgraph-intersection'."
+  Also see `on-subgraph`, and `on-subgraph-intersection`."
   [[g] & body]
   `(on-subgraph [~g nil]
      ~@body))
 
 (defmacro on-subgraph
-  "Sets the TraversalContext of `g' to `tc' and then executes `body'.
-  Guaranteed to restore the old TraversalContext after `body' finished (even if
+  "Sets the TraversalContext of `g` to `tc` and then executes `body`.
+  Guaranteed to restore the old TraversalContext after `body` finished (even if
   it errored).
 
-  Also see `vsubgraph', `esubgraph', and `on-subgraph-intersection'."
+  Also see `vsubgraph`, `esubgraph`, and `on-subgraph-intersection`."
   [[g tc] & body]
   `(let [^Graph g# ~g
          ^TraversalContext old-tc# (.getTraversalContext g#)]
@@ -290,7 +290,7 @@ can compute that like so:
 (defn merge-traversal-contexts
   "Returns a TraversalContext that accepts only elements that are accepted by
   both `tc1' and `tc2'.
-  (Don't use this direcly, but use `on-subgraph-intersection'.)"
+  (Don't use this direcly, but use `on-subgraph-intersection`.)"
   [^TraversalContext tc1 ^TraversalContext tc2]
   (cond
    (nil? tc1) tc2
@@ -304,11 +304,11 @@ can compute that like so:
                   (.containsEdge tc2 e))))))
 
 (defmacro on-subgraph-intersection
-  "Sets the TraversalContext of `g' to a new TraversalContext that accepts only
-  elements which both `tc' and `g's current TraversalContext accept and then
-  executes `body'.  Guaranteed to restore the old TraversalContext.
+  "Sets the TraversalContext of `g` to a new TraversalContext that accepts only
+  elements which both `tc` and `g`s current TraversalContext accept and then
+  executes `body`.  Guaranteed to restore the old TraversalContext.
 
-  Also see `vsubgraph', `esubgraph', and `on-subgraph'."
+  Also see `vsubgraph`, `esubgraph`, and `on-subgraph`."
   [[g tc] & body]
   `(let [^Graph g# ~g
          ^TraversalContext old-tc# (.getTraversalContext g#)]
@@ -318,8 +318,8 @@ can compute that like so:
        (finally (.setTraversalContext g# old-tc#)))))
 
 (defn- vsubgraph-tc
-  "Returns a TraversalContext of a vertex induced subgraph restricted by `pred'
-  on the vertices.  All vertices satisfying `pred' are accepted plus all edges
+  "Returns a TraversalContext of a vertex induced subgraph restricted by `pred`
+  on the vertices.  All vertices satisfying `pred` are accepted plus all edges
   between accepted vertices."
   [g pred precalc]
   (let [vp #(boolean (pred %))
@@ -341,17 +341,17 @@ can compute that like so:
           (ep e))))))
 
 (defn vsubgraph
-  "Returns a vertex induced subgraph of `g' restricted by `pred' in terms of a
-  TraversalContext.  `pred' may be a predicate that is used to filter the
-  vertices of `g', a type specification (see `type-spec') or a collection of
+  "Returns a vertex induced subgraph of `g` restricted by `pred` in terms of a
+  TraversalContext.  `pred` may be a predicate that is used to filter the
+  vertices of `g`, a type specification (see `type-spec`) or a collection of
   vertices.  The subgraph contains all vertices matching the predicate, and all
   edges/incidences that are connected to vertices that are both in the
-  subgraph.  If `precalc' is true (the default), then pre-calculate the
+  subgraph.  If `precalc` is true (the default), then pre-calculate the
   accepted elements beforehand as a SubGraphMarker.  That speeds up the
   procedure enormously, but doesn't allow for using the returned traversal
   context on a graph that changes in between.
 
-  Also see `esubgraph' and `on-subgraph'."
+  Also see `esubgraph` and `on-subgraph`."
   ([g pred]
      (vsubgraph g pred true))
   ([g pred precalc]
@@ -362,9 +362,9 @@ can compute that like so:
       :default          (error (str "Don't know how to handle predicate " pred)))))
 
 (defn- esubgraph-tc
-  "Returns a TraversalContext of an edge induced subgraph restricted by `pred'
-  on the edges.  All edges satisfying `pred' are accepted plus all vertices
-  that are connected to at least one accepted edge.  If `precalc' is non-nil,
+  "Returns a TraversalContext of an edge induced subgraph restricted by `pred`
+  on the edges.  All edges satisfying `pred` are accepted plus all vertices
+  that are connected to at least one accepted edge.  If `precalc` is non-nil,
   precalculate accepted elements before, which is much faster."
   [g pred precalc]
   (let [ep #(boolean (pred %))
@@ -381,16 +381,16 @@ can compute that like so:
           (ep e))))))
 
 (defn esubgraph
-  "Returns an edge induced subgraph of `g' restricted by `pred' in terms of a
-  TraversalContext.  `pred' may be a predicate that is used to filter the edges
-  of `g', a type specification (see `type-spec') or a collection of edges.  The
+  "Returns an edge induced subgraph of `g` restricted by `pred` in terms of a
+  TraversalContext.  `pred` may be a predicate that is used to filter the edges
+  of `g`, a type specification (see `type-spec`) or a collection of edges.  The
   subgraph contains all edges matching the predicate including their start and
-  end vertices.  If `precalc' is true (the default), then pre-calculate the
+  end vertices.  If `precalc` is true (the default), then pre-calculate the
   accepted elements beforehand as a SubGraphMarker.  That speeds up the
   procedure enormously, but doesn't allow for using the returned traversal
   context on a graph that changes in between.
 
-  Also see `vsubgraph' and `on-subgraph'."
+  Also see `vsubgraph` and `on-subgraph`."
   ([g pred]
      (esubgraph g pred true))
   ([g pred precalc]
@@ -403,8 +403,8 @@ can compute that like so:
 ;;* Adjacences
 
 (defn adjs
-  "Get vertices adjacent to `v' via `role', or vertices reachable by traversing
-  `role' and `more' roles.  The role names may be given as symbol, keyword, or
+  "Get vertices adjacent to `v` via `role`, or vertices reachable by traversing
+  `role` and `more` roles.  The role names may be given as symbol, keyword, or
   string.  If there's no such role at the given vertex, an exception is
   thrown."
   ([^Vertex v role]
@@ -419,7 +419,7 @@ can compute that like so:
          ads))))
 
 (defn adjs-no-error
-  "Like `adjs', but doesn't error if the given role is not defined.  In that
+  "Like `adjs`, but doesn't error if the given role is not defined.  In that
   case, it simly returns nil."
   [^Vertex v role]
   (when-let [dec (.getDirectedEdgeClassForFarEndRole
@@ -431,7 +431,7 @@ can compute that like so:
            (iseq v (fn [e] (instance-of? ec e)) dir)))))
 
 (defn adj
-  "Returns the vertex adjacent to `v' via `role' or `more' roles.
+  "Returns the vertex adjacent to `v` via `role` or `more` roles.
   If there are more than one such vertices, an exception is thrown."
   [v role & more]
   (let [a (apply adjs v role more)]
@@ -443,9 +443,9 @@ can compute that like so:
 ;;* Path Functions
 
 (defn reachables
-  "Returns the ordered set of vertices reachable from `v' by via the path
-  description `p'.
-  `v' may be a vertex or a seq of vertices."
+  "Returns the ordered set of vertices reachable from `v` by via the path
+  description `p`.
+  `v` may be a vertex or a seq of vertices."
   [v p]
   (cond
    ;; funs: -->
@@ -457,8 +457,8 @@ can compute that like so:
    :else (error (format "Don't know how to apply %s." p))))
 
 (defn- ---
-  "Returns the vertices reachable from `v' via incidences with direction `dir'
-  and aggregation kinds, restricted by `ts', and `pred' (on the edges)."
+  "Returns the vertices reachable from `v` via incidences with direction `dir`
+  and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
   [v dir this-aks that-aks ts pred]
   (let [vs (to-oset v)]
     (if (seq vs)
@@ -481,8 +481,8 @@ can compute that like so:
       (ordered-set))))
 
 (defn -->
-  "Returns the vertices reachable from `v' via outgoing incidences,
-  optionally restricted by `ts' and `pred' (on the edges)."
+  "Returns the vertices reachable from `v` via outgoing incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
   ([v]
      (--> v nil nil))
   ([v ts]
@@ -491,8 +491,8 @@ can compute that like so:
      (--- v :out nil nil ts pred)))
 
 (defn <--
-  "Returns the vertices reachable from `v' via incoming incidences,
-  optionally restricted by `ts' and `pred' (on the edges)."
+  "Returns the vertices reachable from `v` via incoming incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
   ([v]
      (<-- v nil nil))
   ([v ts]
@@ -501,8 +501,8 @@ can compute that like so:
      (--- v :in nil nil ts pred)))
 
 (defn <->
-  "Returns the vertices reachable from `v' via all incidences,
-  optionally restricted by `ts' and `pred' (on the edges)."
+  "Returns the vertices reachable from `v` via all incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
   ([v]
      (<-> v nil nil))
   ([v ts]
@@ -511,8 +511,8 @@ can compute that like so:
      (--- v :inout nil nil ts pred)))
 
 (defn --->
-  "Returns the vertices reachable from `v' via outgoing incidences,
-  optionally restricted by `ts' and `pred' (on the edges).  In contrast to
+  "Returns the vertices reachable from `v` via outgoing incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
   `-->', traversal of edges with aggregation semantics is forbidden."
   ([v]
      (---> v nil nil))
@@ -522,8 +522,8 @@ can compute that like so:
      (--- v :out [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
 
 (defn <---
-  "Returns the vertices reachable from `v' via incoming incidences,
-  optionally restricted by `ts' and `pred' (on the edges).  In contrast to
+  "Returns the vertices reachable from `v` via incoming incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
   `<--', traversal of edges with aggregation semantics is forbidden."
   ([v]
      (<--- v nil nil))
@@ -533,8 +533,8 @@ can compute that like so:
      (--- v :in [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
 
 (defn <-->
-  "Returns the vertices reachable from `v' via all incidences,
-  optionally restricted by `ts' and `pred' (on the edges).  In contrast to
+  "Returns the vertices reachable from `v` via all incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
   `<->', traversal of edges with aggregation semantics is forbidden."
   ([v]
      (<--> v nil nil))
@@ -544,8 +544,8 @@ can compute that like so:
      (--- v :inout [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
 
 (defn <>--
-  "Aggregation path expression starting at whole `v', optionally restricted by
-  `ts' and `pred' (on the edges)."
+  "Aggregation path expression starting at whole `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
   ([v]
      (<>-- v nil nil))
   ([v ts]
@@ -556,8 +556,8 @@ can compute that like so:
           ts pred)))
 
 (defn --<>
-  "Aggregation path expression starting at part `v', optionally restricted by
-  `ts' and `pred' (on the edges)."
+  "Aggregation path expression starting at part `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
   ([v]
      (--<> v nil nil))
   ([v ts]
@@ -568,8 +568,8 @@ can compute that like so:
           ts pred)))
 
 (defn <_>--
-  "Aggregation-only path expression starting at whole `v', optionally
-  restricted by `ts' and `pred' (on the edges)."
+  "Aggregation-only path expression starting at whole `v`, optionally
+  restricted by `ts` and `pred` (on the edges)."
   ([v]
      (<_>-- v nil nil))
   ([v ts]
@@ -580,8 +580,8 @@ can compute that like so:
           ts pred)))
 
 (defn --<_>
-  "Aggregation-only path expression starting at part `v', optionally restricted
-  by `ts' and `pred' (on the edges)."
+  "Aggregation-only path expression starting at part `v`, optionally restricted
+  by `ts` and `pred` (on the edges)."
   ([v]
      (--<_> v nil nil))
   ([v ts]
@@ -592,8 +592,8 @@ can compute that like so:
           ts pred)))
 
 (defn <*>--
-  "Composition path expression starting at whole `v', optionally restricted by
-  `ts' and `pred' (on the edges)."
+  "Composition path expression starting at whole `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
   ([v]
      (<*>-- v nil nil))
   ([v ts]
@@ -604,8 +604,8 @@ can compute that like so:
           ts pred)))
 
 (defn --<*>
-  "Composition path expression starting at part `v', optionally restricted by
-  `ts' and `pred' (on the edges)."
+  "Composition path expression starting at part `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
   ([v]
      (--<*> v nil nil))
   ([v ts]
@@ -616,32 +616,32 @@ can compute that like so:
           ts pred)))
 
 (defn p-seq
-  "Path sequence starting at `v' and traversing `p'.
-  `v' may be a vertex or a seq of vertices.
-  `p' is a varargs seq of path descriptions."
+  "Path sequence starting at `v` and traversing `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a varargs seq of path descriptions."
   [v & p]
   (if (seq p)
     (recur (reachables v (first p)) (rest p))
     (to-oset v)))
 
 (defn p-opt
-  "Path option starting at `v' and maybe traversing `p'.
-  `v' may be a vertex or a seq of vertices.
-  `p' is a path description."
+  "Path option starting at `v` and maybe traversing `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
   [v p]
   (into-oset v (reachables v p)))
 
 (defn p-alt
-  "Path alternative starting at `v' and traversing one of `p'.
-  `v' may be a vertex or a seq of vertices.
-  `p' is a varags seq of the alternative path descriptions."
+  "Path alternative starting at `v` and traversing one of `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a varags seq of the alternative path descriptions."
   [v & p]
   (to-oset (mapcat #(reachables v %) p)))
 
 (defn p-+
-  "Path iteration starting at `v' and traversing `p' one or many times.
-  `v' may be a vertex or a seq of vertices.
-  `p' is a path description."
+  "Path iteration starting at `v` and traversing `p` one or many times.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
   ([v p]
      (p-+ v p false true))
   ([v p d skip-v]
@@ -654,18 +654,18 @@ can compute that like so:
          sv))))
 
 (defn p-*
-  "Path iteration starting at `v' and traversing `p' zero or many times.
-  `v' may be a vertex or a seq of vertices.
-  `p' is a path description."
+  "Path iteration starting at `v` and traversing `p` zero or many times.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
   [v p]
   (p-+ v p false false))
 
 (defn p-exp
-  "Path exponent starting at `v' and traversing `p' `n' times, or at least `l'
-  and at most `p' times.
-  `v' may be a vertex or a seq of vertices.
-  `n' or `l' and `v' are integers with `l' <= `b'.
-  `p' is a path description."
+  "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
+  and at most `p` times.
+  `v` may be a vertex or a seq of vertices.
+  `n` or `l` and `v` are integers with `l` <= `b`.
+  `p` is a path description."
   ([v l u p]
      {:pre [(<= l u) (>= l 0) (>= u 0)]}
      (loop [i (- u l), s (p-exp v l p)]
@@ -682,8 +682,8 @@ can compute that like so:
        (recur (reachables v p) (dec n) p))))
 
 (defn p-restr
-  "Vertex restriction concerning `ts' and `pred' on each vertex in `vs'.
-  ts is a type specification (see `type-matcher')."
+  "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
+  ts is a type specification (see `type-matcher`)."
   ([vs ts]
      (p-restr vs ts identity))
   ([vs ts pred]
@@ -791,13 +791,13 @@ can compute that like so:
 ;;* Funlib
 
 (defn degree
-  "Returns the degree of vertex `v', optionally restricted by `ts' and `dir'."
+  "Returns the degree of vertex `v`, optionally restricted by `ts` and `dir`."
   ([^Vertex v]         (.getDegree v))
   ([^Vertex v ts]     (count (iseq v ts)))
   ([^Vertex v ts dir] (count (iseq v ts dir))))
 
 (defn- topological-sort-clj
-  "Returns a vector of `g's vertices in topological order.
+  "Returns a vector of `g`s vertices in topological order.
   Returns false, iff the graph is cyclic."
   [g]
   (loop [rem (vseq g), es  #{}, sorted []]
@@ -818,8 +818,8 @@ can compute that like so:
       sorted)))
 
 (defn topological-sort
-  "Returns a seq of `g's vertices in topological order.
-  Returns false, iff the graph is cyclic.  The actual algorithm `alg' may be
+  "Returns a seq of `g`s vertices in topological order.
+  Returns false, iff the graph is cyclic.  The actual algorithm `alg` may be
   chosen between :dfs (a depth-first variant, the default), :kahn-knuth,
   and :plain (a purely functional clojure implementation, which is nice but
   slow)."

@@ -32,7 +32,7 @@ can use its general graph loading function.
 
   user> (require '[funnyqt.tg.core :as core])
 
-Then, we load the GReQL test graph and bind it to a var `g'.
+Then, we load the GReQL test graph and bind it to a var `g`.
 
   user> (def g (core/load-graph \"/home/horn/Repos/uni/funtg/test/greqltestgraph.tg\"))
 
@@ -49,20 +49,20 @@ graph) are defined in it.
 
 This procedure creates 4 relations per attributed element class of the schema
 of our graph.  For any vertex class Foo, there's a relation (+Foo! x) which
-succeeds if `x' can be unified with a vertex of exact type Foo.  Additionally,
-there's a relation (+Foo! x) which succeeds if `x' can be unified with a vertex
+succeeds if `x` can be unified with a vertex of exact type Foo.  Additionally,
+`there`s a relation (+Foo! x) which succeeds if `x` can be unified with a vertex
 of exact type Foo or a subtype thereof.  Furthermore, there are +!Foo and
 +!Foo!, which succeed for vertices not of (exact) type Foo.
 
 For an edge class Bar, there is the relation (+Bar! e a o) which succeeds, if
-`e' can be unified with an edge of exact type Bar, and `a' and `o' can be
-unified with the start and end vertex of `e'.  Similarly to vertex classes,
+`e` can be unified with an edge of exact type Bar, and `a` and `o` can be
+unified with the start and end vertex of `e`.  Similarly to vertex classes,
 relations +Bar, +!Bar, and +!Bar! are also created with the same signature.
 
 For any attribute name baz, a relation (+baz el val) is generated, which
-succeeds, if the attributed element `el' is an instance of an attributed
+succeeds, if the attributed element `el` is an instance of an attributed
 element class that has such an attribute defined, asd its value is set to
-`val'.
+`val`.
 
 To use our new relations, we change into the roadmap namespace.
 
@@ -74,12 +74,12 @@ Asking Questions
 ================
 
 After we've populated our user namespace with relations and facts about the
-route graph, we can ask questions.  That's done with the `run' and `run*'
+route graph, we can ask questions.  That's done with the `run` and `run*'
 macros provided by clojure.core.logic.  For example
 
   (run 3 [q] <goals>)
 
-returns at most 3 answers unifying `q' with the given goals, or () if there's
+returns at most 3 answers unifying `q` with the given goals, or () if there's
 no answer at all, and
 
   (run* [q] <goals>)
@@ -97,13 +97,13 @@ Now, lets ask what's the capital of the Village Kammerforst.
 
   (#<CityImpl v6: localities.City>)
 
-We use `run*' because we want to get all answers.  `fresh' introduces new logic
-vars that should be unified.  In its body, we declare that `kammerforst' has to
+We use `run*' because we want to get all answers.  `fresh` introduces new logic
+vars that should be unified.  In its body, we declare that `kammerforst` has to
 be unified with a Village vertex, whose name is \"Kammerforst\".  Furthermore,
-there has to be a ContainsLocality edge `e1' starting at some `county' and
-leading to `kammerforst'.  `county' has to be the capital of `q', which is
-exactly what we wanted to ask.  Because `kammerforst' and `county' occur
-multiple times, they are subject to unification.  Likewise, our question `q' is
+there has to be a ContainsLocality edge `e1' starting at some `county` and
+leading to `kammerforst`.  `county` has to be the capital of `q`, which is
+exactly what we wanted to ask.  Because `kammerforst` and `county` occur
+multiple times, they are subject to unification.  Likewise, our question `q` is
 unified with the end vertex of the edge `e2'.
 
 Now let's try to pose a question about what capitals reign which localities,
@@ -111,7 +111,7 @@ e.g., what are the localities contained in the county of some capital, for all
 capitals.  We want to get all pairs of the form [capital-name locality-name] as
 answer.
 
-Here, we use the `with-fresh' macro for convenience.  It creates one fresh
+Here, we use the `with-fresh` macro for convenience.  It creates one fresh
 logic variable for any symbol in its body starting with a question mark (?).
 Additionally, it creates one anonymous fresh logic variable per occurence of
 `_'.  In the former example, we had the logic vars `e1' and `e2' explicit,
@@ -140,7 +140,7 @@ has a `?capital'.  We don't want to get the captial as ruled by itself, so we
 declare that `?capital' and `?loc' must not be unified with each other.
 
 To define our result, we declare `?cname' and `?lname' to be the names of
-`?capital' and `?loc', respectively.  Finally, we declare that our question `q'
+`?capital' and `?loc', respectively.  Finally, we declare that our question `q`
 should be unified with a vector containing `?cname' and `?lname'.
 
 Custom Relations
@@ -148,8 +148,8 @@ Custom Relations
 
 We think that being able to query for the capital of a location or the
 locations of some capital is a thing we're going to do frequently.  So we can
-factor that out into a custom relation `(capitalo c l)' that succeeds if `c' is
-the captial of `l' simply by defining a function.
+factor that out into a custom relation `(capitalo c l)' that succeeds if `c` is
+the captial of `l` simply by defining a function.
 
   user> (defn capitalo
           \"Succeeds, if c is the capital of Locality l.\"
@@ -172,7 +172,7 @@ We can pose our question now using this new relation and get the same answer.
 Now, let's do something a bit more interesting.  When are two junctions `j1'
 and `j2' connected?  Either they are directly connected (j1 -> j2, or j2 ->
 j1), or they are connected with something in between.  So we need some
-disjunction here, and that's exactly what `core.logic/conde' is for.  `conde'
+disjunction here, and that's exactly what `core.logic/conde' is for.  `conde`
 succeeds if any of its clauses succeeds, each a conjunction given as a list.
 
   (defn connectedo
@@ -282,7 +282,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                       (remove not)))))))))
 
 (defn create-graph-relations-ns
-  "Populates the namespace corresponding to schema `s' qname with relations
+  "Populates the namespace corresponding to schema `s` qname with relations
   expressing the schema."
   [^Graph g nssym]
   (let [s ^Schema (core/schema g)
@@ -299,7 +299,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                 ;; Generic relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 (defn ~'vertexo
-                  "A relation where `v' is a vertex."
+                  "A relation where `v` is a vertex."
                   [v#]
                   (fn [a#]
                     (let [gv# (walk a# v#)]
@@ -313,7 +313,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                           (fail a#))))))
 
                 (defn ~'edgeo
-                  "A relation where `e' is an edge from `alpha' to `omega'."
+                  "A relation where `e` is an edge from `alpha` to `omega`."
                   [e# alpha# omega#]
                   (fn [a#]
                     (let [ge#     (walk a# e#)
@@ -337,7 +337,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                    (remove not)))))))
 
                 (defn ~'valueo
-                  "A relation where `ae' has value `val' for its `at' attribute."
+                  "A relation where `ae` has value `val` for its `at` attribute."
                   [ae# at# val#]
                   (fn [a#]
                     (let [gae#  (walk a# ae#)
@@ -527,7 +527,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
       (+IsTypeDefinitionOf _ super ?ts)))
 
   (defn subclasso
-    "A relation where `sub' is a subclass of `super'."
+    "A relation where `sub` is a subclass of `super`."
     [sub super]
     (conda
      [(direct-subclasso sub super)]

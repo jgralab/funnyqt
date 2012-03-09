@@ -54,7 +54,7 @@
       register-epackages)))
 
 (defn load-metamodel
-  "Loads the Ecore metamodel from the ecore file `f'.
+  "Loads the Ecore metamodel from the ecore file `f`.
   Returns as seq of (usually one) root EPackages.
   All EPackages are registered recursively."
   [f]
@@ -65,7 +65,7 @@
 
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
-  "Restricts the EClassifier lookup in the dynamic scope of `body' to those
+  "Restricts the EClassifier lookup in the dynamic scope of `body` to those
   contained in EPackages registered with the given URIs at the EPackage
   registry."
   [uris & body]
@@ -97,7 +97,7 @@
          (error (format "No such root package %s." f)))
        (when (next (next tops))
          (error (format "Multiple root packages named %s: %s\n%s" f tops
-                        "Restrict the search space using `with-ns-uris'.")))
+                        "Restrict the search space using `with-ns-uris`.")))
        (if (seq r)
          (apply epackage (first tops) r)
          (first tops))))
@@ -124,8 +124,8 @@
           (epackages)))
 
 (defn eclassifier
-  "Returns the eclassifier with the given `name'.
-  `name' may be a simple or qualified name.  Throws an exception, if no such
+  "Returns the eclassifier with the given `name`.
+  `name` may be a simple or qualified name.  Throws an exception, if no such
   classifier could be found, or if the given simple name is ambiguous."
   [name]
   (let [^String n (clojure.core/name name)
@@ -142,11 +142,11 @@
          (next classifiers)   (error
                                (format "EClassifier %s is ambiguous: %s\n%s"
                                        n (print-str classifiers)
-                                       "Restrict the search space using `with-ns-uris'."))
+                                       "Restrict the search space using `with-ns-uris`."))
          :else (first classifiers))))))
 
 (defn eenum-literal
-  "Returns the EEnumLiteral specified by its `qname'."
+  "Returns the EEnumLiteral specified by its `qname`."
   [qname]
   (let [[eenum elit] (split-qname qname)
         ^EEnum enum-cls (eclassifier eenum)]
@@ -225,7 +225,7 @@
   (EMFModel. (ResourceImpl.)))
 
 (defn load-model
-  "Loads an EMF model from the XMI file `f'.
+  "Loads an EMF model from the XMI file `f`.
   Returns a seq of the models top-level elements."
   [f]
   (let [uri (URI/createFileURI f)
@@ -284,15 +284,15 @@
 (defprotocol EContents
   (eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the eclass-matcher `tm'.")
+  matches the eclass-matcher `tm`.")
   (econtents-internal [this tm]
     "Returns a seq of all directly contained EObjects whose type matches the
-  eclass-matcher `tm'.")
+  eclass-matcher `tm`.")
   (econtainer [this]
     "Returns the EObject containing this.")
   (eallobjects [this] [this ts]
-    "Returns a seq of all objects matching the type specification `ts' (see
-  `eclass-matcher') that are contained in this EMFModel."))
+    "Returns a seq of all objects matching the type specification `ts` (see
+  `eclass-matcher`) that are contained in this EMFModel."))
 
 (extend-protocol EContents
   EObject
@@ -321,26 +321,26 @@
     (mapcat #(eallcontents-internal % tm) this)))
 
 (defn eallcontents
-  "Returns a seq of `x's direct and indirect contents matching the type spec
-`ts'."
+  "Returns a seq of `x`s direct and indirect contents matching the type spec
+`ts`."
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
      (eallcontents-internal x (eclass-matcher ts))))
 
 (defn econtents
-  "Returns a seq of `x's direct contents matching the type spec `ts'."
+  "Returns a seq of `x`s direct contents matching the type spec `ts`."
   ([x]
      (econtents-internal x identity))
   ([x ts]
      (econtents-internal x (eclass-matcher ts))))
 
 (defn eref-matcher
-  "Returns a reference matcher for the reference spec `rs'.
+  "Returns a reference matcher for the reference spec `rs`.
   A reference matcher is a function of arity one that gets an EReference and
   returns logical true if that ref should be accepted, false otherwise.
 
-  Semantics depend on `rs':
+  Semantics depend on `rs`:
 
     nil           => accept all references
     someERef      => accept only this EReference
@@ -366,29 +366,29 @@
   (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
     "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
   May be restricted by reference matchers and eclass matchers on source and
-  target.  `reffn' is either `erefs-internal', `ecrossrefs-internal', or
-  `econtents-internal'.")
+  target.  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
+  `econtents-internal`.")
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
-  `rm'.  Cross-referenced objects are those that are referenced by a
+  `rm`.  Cross-referenced objects are those that are referenced by a
   non-containment relationship.")
   (erefs-internal [this rm]
-    "Returns a seq of referenced EObjects accepted by reference-matcher `rm'.
+    "Returns a seq of referenced EObjects accepted by reference-matcher `rm`.
   In contrast to ecrossrefs-internal, containment refs are not excluded.")
   (inv-ecrossrefs-internal [this rm container]
-    "Returns a seq of EObjects that cross-reference `this' with a ref matching
-  `rm'.  Cross-referenced objects are those that are referenced by a
-  non-containment relationship.  If `container' is nil, check only opposites of
-  this object's ref, else do a search over the nconts of `container', which
+    "Returns a seq of EObjects that cross-reference `this` with a ref matching
+  `rm`.  Cross-referenced objects are those that are referenced by a
+  non-containment relationship.  If `container` is nil, check only opposites of
+  this object's ref, else do a search over the nconts of `container`, which
   may be an EMFModel or a collection of EObjects.")
   (inv-erefs-internal [this rm container]
-    "Returns a seq of EObjects that reference `this' with a ref matching `rm'.
-  If `container' is nil, check only opposites of this object's ref, else do a
-  search over the nconts of `container', which may be an EMFModel or a
+    "Returns a seq of EObjects that reference `this` with a ref matching `rm`.
+  If `container` is nil, check only opposites of this object's ref, else do a
+  search over the nconts of `container`, which may be an EMFModel or a
   collection of EObjects."))
 
 (defn- eopposite-refs
-  "Returns the seq of `eo's EClass' references whose opposites match `src-rm'.
+  "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
 
   Example: [Foo] f --- b [Bar]
               f \\
@@ -396,7 +396,7 @@
 
   Given a Foo object and a eref-matcher matching f, returns a seq of the
   EReferences b and c, because those are the opposites of the matched f.  Of
-  course, if `src-rm' matches only one specific EReference, i.e., it was
+  course, if `src-rm` matches only one specific EReference, i.e., it was
   constructed by (eref-matcher fERef) and not (eref-matcher :f)."
   [^EObject eo src-rm]
   (seq (remove nil? (map (fn [^EReference r]
@@ -405,8 +405,8 @@
                          (seq (-> eo .eClass .getEAllReferences))))))
 
 (defn- search-ereferencers
-  "Returns the seq of objects referencing `refed' by a reference matching `rm'
-  that are contained in `container'.  `reffn' is either erefs-internal or
+  "Returns the seq of objects referencing `refed` by a reference matching `rm`
+  that are contained in `container`.  `reffn` is either erefs-internal or
   ecrossrefs-internal."
   [refed reffn rm container]
   (filter (fn [o] (member? refed (reffn o rm)))
@@ -479,9 +479,9 @@
     (mapcat #(inv-ecrossrefs-internal % rm container) this)))
 
 (defn ecrossrefs
-  "Returns a seq of EObjects cross-referenced by `eo', possibly restricted by
-  the reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs', see `eref-matcher'.  In EMF, crossrefs
+  "Returns a seq of EObjects cross-referenced by `eo`, possibly restricted by
+  the reference spec `rs`.  `eo` may be an EObject or a collection of EObjects.
+  For the syntax and semantics of `rs`, see `eref-matcher`.  In EMF, crossrefs
   are all non-containment refs."
   ([eo]
      (ecrossrefs-internal eo identity))
@@ -489,20 +489,20 @@
      (ecrossrefs-internal eo (eref-matcher rs))))
 
 (defn erefs
-  "Returns a seq of EObjects referenced by `eo', possibly restricted by the
-  reference spec `rs'.  `eo' may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs', see `eref-matcher'.  In contrast to
-  `ecrossrefs', this function doesn't ignore containment refs."
+  "Returns a seq of EObjects referenced by `eo`, possibly restricted by the
+  reference spec `rs`.  `eo` may be an EObject or a collection of EObjects.
+  For the syntax and semantics of `rs`, see `eref-matcher`.  In contrast to
+  `ecrossrefs`, this function doesn't ignore containment refs."
   ([eo]
      (erefs-internal eo identity))
   ([eo rs]
      (erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
-  "Returns the seq of EOjects that reference `eo' with an EReference matching
-  `rs' (see `eref-matcher').  `eo' may also be a collection of eobjects.  If no
-  `container' is given, then only check the opposite refs of `eo'.  Else, all
-  objects in `container' are tested if they reference `eo'.  `container' may be
+  "Returns the seq of EOjects that reference `eo` with an EReference matching
+  `rs` (see `eref-matcher`).  `eo` may also be a collection of eobjects.  If no
+  `container` is given, then only check the opposite refs of `eo`.  Else, all
+  objects in `container` are tested if they reference `eo`.  `container` may be
   either an EMFModel or a collection of EObjects."
   ([eo]
      (inv-erefs-internal eo identity nil))
@@ -512,11 +512,11 @@
      (inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
-  "Returns the seq of EOjects that cross-reference `eo' with an EReference
-  matching `rs' (see `eref-matcher').  `eo' may also be a collection of
-  eobjects.  If no `container' is given, then only check the opposite refs of
-  `eo'.  Else, all objects in `container' are tested if they cross-reference
-  `eo'. `container' may be either an EMFModel or a collection of EObjects. "
+  "Returns the seq of EOjects that cross-reference `eo` with an EReference
+  matching `rs` (see `eref-matcher`).  `eo` may also be a collection of
+  eobjects.  If no `container` is given, then only check the opposite refs of
+  `eo`.  Else, all objects in `container` are tested if they cross-reference
+  `eo`. `container` may be either an EMFModel or a collection of EObjects. "
   ([eo]
      (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
@@ -553,11 +553,11 @@
   (emf2clj [_] nil))
 
 (defn eget-raw
-  "Returns the value of `eo's structural feature `sf'.
-  Throws an exception, if there's no EStructuralFeature `sf'.
+  "Returns the value of `eo`s structural feature `sf`.
+  Throws an exception, if there's no EStructuralFeature `sf`.
 
   The value is kept as-is, i.e., not converted to some immutable clojure data
-  structure as `eget' does.  So if you eget-raw an EList, you can mutate it
+  structure as `eget` does.  So if you eget-raw an EList, you can mutate it
   in-place.  That's totally not stylish, but it might be a last resort when
   optimizing for performance.  You've been warned!"
   [^EObject eo sf]
@@ -568,16 +568,16 @@
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eget
-  "Returns the value of `eo's structural feature `sf'.
+  "Returns the value of `eo`s structural feature `sf`.
   The value is converted to some clojure type (see EmfToClj protocol).
-  Throws an exception, if there's no EStructuralFeature `sf'."
+  Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
   (emf2clj (eget-raw eo sf)))
 
 (defn eset!
-  "Sets `eo's structural feature `sf' to `value' and returns `eo'.
+  "Sets `eo`s structural feature `sf` to `value` and returns `eo`.
   The value is converted to some EMF type (see CljToEmf protocol).
-  Throws an exception, if there's no EStructuralFeature `sf'."
+  Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (if (.isMany sfeat)
@@ -590,8 +590,8 @@
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eunset!
-  "Unsets `eo's structural feature `sf' and returns `eo'.
-  Throws an exception, if there's no EStructuralFeature `sf'."
+  "Unsets `eo`s structural feature `sf` and returns `eo`.
+  Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (doto eo
@@ -599,18 +599,18 @@
     (error (format "No such structural feature %s for %s." sf (print-str eo)))))
 
 (defn eadd!
-  "Adds each value in `values' to `eo's list of attribute/reference values
-  denoted by `sf' and returns `eo'.  Throws an exception, if there's no
-  EStructuralFeature `sf'."
+  "Adds each value in `values` to `eo`s list of attribute/reference values
+  denoted by `sf` and returns `eo`.  Throws an exception, if there's no
+  EStructuralFeature `sf`."
   [^EObject eo sf & values]
   (let [^EList l (eget-raw eo sf)]
     (.addAll l values)
     eo))
 
 (defn eremove!
-  "Removes each value in `values' from `eo's list of attribute/reference values
-  denoted by `sf' and returns `eo'.  Throws an exception, if there's no
-  EStructuralFeature `sf'."
+  "Removes each value in `values` from `eo`s list of attribute/reference values
+  denoted by `sf` and returns `eo`.  Throws an exception, if there's no
+  EStructuralFeature `sf`."
   [^EObject eo sf & values]
   (let [^EList l (eget-raw eo sf)]
     (.removeAll l values)
@@ -621,8 +621,8 @@
 (defn eallpairs
   "Returns the seq of all edges in terms of [src trg] pairs.
   This includes both containment as well as crossreferences.  Restrictions may
-  be defined in terms of reference specs `src-rs' and `trg-rs', and reference
-  specs plus type specs `src-ts' and `trg-ts'."
+  be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
+  specs plus type specs `src-ts` and `trg-ts`."
   ([m]
      (epairs-internal m erefs-internal
                       identity identity
@@ -638,8 +638,8 @@
 
 (defn ecrosspairs
   "Returns the seq of all cross-reference edges in terms of [src trg] pairs.
-  Restrictions may be defined in terms of reference specs `src-rs' and
-  `trg-rs', and reference specs plus type specs `src-ts' and `trg-ts'."
+  Restrictions may be defined in terms of reference specs `src-rs` and
+  `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
      (epairs-internal m ecrossrefs-internal
                       identity identity
@@ -664,8 +664,8 @@
 (defn econtentpairs
   "Returns the seq of all containment edges in terms of [src trg] pairs.
   src is the parent, trg is the child.
-  Restrictions may be defined in terms of reference specs `src-rs' and
-  `trg-rs', and reference specs plus type specs `src-ts' and `trg-ts'."
+  Restrictions may be defined in terms of reference specs `src-rs` and
+  `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
      (epairs-internal m econtents-by-ref
                       identity identity
@@ -683,9 +683,9 @@
 ;;*** EObject Creation
 
 (defn ecreate!
-  "Creates an EObject of EClass `ecls'.
-  `ecls' may be either an EClass or just an EClass name given as symbol,
-  string, or keyword.  If a `model' is provided, then add the new EObject to
+  "Creates an EObject of EClass `ecls`.
+  `ecls` may be either an EClass or just an EClass name given as symbol,
+  string, or keyword.  If a `model` is provided, then add the new EObject to
   it."
   ([ecls]
      (EcoreUtil/create (if (instance? EClass ecls)
@@ -854,13 +854,13 @@
            "}"))))
 
 (defn print-model
-  "Prints a visualization of EMFModel `m' to the file `f'.
+  "Prints a visualization of EMFModel `m` to the file `f`.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
-  gif, pdf) and defaults to PDF.  The extension `gtk' has a special meaning: in
+  gif, pdf) and defaults to PDF.  The extension `gtk` has a special meaning: in
   that case, no file is actually printed, but instead a GTK+ window showing the
   model is created.
 
-  Additional `opts' may be specified.  Those are usually DOT Graph
+  Additional `opts` may be specified.  Those are usually DOT Graph
   Attributes (http://www.graphviz.org/content/attrs), e.g.,
 
     (print-model m \"test.pdf\" :ranksep 2.2)
@@ -895,7 +895,7 @@
 ;; TODO: We don't handle EFactories, ETypedElements, and EAnnotations yet.
 
 (defn- feature-str
-  "Returns a description of enabled features `fs'.
+  "Returns a description of enabled features `fs`.
   fs => [test-val desc-str]*"
   ([fs]
      (feature-str [] fs))

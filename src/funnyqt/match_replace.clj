@@ -53,11 +53,11 @@
       (vec nb))))
 
 (defmacro with-match
-  "Establish bindings as specified in `bindings', and execute `body'.
-  `bindings' is a vector of bindings with the syntax of `for'.
+  "Establish bindings as specified in `bindings`, and execute `body`.
+  `bindings` is a vector of bindings with the syntax of `for`.
 
-  If a match could be found, that is, all symbols in `bindings' can be bound to
-  non-nil values, `body' is executed with the established bindings and `body's
+  If a match could be found, that is, all symbols in `bindings` can be bound to
+  non-nil values, `body` is executed with the established bindings and `body`s
   value is the return value.  If no match is found, nil is returned."
   ;; Nicer arglist in doc
   {:arglists '([[bindings*] & body])}
@@ -84,8 +84,8 @@
 ;;** Patterns and Rules
 
 (defn- verify-match-vector
-  "Ensure that the match vector `match' and the arg vector `args' are disjoint.
-  Throws an exception if they overlap, else returns `match'."
+  "Ensure that the match vector `match` and the arg vector `args` are disjoint.
+  Throws an exception if they overlap, else returns `match`."
   [match args]
   (if (seq (clojure.set/intersection
             (set (bindings-to-arglist match))
@@ -94,9 +94,9 @@
     match))
 
 (defmacro defpattern
-  "Defines a pattern with `name', optional `doc-string', optional `attr-map',
-  an `args' vector, and a `match' vector.  When invoked, it returns a lazy seq
-  of all matches of `match'.
+  "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
+  an `args` vector, and a `match` vector.  When invoked, it returns a lazy seq
+  of all matches of `match`.
 
   Usually, you use this to specify a pattern that occurs in the match pattern
   of many rules.  So instead of writing a match vector like
@@ -160,13 +160,13 @@
 
 
 (defmacro defrule
-  "Defines a rule with `name', optional doc-string', optional `attr-map?',
-  an `args' vector, an optional `match' vector, and following `body' code.
-  Just like `defn', overloading is supported as well.  The `match' vector is
-  actually optional.  If no version has a match, then you should use `defn'
+  "Defines a rule with `name`, optional doc-string', optional `attr-map?',
+  an `args` vector, an optional `match` vector, and following `body` code.
+  Just like `defn`, overloading is supported as well.  The `match` vector is
+  actually optional.  If no version has a match, then you should use `defn`
   directly.
 
-  `match' specifies what the rule matches (a vector with the syntax of `for').
+  `match` specifies what the rule matches (a vector with the syntax of `for`).
   The match vector is optional.  The purpose of this optionality is mainly
   overloading, i.e., you can have a rule like this:
 
@@ -181,21 +181,21 @@
         (action3 c)
         (action4 a c)))
 
-  `body' is applied on the match.
+  `body` is applied on the match.
 
   If the rule could be applied, then it returns the value of the last form in
   body, and any logical true value means the rule succeeded.  Thus, one should
   take care to always return logical true if the rule was applied.
 
-  It it a compile error, if the `args' contain vars that occur also in
-  `match'."
+  It it a compile error, if the `args` contain vars that occur also in
+  `match`."
   {:arglists '([name doc-string? attr-map? [args] [match] & body]
                  [name doc-string? attr-map? ([args] [match] & body)+])}
   [name & more]
   `(defrule-internal false ~name ~more))
 
 (defmacro defrule-debug
-  "Exactly the same as `defrule', but expands into a rule that calls
+  "Exactly the same as `defrule`, but expands into a rule that calls
 `*on-matched-rule-fn*', if that's bound."
   {:arglists '([name doc-string? attr-map? [args] [match] & body]
                  [name doc-string? attr-map? ([args] [match] & body)+])}
@@ -205,14 +205,14 @@
 ;;** Transformations
 
 (defmacro deftransformation
-  {:doc "Defines a match-replace transformation named `name' with optional
-  `doc-string?', optional `meta-map?, a mandatory `args' vector, and a `body'.
-  The `body' must consist of arbitrary many `defpattern' and `defrule' forms,
+  {:doc "Defines a match-replace transformation named `name` with optional
+  `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`.
+  The `body` must consist of arbitrary many `defpattern` and `defrule` forms,
   and exactly one other form, the main entry point of the transformation.  This
   form is evaluated when the transformation is called.
 
   All patterns, rules, and the main form of the transformation have access to
-  the `args' of the transformation."
+  the `args` of the transformation."
    :arglists '([name doc-string? meta-map? [args] & body])}
   [tname & more]
   (let [[tname more] (m/name-with-attributes tname more)
@@ -243,7 +243,7 @@
 ;;** Higher order rules
 
 (defn iteratively
-  "Applies the rule `r' with `args' as long as it returns logical true.
+  "Applies the rule `r` with `args` as long as it returns logical true.
   Returns the number of successful applications or nil if it couldn't be
   applied at least once."
   [r & args]
@@ -253,8 +253,8 @@
       (when-not (zero? i) i))))
 
 (defn iteratively*
-  "Applies the rule `r' as long as it returns logical true.
-  On the first application, `r' receives `args'.  The second till last
+  "Applies the rule `r` as long as it returns logical true.
+  On the first application, `r` receives `args`.  The second till last
   application receive the value of the previous successful application.
   Returns the number of successful applications, or nil, if it couldn't be
   applied at least once."
@@ -265,8 +265,8 @@
       (when-not (zero? i) i))))
 
 (defn ntimes
-  "Applies the rule `r' at most `n' times and returns the number of successfull
-  applications.  Stops as soon as `r' fails."
+  "Applies the rule `r` at most `n` times and returns the number of successfull
+  applications.  Stops as soon as `r` fails."
   [n r & args]
   (loop [n n, succs 0]
     (if (and (pos? n) (apply r args))
@@ -274,7 +274,7 @@
       succs)))
 
 (defn choose
-  "Randomly chooses one of the given `rules' and applies it.
+  "Randomly chooses one of the given `rules` and applies it.
   Returns that fun's return value or nil, if no fun was applicable."
   [& rules]
   (let [r (rand-nth rules)

@@ -18,14 +18,14 @@
   *deferred-actions*)
 
 (defmacro defmapping
-  {:doc "Defines a mapping function named `name' with optional `doc-string?',
-  an argument vector `args', and a `body'.  The syntax is the same as for
-  `defn', except that currently overloading is not supported.
+  {:doc "Defines a mapping function named `name` with optional `doc-string?',
+  an argument vector `args`, and a `body`.  The syntax is the same as for
+  `defn`, except that currently overloading is not supported.
 
   Every mapping function must return the object it has created, and a
   traceability mapping from the value of the mapping's first argument to that
-  new object is persisted and can later be resolved using `resolve-in' and
-  `resolve-all-in'.  If the mapping has no arguments, then no traceability
+  new object is persisted and can later be resolved using `resolve-in` and
+  `resolve-all-in`.  If the mapping has no arguments, then no traceability
   mapping is established."
    :arglists '([name doc-string? [args] & body]
                  ;; FIXME: Also support overloading.
@@ -51,7 +51,7 @@
 
 (defmacro defhelper
   {:doc "Defines a helper function.
-  The syntax is the same as for `defn'."
+  The syntax is the same as for `defn`."
    :arglists '([name doc-string? [args] & body]
                  [name doc-string? ([args] & body)+])}
   [name & more]
@@ -60,32 +60,32 @@
       ~@more)))
 
 (defmacro deferred
-  "Captures a thunk (closure) that evaluates `body' as the last step of the
+  "Captures a thunk (closure) that evaluates `body` as the last step of the
   transformation."
   [& body]
   `(swap! *deferred-actions* conj (fn [] ~@body)))
 
 (defn resolve-in
-  "Returns the target object created for `obj' in `mapping'."
+  "Returns the target object created for `obj` in `mapping`."
   [mapping obj]
   (get (get @*traceability-mappings* mapping) obj))
 
 (defn resolve-all-in
-  "Returns a collection of target objects created for `objs' in `mapping'."
+  "Returns a collection of target objects created for `objs` in `mapping`."
   [mapping objs]
   (into (empty objs)
         (map #(resolve-in mapping %)
              objs)))
 
 (defmacro deftransformation
-  {:doc "Defines an operational transformation named `name' with optional
-  `doc-string?', optional `meta-map?, a mandatory `args' vector, and a `body'.
-  The `body' must consist of arbitrary `defmapping' and `defhelper' forms, and
+  {:doc "Defines an operational transformation named `name` with optional
+  `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`.
+  The `body` must consist of arbitrary `defmapping` and `defhelper` forms, and
   exactly one other form, the main entry point of the transformation.  This
   form is evaluated when the transformation is called.
 
   All helpers, mappings, and the main form of the transformation have access to
-  the `args' of the transformation."
+  the `args` of the transformation."
    :arglists '([name doc-string? meta-map? [args] & body])}
   [tname & more]
   (let [[tname more] (m/name-with-attributes tname more)

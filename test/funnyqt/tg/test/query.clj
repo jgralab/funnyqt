@@ -261,7 +261,7 @@
 			  (adjs v :annotationsAndModifiers))))]]))))))
 
 (defn coupled-classes
-  "Given a Class `c', calculates all coupled classes."
+  "Given a Class `c`, calculates all coupled classes."
   [c]
   (reachables c
     [p-seq [<>-- 'IsClassBlockOf] [<>-- 'IsMemberOf]

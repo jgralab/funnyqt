@@ -15,8 +15,8 @@
 ;;** Regular Path Descriptions
 
 (defn <>--
-  "Returns the (direct) contents of EObject`obj' restricted by the type
-  specification `ts' (see `eclass-matcher' for details).  `obj' may also be a
+  "Returns the (direct) contents of EObject`obj` restricted by the type
+  specification `ts` (see `eclass-matcher` for details).  `obj` may also be a
   collection of EObjects."
   ([obj]
      (mapcat econtents (to-oset obj)))
@@ -24,9 +24,9 @@
      (mapcat #(econtents % ts) (to-oset obj))))
 
 (defn -->
-  "Returns the EObjects cross-referenced by `obj' where the references may be
-  restricted by `rs', a reference specification (see `eref-matcher' for
-  details).  `obj' may also be a collection of EObjects.  In EMF,
+  "Returns the EObjects cross-referenced by `obj` where the references may be
+  restricted by `rs`, a reference specification (see `eref-matcher` for
+  details).  `obj` may also be a collection of EObjects.  In EMF,
   cross-referenced means referenced by a non-containment EReference."
   ([obj]
      (mapcat ecrossrefs (to-oset obj)))
@@ -34,9 +34,9 @@
      (mapcat #(ecrossrefs % rs) (to-oset obj))))
 
 (defn -->>
-  "Returns the EObjects referenced by `obj' where the references may be
-  restricted by `rs', a reference specification (see `eref-matcher' for
-  details).  `obj' may also be a collection of EObjects.  In contrast to `-->',
+  "Returns the EObjects referenced by `obj` where the references may be
+  restricted by `rs`, a reference specification (see `eref-matcher` for
+  details).  `obj` may also be a collection of EObjects.  In contrast to `-->',
   this function includes both cross-references and containments."
   ([obj]
      (mapcat erefs (to-oset obj)))
@@ -44,7 +44,7 @@
      (mapcat #(erefs % rs) (to-oset obj))))
 
 (defn --<>
-  "Returns a seq containing `obj's container.  If there's none,
+  "Returns a seq containing `obj`s container.  If there's none,
   returns the empty set."
   [obj]
   (mapcat #(when-let [c (econtainer %)]
@@ -52,10 +52,10 @@
           (to-oset obj)))
 
 (defn <--
-  "Returns all EObjects cross-referencing `obj' with a reference matching the
-  reference specification `rs' (see `eref-matcher' for details).  `obj' may also
+  "Returns all EObjects cross-referencing `obj` with a reference matching the
+  reference specification `rs` (see `eref-matcher` for details).  `obj` may also
   be a collection of EObjects, in which case all objects cross-referencing any
-  of the objects in `obj' is returned.  In EMF, cross-referenced means
+  of the objects in `obj` is returned.  In EMF, cross-referenced means
   referenced by a non-containment EReference."
   ([obj]
      (mapcat inv-ecrossrefs (to-oset obj)))
@@ -65,10 +65,10 @@
      (mapcat #(inv-ecrossrefs % rs container) (to-oset obj))))
 
 (defn <<--
-  "Returns all EObjects referencing `obj' with a reference matching the
-  reference specification `rs' (see `eref-matcher' for details).  `obj' may also
+  "Returns all EObjects referencing `obj` with a reference matching the
+  reference specification `rs` (see `eref-matcher` for details).  `obj` may also
   be a collection of EObjects, in which case all objects referencing any of the
-  objects in `obj' is returned.  In contrast to `<--', this function includes
+  objects in `obj` is returned.  In contrast to `<--', this function includes
   both cross-references and containments."
   ([obj]
      (mapcat inv-erefs (to-oset obj)))
@@ -78,8 +78,8 @@
      (mapcat #(inv-erefs % rs container) (to-oset obj))))
 
 (defn reachables
-  "Returns the ordered set of EObjects reachable from `obj' by via the path
-  description `p'.  `obj' may be an EObject or a seq of EObjects."
+  "Returns the ordered set of EObjects reachable from `obj` by via the path
+  description `p`.  `obj` may be an EObject or a seq of EObjects."
   [obj p]
   (cond
    ;; funs: -->
@@ -92,32 +92,32 @@
 
 
 (defn p-seq
-  "Path sequence starting at `obj' and traversing `p'.
-  `obj' may be an EObject or a seq of EObjects.
-  `p' is a varargs seq of path descriptions."
+  "Path sequence starting at `obj` and traversing `p`.
+  `obj` may be an EObject or a seq of EObjects.
+  `p` is a varargs seq of path descriptions."
   [obj & p]
   (if (seq p)
     (recur (reachables obj (first p)) (rest p))
     (to-oset obj)))
 
 (defn p-opt
-  "Path option starting at `obj' and maybe traversing `p'.
-  `obj' may be an EObject or a seq of EObjects.
-  `p' is a path description."
+  "Path option starting at `obj` and maybe traversing `p`.
+  `obj` may be an EObject or a seq of EObjects.
+  `p` is a path description."
   [obj p]
   (into-oset obj (reachables obj p)))
 
 (defn p-alt
-  "Path alternative starting at `obj' and traversing one of `p'.
-  `obj' may be an EObject or a seq of EObjects.
-  `p' is a varags seq of the alternative path descriptions."
+  "Path alternative starting at `obj` and traversing one of `p`.
+  `obj` may be an EObject or a seq of EObjects.
+  `p` is a varags seq of the alternative path descriptions."
   [obj & p]
   (to-oset (mapcat #(reachables obj %) p)))
 
 (defn p-+
-  "Path iteration starting at `obj' and traversing `p' one or many times.
-  `obj' may be an EObject or a seq of EObjects.
-  `p' is a path description."
+  "Path iteration starting at `obj` and traversing `p` one or many times.
+  `obj` may be an EObject or a seq of EObjects.
+  `p` is a path description."
   ([obj p]
      (p-+ obj p false true))
   ([obj p d skip-obj]
@@ -130,18 +130,18 @@
          sv))))
 
 (defn p-*
-  "Path iteration starting at `obj' and traversing `p' zero or many times.
-  `obj' may be an EObject or a seq of EObjects.
-  `p' is a path description."
+  "Path iteration starting at `obj` and traversing `p` zero or many times.
+  `obj` may be an EObject or a seq of EObjects.
+  `p` is a path description."
   [obj p]
   (p-+ obj p false false))
 
 (defn p-exp
-  "Path exponent starting at `obj' and traversing `p' `n' times, or at least `l'
-  and at most `p' times.
-  `obj' may be an EObject or a seq of EObjects.
-  `n' or `l' and `obj' are integers with `l' <= `b'.
-  `p' is a path description."
+  "Path exponent starting at `obj` and traversing `p` `n` times, or at least `l`
+  and at most `p` times.
+  `obj` may be an EObject or a seq of EObjects.
+  `n` or `l` and `obj` are integers with `l` <= `b`.
+  `p` is a path description."
   ([obj l u p]
      {:pre [(<= l u) (>= l 0) (>= u 0)]}
      (loop [i (- u l), s (p-exp obj l p)]
@@ -158,8 +158,8 @@
        (recur (reachables obj p) (dec n) p))))
 
 (defn p-restr
-  "EObject restriction concerning `ts' and `pred' on each object in `objs'.
-  ts is a type specification (see `eclass-matcher'), `pred' a predicate."
+  "EObject restriction concerning `ts` and `pred` on each object in `objs`.
+  ts is a type specification (see `eclass-matcher`), `pred` a predicate."
   ([objs ts]
      (p-restr objs ts identity))
   ([objs ts pred]

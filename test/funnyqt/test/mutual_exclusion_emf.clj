@@ -144,7 +144,7 @@
   (eset! r :releaser p))
 
 (deftransformation apply-mutual-exclusion-sts
-  "Does the STS on `m'."
+  "Does the STS on `m`."
   [m n param-pass]
   (let [sys (the (econtents m 'System))]
     ;; n-2 times new-rule ==> n processes in a ring

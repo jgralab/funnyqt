@@ -27,31 +27,31 @@
  "Loading/Saving
 ==============
 
-See `load-graph', `save-graph', and `load-schema'.
+See `load-graph`, `save-graph`, and `load-schema`.
 
 Graph Elements
 ==============
 
-For accessing elements, see `vertex', `edge', `first-vertex', `next-vertex',
-`first-edge', `next-edge', `first-inc', and `next-inc'.  For more convenient
-access, check out `vseq', `eseq', and `iseq' in the funql namespace.
+For accessing elements, see `vertex`, `edge`, `first-vertex`, `next-vertex`,
+`first-edge`, `next-edge`, `first-inc`, and `next-inc`.  For more convenient
+access, check out `vseq`, `eseq`, and `iseq` in the funql namespace.
 
-For creating graphs and elements, see `create-graph', `create-vertex!', and
-`create-edge!'.
+For creating graphs and elements, see `create-graph`, `create-vertex!`, and
+`create-edge!`.
 
 Attributes
 ==========
 
-To access attribute values or record components, use the function `value'.  To
-set them, use `set-value!'.  All clojure collections and maps are automatically
+To access attribute values or record components, use the function `value`.  To
+set them, use `set-value!`.  All clojure collections and maps are automatically
 converted to JGraLab's pcollections.  In case of RecordDomains and EnumDomains,
 whose values are instances of generated classes, there are the constructor
-functions `record' and `enum'.
+functions `record` and `enum`.
 
 Visualization
 =============
 
-See `tgtree', `show-graph', and `print-graph'.")
+See `tgtree`, `show-graph`, and `print-graph`.")
 
 ;;* Utility Functions and Macros
 
@@ -71,7 +71,7 @@ See `tgtree', `show-graph', and `print-graph'.")
 ;;** Graph utilities
 
 (defn show-graph
-  "Show graph `g' in a JFrame, possibly with `reversed' edges (default false).
+  "Show graph `g` in a JFrame, possibly with `reversed` edges (default false).
   Does nothing except printing a warning message for too large graphs."
   ([^Graph g]
      (show-graph g false))
@@ -118,18 +118,18 @@ See `tgtree', `show-graph', and `print-graph'.")
            (.pack))))))
 
 (defn tgtree
-  "Shows a simple Swing tree view representation of the graph `g'."
+  "Shows a simple Swing tree view representation of the graph `g`."
   [g]
   (-> (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g)
       (.setVisible true)))
 
 (declare attributed-element-class)
 (defn print-graph
-  "Generates a visualization of `g' and saves it as `file'.
+  "Generates a visualization of `g` and saves it as `file`.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
-  gif, pdf) and defaults to PDF.  If `reversed' it true, the edges will point
-  upwards.  `reversed-ecs' may be a seq of type names (as symbols) for which
-  edges should be vizualized with the opposite of `reversed's value."
+  gif, pdf) and defaults to PDF.  If `reversed` it true, the edges will point
+  upwards.  `reversed-ecs` may be a seq of type names (as symbols) for which
+  edges should be vizualized with the opposite of `reversed`s value."
   [^Graph g ^String file reversed & reversed-ecs]
   (let [suffix (second (re-matches #".*\.([^.]+)$" file))
         ^GraphVizOutputFormat of (cond
@@ -147,8 +147,8 @@ See `tgtree', `show-graph', and `print-graph'.")
      g file reversed of ary)))
 
 (defn load-schema
-  "Loads a schema from `file', and possibly compile it for implementation type
-  `impl' (default :generic, i.e., don't compile).  Supported impl types
+  "Loads a schema from `file`, and possibly compile it for implementation type
+  `impl` (default :generic, i.e., don't compile).  Supported impl types
   are :generic, :standard, :transaction, and :database."
   ([file]
      (load-schema file ImplementationType/GENERIC))
@@ -182,7 +182,7 @@ See `tgtree', `show-graph', and `print-graph'.")
            s)))))
 
 (defn load-graph
-  "Loads a graph from `file' using ImplementationType `impl',
+  "Loads a graph from `file` using ImplementationType `impl`,
   defauling to :generic.  The schema will be compiled automagically if needed.
   Supported impl types are :generic, :standard, :transaction, and :database."
   ([file]
@@ -193,7 +193,7 @@ See `tgtree', `show-graph', and `print-graph'.")
         is nil nil ^ImplementationType (impl-type impl) (ConsoleProgressFunction. "Loading")))))
 
 (defn save-graph
-  "Saves `g' to `file'."
+  "Saves `g` to `file`."
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
@@ -387,7 +387,7 @@ See `tgtree', `show-graph', and `print-graph'.")
 ;;* Graph Access
 
 (defn graph
-  "Returns the graph containing the graph element `ge'."
+  "Returns the graph containing the graph element `ge`."
   [^GraphElement ge]
   (.getGraph ge))
 
@@ -424,44 +424,44 @@ See `tgtree', `show-graph', and `print-graph'.")
 ;;** Edge functions
 
 (defn alpha
-  "Returns the start vertex of edge `e'."
+  "Returns the start vertex of edge `e`."
   [^Edge e]
   (.getAlpha e))
 
 (defn omega
-  "Returns the end vertex of edge `e'."
+  "Returns the end vertex of edge `e`."
   [^Edge e]
   (.getOmega e))
 
 (defn this
-  "Returns `e's this vertex."
+  "Returns `e`s this vertex."
   [^Edge e]
   (.getThis e))
 
 (defn that
-  "Returns `e's that vertex."
+  "Returns `e`s that vertex."
   [^Edge e]
   (.getThat e))
 
 (defn normal-edge
-  "Returns `e's normal (forward-oriented) edge."
+  "Returns `e`s normal (forward-oriented) edge."
   [^Edge e]
   (.getNormalEdge e))
 
 (defn reversed-edge
-  "Returns `e's reversed (backward-oriented) edge."
+  "Returns `e`s reversed (backward-oriented) edge."
   [^Edge e]
   (.getReversedEdge e))
 
 (defn normal-edge?
-  "Returns true, iff `e' is normal (forward-oriented)."
+  "Returns true, iff `e` is normal (forward-oriented)."
   [^Edge e]
   (.isNormal e))
 
 ;;** First, next elements
 
 (defn first-vertex
-  "Returns the first vertex of graph `g' accepted by type matcher `tm'."
+  "Returns the first vertex of graph `g` accepted by type matcher `tm`."
   ([^Graph g]
      (first-vertex g identity))
   ([^Graph g tm]
@@ -471,7 +471,7 @@ See `tgtree', `show-graph', and `print-graph'.")
          (recur (.getNextVertex v))))))
 
 (defn next-vertex
-  "Returns the vertex following `v' in vseq accepted by type matcher `tm'."
+  "Returns the vertex following `v` in vseq accepted by type matcher `tm`."
   ([^Vertex v]
      (next-vertex v identity))
   ([^Vertex v tm]
@@ -481,7 +481,7 @@ See `tgtree', `show-graph', and `print-graph'.")
          (recur (.getNextVertex n))))))
 
 (defn first-edge
-  "Returns the first edge of graph `g' accepted by type matcher `tm'."
+  "Returns the first edge of graph `g` accepted by type matcher `tm`."
   ([^Graph g]
      (first-edge g identity))
   ([^Graph g tm]
@@ -491,7 +491,7 @@ See `tgtree', `show-graph', and `print-graph'.")
          (recur (.getNextEdge e))))))
 
 (defn next-edge
-  "Returns the edge following `e' in eseq accepted by type matcher `tm'."
+  "Returns the edge following `e` in eseq accepted by type matcher `tm`."
   ([^Edge e]
      (next-edge e identity))
   ([^Edge e tm]
@@ -501,10 +501,10 @@ See `tgtree', `show-graph', and `print-graph'.")
          (recur (.getNextEdge n))))))
 
 (defn direction-matcher
-  "Returns a matcher function that accepts edges of direction `dir'.
-  `dir' may be an EdgeDirection enum literal or one of the keywords :in, :out,
+  "Returns a matcher function that accepts edges of direction `dir`.
+  `dir` may be an EdgeDirection enum literal or one of the keywords :in, :out,
   or :inout.
-  If `dir' is nil, then any direction is allowed (aka :inout)."
+  If `dir` is nil, then any direction is allowed (aka :inout)."
   [dir]
   ;; case does a constant time dispatch, so only use cond if the dir was not
   ;; given as keyword (or is nil).
@@ -520,7 +520,7 @@ See `tgtree', `show-graph', and `print-graph'.")
      :default (error (format "Unknown direction %s" dir)))))
 
 (defn first-inc
-  "Returns the first incidence in iseq of `v' accepted by the type matcher `tm'
+  "Returns the first incidence in iseq of `v` accepted by the type matcher `tm`
   and direction matcher `dm.'"
   ([^Vertex v]
      (first-inc v identity identity))
@@ -533,8 +533,8 @@ See `tgtree', `show-graph', and `print-graph'.")
          (recur (.getNextIncidence i))))))
 
 (defn next-inc
-  "Returns the incidence following `e' in the current vertex's iseq accepted by
-  type matcher `tm' and direction matcher `dm'."
+  "Returns the incidence following `e` in the current vertex's iseq accepted by
+  type matcher `tm` and direction matcher `dm`."
   ([^Edge e]
      (next-inc e identity identity))
   ([^Edge e tm]
@@ -596,9 +596,9 @@ See `tgtree', `show-graph', and `print-graph'.")
 (defprotocol ValueAccess
   "Protocol for access to attribute values and record components."
   (value [this attr-or-comp]
-    "Returns `this' element's `attr-or-comp' value.")
+    "Returns `this` element's `attr-or-comp` value.")
   (set-value! [this attr val]
-    "Sets `this' element's `attr' value to `val' and returns `this'."))
+    "Sets `this` element's `attr` value to `val` and returns `this`."))
 
 (extend-protocol ValueAccess
   AttributedElement
@@ -613,8 +613,8 @@ See `tgtree', `show-graph', and `print-graph'.")
     (.getComponent rec (name comp))))
 
 (defn record
-  "Creates a record of type `t' in the schema of element `e' with component
-  values as specified by map `m'.  The map `m' must specify all components, and
+  "Creates a record of type `t` in the schema of element `e` with component
+  values as specified by map `m`.  The map `m` must specify all components, and
   be sure that if a component is of type Integer, then use `Integer/valueOf'."
   [e t m]
   (let [^Graph g (if (instance? Graph e) e (graph e))]
@@ -624,8 +624,8 @@ See `tgtree', `show-graph', and `print-graph'.")
                                           (vals m)))))
 
 (defn enum-constant
-  "Returns the enum constant `c' in the schema of element `e'.
-  `c' is the qualified name of the constant, e.g., my.Enum.CONSTANT."
+  "Returns the enum constant `c` in the schema of element `e`.
+  `c` is the qualified name of the constant, e.g., my.Enum.CONSTANT."
   [^AttributedElement e c]
   (let [^Graph g (if (instance? Graph e) e (graph e))
         [enum constant _] (split-qname c)]
@@ -639,28 +639,28 @@ See `tgtree', `show-graph', and `print-graph'.")
   "Protocol for querying and setting the global order of vertices and edges,
   and the local order of incidences."
   (before? [this other]
-    "Returns true, iff `this' element is defined before `other' in the global
+    "Returns true, iff `this` element is defined before `other` in the global
   vertex/edge sequence.")
   (after? [this other]
-    "Returns true, iff `this' element is defined after `other' in the global
+    "Returns true, iff `this` element is defined after `other` in the global
   vertex/edge sequence.")
   (put-before! [this other]
-    "Puts `this' element directly before `other' in the graph's vertex/edge
+    "Puts `this` element directly before `other` in the graph's vertex/edge
   sequence.")
   (put-after! [this other]
-    "Puts `this' element directly after `other' in the graph's vertex/edge
+    "Puts `this` element directly after `other` in the graph's vertex/edge
   sequence.")
   (before-inc? [this other]
-    "Returns true, iff `this' incidence is defined before `other' in the
+    "Returns true, iff `this` incidence is defined before `other` in the
   incidence sequence of the current vertex.")
   (after-inc? [this other]
-    "Returns true, iff `this' incidence is defined after `other' in the
+    "Returns true, iff `this` incidence is defined after `other` in the
   incidence sequence of the current vertex.")
   (put-before-inc! [this other]
-    "Puts `this' incidence directly before `other' in the current vertex's
+    "Puts `this` incidence directly before `other` in the current vertex's
   incidence sequence.")
   (put-after-inc! [this other]
-    "Puts `this' incidence directly ofter `other' in the current vertex's
+    "Puts `this` incidence directly ofter `other` in the current vertex's
   incidence sequence."))
 
 (extend-protocol ElementOrder
@@ -686,7 +686,7 @@ See `tgtree', `show-graph', and `print-graph'.")
 
 ;; TODO: Basically, the impl should be determined by the schema.  Ask Volker!
 (defn create-graph
-  "Creates a graph with id `gid' of the given `schema' using implementation type `impl'.
+  "Creates a graph with id `gid` of the given `schema` using implementation type `impl`.
   Supported impl types are :generic, :standard, :transaction, and :database.
   The graph id defaults to a creation timestamp, and the impl type to GENERIC."
   ([schema]
@@ -699,49 +699,49 @@ See `tgtree', `show-graph', and `print-graph'.")
                    (Integer/valueOf 500))))
 
 (defn create-vertex!
-  "Creates a new vertex of type `cls' in `g'.
-  `cls' is a qualified name given as string, symbol, or keyword."
+  "Creates a new vertex of type `cls` in `g`.
+  `cls` is a qualified name given as string, symbol, or keyword."
   [^Graph g cls]
   (let [^VertexClass aec (attributed-element-class g cls)]
     (.createVertex g aec)))
 
 (defn create-edge!
-  "Creates a new edge of type `cls' starting at `from' and ending at `to'.
-  `cls' is a qualified name given as string, symbol, or keyword."
+  "Creates a new edge of type `cls` starting at `from` and ending at `to`.
+  `cls` is a qualified name given as string, symbol, or keyword."
   [cls ^Vertex from ^Vertex to]
   (let [^Graph g (.getGraph from)
         ^EdgeClass aec (attributed-element-class g cls)]
     (.createEdge g aec from to)))
 
 (defn set-alpha!
-  "Sets the start vertex of `e' to `v' and returns `e'."
+  "Sets the start vertex of `e` to `v` and returns `e`."
   [^Edge e ^Vertex v]
   (doto e (.setAlpha v)))
 
 (defn set-omega!
-  "Sets the end vertex of `e' to `v' and returns `e'."
+  "Sets the end vertex of `e` to `v` and returns `e`."
   [^Edge e ^Vertex v]
   (doto e (.setOmega v)))
 
 (defn set-this!
-  "Sets the this vertex of `i' to `v' and returns `i'."
+  "Sets the this vertex of `i` to `v` and returns `i`."
   [^Edge i ^Vertex v]
   (doto i (.setThis v)))
 
 (defn set-that!
-  "Sets the that vertex of `i' to `v' and returns `i'."
+  "Sets the that vertex of `i` to `v` and returns `i`."
   [^Edge i ^Vertex v]
   (doto i (.setThat v)))
 
 (defn add-adj!
-  "Creates an edge matching `role' between `v' and every vertex in `adjs'."
+  "Creates an edge matching `role` between `v` and every vertex in `adjs`."
   [^Vertex v role & adjs]
   (doseq [a adjs]
     (.addAdjacence v (name role) a)))
 
 (defn unlink!
-  "Unlinks the given vertex, i.e., deletes all incident edges matching `ts' and
-  `ds'."
+  "Unlinks the given vertex, i.e., deletes all incident edges matching `ts` and
+  `ds`."
   ([^Vertex v]
      (unlink! v identity identity))
   ([^Vertex v ts]
@@ -753,7 +753,7 @@ See `tgtree', `show-graph', and `print-graph'.")
                 (delete! e))))))
 
 (defn set-adjs!
-  "Sets the `role' adjacency list of `v' to `adjvs'.
+  "Sets the `role` adjacency list of `v` to `adjvs`.
   This means, first all incident edges of that role are deleted, and then new
   edges are created."
   [^Vertex v role adjvs]
@@ -786,9 +786,9 @@ See `tgtree', `show-graph', and `print-graph'.")
 ;;** Relinking edges
 
 (defn relink!
-  "Relinks all incidences of vertex `from' to vertex `to' and returns `from'.
-  The incidences can be restricted by type spec `ts' and `dir' (see
-  `type-matcher' and `direction-matcher')."
+  "Relinks all incidences of vertex `from` to vertex `to` and returns `from`.
+  The incidences can be restricted by type spec `ts` and `dir` (see
+  `type-matcher` and `direction-matcher`)."
   ([from to]
      (relink! from to identity identity))
   ([from to ts]
@@ -837,7 +837,7 @@ See `tgtree', `show-graph', and `print-graph'.")
   (.write ^java.io.Writer out
           (str "#<GraphClass " (qname gc) ">")))
 
-;; Printing `read'-able
+;; Printing `read`-able
 (def ^{:dynamic true :private true}
   *serialization-bindings* nil)
 
@@ -861,15 +861,15 @@ See `tgtree', `show-graph', and `print-graph'.")
 
 (defn tg-pr-str
   "Prints arbitrary clojure data structures including vertices and edges to a
-  string that can be read back using `tg-read-str'."
+  string that can be read back using `tg-read-str`."
   [obj]
   (binding [*print-dup* true]
     (pr-str obj)))
 
 (defn tg-read-str
-  "Reads `str' and returns the object represented by `str'.
+  "Reads `str` and returns the object represented by `str`.
   If the object contains vertices or edges, the graphs holding them have to be
-  provided as `gs'."
+  provided as `gs`."
   [str & gs]
   (binding [*serialization-bindings* (into {} (map (fn [g] [(id g) g])
                                                    gs))]
@@ -882,7 +882,7 @@ See `tgtree', `show-graph', and `print-graph'.")
   (spit f (tg-pr-str obj)))
 
 (defn tg-slurp
-  "Reads an object from the file `f', like `clojure.core/slurp'.
+  "Reads an object from the file `f`, like `clojure.core/slurp'.
   If that object contains vertices and edges, then their hosting graphs have to
   be provided as gs."  [f & gs]
   (apply tg-read-str (slurp f) gs))

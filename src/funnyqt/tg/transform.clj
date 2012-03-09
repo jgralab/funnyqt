@@ -18,9 +18,9 @@
 (add-long-doc!
  "FunTL is basically a GReTL implementation in Clojure.  Consequently,
 it has elementary creation operations in terms of functions.  In contrast to
-GReTL, `create-edges!' and `create-edge-class!' receive the start and end
+GReTL, `create-edges!` and `create-edge-class!` receive the start and end
 vertices of the edges to be created, not their archetypes.  Similarily,
-`set-values!' and `create-attribute!' want the element whose attribute is going
+`set-values!` and `create-attribute!` want the element whose attribute is going
 to be set, not the archetype of it.  This design decision allows for using
 FunTL to extend an existing Graph without having to create artificial
 archetypes before.
@@ -163,19 +163,19 @@ transformation.
   $on-graph-fns  nil)
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-edge-class!' / `create-edges!'.
+       :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
   Resolves the image of the given archetype in the img function corresponding
   to the start vertex class."}
   r-alpha nil)
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-edge-class!' / `create-edges!'.
+       :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
   Resolves the image of the given archetype in the img function corresponding
   to the end vertex class."}
   r-omega nil)
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-attribute!' / `set-values!'.
+       :doc "Only bound in calls to `create-attribute!` / `set-values!`.
   Resolves the image of the given archetype in the img function corresponding
   to the attributed element class of the current attribute."}
   r-elem nil)
@@ -233,8 +233,8 @@ transformation.
   ((@$img aec) arch))
 
 (defn img
-  "Returns the map from archetypes to images for `aec'.
-  `aec' can be given as string, symbol, or keyword denoting its qualified
+  "Returns the map from archetypes to images for `aec`.
+  `aec` can be given as string, symbol, or keyword denoting its qualified
   name."
   [aec]
   (@$img (aec-internal aec)))
@@ -246,8 +246,8 @@ transformation.
   ((@$arch aec) img))
 
 (defn arch
-  "Returns the map from images to archetypes for `aec'.
-  `aec' can be given as string, symbol, or keyword denoting its qualified
+  "Returns the map from images to archetypes for `aec`.
+  `aec` can be given as string, symbol, or keyword denoting its qualified
   name."
   [aec]
   (@$arch (aec-internal aec)))
@@ -255,8 +255,8 @@ transformation.
 ;;** Instance only functions
 
 (defn create-vertices!
-  "Creates one vertex of type `cls' for each archetype in `archs'.
-  `archs' has to be a function resulting in a seq of arbitrary
+  "Creates one vertex of type `cls` for each archetype in `archs`.
+  `archs` has to be a function resulting in a seq of arbitrary
   objects (archetypes).  Returns a seq of the new vertices."
   [cls archs]
   {:pre [cls (fn? archs)]}
@@ -280,12 +280,12 @@ transformation.
                    (keys arch))))))))
 
 (defn create-edges!
-  "Creates one edge of type `cls' for each archetype in `archs'.
-  `archs' has to be a function resulting in a seq of triples.
+  "Creates one edge of type `cls` for each archetype in `archs`.
+  `archs` has to be a function resulting in a seq of triples.
   Each triple has the form [arch start end] where arch is the archetype of the
   new edge, start is the new edge's start vertex, and end is the new edge's end
   vertex.
-  See `r-alpha' and `r-omega' for conveniently resolving the start and end
+  See `r-alpha` and `r-omega` for conveniently resolving the start and end
   vertex by archetypes.
   Returns a seq of the new edges."
   [cls archs]
@@ -312,9 +312,9 @@ transformation.
 
 (defn set-values!
   "Set the attribute of valmap's keys to the corresponding value.
-  `a' is a qualified attribute name (foo.Bar.baz) and valmap a function
+  `a` is a qualified attribute name (foo.Bar.baz) and valmap a function
   resulting in a map assigning to attributed elements a value.
-  See `r-elem' for conveniently resolving the attributed element by archetype.
+  See `r-elem` for conveniently resolving the attributed element by archetype.
   Returns a seq of attributed elements for whom an attribute has been set."
   [a valmap]
   {:pre [a (fn? valmap)]}
@@ -332,9 +332,9 @@ transformation.
 ;;*** Creating Enum & Record domains
 
 (defn create-record-domain!
-  "Creates a RecordDomain of the given `name' and `comp-doms'.
-  `name' may be a String, keyword or symbol.
-  `comp-doms' is a map from component name to domain name.  Both may be given
+  "Creates a RecordDomain of the given `name` and `comp-doms`.
+  `name` may be a String, keyword or symbol.
+  `comp-doms` is a map from component name to domain name.  Both may be given
   as string, keyword, or symbol."
   [name comp-doms]
   (let [rd (.createRecordDomain ^Schema $target-schema (clojure.core/name name))]
@@ -343,9 +343,9 @@ transformation.
     rd))
 
 (defn create-enum-domain!
-  "Creates an EnumDomain with the given `name' and `literals'.
-  `literals' is a seq of literal names.
-  `name' and the `literals' may be given as string, keyword, or symbol."
+  "Creates an EnumDomain with the given `name` and `literals`.
+  `literals` is a seq of literal names.
+  `name` and the `literals` may be given as string, keyword, or symbol."
   [name literals]
   (let [ed (.createEnumDomain ^Schema $target-schema
                               (clojure.core/name name)
@@ -363,7 +363,7 @@ transformation.
 (defn create-vertex-class!
   "Creates VertexClass + instances.
   The map given as first argument provides the schema properties.
-  For `archs', see function `create-vertices!'."
+  For `archs`, see function `create-vertices!`."
   ([{:keys [qname abstract]
      :or {abstract false}
      :as props}]
@@ -393,7 +393,7 @@ transformation.
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
   The map given as first argument provides the schema properties.
-  For `archs', see function `create-edges!'."
+  For `archs`, see function `create-edges!`."
   ([{:keys [qname abstract
             from from-multis from-role from-kind
             to   to-multis   to-role   to-kind]
@@ -429,7 +429,7 @@ transformation.
 (defn create-attribute!
   "Creates an attribute and sets values.
   The map given as first argument determines the schema properties.
-  For `valmap', see `set-values!'."
+  For `valmap`, see `set-values!`."
   ([{:keys [qname domain default] :as props}]
      {:pre [qname domain]}
      (create-attr! props))
@@ -441,7 +441,7 @@ transformation.
 ;;*** Creating type hierarchies
 
 (defn add-sub-classes!
-  "Makes all `subs' sub-classes of `super'."
+  "Makes all `subs` sub-classes of `super`."
   [super & subs]
   (let [s (aec-internal super)]
     (if (isa? (class s) VertexClass)
@@ -451,7 +451,7 @@ transformation.
         (.addSuperClass ^EdgeClass (aec-internal sub) ^EdgeClass s)))))
 
 (defn add-super-classes!
-  "Makes all `supers' super-classes of `sub'."
+  "Makes all `supers` super-classes of `sub`."
   [sub & supers]
   (let [s (aec-internal sub)]
     (if (isa? (class s) VertexClass)
@@ -467,9 +467,9 @@ transformation.
 ;; and make those parameters.  But then I have to think about how the target
 ;; graph can be bound before it exists (maybe delay/force...).
 (defmacro deftransformation
-  "Create a new transformation named `name' with optional `doc-string' and
-  optional `attr-map', the given `params' (input graph args), and the given
-  `body'."
+  "Create a new transformation named `name` with optional `doc-string` and
+  optional `attr-map`, the given `params` (input graph args), and the given
+  `body`."
   ;; Nicer arglist in doc
   {:arglists '([name doc-string? attr-map? [params*] & body])}
   [name & more]

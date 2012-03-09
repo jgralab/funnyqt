@@ -224,7 +224,7 @@
          [:mother :daughters])))
 
 (defn- make-test-familymodel
-  "Creates a more or less random FamilyModel with `fnum' families and `mnum'
+  "Creates a more or less random FamilyModel with `fnum` families and `mnum`
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
   (let [fm (ecreate! 'FamilyModel)

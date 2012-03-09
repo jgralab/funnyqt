@@ -6,16 +6,16 @@
 
 ;;* Quantified Expressions
 
-(def ^{:doc "Returns logical true, iff `pred' holds forall elements in `coll'."}
+(def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."}
   forall? every?)
 
 (defn exists?
-  "Returns logical true, iff `pred' holds at least for one element in `coll'."
+  "Returns logical true, iff `pred` holds at least for one element in `coll`."
   [pred coll]
   (some pred coll))
 
 (defn exists1?
-  "Returns logical true, iff `pred' holds for exactly one element in `coll'."
+  "Returns logical true, iff `pred` holds for exactly one element in `coll`."
   [pred coll]
   (let [s (filter pred coll)]
     ;; There must be one and no other
@@ -24,15 +24,15 @@
 ;;* Sequence Functions
 
 (defn member?
-  "Returns true, iff `e' is a member of `coll'."
+  "Returns true, iff `e` is a member of `coll`."
   [e ^java.util.Collection coll]
   (if (seq coll)
     (.contains coll e)
     false))
 
 (defn the
-  "Returns the only element of seq `s' (which satisfies `pred') and errors if
-  `s' contains more or less elements."
+  "Returns the only element of seq `s` (which satisfies `pred`) and errors if
+  `s` contains more or less elements."
   ([s]
      (if-let [f (first s)]
        (if (next s)
@@ -52,7 +52,7 @@
      acc)))
 
 (defn pred-seq
-  "Predecessor Seq: Returns a lazy seq of pairs of seq `s's elements.
+  "Predecessor Seq: Returns a lazy seq of pairs of seq `s`s elements.
   Each pair has the form [elems-predecessor-in-s elem]."
   [s]
   (pred-seq-internal s nil []))
@@ -66,7 +66,7 @@
      acc)))
 
 (defn succ-seq
-  "Successor Seq: Returns a lazy seq of pairs of seq `s's elements.
+  "Successor Seq: Returns a lazy seq of pairs of seq `s`s elements.
   Each pair has the form [elem elems-successor-in-s]."
   [s]
   (succ-seq-internal s []))
@@ -88,7 +88,7 @@
          t))))
 
 (defn xor-fn
-  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  "Takes a seq of predicates `ps` and returns a varargs function that returns
   logical true, iff exactly one of the predicates returns true."
   [& ps]
   (fn [& args]
@@ -101,7 +101,7 @@
         good))))
 
 (defn and-fn
-  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  "Takes a seq of predicates `ps` and returns a varargs function that returns
   logical true, iff all predicates return true.
   If no predicate is given, the returned fn returns constantly true."
   [& ps]
@@ -111,14 +111,14 @@
     (constantly true)))
 
 (defn nand-fn
-  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  "Takes a seq of predicates `ps` and returns a varargs function that returns
   logical true, iff at least one predicate returns false.
   If no predicate is given, the returned fn returns constantly false."
   [& ps]
   (complement (apply and-fn ps)))
 
 (defn or-fn
-  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  "Takes a seq of predicates `ps` and returns a varargs function that returns
   logical true, iff at least one of the predicates returns true.
   If no predicate is given, the returned fn returns constantly false."
   [& ps]
@@ -128,7 +128,7 @@
     (constantly false)))
 
 (defn nor-fn
-  "Takes a seq of predicates `ps' and returns a varargs function that returns
+  "Takes a seq of predicates `ps` and returns a varargs function that returns
   logical true, iff none of the predicate returns true.
   If no predicate is given, the returned fn returns constantly true."
   [& ps]
@@ -138,13 +138,13 @@
 
 (defn seq-compare
   "Returns a sequence comparator function that compares 2 sequences element by
-  element according to the given comparators `cmps', i.e., the first 2 elements
+  element according to the given comparators `cmps`, i.e., the first 2 elements
   are compared with the first comparator, the second 2 elements with the second
   comparator, and so on.  Evaluates only as many comparators as are needed to
   distinguish the sequences, i.e., evaluates the comparators until one returns
   non-zero.
 
-  `cmps' must be comparator functions that get 2 elements and returns 0, if the
+  `cmps` must be comparator functions that get 2 elements and returns 0, if the
   elements are equal, a negative integer, if the first is \"smaller\", or a
   positive integer, if the second is \"smaller\".
 

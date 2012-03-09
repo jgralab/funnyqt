@@ -41,8 +41,8 @@ attribute type as string.
 ;;** XML Graph Utils
 
 (defn xml-children
-  "Returns the children Element vertices of Element vertex `e'.
-  May be restricted to elemenst of `type' given as symbol, keyword, or string."
+  "Returns the children Element vertices of Element vertex `e`.
+  May be restricted to elemenst of `type` given as symbol, keyword, or string."
   ([e]
      (adjs e :children))
   ([e type]
@@ -51,14 +51,14 @@ attribute type as string.
              (adjs e :children))))
 
 (defn xml-attr-value
-  "Returns the value of `elem's xml attribute `attr-name'."
+  "Returns the value of `elem`s xml attribute `attr-name`."
   [elem attr-name]
   (let [attr (the (filter #(= (value % :name) (name attr-name))
                           (adjs elem :attributes)))]
     (value attr :value)))
 
 (defn xml-describe-elem
-  "Returns a map describing the given xml Element vertex `e'."
+  "Returns a map describing the given xml Element vertex `e`."
   ([e]
      (xml-describe-elem e true))
   ([e with-children]
@@ -193,10 +193,10 @@ attribute type as string.
         (.parse uri ch))))
 
 (defn xml2graph
-  "Parse the XML file `f' into a TGraph conforming the generic XML schema.
+  "Parse the XML file `f` into a TGraph conforming the generic XML schema.
   IDREF resolving, which is needed for creating References edges, works
   automatically only for XML files containing a DTD describing them.  If you
-  want IDREFs resolved anyway, you have to provide an `attr-type-fn' that takes
+  want IDREFs resolved anyway, you have to provide an `attr-type-fn` that takes
   2 arguments, an element's qname and an attribute name, and then returns that
   attribute's type as string: ID, IDREF, IDREFS, or nil (meaning CDATA)."
   ([f]

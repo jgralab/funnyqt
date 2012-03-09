@@ -11,7 +11,7 @@
 (defprotocol Describable
   "A protocol for elements supporting describe."
   (describe [this]
-    "Describes `this' attributed element or attributed element class."))
+    "Describes `this` attributed element or attributed element class."))
 
 ;;** Qualified Names
 
@@ -47,14 +47,14 @@
 (defprotocol InstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
   (instance-of? [class object]
-    "Returns true, iff `object' is an instance of `class'.
+    "Returns true, iff `object` is an instance of `class`.
   Implementations are provided for:
 
     - java.lang.Class: default impl in this namespace (synonym to clojure.core/instance?)
     - de.uni_koblenz.jgralab.schema.AttributedElementClass: funnyqt.tg.core
     - org.eclipse.emf.ecore.EClassifier: funnyqt.emf.core")
   (type-of? [object spec]
-    "Returns true, iff `object's type matches `spec'.
+    "Returns true, iff `object`s type matches `spec`.
   Implementations are provided for:
 
     - de.uni_koblenz.jgralab.AttributedElement: funnyqt.tg.core
@@ -70,8 +70,8 @@
 (defprotocol Deletable
   "A protocol for deleting elements."
   (delete! [this] [this recursive]
-    "Deletes this element and returns it.  If `recursive' is true (default),
-  delete also elements contained by `this'.  Of course, `recursive' has no
+    "Deletes this element and returns it.  If `recursive` is true (default),
+  delete also elements contained by `this`.  Of course, `recursive` has no
   meaning for edges.  Implementations are provided for Vertex, Edge, EObject,
   and collections thereof."))
 

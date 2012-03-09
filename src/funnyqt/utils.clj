@@ -46,13 +46,13 @@
     "The given object is no OrderedSet, or it is but is not flat."))
 
 (defn qname?
-  "Returns true, iff `n' is possibly a element qualified name.
-  Only checks, if `n' is a symbol, a keyword, or a string."
+  "Returns true, iff `n` is possibly a element qualified name.
+  Only checks, if `n` is a symbol, a keyword, or a string."
   [n]
   (or (symbol? n) (keyword? n) (string? n)))
 
 (defn type-spec?
-  "Returns true, iff `n' is possibly a type specification.
+  "Returns true, iff `n` is possibly a type specification.
   Examples for valid type specs:
     pkg.Foo, :Bar!, \"bla.Bla\", [Foo Bar !Baz], [:and !Foo !Bar]"
   [n]
@@ -73,7 +73,7 @@
     [neg name ext]))
 
 (defn split-qname
-  "Given a qualified name `qn' as string, symbol, or keyword, returns a vector
+  "Given a qualified name `qn` as string, symbol, or keyword, returns a vector
   of the form [\"foo.baz\" \"Bar\" \"foo.baz.Bar\"], i.e., package name, simple
   name, qname.
 
@@ -101,8 +101,8 @@
 ;;** Debugging
 
 (defn pr-identity
-  "Returns and pretty prints the given argument `x' (preceeded by an optional
-  `title'."
+  "Returns and pretty prints the given argument `x` (preceeded by an optional
+  `title`."
   ([x]
      (clojure.pprint/pprint x)
      x)
@@ -113,7 +113,7 @@
 ;;** Timing
 
 (defn time-str
-  "Converts a time value `in' in nanoseconds to a string \"<time> <unit>\".
+  "Converts a time value `in` in nanoseconds to a string \"<time> <unit>\".
   Valid units are :nano, :micro, :milli, :sec, and :auto meaning to convert to
   a unit in which there are at most 4 digits before the decimal separator."
   [in unit]
@@ -129,13 +129,13 @@
            :else (time-str in :nano))))
 
 (defmacro timing
-  "Times the execution of `form' and returns its result.
+  "Times the execution of `form` and returns its result.
   Additionally, prints (format fmt args), where two new formatters are
   available:
 
     %T: the timing information with an appropriate unit
     %T(nano|micro|milli|sec): forces the given unit
-    %R: the result of evaluating `expr'
+    %R: the result of evaluating `expr`
     %F: the input form that is timed
 
   Example:
@@ -160,8 +160,8 @@
 ;;** Compilation
 
 (defmacro compile-if
-  "Evaluate `exp' and if it returns logical true and doesn't error, expand to
-  `then'.  Else expand to `else'.
+  "Evaluate `exp` and if it returns logical true and doesn't error, expand to
+  `then`.  Else expand to `else`.
 
   (compile-if (Class/forName \"java.util.concurrent.ForkJoinTask\")
     (defn my-cool-fj-fn
