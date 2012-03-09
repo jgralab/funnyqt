@@ -32,7 +32,7 @@
 (defn -->>
   "Returns the EObjects referenced by `obj` where the references may be
   restricted by `rs`, a reference specification (see `eref-matcher` for
-  details).  `obj` may also be a collection of EObjects.  In contrast to `-->',
+  details).  `obj` may also be a collection of EObjects.  In contrast to `-->`,
   this function includes both cross-references and containments."
   ([obj]
      (mapcat erefs (to-oset obj)))

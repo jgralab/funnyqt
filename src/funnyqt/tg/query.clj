@@ -510,7 +510,7 @@ can compute that like so:
 (defn --->
   "Returns the vertices reachable from `v` via outgoing incidences,
   optionally restricted by `ts` and `pred` (on the edges).  In contrast to
-  `-->', traversal of edges with aggregation semantics is forbidden."
+  `-->`, traversal of edges with aggregation semantics is forbidden."
   ([v]
      (---> v nil nil))
   ([v ts]
