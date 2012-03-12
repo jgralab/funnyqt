@@ -706,11 +706,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (.createVertex g aec)))
 
 (defn create-edge!
-  "Creates a new edge of type `cls` starting at `from` and ending at `to`.
+  "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.
   `cls` is a qualified name given as string, symbol, or keyword."
-  [cls ^Vertex from ^Vertex to]
-  (let [^Graph g (.getGraph from)
-        ^EdgeClass aec (attributed-element-class g cls)]
+  [^Graph g cls ^Vertex from ^Vertex to]
+  (let [^EdgeClass aec (attributed-element-class g cls)]
     (.createEdge g aec from to)))
 
 (defn set-alpha!

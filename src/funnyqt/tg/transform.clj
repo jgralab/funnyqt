@@ -1,114 +1,14 @@
 (ns funnyqt.tg.transform
   "Schema-creating transformations on TGraphs.
 
-This is basically a GReTL implementation in Clojure.  Consequently,
-it has elementary creation operations in terms of functions.  In contrast to
-GReTL, `create-edges!` and `create-edge-class!` receive the start and end
-vertices of the edges to be created, not their archetypes.  Similarily,
-`set-values!` and `create-attribute!` want the element whose attribute is going
-to be set, not the archetype of it.  This design decision allows for using
-FunTL to extend an existing Graph without having to create artificial
-archetypes before.
-
-Without further ado, here's the well-known family graph to genealogy
-transformation.
-
-  (deftransformation families-to-genealogy
-    \"Transforms the family graph fg into a genealogy graph.\"
-    [fg]
-    (create-vertex-class! {:qname 'Person :abstract true})
-
-    (create-vertex-class!
-     {:qname 'Female}
-     #(filter (fn [m] (seq (iseq m '[HasMother HasDaughter])))
-              (vseq fg 'Member)))
-
-    (create-vertex-class!
-     {:qname 'Male}
-     #(clojure.set/difference
-       (set (vseq fg 'Member))
-       (keys (img 'Person))))
-
-    (add-sub-classes! 'Person 'Female 'Male)
-
-    (create-vertex-class!
-     {:qname 'Address}
-     #(set (map (fn [f] [(value f :street) (value f :town)])
-                (vseq fg 'Family))))
-
-    (create-edge-class!
-     {:qname 'HasRelative :abstract true
-      :from  'Person      :to       'Person})
-
-    (create-edge-class!
-     {:qname 'HasSpouse
-      :from  'Male   :from-multies [0,1] :from-role 'husband
-      :to    'Female :to-multis    [0,1] :to-role   'wife}
-     #(map (fn [f]
-             [f,
-              (r-alpha (the (reachables f [<>-- 'HasFather])))
-              (r-omega (the (reachables f [<>-- 'HasMother])))])
-           (vseq fg 'Family)))
-
-    (create-edge-class!
-     {:qname 'HasChild
-      :from 'Person :from-multies [0,2] :from-role 'parents
-      :to   'Person                     :to-role   'children}
-     #(for [e (eseq fg '[HasSon, HasDaughter])
-            par (reachables (alpha e) [<>-- '[HasFather, HasMother]])]
-        (let [child (omega e)]
-          [[child par] (r-alpha par) (r-omega child)])))
-
-    (add-sub-classes! 'HasRelative 'HasSpouse 'HasChild)
-
-    ;; Define some local helper fns
-    (let [main-family (fn [m]
-                        (if (seq (iseq m '[HasFather HasMother]))
-                          (that (first (iseq m '[HasFather HasMother])))
-                          (the (reachables m --<>))))
-          address-tuple (fn [m]
-                          (let [mf (main-family m)]
-                            [(value mf :street) (value mf :town)]))]
-      (create-edge-class!
-       {:qname 'LivesAt
-        :from  'Person
-        :to    'Address :to-multis [1,1]}
-       #(map (fn [m]
-               [m (r-alpha m) (r-omega (address-tuple m))])
-             (keys (img 'Person))))
-
-      (create-attribute!
-       {:qname 'Person.fullName :domain 'String}
-       #(apply hash-map
-               (mapcat
-                (fn [m]
-                  [(r-elem m)
-                   (str (value m :firstName)
-                        \" \"
-                        (value (main-family m)
-                               :lastName))])
-                (keys (img 'Person)))))
-
-      (create-attribute!
-       {:qname 'Address.street :domain 'String}
-       #(apply hash-map
-               (mapcat
-                (fn [f] [(r-elem f) (first f)])
-                (keys (img 'Address)))))
-
-      (create-attribute!
-       {:qname 'Address.town :domain 'String}
-       #(apply hash-map
-               (mapcat
-                (fn [f] [(r-elem f) (second f)])
-                (keys (img 'Address)))))))
-
-  ;; Run the transformation
-  (deftest test-families-to-genealogy
-    (let [tg (families-to-genealogy
-              (load-graph \"test/input/familygraph.tg\")
-              '[de.genealogy.GenealogySchema Genealogy])]
-      (save-graph tg \"test/genealogy.tg\")))"
+This is basically a GReTL implementation in Clojure.  Consequently, it has
+elementary creation operations in terms of functions.  In contrast to GReTL,
+`create-edges!` and `create-edge-class!` receive the start and end vertices of
+the edges to be created, not their archetypes.  Similarily, `set-values!` and
+`create-attribute!` want the element whose attribute is going to be set, not
+the archetype of it.  This design decision allows for using those functions to
+extend an existing Graph without having to create artificial archetypes
+before."
   (:use funnyqt.tg.core)
   (:use [funnyqt.utils :only [error split-qname]])
   (:require clojure.set)
@@ -201,13 +101,13 @@ transformation.
                        (name qname) aec)))))
 
 (defn- dom-internal
-  "Returns the Domain given by its qualified name.
-  Can only be called inside a deftransformation."
+  "Returns the Domain given by its qualified name `qname`.
+  Can only be called inside a `deftransformation`."
   [qname]
   (.getDomain ^Schema $target-schema (name qname)))
 
 (defn- merge-into-mappings
-  "Merges into oldmap the new mappings for cls (an GraphElementClass)."
+  "Merges into `oldmap` the new mappings for `cls` (an GraphElementClass)."
   [oldmap ^GraphElementClass cls new]
   (let [kvs (flatten
              (map (fn [c]
@@ -225,7 +125,7 @@ transformation.
     (apply assoc oldmap kvs)))
 
 (defn- img-internal
-  "Returns the image of arch for AttributedElementClass aec.
+  "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec arch]
   ((@$img aec) arch))
@@ -238,7 +138,7 @@ transformation.
   (@$img (aec-internal aec)))
 
 (defn- arch-internal
-  "Returns the archetype of img for AttributedElementClass aec.
+  "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec img]
   ((@$arch aec) img))
@@ -253,99 +153,92 @@ transformation.
 ;;# Instance only functions
 
 (defn create-vertices!
-  "Creates one vertex of type `cls` for each archetype in `archs`.
-  `archs` has to be a function resulting in a seq of arbitrary
+  "Creates one vertex of type `cls` in `g` for each archetype returned by `archfn`.
+  `archfn` has to be a function resulting in a seq of arbitrary
   objects (archetypes).  Returns a seq of the new vertices."
-  [cls archs]
+  [g cls archs]
   {:pre [cls (fn? archs)]}
-  (swap! $on-graph-fns conj
-         (fn []
-           (let [^VertexClass vc (aec-internal cls)]
-             (loop [as (archs)
-                    im (transient {})
-                    am (transient {})]
-               (if (seq as)
-                 (let [v (create-vertex! $target-graph cls)
-                       a (first as)]
-                   ;;(println "Created" v "for" a)
-                   (recur (rest as)
-                          (assoc! im a v)
-                          (assoc! am v a)))
-                 (let [img  (persistent! im)
-                       arch (persistent! am)]
-                   (swap! $img  merge-into-mappings vc img)
-                   (swap! $arch merge-into-mappings vc arch)
-                   (keys arch))))))))
+  (let [^VertexClass vc (aec-internal cls)]
+    (loop [as (archs)
+           im (transient {})
+           am (transient {})]
+      (if (seq as)
+        (let [v (create-vertex! g cls)
+              a (first as)]
+          ;;(println "Created" v "for" a)
+          (recur (rest as)
+                 (assoc! im a v)
+                 (assoc! am v a)))
+        (let [img  (persistent! im)
+              arch (persistent! am)]
+          (swap! $img  merge-into-mappings vc img)
+          (swap! $arch merge-into-mappings vc arch)
+          (keys arch))))))
 
 (defn create-edges!
-  "Creates one edge of type `cls` for each archetype in `archs`.
-  `archs` has to be a function resulting in a seq of triples.
-  Each triple has the form [arch start end] where arch is the archetype of the
-  new edge, start is the new edge's start vertex, and end is the new edge's end
-  vertex.
+  "Creates one edge of type `cls` for each archetype in `archfn`.
+  `archfn` has to be a function resulting in a seq of triples.  Each triple has
+  the form [arch start end] where arch is the archetype of the new edge, start
+  is the new edge's start vertex, and end is the new edge's end vertex. Returns
+  a seq of the new edges.
   See `r-alpha` and `r-omega` for conveniently resolving the start and end
-  vertex by archetypes.
-  Returns a seq of the new edges."
-  [cls archs]
+  vertex by archetypes."
+  [g cls archs]
   {:pre [cls (fn? archs)]}
-  (swap! $on-graph-fns conj
-         (fn []
-           (let [^EdgeClass ec (aec-internal cls)
-                 saec (-> ec (.getFrom) (.getVertexClass))
-                 eaec (-> ec (.getTo)   (.getVertexClass))]
-             (loop [as (binding [r-alpha #(img-internal saec %)
-                                 r-omega #(img-internal eaec %)]
-                         (doall (archs)))
-                    im (transient {})
-                    am (transient {})]
-               (if (seq as)
-                 (let [[a al om] (first as)
-                       e (create-edge! cls al om)]
-                   (recur (rest as) (assoc! im a e) (assoc! am e a)))
-                 (let [img  (persistent! im)
-                       arch (persistent! am)]
-                   (swap! $img  merge-into-mappings ec img)
-                   (swap! $arch merge-into-mappings ec arch)
-                   (keys arch))))))))
+  (let [^EdgeClass ec (aec-internal cls)
+        saec (-> ec (.getFrom) (.getVertexClass))
+        eaec (-> ec (.getTo)   (.getVertexClass))]
+    (loop [as (binding [r-alpha #(img-internal saec %)
+                        r-omega #(img-internal eaec %)]
+                (doall (archs)))
+           im (transient {})
+           am (transient {})]
+      (if (seq as)
+        (let [[a al om] (first as)
+              e (create-edge! g cls al om)]
+          (recur (rest as) (assoc! im a e) (assoc! am e a)))
+        (let [img  (persistent! im)
+              arch (persistent! am)]
+          (swap! $img  merge-into-mappings ec img)
+          (swap! $arch merge-into-mappings ec arch)
+          (keys arch))))))
 
 (defn set-values!
-  "Set the attribute of valmap's keys to the corresponding value.
-  `a` is a qualified attribute name (foo.Bar.baz) and valmap a function
-  resulting in a map assigning to attributed elements a value.
-  See `r-elem` for conveniently resolving the attributed element by archetype.
-  Returns a seq of attributed elements for whom an attribute has been set."
-  [a valmap]
-  {:pre [a (fn? valmap)]}
-  (swap! $on-graph-fns conj
-         (fn []
-           (let [^Attribute a (attr-internal a)
-                 aec (.getAttributedElementClass a)
-                 name (.getName a)]
-             (doseq [[elem val] (binding [r-elem (fn [a] (img-internal aec a))]
-                                  (doall (valmap)))]
-               (set-value! elem name val))))))
+  "Set the attribute of valfn's keys to the corresponding value.
+  `a` is a qualified attribute name (foo.Bar.baz) and valfn a function
+  resulting in a map assigning to attributed elements a value.  See `r-elem`
+  for conveniently resolving the attributed element by archetype.  Returns a
+  seq of attributed elements for whom an attribute has been set."
+  [a valfn]
+  {:pre [a (fn? valfn)]}
+  (let [^Attribute a (attr-internal a)
+        aec (.getAttributedElementClass a)
+        name (.getName a)]
+    (doseq [[elem val] (binding [r-elem (fn [a] (img-internal aec a))]
+                         (doall (valfn)))]
+      (set-value! elem name val))))
 
 ;;# Schema functions
 
 ;;## Creating Enum & Record domains
 
 (defn create-record-domain!
-  "Creates a RecordDomain of the given `name` and `comp-doms`.
+  "Creates a RecordDomain of the given `name` and `comp-doms` in `sog`.
   `name` may be a String, keyword or symbol.
   `comp-doms` is a map from component name to domain name.  Both may be given
   as string, keyword, or symbol."
-  [name comp-doms]
-  (let [rd (.createRecordDomain ^Schema $target-schema (clojure.core/name name))]
+  [sog name comp-doms]
+  (let [rd (.createRecordDomain ^Schema (schema sog) (clojure.core/name name))]
     (doseq [[comp dom] comp-doms]
-      (.addComponent rd (clojure.core/name comp) (domain $target-schema dom)))
+      (.addComponent rd (clojure.core/name comp) (domain (schema sog) dom)))
     rd))
 
 (defn create-enum-domain!
-  "Creates an EnumDomain with the given `name` and `literals`.
+  "Creates an EnumDomain with the given `name` and `literals` in `sog`.
   `literals` is a seq of literal names.
   `name` and the `literals` may be given as string, keyword, or symbol."
-  [name literals]
-  (let [ed (.createEnumDomain ^Schema $target-schema
+  [sog name literals]
+  (let [ed (.createEnumDomain ^Schema (schema sog)
                               (clojure.core/name name)
                               (vec (map clojure.core/name
                                         literals)))]))
@@ -353,25 +246,25 @@ transformation.
 ;;## Creating VertexClasses
 
 (defn- create-vc!
-  [{:keys [qname abstract]}]
-  (-> (.getGraphClass ^Schema $target-schema)
+  [^Schema s {:keys [qname abstract]}]
+  (-> (.getGraphClass s)
       (doto (.createVertexClass (name qname))
         (.setAbstract (boolean abstract)))))
 
 (defn create-vertex-class!
-  "Creates VertexClass + instances.
+  "Creates VertexClass + instances in `sog`.
   The map given as first argument provides the schema properties.
   For `archs`, see function `create-vertices!`."
-  ([{:keys [qname abstract]
-     :or {abstract false}
-     :as props}]
+  ([sog {:keys [qname abstract]
+         :or {abstract false}
+         :as props}]
      {:pre [qname]}
-     (create-vc! {:qname qname :abstract abstract}))
-  ([{:keys [qname abstract]
-     :as props}
+     (create-vc! (schema sog) {:qname qname :abstract abstract}))
+  ([sog {:keys [qname abstract]
+         :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-vertex-class! props)
+     (create-vertex-class! sog props)
      (create-vertices! qname archs)))
 
 ;;## Creating EdgeClasses
@@ -428,14 +321,14 @@ transformation.
 (defn create-attribute!
   "Creates an attribute and sets values.
   The map given as first argument determines the schema properties.
-  For `valmap`, see `set-values!`."
+  For `valfn`, see `set-values!`."
   ([{:keys [qname domain default] :as props}]
      {:pre [qname domain]}
      (create-attr! props))
-  ([{:keys [qname domain default] :as props} valmap]
-     {:pre [valmap]}
+  ([{:keys [qname domain default] :as props} valfn]
+     {:pre [valfn]}
      (create-attribute! props)
-     (set-values! qname valmap)))
+     (set-values! qname valfn)))
 
 ;;## Creating type hierarchies
 

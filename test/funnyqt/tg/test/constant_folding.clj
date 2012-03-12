@@ -45,7 +45,7 @@
   (let [new-const (create-vertex! g 'Const)]
     (set-value! new-const
                 :value (Integer/valueOf ^Integer (.intValue ^Long (bit-not (value c :value)))))
-    (set-value! (create-edge! 'Dataflow new-const start-block)
+    (set-value! (create-edge! g 'Dataflow new-const start-block)
                 :position (Integer/valueOf -1))
     (relink! n new-const nil :in)
     (delete! n)
@@ -67,7 +67,7 @@
                          c2 (that e2)]]
   (let [new-const (create-vertex! g 'Const)]
     (set-value! new-const :value (Integer/valueOf ^Integer (.intValue ^Long (binary-eval b c1 c2))))
-    (set-value! (create-edge! 'Dataflow new-const start-block)
+    (set-value! (create-edge! g 'Dataflow new-const start-block)
                 :position (Integer/valueOf -1))
     (relink! b new-const nil :in)
     (delete! b)

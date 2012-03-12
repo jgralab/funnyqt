@@ -22,7 +22,7 @@
   Forces a complete iteration."
   [g] [t (vseq g)
        :when (not (seq (iseq t 'HasRight :out)))]
-  (create-edge! 'HasRight t (create-vertex! g 'Tree)))
+  (create-edge! g 'HasRight t (create-vertex! g 'Tree)))
 
 (defrule snoc-recursively
   "Recursive variant of snoc."
@@ -33,7 +33,7 @@
   ([g n t]
      (when (pos? n)
        (let [nt (create-vertex! g 'Tree)]
-         (create-edge! 'HasRight t nt)
+         (create-edge! g 'HasRight t nt)
          (recur g (dec n) nt)))))
 
 (deftest test-snocs

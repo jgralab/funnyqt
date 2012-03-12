@@ -104,7 +104,7 @@ attribute type as string.
                   av (create-vertex! *graph* 'Attribute)]
               (set-value! av :name n)
               (set-value! av :value v)
-              (create-edge! 'HasAttribute elem av)
+              (create-edge! (graph elem) 'HasAttribute elem av)
               (cond
                (= t "ID")     (set! *id2elem* (assoc *id2elem* v elem))
                (= t "IDREF")  (set! *attr2refd-ids*
@@ -127,7 +127,8 @@ attribute type as string.
       (let [[attr refs] (first a2rs)]
         (loop [ref refs]
           (when (seq ref)
-            (create-edge! 'References attr
+            (create-edge! (graph attr)
+                          'References attr
                           (or (*id2elem* (first ref))
                               (error (str "No element for id " (first ref)))))
             (recur (rest ref)))))
@@ -141,7 +142,7 @@ attribute type as string.
                              (str *sb*)))
               (let [t (create-vertex! *graph* 'Text)]
                 (set-value! t :content (clojure.string/trim (str *sb*)))
-                (create-edge! 'HasText *current* t))))]
+                (create-edge! (graph t) 'HasText *current* t))))]
     (proxy [DefaultHandler] []
       ;; ContentHandler
       (startElement [uri local-name qname ^Attributes attrs]
@@ -151,7 +152,7 @@ attribute type as string.
           (handle-attributes e attrs)
           (when *current*
             (push-text)
-            (create-edge! 'HasChild *current* e))
+            (create-edge! (graph e) 'HasChild *current* e))
           (set! *stack* (conj *stack* *current*))
           (set! *current* e)
           (set! *state* :element))

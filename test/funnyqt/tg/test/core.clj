@@ -41,9 +41,9 @@
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
         v4 (create-vertex! g 'junctions.Crossroad)
-        e1 (create-edge! 'localities.ContainsCrossroad v1 v2)
-        e2 (create-edge! 'localities.ContainsCrossroad v3 v4)
-        e3 (create-edge! 'connections.Street v2 v4)]
+        e1 (create-edge! g 'localities.ContainsCrossroad v1 v2)
+        e2 (create-edge! g 'localities.ContainsCrossroad v3 v4)
+        e3 (create-edge! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
     (is (== 3 (.getECount g)) "Wrong edge count")))
 

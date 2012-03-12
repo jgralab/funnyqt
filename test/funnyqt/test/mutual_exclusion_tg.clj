@@ -17,7 +17,7 @@
        :let [p2 (omega n)]]
   (let [p (create-vertex! g 'Process)]
     (set-omega! n p)
-    (create-edge! 'Next p p2)))
+    (create-edge! g 'Next p p2)))
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
@@ -32,7 +32,7 @@
 (defrule mount-rule
   "Matches a process and creates and assigns a resource to it."
   [g] [p (vseq g 'Process)]
-  (create-edge! 'Token (create-vertex! g 'Resource) p))
+  (create-edge! g 'Token (create-vertex! g 'Resource) p))
 
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
@@ -60,7 +60,7 @@
        r (vseq g 'Resource)
        :when (empty? (filter #(= (omega %) p)
                              (iseq r 'HeldBy :out)))]
-  (create-edge! 'Request p r))
+  (create-edge! g 'Request p r))
 
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
@@ -77,7 +77,7 @@
   ([g r t p rq]
      (delete! [t rq])
      ;; Return a vec of the resource, HeldBy and process for param passing
-     [r (create-edge! 'HeldBy r p) p]))
+     [r (create-edge! g 'HeldBy r p) p]))
 
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
@@ -89,7 +89,7 @@
   ([g r hb p]
      (when (empty? (iseq p 'Request :out))
        (delete! hb)
-       [r (create-edge! 'Release r p) p])))
+       [r (create-edge! g 'Release r p) p])))
 
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
@@ -105,7 +105,7 @@
      (give-rule g r rel p1 n p2))
   ([g r rel p1 n p2]
      (delete! rel)
-     [r (create-edge! 'Token r p2) p2]))
+     [r (create-edge! g 'Token r p2) p2]))
 
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
@@ -115,7 +115,7 @@
        :let [p1 (alpha req)]
        hb  (iseq r 'HeldBy :out)
        :let [p2 (omega hb)]]
-  (create-edge! 'Blocked r p1))
+  (create-edge! g 'Blocked r p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
@@ -156,7 +156,7 @@
        b  (iseq r 'Blocked :out)
        :when (= p (omega b))]
   (delete! [hb b])
-  (create-edge! 'Release r p))
+  (create-edge! g 'Release r p))
 
 (deftransformation apply-mutual-exclusion-sts
   [g n param-pass]
@@ -185,8 +185,8 @@
                         "Short transformation sequence.")
         p1 (create-vertex! g 'Process)
         p2 (create-vertex! g 'Process)]
-    (create-edge! 'Next p1 p2)
-    (create-edge! 'Next p2 p1)
+    (create-edge! g 'Next p1 p2)
+    (create-edge! g 'Next p2 p1)
     g))
 
 ;;** Long Transformation Sequence
@@ -207,7 +207,7 @@
          :when (not= r1 r2)
          :when (empty? (filter #(= p1 (alpha %))
                                (iseq r2 'Request :in)))]
-    (create-edge! 'Request p1 r2))
+    (create-edge! g 'Request p1 r2))
 
   (defpattern release-star-pattern
     "Given a resource and a process, matches another process and resource where
@@ -230,7 +230,7 @@
        (release-star-rule g r2 h2 p2 h1 r1 rq p1))
     ([g r2 h2 p2 h1 r1 rq p1]
        (delete! h1)
-       (create-edge! 'Release r1 p2)))
+       (create-edge! g 'Release r1 p2)))
 
   (do
     (dotimes [_ n]
@@ -264,10 +264,10 @@
         (let [r (create-vertex! g 'Resource)
               p (create-vertex! g 'Process)]
           (when lp
-            (create-edge! 'Next lp p))
-          (create-edge! 'HeldBy r p)
+            (create-edge! g 'Next lp p))
+          (create-edge! g 'HeldBy r p)
           (recur (dec i) p))
-        (create-edge! 'Next lp (first (vseq g 'Process)))))
+        (create-edge! g 'Next lp (first (vseq g 'Process)))))
     g))
 
 

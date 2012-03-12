@@ -65,7 +65,7 @@
         v9 (doto (create-vertex! g 'Const) (set-value! :value 9.0))]
     (doseq [[a o] [[v1 v2] [v1 v3] [v2 v4] [v2 v5] [v3 v6] [v3 v7]
                    [v4 v8] [v4 v9]]]
-      (create-edge! 'HasArg a o))
+      (create-edge! g 'HasArg a o))
     g))
 
 (defrule replace-binaryop

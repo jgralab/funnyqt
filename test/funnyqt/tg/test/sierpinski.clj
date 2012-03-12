@@ -16,9 +16,9 @@
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)
         r (create-vertex! g 'V)]
-    (create-edge! 'L t l)
-    (create-edge! 'R t r)
-    (create-edge! 'B l r)
+    (create-edge! g 'L t l)
+    (create-edge! g 'R t r)
+    (create-edge! g 'B l r)
     g))
 
 (defrule triangulate
@@ -33,13 +33,13 @@
     (set-omega! r nr)
     (set-omega! b nb)
 
-    (create-edge! 'L nl lv)
-    (create-edge! 'R nr rv)
-    (create-edge! 'B nb rv)
+    (create-edge! g 'L nl lv)
+    (create-edge! g 'R nr rv)
+    (create-edge! g 'B nb rv)
 
-    (create-edge! 'L nr nb)
-    (create-edge! 'R nl nb)
-    (create-edge! 'B nl nr)))
+    (create-edge! g 'L nr nb)
+    (create-edge! g 'R nl nb)
+    (create-edge! g 'B nl nr)))
 
 (defn triangulate-sequential
   [g]
@@ -62,13 +62,13 @@
        (set-omega! r nrv)
        (set-omega! b nbv)
 
-       (create-edge! 'L nlv lv)
-       (create-edge! 'R nrv rv)
-       (create-edge! 'B nbv rv)
+       (create-edge! g 'L nlv lv)
+       (create-edge! g 'R nrv rv)
+       (create-edge! g 'B nbv rv)
 
-       (create-edge! 'L nrv nbv)
-       (create-edge! 'R nlv nbv)
-       (create-edge! 'B nlv nrv)
+       (create-edge! g 'L nrv nbv)
+       (create-edge! g 'R nlv nbv)
+       (create-edge! g 'B nlv nrv)
        (triangulate-recursively g lv)
        (triangulate-recursively g rv))))
 
@@ -88,13 +88,13 @@
        (set-omega! r nrv)
        (set-omega! b nbv)
 
-       (create-edge! 'L nlv lv)
-       (create-edge! 'R nrv rv)
-       (create-edge! 'B nbv rv)
+       (create-edge! g 'L nlv lv)
+       (create-edge! g 'R nrv rv)
+       (create-edge! g 'B nbv rv)
 
-       (create-edge! 'L nrv nbv)
-       (create-edge! 'R nlv nbv)
-       (create-edge! 'B nlv nrv)
+       (create-edge! g 'L nrv nbv)
+       (create-edge! g 'R nlv nbv)
+       (create-edge! g 'B nlv nrv)
        (fn []
          (triangulate-recursively g lv)
          (triangulate-recursively g rv)))))
