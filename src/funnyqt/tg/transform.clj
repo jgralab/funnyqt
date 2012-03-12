@@ -10,6 +10,7 @@ the archetype of it.  This design decision allows for using those functions to
 extend an existing Graph without having to create artificial archetypes
 before."
   (:use funnyqt.tg.core)
+  (:use funnyqt.generic)
   (:use [funnyqt.utils :only [error split-qname]])
   (:require clojure.set)
   (:require clojure.pprint)
@@ -50,13 +51,17 @@ before."
 ;;# Dynamic vars
 
 (def ^{:dynamic true}
-  $target-graph  nil)
+  $target-schema  nil)
+
 (def ^{:dynamic true}
-  $target-schema nil)
+  $target-graph  nil)
+
 (def ^{:dynamic true :private true}
   $img           nil)
+
 (def ^{:dynamic true :private true}
   $arch          nil)
+
 (def ^{:dynamic true}
   $on-graph-fns  nil)
 
@@ -152,73 +157,93 @@ before."
 
 ;;# Instance only functions
 
-(defn create-vertices!
-  "Creates one vertex of type `cls` in `g` for each archetype returned by `archfn`.
-  `archfn` has to be a function resulting in a seq of arbitrary
-  objects (archetypes).  Returns a seq of the new vertices."
-  [g cls archs]
-  {:pre [cls (fn? archs)]}
-  (let [^VertexClass vc (aec-internal cls)]
-    (loop [as (archs)
-           im (transient {})
-           am (transient {})]
-      (if (seq as)
-        (let [v (create-vertex! g cls)
-              a (first as)]
-          ;;(println "Created" v "for" a)
-          (recur (rest as)
-                 (assoc! im a v)
-                 (assoc! am v a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (swap! $img  merge-into-mappings vc img)
-          (swap! $arch merge-into-mappings vc arch)
-          (keys arch))))))
+(defprotocol CreateVertices
+  "A protocol for creating vertices."
+  (create-vertices! [this cls archfn]))
 
-(defn create-edges!
-  "Creates one edge of type `cls` for each archetype in `archfn`.
-  `archfn` has to be a function resulting in a seq of triples.  Each triple has
-  the form [arch start end] where arch is the archetype of the new edge, start
-  is the new edge's start vertex, and end is the new edge's end vertex. Returns
-  a seq of the new edges.
-  See `r-alpha` and `r-omega` for conveniently resolving the start and end
-  vertex by archetypes."
-  [g cls archs]
-  {:pre [cls (fn? archs)]}
-  (let [^EdgeClass ec (aec-internal cls)
-        saec (-> ec (.getFrom) (.getVertexClass))
-        eaec (-> ec (.getTo)   (.getVertexClass))]
-    (loop [as (binding [r-alpha #(img-internal saec %)
-                        r-omega #(img-internal eaec %)]
-                (doall (archs)))
-           im (transient {})
-           am (transient {})]
-      (if (seq as)
-        (let [[a al om] (first as)
-              e (create-edge! g cls al om)]
-          (recur (rest as) (assoc! im a e) (assoc! am e a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (swap! $img  merge-into-mappings ec img)
-          (swap! $arch merge-into-mappings ec arch)
-          (keys arch))))))
+(extend-protocol CreateVertices
+  Graph
+  (create-vertices! [this cls archfn]
+    (let [^VertexClass vc (aec-internal cls)]
+      (loop [as (archfn)
+             im (transient {})
+             am (transient {})]
+        (if (seq as)
+          (let [v (create-vertex! this cls)
+                a (first as)]
+            ;;(println "Created" v "for" a)
+            (recur (rest as)
+                   (assoc! im a v)
+                   (assoc! am v a)))
+          (let [img  (persistent! im)
+                arch (persistent! am)]
+            (swap! $img  merge-into-mappings vc img)
+            (swap! $arch merge-into-mappings vc arch)
+            (keys arch))))))
+  Schema
+  (create-vertices! [this cls archfn]
+    (swap! $on-graph-fns conj
+           (fn []
+             (create-vertices! $target-graph cls archfn)))))
 
-(defn set-values!
-  "Set the attribute of valfn's keys to the corresponding value.
-  `a` is a qualified attribute name (foo.Bar.baz) and valfn a function
-  resulting in a map assigning to attributed elements a value.  See `r-elem`
-  for conveniently resolving the attributed element by archetype.  Returns a
-  seq of attributed elements for whom an attribute has been set."
-  [a valfn]
-  {:pre [a (fn? valfn)]}
-  (let [^Attribute a (attr-internal a)
-        aec (.getAttributedElementClass a)
-        name (.getName a)]
-    (doseq [[elem val] (binding [r-elem (fn [a] (img-internal aec a))]
-                         (doall (valfn)))]
-      (set-value! elem name val))))
+(defprotocol CreateEdges
+  "A protocol for creating vertices."
+  (create-edges! [this cls archs]))
+
+(extend-protocol CreateEdges
+  Graph
+  (create-edges! [this cls archfn]
+    (let [^EdgeClass ec (aec-internal cls)
+          saec (-> ec (.getFrom) (.getVertexClass))
+          eaec (-> ec (.getTo)   (.getVertexClass))]
+      (loop [as (binding [r-alpha #(img-internal saec %)
+                          r-omega #(img-internal eaec %)]
+                  (doall (archfn)))
+             im (transient {})
+             am (transient {})]
+        (if (seq as)
+          (let [[a al om] (first as)
+                e (create-edge! this cls al om)]
+            (recur (rest as) (assoc! im a e) (assoc! am e a)))
+          (let [img  (persistent! im)
+                arch (persistent! am)]
+            (swap! $img  merge-into-mappings ec img)
+            (swap! $arch merge-into-mappings ec arch)
+            (keys arch))))))
+  Schema
+  (create-edges! [this cls archfn]
+    (swap! $on-graph-fns conj
+           (fn []
+             (create-edges! $target-graph cls archfn)))))
+
+(defprotocol SetValues
+  (set-values! [this attr valfn]))
+
+(extend-protocol SetValues
+  Graph
+  (set-values! [this a valfn]
+    (let [^Attribute a (attr-internal a)
+          aec (.getAttributedElementClass a)
+          name (.getName a)]
+      (doseq [[elem val] (binding [r-elem (fn [a] (img-internal aec a))]
+                           (doall (valfn)))]
+        (set-value! elem name val))))
+  Schema
+  (set-values! [this a valfn]
+    (swap! $on-graph-fns conj
+           (fn []
+             (set-values! $target-graph a valfn)))))
+
+
 
 ;;# Schema functions
+
+;;## Create a new schema
+
+(defn create-schema [sqname gcname]
+  (let [[prefix sname] (split-qname sqname)]
+    (doto (SchemaImpl. sname prefix)
+      (.createGraphClass (name gcname)))))
 
 ;;## Creating Enum & Record domains
 
@@ -265,15 +290,15 @@ before."
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
      (create-vertex-class! sog props)
-     (create-vertices! qname archs)))
+     (create-vertices! sog qname archs)))
 
 ;;## Creating EdgeClasses
 
 (defn- create-ec!
-  [{:keys [qname abstract
-           from from-multis from-role from-kind
-           to to-multis to-role to-kind]}]
-  (-> (.getGraphClass ^Schema $target-schema)
+  [^Schema s {:keys [qname abstract
+                     from from-multis from-role from-kind
+                     to to-multis to-role to-kind]}]
+  (-> (.getGraphClass s)
       (doto (.createEdgeClass (name qname)
                               (aec-internal from) (first from-multis)
                               (second from-multis) from-role from-kind
@@ -285,29 +310,30 @@ before."
   "Creates an EdgeClass + instances.
   The map given as first argument provides the schema properties.
   For `archs`, see function `create-edges!`."
-  ([{:keys [qname abstract
-            from from-multis from-role from-kind
-            to   to-multis   to-role   to-kind]
-     :or {abstract false
-          from-multis [0, Integer/MAX_VALUE]
-          from-role ""
-          from-kind AggregationKind/NONE
-          to-multis [0, Integer/MAX_VALUE]
-          to-role ""
-          to-kind AggregationKind/NONE}
-     :as props}]
+  ([sog {:keys [qname abstract
+                from from-multis from-role from-kind
+                to   to-multis   to-role   to-kind]
+         :or {abstract false
+              from-multis [0, Integer/MAX_VALUE]
+              from-role ""
+              from-kind AggregationKind/NONE
+              to-multis [0, Integer/MAX_VALUE]
+              to-role ""
+              to-kind AggregationKind/NONE}
+         :as props}]
      {:pre [qname to from]}
-     (create-ec! {:qname qname :abstract abstract
+     (create-ec! (schema sog)
+                 {:qname qname :abstract abstract
                   :from from :from-multis from-multis :from-role (name from-role) :from-kind from-kind
                   :to   to   :to-multis   to-multis   :to-role   (name to-role)   :to-kind   to-kind}))
-  ([{:keys [qname abstract
-            from from-multis from-role from-kind
-            to   to-multis   to-role   to-kind]
-     :as props}
+  ([sog {:keys [qname abstract
+                from from-multis from-role from-kind
+                to   to-multis   to-role   to-kind]
+         :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-edge-class! props)
-     (create-edges! qname archs)))
+     (create-edge-class! sog props)
+     (create-edges! sog qname archs)))
 
 ;;## Creating Attributes
 
@@ -322,13 +348,13 @@ before."
   "Creates an attribute and sets values.
   The map given as first argument determines the schema properties.
   For `valfn`, see `set-values!`."
-  ([{:keys [qname domain default] :as props}]
+  ([sog {:keys [qname domain default] :as props}]
      {:pre [qname domain]}
      (create-attr! props))
-  ([{:keys [qname domain default] :as props} valfn]
+  ([sog {:keys [qname domain default] :as props} valfn]
      {:pre [valfn]}
-     (create-attribute! props)
-     (set-values! qname valfn)))
+     (create-attribute! sog props)
+     (set-values! sog qname valfn)))
 
 ;;## Creating type hierarchies
 
@@ -366,50 +392,26 @@ before."
   {:arglists '([name doc-string? attr-map? [params*] & body])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
-        in-graphs (first more)
+        args (vec (first more))
         body (next more)]
     `(defn ~name
-       ~(-> (meta name)
-            (assoc :doc (str (:doc (meta name))
-             "\n\n  The last parameter out defines the target graph.
-
-    - If a graph is given, use that graph as target graph.
-    - If a schema is given, use a new graph of this schema as target graph.
-    - If a vector [<sname> <gcname>] is given, create a new schema (and graph)
-      with the given schema and graph class name.
-
-  The generated transformation function returns the target graph.")))
-       [~@in-graphs out#]
+       ~(meta name)
+       ~args
        (binding [$arch          (atom {})
                  $img           (atom {})
                  $on-graph-fns  (atom [])
-                 $target-schema
-                 (cond
-                  (instance? Schema out#) out#
-                  (instance? Graph  out#) (.getSchema ^Graph out#)
-                  (vector? out#) (let [sqname# (first out#)
-                                       [prefix# sname#] (split-qname sqname#)]
-                                   (or
-                                    (try
-                                      (-> (SchemaClassManager/instance sqname#)
-                                          (.loadClass sqname#)
-                                          (.getMethod "instance" (into-array Class []))
-                                          (.invoke nil (into-array Object [])))
-                                      (catch Exception e# nil))
-                                    (doto (SchemaImpl. sname# prefix#)
-                                      (.createGraphClass (name (second out#))))))
-                  :default (error (str "No target graph, target schema, "
-                                       " or vector [sname, gcname] given")))]
-         (let [existing# (> 0 (.getVertexClassCount (.getGraphClass ^Schema $target-schema)))]
-           (if-not existing#
-             (do ~@body)
-             (println "Using existing schema" (.getQualifiedName ^Schema $target-schema)))
-           (binding [$target-graph (if (instance? Graph out#)
-                                     out#
-                                     (do
-                                       (.finish ^Schema $target-schema)
-                                       (create-graph $target-schema
-                                                     (str "TransformationCreated-"
-                                                          (System/currentTimeMillis)))))]
-             (doseq [f# @$on-graph-fns] (f#))
-             $target-graph))))))
+                 $target-schema ~(the args)]
+         (do ~@body)
+         (binding [$target-graph (if (instance? Graph $target-schema)
+                                   (do
+                                     ;; There should be no $on-graph-fns
+                                     (if (pos? (count $on-graph-fns))
+                                       (error "Transforming on graph, but there are on-graph-fns..."))
+                                     $target-schema)
+                                   (do
+                                     (.finish ^Schema $target-schema)
+                                     (create-graph $target-schema
+                                                   (str "TransformationCreated-"
+                                                        (System/currentTimeMillis)))))]
+           (doseq [f# @$on-graph-fns] (f#))
+           $target-graph)))))

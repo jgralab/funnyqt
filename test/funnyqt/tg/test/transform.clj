@@ -4,18 +4,19 @@
   (:use funnyqt.tg.transform)
   (:use funnyqt.tg.test.core)
   (:use funnyqt.generic)
-  (:use clojure.test))
+  (:use clojure.test)
+  (:import [de.uni_koblenz.jgralab.schema.impl SchemaImpl]))
 
 (deftransformation transformation-1
   "Creates a graph with 4 vertices and 3 edges."
-  []
-  (create-vertices! 'localities.City (fn [] [1 2]))
-  (set-values! 'NamedElement.name
+  [s]
+  (create-vertices! s 'localities.City (fn [] [1 2]))
+  (set-values! s 'NamedElement.name
                (fn [] {(r-elem 1) "Köln" (r-elem 2) "Frankfurt"}))
-  (create-vertices! 'junctions.Crossroad (fn [] ["a" "b"]))
-  (create-edges!    'localities.ContainsCrossroad
-                    (fn [] [[1 (r-alpha 1) (r-omega "a")] [2 (r-alpha 2) (r-omega "b")]]))
-  (create-edges!    'connections.Street (fn [] [[1 (r-alpha "a") (r-omega "b")]])))
+  (create-vertices! s 'junctions.Crossroad (fn [] ["a" "b"]))
+  (create-edges! s 'localities.ContainsCrossroad
+                 (fn [] [[1 (r-alpha 1) (r-omega "a")] [2 (r-alpha 2) (r-omega "b")]]))
+  (create-edges! s 'connections.Street (fn [] [[1 (r-alpha "a") (r-omega "b")]])))
 
 (deftest test-trans-1
   (let [g (transformation-1 (schema (rg)))]
@@ -26,19 +27,19 @@
 
 (deftransformation transformation-2
   "Creates a new schema and graph with 3 vertices and 3 edges."
-  []
-  (create-vertex-class! {:qname 'Foo} (fn [] [1 2 3]))
-  (create-attribute! {:qname 'Foo.name :domain 'String}
+  [s]
+  (create-vertex-class! s {:qname 'Foo} (fn [] [1 2 3]))
+  (create-attribute! s {:qname 'Foo.name :domain 'String}
                      (fn [] {(r-elem 1) "Hugo", (r-elem 2) "Klaus", (r-elem 3) "Dieter"}))
-  (create-edge-class! {:qname 'Foo2Foo
-                       :from 'Foo
-                       :to 'Foo}
+  (create-edge-class! s {:qname 'Foo2Foo
+                         :from 'Foo
+                         :to 'Foo}
                       (fn [] [[1 (r-alpha 1) (r-omega 2)]
-                              [2 (r-alpha 2) (r-omega 3)]
-                              [3 (r-alpha 3) (r-omega 1)]])))
+                             [2 (r-alpha 2) (r-omega 3)]
+                             [3 (r-alpha 3) (r-omega 1)]])))
 
 (deftest test-trans-2
-  (let [g (transformation-2 ['foo2.FooSchema 'FooGraph])]
+  (let [g (transformation-2 (create-schema 'foo.FooSchema 'FooGraph))]
     (is (= 3 (vcount g) (vcount g 'Foo)))
     (is (= 3 (ecount g) (ecount g 'Foo2Foo)))
     (loop [vs (vseq g) vals ["Hugo" "Klaus" "Dieter"]]
