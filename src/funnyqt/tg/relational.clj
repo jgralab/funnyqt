@@ -1,5 +1,5 @@
 (ns funnyqt.tg.relational
-  "FunRL: Querying graphs using relational programming.
+  "Querying graphs as if they were prolog fact bases.
 
 Getting Started
 ===============

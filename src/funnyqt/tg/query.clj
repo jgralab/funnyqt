@@ -1,5 +1,5 @@
 (ns funnyqt.tg.query
-  "FunQL: Functional TGraph querying.
+  "Functional TGraph querying.
 
 Sequence Functions
 ==================
