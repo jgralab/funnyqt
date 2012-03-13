@@ -1,9 +1,9 @@
 (ns funnyqt.tg.utils.xmltg
-  "<p>Convert XML to DOM-like TGraphs.</p>
+  "Convert XML to DOM-like TGraphs.
 
 The DOM-like schema looks like this:
 
-<img src=\"https://raw.github.com/jgralab/funnyqt/master/resources/xml-schema.png\">
+  https://raw.github.com/jgralab/funnyqt/master/resources/xml-schema.png
 
 To transform an XML document to a DOM-like TGraph, use
 
