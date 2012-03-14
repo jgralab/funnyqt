@@ -82,7 +82,7 @@ attribute type as string.
 (def ^{:dynamic true :private true} *attr-type-fn*)
 (def ^{:dynamic true :private true} *id2elem*) ;; map from ID to Element vertex
 
-;; map from Attribute vertex to a collection
+;; map from Attribute vertex to a vector
 ;; of referenced element IDs (an attr can
 ;; reference multiple elements in terms of a
 ;; IDREFS attr type)
@@ -109,10 +109,10 @@ attribute type as string.
                (= t "ID")     (set! *id2elem* (assoc *id2elem* v elem))
                (= t "IDREF")  (set! *attr2refd-ids*
                                     (update-in *attr2refd-ids* [av]
-                                               #(conj % v)))
+                                               #(conj (vec %) v)))
                (= t "IDREFS") (set! *attr2refd-ids*
                                    (update-in *attr2refd-ids* [av]
-                                              #(set (concat % (clojure.string/split v #" ")))))))
+                                              #(into (vec %) (clojure.string/split v #" "))))))
             (recur (rest a))))
         (recur (inc i)
                l
