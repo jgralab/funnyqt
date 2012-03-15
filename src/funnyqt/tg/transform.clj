@@ -50,66 +50,31 @@ before."
 
 ;;# Dynamic vars
 
-(def ^{:dynamic true}
-  $target-schema  nil)
-
-(def ^{:dynamic true}
-  $target-graph  nil)
+(def ^{:dynamic true :private true}
+  *img*           nil)
 
 (def ^{:dynamic true :private true}
-  $img           nil)
-
-(def ^{:dynamic true :private true}
-  $arch          nil)
-
-(def ^{:dynamic true}
-  $on-graph-fns  nil)
+  *arch*          nil)
 
 (def ^{:dynamic true
        :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
   Resolves the image of the given archetype in the img function corresponding
   to the start vertex class."}
-  r-alpha nil)
+  resolve-alpha nil)
 
 (def ^{:dynamic true
        :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
   Resolves the image of the given archetype in the img function corresponding
   to the end vertex class."}
-  r-omega nil)
+  resolve-omega nil)
 
 (def ^{:dynamic true
        :doc "Only bound in calls to `create-attribute!` / `set-values!`.
   Resolves the image of the given archetype in the img function corresponding
   to the attributed element class of the current attribute."}
-  r-elem nil)
+  resolve-element nil)
 
 ;;# Utility functions
-
-(defn- aec-internal
-  "Gets the AttributedElementClass by the given qname.
-  Can only be called inside a deftransformation."
-  [qname]
-  (let [aec (.getAttributedElementClass
-             ^Schema $target-schema (name qname))]
-    (or aec
-        (error (format "No such AttributedElementClass %s."
-                       qname)))))
-
-(defn- attr-internal
-  "Returns the Attribute given by its qualified name.
-  Can only be called inside a deftransformation."
-  [qname]
-  (let [[aec-qname attr-name _] (split-qname (name qname))
-        ^AttributedElementClass aec (aec-internal aec-qname)]
-    (or (.getAttribute aec attr-name)
-        (error (format "No such Attribute %s at AttributedElementClass %s."
-                       (name qname) aec)))))
-
-(defn- dom-internal
-  "Returns the Domain given by its qualified name `qname`.
-  Can only be called inside a `deftransformation`."
-  [qname]
-  (.getDomain ^Schema $target-schema (name qname)))
 
 (defn- merge-into-mappings
   "Merges into `oldmap` the new mappings for `cls` (an GraphElementClass)."
@@ -133,117 +98,76 @@ before."
   "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec arch]
-  ((@$img aec) arch))
-
-(defn img
-  "Returns the map from archetypes to images for `aec`.
-  `aec` can be given as string, symbol, or keyword denoting its qualified
-  name."
-  [aec]
-  (@$img (aec-internal aec)))
+  ((@*img* aec) arch))
 
 (defn- arch-internal
   "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec img]
-  ((@$arch aec) img))
-
-(defn arch
-  "Returns the map from images to archetypes for `aec`.
-  `aec` can be given as string, symbol, or keyword denoting its qualified
-  name."
-  [aec]
-  (@$arch (aec-internal aec)))
+  ((@*arch* aec) img))
 
 ;;# Instance only functions
 
-(defprotocol CreateVertices
-  "A protocol for creating vertices."
-  (create-vertices! [this cls archfn]))
+(defn create-vertices! [g cls archfn]
+  (let [^VertexClass vc (attributed-element-class g cls)]
+    (loop [as (archfn)
+           im (transient {})
+           am (transient {})]
+      (if (seq as)
+        (let [v (create-vertex! g cls)
+              a (first as)]
+          ;;(println "Created" v "for" a)
+          (recur (rest as)
+                 (assoc! im a v)
+                 (assoc! am v a)))
+        (let [img  (persistent! im)
+              arch (persistent! am)]
+          (when (bound? #'*img*)
+            (swap! *img*  merge-into-mappings vc img))
+          (when (bound? #'*arch*)
+            (swap! *arch* merge-into-mappings vc arch))
+          (keys arch))))))
 
-(extend-protocol CreateVertices
-  Graph
-  (create-vertices! [this cls archfn]
-    (let [^VertexClass vc (aec-internal cls)]
-      (loop [as (archfn)
-             im (transient {})
-             am (transient {})]
-        (if (seq as)
-          (let [v (create-vertex! this cls)
-                a (first as)]
-            ;;(println "Created" v "for" a)
-            (recur (rest as)
-                   (assoc! im a v)
-                   (assoc! am v a)))
-          (let [img  (persistent! im)
-                arch (persistent! am)]
-            (swap! $img  merge-into-mappings vc img)
-            (swap! $arch merge-into-mappings vc arch)
-            (keys arch))))))
-  Schema
-  (create-vertices! [this cls archfn]
-    (swap! $on-graph-fns conj
-           (fn []
-             (create-vertices! $target-graph cls archfn)))))
+(defn create-edges! [g cls archfn]
+  (let [^EdgeClass ec (attributed-element-class g cls)
+        saec (-> ec (.getFrom) (.getVertexClass))
+        eaec (-> ec (.getTo)   (.getVertexClass))]
+    (loop [as (binding [resolve-alpha #(img-internal saec %)
+                        resolve-omega #(img-internal eaec %)]
+                (doall (archfn)))
+           im (transient {})
+           am (transient {})]
+      (if (seq as)
+        (let [[a al om] (first as)
+              e (create-edge! g cls al om)]
+          (recur (rest as) (assoc! im a e) (assoc! am e a)))
+        (let [img  (persistent! im)
+              arch (persistent! am)]
+          (when (bound? #'*img*)
+            (swap! *img*  merge-into-mappings ec img))
+          (when (bound? #'*arch*)
+            (swap! *arch* merge-into-mappings ec arch))
+          (keys arch))))))
 
-(defprotocol CreateEdges
-  "A protocol for creating vertices."
-  (create-edges! [this cls archs]))
-
-(extend-protocol CreateEdges
-  Graph
-  (create-edges! [this cls archfn]
-    (let [^EdgeClass ec (aec-internal cls)
-          saec (-> ec (.getFrom) (.getVertexClass))
-          eaec (-> ec (.getTo)   (.getVertexClass))]
-      (loop [as (binding [r-alpha #(img-internal saec %)
-                          r-omega #(img-internal eaec %)]
-                  (doall (archfn)))
-             im (transient {})
-             am (transient {})]
-        (if (seq as)
-          (let [[a al om] (first as)
-                e (create-edge! this cls al om)]
-            (recur (rest as) (assoc! im a e) (assoc! am e a)))
-          (let [img  (persistent! im)
-                arch (persistent! am)]
-            (swap! $img  merge-into-mappings ec img)
-            (swap! $arch merge-into-mappings ec arch)
-            (keys arch))))))
-  Schema
-  (create-edges! [this cls archfn]
-    (swap! $on-graph-fns conj
-           (fn []
-             (create-edges! $target-graph cls archfn)))))
-
-(defprotocol SetValues
-  (set-values! [this attr valfn]))
-
-(extend-protocol SetValues
-  Graph
-  (set-values! [this a valfn]
-    (let [^Attribute a (attr-internal a)
-          aec (.getAttributedElementClass a)
-          name (.getName a)]
-      (doseq [[elem val] (binding [r-elem (fn [a] (img-internal aec a))]
-                           (doall (valfn)))]
-        (set-value! elem name val))))
-  Schema
-  (set-values! [this a valfn]
-    (swap! $on-graph-fns conj
-           (fn []
-             (set-values! $target-graph a valfn)))))
-
+(defn set-values! [g a valfn]
+  (let [[aecname attrname _] (split-qname a)
+        aec (attributed-element-class g aecname)]
+    (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
+                         (doall (valfn)))]
+      (set-value! elem attrname val))))
 
 
 ;;# Schema functions
 
 ;;## Create a new schema
 
-(defn create-schema [sqname gcname]
+(defn- create-schema [sqname gcname]
   (let [[prefix sname] (split-qname sqname)]
     (doto (SchemaImpl. sname prefix)
       (.createGraphClass (name gcname)))))
+
+(defn empty-graph [sqname gcname]
+  (create-graph (create-schema sqname gcname)))
 
 ;;## Creating Enum & Record domains
 
@@ -280,17 +204,17 @@ before."
   "Creates VertexClass + instances in `sog`.
   The map given as first argument provides the schema properties.
   For `archs`, see function `create-vertices!`."
-  ([sog {:keys [qname abstract]
-         :or {abstract false}
-         :as props}]
+  ([g {:keys [qname abstract]
+       :or {abstract false}
+       :as props}]
      {:pre [qname]}
-     (create-vc! (schema sog) {:qname qname :abstract abstract}))
-  ([sog {:keys [qname abstract]
-         :as props}
+     (create-vc! (schema g) {:qname qname :abstract abstract}))
+  ([g {:keys [qname abstract]
+       :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-vertex-class! sog props)
-     (create-vertices! sog qname archs)))
+     (create-vertex-class! g props)
+     (create-vertices! g qname archs)))
 
 ;;## Creating EdgeClasses
 
@@ -299,84 +223,85 @@ before."
                      from from-multis from-role from-kind
                      to to-multis to-role to-kind]}]
   (-> (.getGraphClass s)
-      (doto (.createEdgeClass (name qname)
-                              (aec-internal from) (first from-multis)
-                              (second from-multis) from-role from-kind
-                              (aec-internal to) (first to-multis)
-                              (second to-multis) to-role to-kind)
+      (doto (.createEdgeClass
+             (name qname)
+             (attributed-element-class s from) (first from-multis)
+             (second from-multis) from-role from-kind
+             (attributed-element-class s to) (first to-multis)
+             (second to-multis) to-role to-kind)
         (.setAbstract (boolean abstract)))))
 
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
   The map given as first argument provides the schema properties.
   For `archs`, see function `create-edges!`."
-  ([sog {:keys [qname abstract
-                from from-multis from-role from-kind
-                to   to-multis   to-role   to-kind]
-         :or {abstract false
-              from-multis [0, Integer/MAX_VALUE]
-              from-role ""
-              from-kind AggregationKind/NONE
-              to-multis [0, Integer/MAX_VALUE]
-              to-role ""
-              to-kind AggregationKind/NONE}
-         :as props}]
+  ([g {:keys [qname abstract
+              from from-multis from-role from-kind
+              to   to-multis   to-role   to-kind]
+       :or {abstract false
+            from-multis [0, Integer/MAX_VALUE]
+            from-role ""
+            from-kind AggregationKind/NONE
+            to-multis [0, Integer/MAX_VALUE]
+            to-role ""
+            to-kind AggregationKind/NONE}
+       :as props}]
      {:pre [qname to from]}
-     (create-ec! (schema sog)
+     (create-ec! (schema g)
                  {:qname qname :abstract abstract
                   :from from :from-multis from-multis :from-role (name from-role) :from-kind from-kind
                   :to   to   :to-multis   to-multis   :to-role   (name to-role)   :to-kind   to-kind}))
-  ([sog {:keys [qname abstract
-                from from-multis from-role from-kind
-                to   to-multis   to-role   to-kind]
-         :as props}
+  ([g {:keys [qname abstract
+              from from-multis from-role from-kind
+              to   to-multis   to-role   to-kind]
+       :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-edge-class! sog props)
-     (create-edges! sog qname archs)))
+     (create-edge-class! g props)
+     (create-edges! g qname archs)))
 
 ;;## Creating Attributes
 
 ;; TODO: Handle default values!
 (defn- create-attr!
-  [{:keys [qname domain default]}]
+  [g {:keys [qname domain default]}]
   (let [[qn a _] (split-qname qname)
-        elem     ^AttributedElementClass (aec-internal qn)]
-    (.addAttribute elem a (dom-internal domain))))
+        elem     ^AttributedElementClass (attributed-element-class g qn)]
+    (.addAttribute elem a (domain g domain))))
 
 (defn create-attribute!
   "Creates an attribute and sets values.
   The map given as first argument determines the schema properties.
   For `valfn`, see `set-values!`."
-  ([sog {:keys [qname domain default] :as props}]
+  ([g {:keys [qname domain default] :as props}]
      {:pre [qname domain]}
-     (create-attr! props))
-  ([sog {:keys [qname domain default] :as props} valfn]
+     (create-attr! g props))
+  ([g {:keys [qname domain default] :as props} valfn]
      {:pre [valfn]}
-     (create-attribute! sog props)
-     (set-values! sog qname valfn)))
+     (create-attribute! g props)
+     (set-values! g qname valfn)))
 
 ;;## Creating type hierarchies
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
-  [super & subs]
-  (let [s (aec-internal super)]
+  [g super & subs]
+  (let [s (attributed-element-class g super)]
     (if (isa? (class s) VertexClass)
       (doseq [sub subs]
-        (.addSuperClass ^VertexClass (aec-internal sub) ^VertexClass s))
+        (.addSuperClass ^VertexClass (attributed-element-class g sub) ^VertexClass s))
       (doseq [sub subs]
-        (.addSuperClass ^EdgeClass (aec-internal sub) ^EdgeClass s)))))
+        (.addSuperClass ^EdgeClass (attributed-element-class g sub) ^EdgeClass s)))))
 
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
-  [sub & supers]
-  (let [s (aec-internal sub)]
+  [g sub & supers]
+  (let [s (attributed-element-class g sub)]
     (if (isa? (class s) VertexClass)
       (doseq [super supers]
-        (.addSuperClass ^VertexClass s ^VertexClass (aec-internal super)))
+        (.addSuperClass ^VertexClass s ^VertexClass (attributed-element-class g super)))
       (doseq [super supers]
-        (.addSuperClass ^EdgeClass s ^EdgeClass (aec-internal super))))))
+        (.addSuperClass ^EdgeClass s ^EdgeClass (attributed-element-class g super))))))
 
 ;;# The transformation macro itself
 
@@ -397,21 +322,6 @@ before."
     `(defn ~name
        ~(meta name)
        ~args
-       (binding [$arch          (atom {})
-                 $img           (atom {})
-                 $on-graph-fns  (atom [])
-                 $target-schema ~(the args)]
-         (do ~@body)
-         (binding [$target-graph (if (instance? Graph $target-schema)
-                                   (do
-                                     ;; There should be no $on-graph-fns
-                                     (if (pos? (count $on-graph-fns))
-                                       (error "Transforming on graph, but there are on-graph-fns..."))
-                                     $target-schema)
-                                   (do
-                                     (.finish ^Schema $target-schema)
-                                     (create-graph $target-schema
-                                                   (str "TransformationCreated-"
-                                                        (System/currentTimeMillis)))))]
-           (doseq [f# @$on-graph-fns] (f#))
-           $target-graph)))))
+       (binding [*arch* (atom {})
+                 *img*  (atom {})]
+         (do ~@body)))))

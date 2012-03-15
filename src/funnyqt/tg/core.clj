@@ -177,9 +177,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
                  sc  (Class/forName qn true scm)
                  im  (.getMethod sc "instance" (into-array Class []))]
              (.invoke im nil (to-array []))))
-         (do
-           #_(println "Loading schema" file "generically.")
-           s)))))
+         s))))
 
 (defn load-graph
   "Loads a graph from `file` using ImplementationType `impl`,
