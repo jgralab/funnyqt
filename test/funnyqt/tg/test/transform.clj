@@ -7,7 +7,7 @@
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.schema.impl SchemaImpl]))
 
-(deftransformation transformation-1
+(deftransformation transformation-1-instance-only
   "Creates a graph with 4 vertices and 3 edges."
   [g]
   (create-vertices! g 'localities.City (fn [] [1 2]))
@@ -24,10 +24,27 @@
                                          [[1 (resolve-alpha "a") (resolve-omega "b")]]))
   g)
 
-(deftest test-trans-1
-  (let [g (transformation-1 (create-graph (schema (rg))))]
+(deftest test-transformation-1-instance-only
+  (let [g (transformation-1-instance-only (create-graph (schema (rg))))]
     (is (= 4 (vcount g)))
     (is (= 3 (ecount g)))
     (is (= "Köln"      (value (vertex g 1) :name)))
     (is (= "Frankfurt" (value (vertex g 2) :name)))))
 
+(deftransformation transformation-2
+  "Creates 1 VC and one EC."
+  [g]
+  (create-vertex-class!
+   g {:qname 'Person}
+   (fn [] [1 2 3 4 5]))
+  (create-edge-class!
+   g {:qname 'Knows :from 'Person :to 'Person}
+   (fn [] (map (fn [[arch a o]]
+                [arch (resolve-alpha a) (resolve-omega o)])
+              [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]]))))
+
+(deftest test-transformation-2
+  (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
+    (transformation-2 g)
+    #_(show-graph g)
+    ))

@@ -156,6 +156,15 @@ before."
                          (doall (valfn)))]
       (set-value! elem attrname val))))
 
+(defmacro with-open-schema [g & body]
+  `(let [g# ~g
+         ^Schema s# (schema g#)
+         was-opened# (.reopen s#)
+         r# (do ~@body)]
+     (when was-opened#
+       (.finish s#))
+     r#))
+
 
 ;;# Schema functions
 
@@ -167,48 +176,53 @@ before."
       (.createGraphClass (name gcname)))))
 
 (defn empty-graph [sqname gcname]
-  (create-graph (create-schema sqname gcname)))
+  (let [^Schema s (create-schema sqname gcname)]
+    (.finish s)
+    (create-graph s)))
 
 ;;## Creating Enum & Record domains
 
 (defn create-record-domain!
-  "Creates a RecordDomain of the given `name` and `comp-doms` in `sog`.
+  "Creates a RecordDomain of the given `name` and `comp-doms` in `g`.
   `name` may be a String, keyword or symbol.
   `comp-doms` is a map from component name to domain name.  Both may be given
   as string, keyword, or symbol."
-  [sog name comp-doms]
-  (let [rd (.createRecordDomain ^Schema (schema sog) (clojure.core/name name))]
-    (doseq [[comp dom] comp-doms]
-      (.addComponent rd (clojure.core/name comp) (domain (schema sog) dom)))
-    rd))
+  [g name comp-doms]
+  (with-open-schema g
+    (let [rd (.createRecordDomain ^Schema (schema g) (clojure.core/name name))]
+      (doseq [[comp dom] comp-doms]
+        (.addComponent rd (clojure.core/name comp) (domain (schema g) dom)))
+      rd)))
 
 (defn create-enum-domain!
-  "Creates an EnumDomain with the given `name` and `literals` in `sog`.
+  "Creates an EnumDomain with the given `name` and `literals` in `g`.
   `literals` is a seq of literal names.
   `name` and the `literals` may be given as string, keyword, or symbol."
-  [sog name literals]
-  (let [ed (.createEnumDomain ^Schema (schema sog)
-                              (clojure.core/name name)
-                              (vec (map clojure.core/name
-                                        literals)))]))
+  [g name literals]
+  (with-open-schema g
+    (let [ed (.createEnumDomain ^Schema (schema g)
+                                (clojure.core/name name)
+                                (vec (map clojure.core/name
+                                          literals)))])))
 
 ;;## Creating VertexClasses
 
 (defn- create-vc!
-  [^Schema s {:keys [qname abstract]}]
-  (-> (.getGraphClass s)
-      (doto (.createVertexClass (name qname))
-        (.setAbstract (boolean abstract)))))
+  [g {:keys [qname abstract]}]
+  (with-open-schema g
+    (-> (.getGraphClass ^Schema (schema g))
+        (doto ^VertexClass (.createVertexClass (name qname))
+          (.setAbstract (boolean abstract))))))
 
 (defn create-vertex-class!
-  "Creates VertexClass + instances in `sog`.
+  "Creates VertexClass + instances in `g`.
   The map given as first argument provides the schema properties.
   For `archs`, see function `create-vertices!`."
   ([g {:keys [qname abstract]
        :or {abstract false}
        :as props}]
      {:pre [qname]}
-     (create-vc! (schema g) {:qname qname :abstract abstract}))
+     (create-vc! g {:qname qname :abstract abstract}))
   ([g {:keys [qname abstract]
        :as props}
     archs]
@@ -219,17 +233,18 @@ before."
 ;;## Creating EdgeClasses
 
 (defn- create-ec!
-  [^Schema s {:keys [qname abstract
-                     from from-multis from-role from-kind
-                     to to-multis to-role to-kind]}]
-  (-> (.getGraphClass s)
-      (doto (.createEdgeClass
-             (name qname)
-             (attributed-element-class s from) (first from-multis)
-             (second from-multis) from-role from-kind
-             (attributed-element-class s to) (first to-multis)
-             (second to-multis) to-role to-kind)
-        (.setAbstract (boolean abstract)))))
+  [^Graph g {:keys [qname abstract
+                    from from-multis from-role from-kind
+                    to to-multis to-role to-kind]}]
+  (with-open-schema g
+    (-> (.getGraphClass ^Schema (schema g))
+        (doto (.createEdgeClass
+               (name qname)
+               (attributed-element-class g from) (first from-multis)
+               (second from-multis) from-role from-kind
+               (attributed-element-class g to) (first to-multis)
+               (second to-multis) to-role to-kind)
+          (.setAbstract (boolean abstract))))))
 
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
@@ -247,7 +262,7 @@ before."
             to-kind AggregationKind/NONE}
        :as props}]
      {:pre [qname to from]}
-     (create-ec! (schema g)
+     (create-ec! g
                  {:qname qname :abstract abstract
                   :from from :from-multis from-multis :from-role (name from-role) :from-kind from-kind
                   :to   to   :to-multis   to-multis   :to-role   (name to-role)   :to-kind   to-kind}))
@@ -265,9 +280,10 @@ before."
 ;; TODO: Handle default values!
 (defn- create-attr!
   [g {:keys [qname domain default]}]
-  (let [[qn a _] (split-qname qname)
-        elem     ^AttributedElementClass (attributed-element-class g qn)]
-    (.addAttribute elem a (domain g domain))))
+  (with-open-schema g
+    (let [[qn a _] (split-qname qname)
+          elem     ^AttributedElementClass (attributed-element-class g qn)]
+      (.addAttribute elem a (domain g domain)))))
 
 (defn create-attribute!
   "Creates an attribute and sets values.
@@ -283,25 +299,29 @@ before."
 
 ;;## Creating type hierarchies
 
+;; TODO: Resize attribute arrays!
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
-  (let [s (attributed-element-class g super)]
-    (if (isa? (class s) VertexClass)
-      (doseq [sub subs]
-        (.addSuperClass ^VertexClass (attributed-element-class g sub) ^VertexClass s))
-      (doseq [sub subs]
-        (.addSuperClass ^EdgeClass (attributed-element-class g sub) ^EdgeClass s)))))
+  (with-open-schema g
+    (let [s (attributed-element-class g super)]
+      (if (isa? (class s) VertexClass)
+        (doseq [sub subs]
+          (.addSuperClass ^VertexClass (attributed-element-class g sub) ^VertexClass s))
+        (doseq [sub subs]
+          (.addSuperClass ^EdgeClass (attributed-element-class g sub) ^EdgeClass s))))))
 
+;; TODO: Resize attribute arrays!
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
   [g sub & supers]
-  (let [s (attributed-element-class g sub)]
-    (if (isa? (class s) VertexClass)
-      (doseq [super supers]
-        (.addSuperClass ^VertexClass s ^VertexClass (attributed-element-class g super)))
-      (doseq [super supers]
-        (.addSuperClass ^EdgeClass s ^EdgeClass (attributed-element-class g super))))))
+  (with-open-schema g
+    (let [s (attributed-element-class g sub)]
+      (if (isa? (class s) VertexClass)
+        (doseq [super supers]
+          (.addSuperClass ^VertexClass s ^VertexClass (attributed-element-class g super)))
+        (doseq [super supers]
+          (.addSuperClass ^EdgeClass s ^EdgeClass (attributed-element-class g super)))))))
 
 ;;# The transformation macro itself
 
