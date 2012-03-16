@@ -49,9 +49,9 @@
 
   (create-vertex-class! g {:qname 'SpecialPerson}
                         (fn [] [:a :b]))
-  (create-attribute! g {:qname 'SpecialPerson.xname :domain 'String}
-                     (fn [] {(resolve-element :a) "Franz"
-                            (resolve-element :b) "Klaus"}))
+  (create-attribute! g {:qname 'SpecialPerson.lastName :domain 'String}
+                     (fn [] {(resolve-element :a) "Müller"
+                            (resolve-element :b) "Meier"}))
 
   (add-sub-classes! g 'Person 'SpecialPerson)
 
@@ -59,7 +59,8 @@
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]
                 [arch (resolve-alpha a) (resolve-omega o)])
-              [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]]))))
+              [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
+               [6 1 :a] [7 2 :b]]))))
 
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]

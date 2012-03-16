@@ -13,7 +13,7 @@ before."
   (:use funnyqt.tg.query)
   (:use funnyqt.generic)
   (:use funnyqt.generic-protocols)
-  (:use [funnyqt.utils :only [error split-qname]])
+  (:use [funnyqt.utils :only [error split-qname pr-identity]])
   (:require clojure.set)
   (:require clojure.pprint)
   (:require [clojure.tools.macro :as m])
@@ -81,24 +81,6 @@ before."
 
 ;;# Utility functions
 
-(defn- merge-into-mappings
-  "Merges into `oldmap` the new mappings for `cls` (an GraphElementClass)."
-  [oldmap ^GraphElementClass cls new]
-  (let [kvs (flatten
-             (map (fn [c]
-                    (let [old (oldmap c)
-                          isect (seq (clojure.set/intersection
-                                      (into #{} (keys old))
-                                      (into #{} (keys new))))]
-                      (when isect
-                        (error (format "The keys %s already exist in img/arch"
-                                       isect)))
-                      [c (merge old new)]))
-                  (conj (filter #(not (.isInternal ^AttributedElementClass %))
-                                (.getAllSuperClasses cls))
-                        cls)))]
-    (apply assoc oldmap kvs)))
-
 (defn- on-attributes-fn
   "`f` : AttributedElement x Object[] -> Object[]"
   [f]
@@ -106,17 +88,34 @@ before."
     (invoke [_ ae ary]
       (f ae ary))))
 
+(defn- checked-merge
+  "Like a arity 2 variant of `clojure.core/merge` but checks for uniqueness of
+  keys.  Throws an exception on a key clash."
+  [m1 m2]
+  (if-let [isect (seq (clojure.set/intersection
+                       (keys m1) (keys m2)))]
+    (error (format "Traceability clash! %s should be added but were already present."
+                   isect))
+    (merge m1 m2)))
+
+(defn- into-trace-map [trace-map aec new]
+  (update-in trace-map [aec] checked-merge new))
+
 (defn- img-internal
   "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec arch]
-  ((@*img* aec) arch))
+  (or ((@*img* aec) arch)
+      (first (map #(img-internal %1 arch)
+                  (.getDirectSubClasses ^GraphElementClass aec)))))
 
 (defn- arch-internal
   "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec img]
-  ((@*arch* aec) img))
+  (or ((@*arch* aec) img)
+      (first (map #(arch-internal %1 img)
+                  (.getDirectSubClasses ^GraphElementClass aec)))))
 
 ;;# Instance only functions
 
@@ -135,9 +134,9 @@ before."
         (let [img  (persistent! im)
               arch (persistent! am)]
           (when (bound? #'*img*)
-            (swap! *img*  merge-into-mappings vc img))
+            (swap! *img*  into-trace-map vc img))
           (when (bound? #'*arch*)
-            (swap! *arch* merge-into-mappings vc arch))
+            (swap! *arch* into-trace-map vc arch))
           (keys arch))))))
 
 (defn create-edges! [g cls archfn]
@@ -156,9 +155,9 @@ before."
         (let [img  (persistent! im)
               arch (persistent! am)]
           (when (bound? #'*img*)
-            (swap! *img*  merge-into-mappings ec img))
+            (swap! *img*  into-trace-map ec img))
           (when (bound? #'*arch*)
-            (swap! *arch* merge-into-mappings ec arch))
+            (swap! *arch* into-trace-map ec arch))
           (keys arch))))))
 
 (defn set-values! [g a valfn]
@@ -289,18 +288,28 @@ before."
 
 ;;## Creating Attributes
 
-(defn- fix-attr-array-after-add! [^Attribute attr elems]
+(defn- fix-attr-array-after-add!
+  "Resizes the attributes array of all `elems` after adding the `new-attrs`."
+  [elems & new-attrs]
   (let [oaf (on-attributes-fn
              (fn [ae ^objects ary]
-               (let [idx (.getAttributeIndex ^AttributedElementClass
-                                             (attributed-element-class ae) (.getName attr))
-                     ^objects ary (if (nil? ary) (to-array []) ary)
-                     front (Arrays/copyOfRange ary (int 0) (int idx))
-                     tail  (Arrays/copyOfRange ary (int idx) (int (alength ary)))]
-                 (to-array (concat (seq front) [nil] (seq tail))))))]
+               (let [^AttributedElementClass aec (attributed-element-class ae)
+                     new-attrs (set new-attrs)
+                     ^objects new-ary (make-array Object (.getAttributeCount aec))]
+                 (loop [atts (.getAttributeList aec), posinc 0]
+                   (if (seq atts)
+                     (let [^Attribute a (first atts)
+                           idx (.getAttributeIndex aec (.getName a))]
+                       (if (new-attrs a)
+                         (recur (rest atts) (inc posinc))
+                         (do
+                           (aset new-ary idx (aget ary (- idx posinc)))
+                           (recur (rest atts) posinc))))
+                     new-ary)))))]
     (doseq [^InternalAttributesArrayAccess e elems]
       (.invokeOnAttributesArray e oaf)
-      (.setDefaultValue attr e))))
+      (doseq [^Attribute a new-attrs]
+        (.setDefaultValue a e)))))
 
 (defn- create-attr!
   [g {:keys [qname domain default]}]
@@ -308,12 +317,13 @@ before."
     (let [[qn aname _] (split-qname qname)
           aec          ^AttributedElementClass (attributed-element-class g qn)]
       (.addAttribute aec aname (funnyqt.tg.core/domain g domain) default)
-      (fix-attr-array-after-add! (.getAttribute aec aname)
-                          (cond
-                           (instance? GraphClass aec)  [g]
-                           (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
-                           (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
-                           :else (error (format "Cannot handle %s." aec)))))))
+      (fix-attr-array-after-add!
+       (cond
+        (instance? GraphClass aec)  [g]
+        (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
+        (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
+        :else (error (format "Cannot handle %s." aec)))
+       (.getAttribute aec aname)))))
 
 (defn create-attribute!
   "Creates an attribute and sets values.
@@ -351,12 +361,10 @@ before."
           (if (isa? (class s) VertexClass)
             (do
               (.addSuperClass ^VertexClass subaec ^VertexClass s)
-              (doseq [a (.getAttributeList s)]
-                (fix-attr-array-after-add! a (vseq g sub))))
+              (apply fix-attr-array-after-add! (vseq g sub) (.getAttributeList s)))
             (do
               (.addSuperClass ^EdgeClass subaec ^EdgeClass s)
-              (doseq [a (.getAttributeList s)]
-                (fix-attr-array-after-add! a (eseq g sub))))))))))
+              (apply fix-attr-array-after-add! (eseq g sub) (.getAttributeList s)))))))))
 
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
