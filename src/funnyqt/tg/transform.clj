@@ -289,8 +289,7 @@ before."
 
 ;;## Creating Attributes
 
-;; TODO: Make work for deletion and rename!
-(defn- fix-attr-array [^Attribute attr elems]
+(defn- fix-attr-array-after-add! [^Attribute attr elems]
   (let [oaf (on-attributes-fn
              (fn [ae ^objects ary]
                (let [idx (.getAttributeIndex ^AttributedElementClass
@@ -309,7 +308,7 @@ before."
     (let [[qn aname _] (split-qname qname)
           aec          ^AttributedElementClass (attributed-element-class g qn)]
       (.addAttribute aec aname (funnyqt.tg.core/domain g domain) default)
-      (fix-attr-array (.getAttribute aec aname)
+      (fix-attr-array-after-add! (.getAttribute aec aname)
                           (cond
                            (instance? GraphClass aec)  [g]
                            (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
@@ -353,11 +352,11 @@ before."
             (do
               (.addSuperClass ^VertexClass subaec ^VertexClass s)
               (doseq [a (.getAttributeList s)]
-                (fix-attr-array a (vseq g sub))))
+                (fix-attr-array-after-add! a (vseq g sub))))
             (do
               (.addSuperClass ^EdgeClass subaec ^EdgeClass s)
               (doseq [a (.getAttributeList s)]
-                (fix-attr-array a (eseq g sub))))))))))
+                (fix-attr-array-after-add! a (eseq g sub))))))))))
 
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
@@ -371,11 +370,11 @@ before."
             (do
               (.addSuperClass ^VertexClass s ^VertexClass superaec)
               (doseq [a (.getAttributeList superaec)]
-                (fix-attr-array a (vseq g s))))
+                (fix-attr-array-after-add! a (vseq g s))))
             (do
               (.addSuperClass ^EdgeClass s ^EdgeClass superaec)
               (doseq [a (.getAttributeList superaec)]
-                (fix-attr-array a (eseq g s))))))))))
+                (fix-attr-array-after-add! a (eseq g s))))))))))
 
 ;;# The transformation macro itself
 
