@@ -55,6 +55,9 @@
 
   (add-sub-classes! g 'Person 'SpecialPerson)
 
+  ;; FIXME: Somehow breaks the DAG
+  #_(rename-attributed-element-class! g 'SpecialPerson 'FooBar)
+
   (create-edge-class!
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]
@@ -65,5 +68,4 @@
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
     (transformation-2 g)
-    (show-graph g)
-    ))
+    (show-graph g)))

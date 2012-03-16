@@ -26,32 +26,10 @@ before."
                                   GraphClass EdgeClass Schema VertexClass
                                   RecordDomain EnumDomain)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)
+   (de.uni_koblenz.jgralab.schema.impl SchemaImpl NamedElementImpl GraphClassImpl)
    (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
                                         InternalAttributesArrayAccess$OnAttributesFunction)))
 
-
-;;# TODO List
-
-;; - The usage of those dynamic Vars is not really optimal.  There's no good
-;;   reason why you shouldn't be able to use create-vertices! outside of a
-;;   transformation.  The mapping should be passed along...
-;;
-;; - Allow for many target graphs!
-;;
-;; - Implement Collection and Map attribute creation: List<String>,
-;;   Map<Integer,String>, conversion of attribute values is already done.  And
-;;   using (domain myelem [Map Integer String]) one can get the right domain.
-;;
-;; - Implement copy ops for VertexClasses, EdgeClasses, Attributes, and
-;;   Record/EnumDomains...
-;;
-;; - arch/image-Funktionen müssen vom User bestimmt werden können (um nicht
-;;   mehr strikt bijektiv zu sein)
-;;
-;;   + implizites globale Funktionen (wie jetzt)
-;;
-;;   + Blöcke mit eigenen Bindings (with-traceability foo (op1 ...) (op2 ...))
 
 ;;# Dynamic vars
 
@@ -117,6 +95,29 @@ before."
       (first (map #(arch-internal %1 img)
                   (.getDirectSubClasses ^GraphElementClass aec)))))
 
+
+(defn get-field-reflectively
+  [^Class klass obj field-name]
+  (-> klass
+      (.getDeclaredField (name field-name))
+      (doto (.setAccessible true))
+      (.get obj)))
+
+(defn set-field-reflectively!
+  [^Class klass obj field-name value]
+  (-> klass
+      (.getDeclaredField (name field-name))
+      (doto (.setAccessible true))
+      (.set obj value)))
+
+(defn call-method-refectively
+  [^Class klass obj method-name paramtypes & args]
+  (-> klass
+      (.getDeclaredMethod (name method-name)
+                          (into-array Class paramtypes))
+      (doto (.setAccessible true))
+      (.invoke obj (into-array Object args))))
+
 ;;# Instance only functions
 
 (defn create-vertices! [g cls archfn]
@@ -179,7 +180,7 @@ before."
 
 ;;# Schema functions
 
-;;## Create a new schema
+;;## Create a new schema & empty graph
 
 (defn- create-schema [sqname gcname]
   (let [[prefix sname] (split-qname sqname)]
@@ -216,7 +217,47 @@ before."
                                 (vec (map clojure.core/name
                                           literals)))])))
 
-;;## Creating VertexClasses
+;;## NamedElements
+
+;;### Renaming
+
+  ;; FIXME: Somehow breaks the DAG
+(defn rename-attributed-element-class!
+  [g attr-elem-class new-qname]
+  (let [^AttributedElementClass aec (attributed-element-class g attr-elem-class)
+        ^Schema s (schema g)
+        nqn (name new-qname)]
+    (when (.knows s nqn)
+      (error (format "Schema already contains an element named %s." nqn)))
+    (with-open-schema g
+      (let [[pkgn sn] (split-qname nqn)
+            pkg (or (.getPackage s pkgn)
+                    (call-method-refectively Schema s 'createPackageWithParents pkgn))]
+        (println "pkg = " pkgn ", sn = " sn)
+        (set-field-reflectively! NamedElementImpl aec :qualifiedName nqn)
+        (doto ^java.util.Map (get-field-reflectively SchemaImpl s :namedElements)
+              (.remove (name attr-elem-class))
+              (.put nqn aec)
+              println)
+        (doto ^java.util.Map (get-field-reflectively GraphClassImpl (.getGraphClass s) :graphElementClasses)
+              (.remove (name attr-elem-class))
+              (.put nqn aec)
+              println)
+        (doto ^java.util.Map (get-field-reflectively GraphClassImpl (.getGraphClass s)
+                                                     (if (instance? VertexClass aec)
+                                                       :vertexClasses
+                                                       :edgeClasses))
+              (.remove (name attr-elem-class))
+              (.put nqn aec)
+              println)
+        (set-field-reflectively! NamedElementImpl aec :simpleName sn)
+          ;; FIXME: That's not correct!
+        (set-field-reflectively! NamedElementImpl aec :uniqueName sn)
+        (set-field-reflectively! NamedElementImpl aec :parentPackage pkg)))))
+
+;;## VertexClasses
+
+;;### Creating
 
 (defn- create-vc!
   [g {:keys [qname abstract]}]
@@ -241,7 +282,9 @@ before."
      (create-vertex-class! g props)
      (create-vertices! g qname archs)))
 
-;;## Creating EdgeClasses
+;;## EdgeClasses
+
+;;### Creating
 
 (defn- create-ec!
   [^Graph g {:keys [qname abstract
@@ -286,7 +329,9 @@ before."
      (create-edge-class! g props)
      (create-edges! g qname archs)))
 
-;;## Creating Attributes
+;;## Attributes
+
+;;### Creating
 
 (defn- fix-attr-array-after-add!
   "Resizes the attributes array of all `elems` after adding the `new-attrs`."
@@ -337,7 +382,9 @@ before."
      (create-attribute! g props)
      (set-values! g qname valfn)))
 
-;;## Creating type hierarchies
+;;## Type Hierarchies
+
+;;### Creating
 
 (defn- attribute-names [^AttributedElementClass aec]
   (set (map #(.getName ^Attribute %1)
