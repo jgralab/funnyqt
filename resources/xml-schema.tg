@@ -1,6 +1,6 @@
 TGraph 2;
 
-Schema de.uni_koblenz.ist.funtg.xmltg.XMLSchema;
+Schema de.uni_koblenz.xmltg.XMLSchema;
 GraphClass XMLGraph;
 
 abstract VertexClass Node;

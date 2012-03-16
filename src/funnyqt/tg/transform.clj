@@ -10,12 +10,15 @@ the archetype of it.  This design decision allows for using those functions to
 extend an existing Graph without having to create artificial archetypes
 before."
   (:use funnyqt.tg.core)
+  (:use funnyqt.tg.query)
   (:use funnyqt.generic)
+  (:use funnyqt.generic-protocols)
   (:use [funnyqt.utils :only [error split-qname]])
   (:require clojure.set)
   (:require clojure.pprint)
   (:require [clojure.tools.macro :as m])
   (:import
+   (java.util Arrays)
    (de.uni_koblenz.jgralab Graph Vertex Edge)
    (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.schema AggregationKind Attribute
@@ -23,7 +26,9 @@ before."
                                   GraphClass EdgeClass Schema VertexClass
                                   RecordDomain EnumDomain)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)))
+   (de.uni_koblenz.jgralab.schema.impl SchemaImpl)
+   (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
+                                        InternalAttributesArrayAccess$OnAttributesFunction)))
 
 
 ;;# TODO List
@@ -93,6 +98,13 @@ before."
                                 (.getAllSuperClasses cls))
                         cls)))]
     (apply assoc oldmap kvs)))
+
+(defn- on-attributes-fn
+  "`f` : AttributedElement x Object[] -> Object[]"
+  [f]
+  (reify InternalAttributesArrayAccess$OnAttributesFunction
+    (invoke [_ ae ary]
+      (f ae ary))))
 
 (defn- img-internal
   "Returns the image of `arch` for AttributedElementClass `aec`.
@@ -277,13 +289,31 @@ before."
 
 ;;## Creating Attributes
 
-;; TODO: Handle default values!
+(defn- fix-attr-array-inc [^Attribute attr elems]
+  (let [oaf (on-attributes-fn
+             (fn [ae ^objects ary]
+               (let [idx (.getAttributeIndex ^AttributedElementClass
+                                             (attributed-element-class ae) (.getName attr))
+                     ^objects ary (if (nil? ary) (to-array []) ary)
+                     front (Arrays/copyOfRange ary (int 0) (int idx))
+                     tail  (Arrays/copyOfRange ary (int idx) (int (alength ary)))]
+                 (to-array (concat (seq front) [nil] (seq tail))))))]
+    (doseq [^InternalAttributesArrayAccess e elems]
+      (.invokeOnAttributesArray e oaf)
+      (.setDefaultValue attr e))))
+
 (defn- create-attr!
   [g {:keys [qname domain default]}]
   (with-open-schema g
-    (let [[qn a _] (split-qname qname)
-          elem     ^AttributedElementClass (attributed-element-class g qn)]
-      (.addAttribute elem a (domain g domain)))))
+    (let [[qn aname _] (split-qname qname)
+          aec          ^AttributedElementClass (attributed-element-class g qn)]
+      (.addAttribute aec aname (funnyqt.tg.core/domain g domain) default)
+      (fix-attr-array-inc (.getAttribute aec aname)
+                          (cond
+                           (instance? GraphClass aec)  [g]
+                           (instance? VertexClass aec) (vseq g (qname aec))
+                           (instance? EdgeClass aec)   (eseq g (qname aec))
+                           :else (error (format "Cannot handle %s." aec)))))))
 
 (defn create-attribute!
   "Creates an attribute and sets values.

@@ -37,6 +37,16 @@
   (create-vertex-class!
    g {:qname 'Person}
    (fn [] [1 2 3 4 5]))
+
+  (create-attribute! g {:qname 'Person.name :domain 'String :default "\"Fritz\""}
+                     (fn [] {(resolve-element 1) "Hugo"
+                            (resolve-element 2) "Peter"
+                            (resolve-element 3) "August"}))
+  (create-attribute! g {:qname 'Person.birthday :domain 'String}
+                     (fn [] {(resolve-element 3) "1980-11-01"
+                            (resolve-element 4) "1970-06-22"
+                            (resolve-element 5) "1975-01-01"}))
+
   (create-edge-class!
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]
@@ -46,5 +56,5 @@
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
     (transformation-2 g)
-    #_(show-graph g)
+    (show-graph g)
     ))
