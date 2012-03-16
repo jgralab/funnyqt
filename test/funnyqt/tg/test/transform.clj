@@ -47,6 +47,14 @@
                             (resolve-element 4) "1970-06-22"
                             (resolve-element 5) "1975-01-01"}))
 
+  (create-vertex-class! g {:qname 'SpecialPerson}
+                        (fn [] [:a :b]))
+  (create-attribute! g {:qname 'SpecialPerson.xname :domain 'String}
+                     (fn [] {(resolve-element :a) "Franz"
+                            (resolve-element :b) "Klaus"}))
+
+  (add-sub-classes! g 'Person 'SpecialPerson)
+
   (create-edge-class!
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]

@@ -289,7 +289,8 @@ before."
 
 ;;## Creating Attributes
 
-(defn- fix-attr-array-inc [^Attribute attr elems]
+;; TODO: Make work for deletion and rename!
+(defn- fix-attr-array [^Attribute attr elems]
   (let [oaf (on-attributes-fn
              (fn [ae ^objects ary]
                (let [idx (.getAttributeIndex ^AttributedElementClass
@@ -308,11 +309,11 @@ before."
     (let [[qn aname _] (split-qname qname)
           aec          ^AttributedElementClass (attributed-element-class g qn)]
       (.addAttribute aec aname (funnyqt.tg.core/domain g domain) default)
-      (fix-attr-array-inc (.getAttribute aec aname)
+      (fix-attr-array (.getAttribute aec aname)
                           (cond
                            (instance? GraphClass aec)  [g]
-                           (instance? VertexClass aec) (vseq g (qname aec))
-                           (instance? EdgeClass aec)   (eseq g (qname aec))
+                           (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
+                           (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
                            :else (error (format "Cannot handle %s." aec)))))))
 
 (defn create-attribute!
@@ -329,29 +330,52 @@ before."
 
 ;;## Creating type hierarchies
 
-;; TODO: Resize attribute arrays!
+(defn- attribute-names [^AttributedElementClass aec]
+  (set (map #(.getName ^Attribute %1)
+            (.getAttributeList aec))))
+
+(defn- check-for-attribute-clash [aec1 aec2]
+  (let [isect (clojure.set/intersection (attribute-names aec1)
+                                        (attribute-names aec2))]
+    (when (seq isect)
+      (error (format "Attribute clash between %s and %s: %s"
+                     aec1 aec2 isect)))))
+
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
   (with-open-schema g
-    (let [s (attributed-element-class g super)]
-      (if (isa? (class s) VertexClass)
-        (doseq [sub subs]
-          (.addSuperClass ^VertexClass (attributed-element-class g sub) ^VertexClass s))
-        (doseq [sub subs]
-          (.addSuperClass ^EdgeClass (attributed-element-class g sub) ^EdgeClass s))))))
+    (let [^AttributedElementClass s (attributed-element-class g super)]
+      (doseq [sub subs]
+        (let [subaec (attributed-element-class g sub)]
+          (check-for-attribute-clash s subaec)
+          (if (isa? (class s) VertexClass)
+            (do
+              (.addSuperClass ^VertexClass subaec ^VertexClass s)
+              (doseq [a (.getAttributeList s)]
+                (fix-attr-array a (vseq g sub))))
+            (do
+              (.addSuperClass ^EdgeClass subaec ^EdgeClass s)
+              (doseq [a (.getAttributeList s)]
+                (fix-attr-array a (eseq g sub))))))))))
 
-;; TODO: Resize attribute arrays!
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
   [g sub & supers]
   (with-open-schema g
     (let [s (attributed-element-class g sub)]
-      (if (isa? (class s) VertexClass)
-        (doseq [super supers]
-          (.addSuperClass ^VertexClass s ^VertexClass (attributed-element-class g super)))
-        (doseq [super supers]
-          (.addSuperClass ^EdgeClass s ^EdgeClass (attributed-element-class g super)))))))
+      (doseq [super supers]
+        (let [^AttributedElementClass superaec (attributed-element-class g super)]
+          (check-for-attribute-clash superaec s)
+          (if (isa? (class s) VertexClass)
+            (do
+              (.addSuperClass ^VertexClass s ^VertexClass superaec)
+              (doseq [a (.getAttributeList superaec)]
+                (fix-attr-array a (vseq g s))))
+            (do
+              (.addSuperClass ^EdgeClass s ^EdgeClass superaec)
+              (doseq [a (.getAttributeList superaec)]
+                (fix-attr-array a (eseq g s))))))))))
 
 ;;# The transformation macro itself
 
