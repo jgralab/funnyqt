@@ -377,12 +377,10 @@ before."
           (if (isa? (class s) VertexClass)
             (do
               (.addSuperClass ^VertexClass s ^VertexClass superaec)
-              (doseq [a (.getAttributeList superaec)]
-                (fix-attr-array-after-add! a (vseq g s))))
+              (fix-attr-array-after-add! (vseq g s) (.getAttributeList superaec)))
             (do
               (.addSuperClass ^EdgeClass s ^EdgeClass superaec)
-              (doseq [a (.getAttributeList superaec)]
-                (fix-attr-array-after-add! a (eseq g s))))))))))
+              (fix-attr-array-after-add! (eseq g s) (.getAttributeList superaec)))))))))
 
 ;;# The transformation macro itself
 
