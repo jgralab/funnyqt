@@ -374,9 +374,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                       #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
                                       a))
                              `(~@(create-vc-relations vc)))
-                           (reverse
-                            (filter #(not (.isInternal ^VertexClass %))
-                                    (seq (-> s .getVertexClassesInTopologicalOrder))))))
+                           (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
                 ~@(doall
                    (mapcat (fn [^EdgeClass ec]
                              (doseq [a (map #(keyword (.getName %))
@@ -385,9 +383,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                                       #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
                                       a))
                              `(~@(create-ec-relations ec)))
-                           (reverse
-                            (filter #(not (.isInternal ^EdgeClass %))
-                                    (seq (-> s .getEdgeClassesInTopologicalOrder))))))
+                           (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
                 ;;~(clojure.pprint/pprint @atts)
                 ~@(doall
                    (for [^Attribute a @atts]

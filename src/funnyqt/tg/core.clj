@@ -236,14 +236,14 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (.isAbstract this)))
 
 (defprotocol Internalness
-  "A protocol for checking if an attributed element class is internal."
-  (internal? [this]
+  "A protocol for checking if a graph element class is internal."
+  (default-class? [this]
     "Returns true, iff the given attributed element class is abstract."))
 
 (extend-protocol Internalness
-  AttributedElementClass
-  (internal? [this]
-    (.isInternal this)))
+  GraphElementClass
+  (default-class? [this]
+    (.isDefaultGraphElementClass this)))
 
 (defprotocol Resolving
   "A protocol for resolving schema classes and domains."

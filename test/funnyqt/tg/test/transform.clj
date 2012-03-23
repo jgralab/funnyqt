@@ -68,4 +68,4 @@
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
     (transformation-2 g)
-    (show-graph g)))
+    #_(show-graph g)))

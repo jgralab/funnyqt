@@ -713,8 +713,7 @@ can compute that like so:
 (defn- super-classes
   [^GraphElementClass gec]
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
-            (filter #(not (.isInternal ^GraphElementClass %))
-                    (.getDirectSuperClasses gec)))))
+            (.getDirectSuperClasses gec))))
 
 (defn- sub-classes
   [^GraphElementClass gec]

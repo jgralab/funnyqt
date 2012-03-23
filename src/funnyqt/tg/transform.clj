@@ -83,17 +83,21 @@ before."
   "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec arch]
-  (or ((@*img* aec) arch)
-      (first (map #(img-internal %1 arch)
-                  (.getDirectSubClasses ^GraphElementClass aec)))))
+  (if-let [m (@*img* aec)]
+    (m arch)
+    (first (remove nil?
+                   (map #(img-internal %1 arch)
+                        (.getDirectSubClasses ^GraphElementClass aec))))))
 
 (defn- arch-internal
   "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec img]
-  (or ((@*arch* aec) img)
-      (first (map #(arch-internal %1 img)
-                  (.getDirectSubClasses ^GraphElementClass aec)))))
+  (if-let [m (@*arch* aec)]
+    (m img)
+    (first (remove nil?
+                   (map #(arch-internal %1 img)
+                        (.getDirectSubClasses ^GraphElementClass aec))))))
 
 
 (defn get-field-reflectively
@@ -213,47 +217,15 @@ before."
   [g name literals]
   (with-open-schema g
     (let [ed (.createEnumDomain ^Schema (schema g)
-                                (clojure.core/name name)
-                                (vec (map clojure.core/name
-                                          literals)))])))
+                                ^String (clojure.core/name name)
+                                ^java.util.List (vec (map clojure.core/name
+                                                          literals)))])))
 
 ;;## NamedElements
 
 ;;### Renaming
 
-  ;; FIXME: Somehow breaks the DAG
-(defn rename-attributed-element-class!
-  [g attr-elem-class new-qname]
-  (let [^AttributedElementClass aec (attributed-element-class g attr-elem-class)
-        ^Schema s (schema g)
-        nqn (name new-qname)]
-    (when (.knows s nqn)
-      (error (format "Schema already contains an element named %s." nqn)))
-    (with-open-schema g
-      (let [[pkgn sn] (split-qname nqn)
-            pkg (or (.getPackage s pkgn)
-                    (call-method-refectively Schema s 'createPackageWithParents pkgn))]
-        (println "pkg = " pkgn ", sn = " sn)
-        (set-field-reflectively! NamedElementImpl aec :qualifiedName nqn)
-        (doto ^java.util.Map (get-field-reflectively SchemaImpl s :namedElements)
-              (.remove (name attr-elem-class))
-              (.put nqn aec)
-              println)
-        (doto ^java.util.Map (get-field-reflectively GraphClassImpl (.getGraphClass s) :graphElementClasses)
-              (.remove (name attr-elem-class))
-              (.put nqn aec)
-              println)
-        (doto ^java.util.Map (get-field-reflectively GraphClassImpl (.getGraphClass s)
-                                                     (if (instance? VertexClass aec)
-                                                       :vertexClasses
-                                                       :edgeClasses))
-              (.remove (name attr-elem-class))
-              (.put nqn aec)
-              println)
-        (set-field-reflectively! NamedElementImpl aec :simpleName sn)
-          ;; FIXME: That's not correct!
-        (set-field-reflectively! NamedElementImpl aec :uniqueName sn)
-        (set-field-reflectively! NamedElementImpl aec :parentPackage pkg)))))
+
 
 ;;## VertexClasses
 
@@ -361,7 +333,7 @@ before."
   (with-open-schema g
     (let [[qn aname _] (split-qname qname)
           aec          ^AttributedElementClass (attributed-element-class g qn)]
-      (.addAttribute aec aname (funnyqt.tg.core/domain g domain) default)
+      (.createAttribute aec aname (funnyqt.tg.core/domain g domain) default)
       (fix-attr-array-after-add!
        (cond
         (instance? GraphClass aec)  [g]
