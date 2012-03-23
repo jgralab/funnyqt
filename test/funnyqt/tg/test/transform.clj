@@ -85,8 +85,12 @@
   (create-vertex-class! g {:qname 'Sibling2} (fn [] [:s2]))
   (create-vertex-class! g {:qname 'Bottom} (fn [] [:b]))
 
+  (create-attribute! g {:qname 'Top.name :domain 'String}
+                     (fn [] {(resolve-element :t) "Top"}))
+  
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
-  (add-super-classes! g 'Bottom 'Sibling1 'Sibling2)
+  (add-sub-classes! g 'Sibling1 'Bottom)
+  (add-sub-classes! g 'Sibling2 'Bottom)
   )
 
 (deftest test-multiple-inheritance

@@ -370,52 +370,37 @@ before."
 
 ;;### Creating
 
-(defn- attribute-names [^AttributedElementClass aec]
-  (set (map #(.getName ^Attribute %1)
-            (.getAttributeList aec))))
+(defn- attr-name-dom-map [^AttributedElementClass aec]
+  (apply hash-map (mapcat (fn [^Attribute a] [(.getName a) (.getDomain a)])
+                          (.getAttributeList aec))))
 
-(defn- check-for-attribute-clash [aec1 aec2]
-  (let [isect (clojure.set/intersection (attribute-names aec1)
-                                        (attribute-names aec2))]
-    (when (seq isect)
-      (error (format "Attribute clash between %s and %s: %s"
-                     aec1 aec2 isect)))))
+(defn- handle-attribute-clashes [super subs]
+  (let [supmap (attr-name-dom-map super)
+        supkeys (set (keys supmap))]
+    (doseq [sub subs
+            :let [submap (attr-name-dom-map sub)
+                  isect (clojure.set/intersection
+                         supkeys (set (keys submap)))]]
+      (when (seq isect)
+        (error (format "Attr clash: %s" isect))))))
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
   (with-open-schema g
-    (let [^AttributedElementClass s (attributed-element-class g super)]
-      (doseq [sub subs]
-        (let [subaec (attributed-element-class g sub)]
-          (check-for-attribute-clash s subaec)
-          (if (isa? (class s) VertexClass)
-            (do
-              (.addSuperClass ^VertexClass subaec ^VertexClass s)
-              (apply fix-attr-array-after-add! (vseq g sub)
-                     (seq (.getAttributeList s))))
-            (do
-              (.addSuperClass ^EdgeClass subaec ^EdgeClass s)
-              (apply fix-attr-array-after-add! (eseq g sub)
-                     (seq (.getAttributeList s))))))))))
-
-(defn add-super-classes!
-  "Makes all `supers` super-classes of `sub`."
-  [g sub & supers]
-  (with-open-schema g
-    (let [s (attributed-element-class g sub)]
-      (doseq [super supers]
-        (let [^AttributedElementClass superaec (attributed-element-class g super)]
-          (check-for-attribute-clash superaec s)
-          (if (isa? (class s) VertexClass)
-            (do
-              (.addSuperClass ^VertexClass s ^VertexClass superaec)
-              (apply fix-attr-array-after-add! (vseq g s)
-                     (seq (.getAttributeList superaec))))
-            (do
-              (.addSuperClass ^EdgeClass s ^EdgeClass superaec)
-              (apply fix-attr-array-after-add! (eseq g s)
-                     (seq (.getAttributeList superaec))))))))))
+    (let [^AttributedElementClass superaec (attributed-element-class g super)
+          subaecs (map #(attributed-element-class g %1) subs)]
+      (handle-attribute-clashes superaec subaecs)
+      (doseq [subaec subaecs]
+        (if (isa? (class superaec) VertexClass)
+          (do
+            (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
+            (apply fix-attr-array-after-add! (vseq g subaec)
+                   (seq (.getAttributeList superaec))))
+          (do
+            (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
+            (apply fix-attr-array-after-add! (eseq g subaec)
+                   (seq (.getAttributeList superaec)))))))))
 
 ;;# The transformation macro itself
 

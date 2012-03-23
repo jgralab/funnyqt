@@ -340,12 +340,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
   "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
   or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
   the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
-  semantics."
+  semantics.
+
+  If `ts` is an AttributedElementClass, then the type-matcher will only accept
+  elements of that class or subclasses."
   [g ts]
   (cond
    (nil? ts)   identity
    (fn? ts)    ts
    (qname? ts) (type-matcher-1 g ts)
+   (instance? AttributedElementClass ts) (fn [e] (.isInstanceOf e ts))
    (coll? ts)  (if (seq ts)
                   (let [f (first ts)
                         [op r] (case f
