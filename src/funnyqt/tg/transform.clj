@@ -79,26 +79,37 @@ before."
 (defn- into-trace-map [trace-map aec new]
   (update-in trace-map [aec] checked-merge new))
 
-(defn- img-internal
+(defn- img-internal-1
   "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec arch]
-  (if-let [m (@*img* aec)]
-    (m arch)
-    (first (remove nil?
-                   (map #(img-internal %1 arch)
-                        (.getDirectSubClasses ^GraphElementClass aec))))))
+  (or (when-let [m (@*img* aec)]
+        (m arch))
+      (first (remove nil?
+                     (map #(img-internal-1 %1 arch)
+                          (.getDirectSubClasses ^GraphElementClass aec))))))
 
-(defn- arch-internal
+(defn- img-internal
+  [aec arch]
+  (or (img-internal-1 aec arch)
+      (error (format "Couldn't resolve image of %s in img fn of %s: %s"
+                     arch aec @*img*))))
+
+(defn- arch-internal-1
   "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
   [aec img]
-  (if-let [m (@*arch* aec)]
-    (m img)
-    (first (remove nil?
-                   (map #(arch-internal %1 img)
-                        (.getDirectSubClasses ^GraphElementClass aec))))))
+  (or (when-let [m (@*arch* aec)]
+        (m img))
+      (first (remove nil?
+                     (map #(arch-internal-1 %1 img)
+                          (.getDirectSubClasses ^GraphElementClass aec))))))
 
+(defn- arch-internal
+  [aec img]
+  (or (arch-internal-1 aec img)
+      (error (format "Couldn't resolve archetype of %s in arch fn of %s: %s"
+                     img aec @*arch*))))
 
 (defn get-field-reflectively
   [^Class klass obj field-name]
