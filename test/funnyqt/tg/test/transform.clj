@@ -55,9 +55,6 @@
 
   (add-sub-classes! g 'Person 'SpecialPerson)
 
-  ;; FIXME: Somehow breaks the DAG
-  #_(rename-attributed-element-class! g 'SpecialPerson 'FooBar)
-
   (create-edge-class!
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]
@@ -68,4 +65,15 @@
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
     (transformation-2 g)
-    #_(show-graph g)))
+    (is (== 7 (vcount g)))
+    (is (== 7 (ecount g)))
+    (is (== 2 (vcount g 'SpecialPerson)))
+    ;; Every person has its name set
+    (is (forall? #(value % :name)
+                 (vseq g 'Person)))
+    ;; Every special person has its lastName set to Müller or Meier
+    (is (forall? #(#{"Müller" "Meier"} (value % :lastName))
+                 (vseq g 'SpecialPerson)))
+    ;; There are 3 persons with a set birthday value
+    (is (== 3 (count (filter (fn [p] (value p :birthday))
+                             (vseq g 'Person)))))))
