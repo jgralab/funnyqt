@@ -77,3 +77,19 @@
     ;; There are 3 persons with a set birthday value
     (is (== 3 (count (filter (fn [p] (value p :birthday))
                              (vseq g 'Person)))))))
+
+(deftransformation multiple-inheritance
+  [g]
+  (create-vertex-class! g {:qname 'Top} (fn [] [:t]))
+  (create-vertex-class! g {:qname 'Sibling1} (fn [] [:s1]))
+  (create-vertex-class! g {:qname 'Sibling2} (fn [] [:s2]))
+  (create-vertex-class! g {:qname 'Bottom} (fn [] [:b]))
+
+  (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
+  (add-super-classes! g 'Bottom 'Sibling1 'Sibling2)
+  )
+
+(deftest test-multiple-inheritance
+  (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (multiple-inheritance g)
+    (show-graph g)))

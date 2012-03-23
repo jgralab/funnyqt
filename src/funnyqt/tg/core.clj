@@ -285,7 +285,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (.getAttributedElementClass this))
     ([this qname]
        (or (-> this .getSchema (.getAttributedElementClass (name qname)))
-           (error (format "No such attributed element class %" (name qname))))))
+           (error (format "No such attributed element class %s" (name qname))))))
   (domain [elem qname]
     (or (-> (.getSchema elem)
             (.getDomain (domain-qname qname)))

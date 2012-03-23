@@ -319,25 +319,26 @@ before."
 (defn- fix-attr-array-after-add!
   "Resizes the attributes array of all `elems` after adding the `new-attrs`."
   [elems & new-attrs]
-  (let [oaf (on-attributes-fn
-             (fn [ae ^objects ary]
-               (let [^AttributedElementClass aec (attributed-element-class ae)
-                     new-attrs (set new-attrs)
-                     ^objects new-ary (make-array Object (.getAttributeCount aec))]
-                 (loop [atts (.getAttributeList aec), posinc 0]
-                   (if (seq atts)
-                     (let [^Attribute a (first atts)
-                           idx (.getAttributeIndex aec (.getName a))]
-                       (if (new-attrs a)
-                         (recur (rest atts) (inc posinc))
-                         (do
-                           (aset new-ary idx (aget ary (- idx posinc)))
-                           (recur (rest atts) posinc))))
-                     new-ary)))))]
-    (doseq [^InternalAttributesArrayAccess e elems]
-      (.invokeOnAttributesArray e oaf)
-      (doseq [^Attribute a new-attrs]
-        (.setDefaultValue a e)))))
+  (when (seq new-attrs)
+    (let [oaf (on-attributes-fn
+               (fn [ae ^objects ary]
+                 (let [^AttributedElementClass aec (attributed-element-class ae)
+                       new-attrs (set new-attrs)
+                       ^objects new-ary (make-array Object (.getAttributeCount aec))]
+                   (loop [atts (.getAttributeList aec), posinc 0]
+                     (if (seq atts)
+                       (let [^Attribute a (first atts)
+                             idx (.getAttributeIndex aec (.getName a))]
+                         (if (new-attrs a)
+                           (recur (rest atts) (inc posinc))
+                           (do
+                             (aset new-ary idx (aget ary (- idx posinc)))
+                             (recur (rest atts) posinc))))
+                       new-ary)))))]
+      (doseq [^InternalAttributesArrayAccess e elems]
+        (.invokeOnAttributesArray e oaf)
+        (doseq [^Attribute a new-attrs]
+          (.setDefaultValue a e))))))
 
 (defn- create-attr!
   [g {:keys [qname domain default]}]
@@ -391,10 +392,12 @@ before."
           (if (isa? (class s) VertexClass)
             (do
               (.addSuperClass ^VertexClass subaec ^VertexClass s)
-              (apply fix-attr-array-after-add! (vseq g sub) (.getAttributeList s)))
+              (apply fix-attr-array-after-add! (vseq g sub)
+                     (seq (.getAttributeList s))))
             (do
               (.addSuperClass ^EdgeClass subaec ^EdgeClass s)
-              (apply fix-attr-array-after-add! (eseq g sub) (.getAttributeList s)))))))))
+              (apply fix-attr-array-after-add! (eseq g sub)
+                     (seq (.getAttributeList s))))))))))
 
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`."
@@ -407,10 +410,12 @@ before."
           (if (isa? (class s) VertexClass)
             (do
               (.addSuperClass ^VertexClass s ^VertexClass superaec)
-              (fix-attr-array-after-add! (vseq g s) (.getAttributeList superaec)))
+              (apply fix-attr-array-after-add! (vseq g s)
+                     (seq (.getAttributeList superaec))))
             (do
               (.addSuperClass ^EdgeClass s ^EdgeClass superaec)
-              (fix-attr-array-after-add! (eseq g s) (.getAttributeList superaec)))))))))
+              (apply fix-attr-array-after-add! (eseq g s)
+                     (seq (.getAttributeList superaec))))))))))
 
 ;;# The transformation macro itself
 
