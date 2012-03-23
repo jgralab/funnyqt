@@ -87,6 +87,9 @@
 
   (create-attribute! g {:qname 'Top.name :domain 'String}
                      (fn [] {(resolve-element :t) "Top"}))
+
+  (create-attribute! g {:qname 'Bottom.name :domain 'String}
+                     (fn [] {(resolve-element :b) "Bottom"}))
   
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   (add-sub-classes! g 'Sibling1 'Bottom)
@@ -97,4 +100,4 @@
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (multiple-inheritance g)
     (show-graph g)
-    (show-graph (schema-graph g))))
+    #_(show-graph (schema-graph g))))

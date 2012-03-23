@@ -195,12 +195,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
-(defn schema-graph
-  "Returns the SchemaGraph of `g`."
-  [^Graph g]
-  (-> (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
-      (.convert2SchemaGraph ^Schema (schema g))))
-
 ;;# Schema Access
 
 (extend-protocol QualifiedName
@@ -327,6 +321,12 @@ See `tgtree`, `show-graph`, and `print-graph`."
         (error (format "No such domain %s" (domain-qname qname)))))
   (schema [this]
     this))
+
+(defn schema-graph
+  "Returns the SchemaGraph of `g`."
+  [^Graph g]
+  (-> (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
+      (.convert2SchemaGraph ^Schema (schema g))))
 
 (defn- type-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."

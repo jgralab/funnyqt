@@ -370,59 +370,60 @@ before."
 
 ;;### Creating
 
-(defn- attr-name-dom-map [^AttributedElementClass aec]
+(defn- attr-name-dom-map
+  [^AttributedElementClass aec]
   (apply hash-map (mapcat (fn [^Attribute a]
                             [(.getName a) (.getDomain a)])
                           (.getAttributeList aec))))
 
-(defn- handle-attribute-clashes [^AttributedElementClass super subs]
+(defn- handle-attribute-clashes
+  [^AttributedElementClass super ^AttributedElementClass sub]
   (let [supmap (attr-name-dom-map super)
-        supkeys (set (keys supmap))]
-    (doseq [^AttributedElementClass sub subs
-            :let [submap (attr-name-dom-map sub)
-                  isect (clojure.set/intersection
-                         supkeys (set (keys submap)))]]
-      ;; For attribute clashes, we have to check if the domains match.  If so,
-      ;; then we can simply delete the attribute at the subclass.  Otherwise,
-      ;; that's an error.
-      (doseq [a isect]
-        (cond
-         ;; Inheriting the same attribute via multiple paths is ok
-         (= (.getAttribute super a) (.getAttribute sub a)) nil
-         ;; Inheriting an equivalent attribute (same name/domain) is ok, if the
-         ;; subclass itself declares it.  Then, it can simply be deleted in
-         ;; favour of the inherited one.
-         (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
-                                     (.delete oa)
-                                     (error (format "%s tries to inherit different %s attributes."
-                                                    sub a)))
-         :else (error (format "%s tries to inherit %s with different domains: %s/%s"
-                              sub a (supmap a) (submap a))))))))
+        supkeys (set (keys supmap))
+        submap (attr-name-dom-map sub)
+        isect (clojure.set/intersection
+               supkeys (set (keys submap)))]
+    ;; For attribute clashes, we have to check if the domains match.  If so,
+    ;; then we can simply delete the attribute at the subclass.  Otherwise,
+    ;; that's an error.
+    (doseq [a isect]
+      (cond
+       ;; Inheriting the same attribute via multiple paths is ok
+       (= (.getAttribute super a) (.getAttribute sub a)) nil
+       ;; Inheriting an equivalent attribute (same name/domain) is ok, if the
+       ;; subclass itself declares it.  Then, it can simply be deleted in
+       ;; favour of the inherited one.
+       (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
+                                   (.delete oa)
+                                   (error (format "%s tries to inherit different %s attributes."
+                                                  sub a)))
+       :else (error (format "%s tries to inherit %s with different domains: %s/%s"
+                            sub a (supmap a) (submap a)))))
+    ;; Return the seq of attributes that are really new for the subclass.  For
+    ;; those, the attributes array has to be adjusted.
+    (map #(.getAttribute super %1)
+         (remove isect supkeys))))
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
   (with-open-schema g
-    (let [^AttributedElementClass superaec (attributed-element-class g super)
+    (let [^GraphElementClass superaec (attributed-element-class g super)
           subaecs (map #(attributed-element-class g %1) subs)]
-      (handle-attribute-clashes superaec subaecs)
-      (doseq [subaec subaecs]
-        (if (isa? (class superaec) VertexClass)
-          (do
-            (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
-            (apply fix-attr-array-after-add! (vseq g subaec)
-                   (seq (.getAttributeList superaec))))
-          (do
-            (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
-            (apply fix-attr-array-after-add! (eseq g subaec)
-                   (seq (.getAttributeList superaec)))))))))
+      (doseq [^GraphElementClass subaec subaecs]
+        (let [new-atts (handle-attribute-clashes superaec subaec)]
+          (if (isa? (class superaec) VertexClass)
+            (do
+              (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
+              (apply fix-attr-array-after-add! (vseq g subaec)
+                     new-atts))
+            (do
+              (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
+              (apply fix-attr-array-after-add! (eseq g subaec)
+                     new-atts))))))))
 
 ;;# The transformation macro itself
 
-;; TODO: Generalize to allow for multiple target graphs.  Hm, thinking 'bout
-;; it, maybe I should drop all that magic with $target-graph/schema and stuff
-;; and make those parameters.  But then I have to think about how the target
-;; graph can be bound before it exists (maybe delay/force...).
 (defmacro deftransformation
   "Create a new transformation named `name` with optional `doc-string` and
   optional `attr-map`, the given `params` (input graph args), and the given
