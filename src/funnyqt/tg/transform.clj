@@ -395,10 +395,14 @@ before."
        ;; favour of the inherited one.
        (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
                                    (.delete oa)
-                                   (error (format "%s tries to inherit different %s attributes."
-                                                  sub a)))
-       :else (error (format "%s tries to inherit %s with different domains: %s/%s"
-                            sub a (supmap a) (submap a)))))
+                                   (error (format
+                                           (str "%s tries to inherit different %s attributes. "
+                                                "It already has one from %s and now gets another one from %s.")
+                                           sub a (.getAttributedElementClass (.getAttribute sub a)) super)))
+       :else (error (format "%s tries to inherit %s with different domains: %s from %s and %s from %s"
+                            sub a
+                            (supmap a) (.getAttributedElementClass (.getAttribute sub a))
+                            (submap a) super))))
     ;; Return the seq of attributes that are really new for the subclass.  For
     ;; those, the attributes array has to be adjusted.
     (map #(.getAttribute super %1)
@@ -421,6 +425,12 @@ before."
               (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
               (apply fix-attr-array-after-add! (eseq g subaec)
                      new-atts))))))))
+
+(defn add-super-classes!
+  "Makes all `supers` super-classes of `sub`."
+  [g sub & supers]
+  (doseq [super supers]
+    (add-sub-classes! g super sub)))
 
 ;;# The transformation macro itself
 
