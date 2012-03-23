@@ -371,18 +371,33 @@ before."
 ;;### Creating
 
 (defn- attr-name-dom-map [^AttributedElementClass aec]
-  (apply hash-map (mapcat (fn [^Attribute a] [(.getName a) (.getDomain a)])
+  (apply hash-map (mapcat (fn [^Attribute a]
+                            [(.getName a) (.getDomain a)])
                           (.getAttributeList aec))))
 
-(defn- handle-attribute-clashes [super subs]
+(defn- handle-attribute-clashes [^AttributedElementClass super subs]
   (let [supmap (attr-name-dom-map super)
         supkeys (set (keys supmap))]
-    (doseq [sub subs
+    (doseq [^AttributedElementClass sub subs
             :let [submap (attr-name-dom-map sub)
                   isect (clojure.set/intersection
                          supkeys (set (keys submap)))]]
-      (when (seq isect)
-        (error (format "Attr clash: %s" isect))))))
+      ;; For attribute clashes, we have to check if the domains match.  If so,
+      ;; then we can simply delete the attribute at the subclass.  Otherwise,
+      ;; that's an error.
+      (doseq [a isect]
+        (cond
+         ;; Inheriting the same attribute via multiple paths is ok
+         (= (.getAttribute super a) (.getAttribute sub a)) nil
+         ;; Inheriting an equivalent attribute (same name/domain) is ok, if the
+         ;; subclass itself declares it.  Then, it can simply be deleted in
+         ;; favour of the inherited one.
+         (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
+                                     (.delete oa)
+                                     (error (format "%s tries to inherit different %s attributes."
+                                                    sub a)))
+         :else (error (format "%s tries to inherit %s with different domains: %s/%s"
+                              sub a (supmap a) (submap a))))))))
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`."

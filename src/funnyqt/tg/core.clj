@@ -195,6 +195,12 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
+(defn schema-graph
+  "Returns the SchemaGraph of `g`."
+  [^Graph g]
+  (-> (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
+      (.convert2SchemaGraph ^Schema (schema g))))
+
 ;;# Schema Access
 
 (extend-protocol QualifiedName
@@ -349,7 +355,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
    (nil? ts)   identity
    (fn? ts)    ts
    (qname? ts) (type-matcher-1 g ts)
-   (instance? AttributedElementClass ts) (fn [e] (.isInstanceOf e ts))
+   (instance? AttributedElementClass ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
    (coll? ts)  (if (seq ts)
                   (let [f (first ts)
                         [op r] (case f

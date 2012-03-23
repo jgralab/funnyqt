@@ -96,4 +96,5 @@
 (deftest test-multiple-inheritance
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (multiple-inheritance g)
-    (show-graph g)))
+    (show-graph g)
+    (show-graph (schema-graph g))))
