@@ -95,12 +95,12 @@
 
 ;;# Throwing exceptions
 
-(defn error
+(defmacro error
   "Throws an exception with the given message and cause."
   ([msg]
-     (error msg nil))
+     `(error ~msg nil))
   ([msg cause]
-     (throw (RuntimeException. msg cause))))
+     `(throw (RuntimeException. ~msg ~cause))))
 
 ;;# Debugging
 

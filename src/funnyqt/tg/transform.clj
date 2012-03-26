@@ -19,7 +19,7 @@ before."
   (:require [clojure.tools.macro :as m])
   (:import
    (java.util Arrays)
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.schema AggregationKind Attribute
                                   AttributedElementClass GraphElementClass
@@ -65,6 +65,14 @@ before."
   (reify InternalAttributesArrayAccess$OnAttributesFunction
     (invoke [_ ae ary]
       (f ae ary))))
+
+(defn- element-seq
+  [g aec]
+  (cond
+   (instance? GraphClass aec)  [g]
+   (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
+   (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
+   :else (error (format "Cannot handle %s." aec))))
 
 (defn- checked-merge
   "Like a arity 2 variant of `clojure.core/merge` but checks for uniqueness of
@@ -232,11 +240,6 @@ before."
                                 ^java.util.List (vec (map clojure.core/name
                                                           literals)))])))
 
-;;## NamedElements
-
-;;### Renaming
-
-
 
 ;;## VertexClasses
 
@@ -347,11 +350,7 @@ before."
           aec          ^AttributedElementClass (attributed-element-class g qn)]
       (.createAttribute aec aname (funnyqt.tg.core/domain g domain) default)
       (fix-attr-array-after-add!
-       (cond
-        (instance? GraphClass aec)  [g]
-        (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
-        (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
-        :else (error (format "Cannot handle %s." aec)))
+       (element-seq g aec)
        (.getAttribute aec aname)))))
 
 (defn create-attribute!
@@ -365,6 +364,39 @@ before."
      {:pre [valfn]}
      (create-attribute! g props)
      (set-values! g qname valfn)))
+
+;;### Renaming
+
+(defn rename-attribute!
+  "Renames attribute `oldname` to `newname` in the schema of graph `g`.
+  `oldname` is a fully qualified name (e.g., `contacts.Person.name`), and
+  `newname` is just the new attribute name (e.g., `lastName`)"
+  [g oldname newname]
+  (let [[qn aname _] (split-qname oldname)
+        aec ^AttributedElementClass (attributed-element-class g qn)
+        ^Attribute attribute (.getAttribute aec aname)]
+    (let [old-idx-map (if (instance? GraphClass aec)
+                        {aec (.getAttributeIndex aec aname)}
+                        (reduce (fn [m ^GraphElementClass sub]
+                                  (assoc m sub (.getAttributeIndex sub aname)))
+                                {}
+                                (cons aec (.getAllSubClasses ^GraphElementClass aec))))
+          oaf (on-attributes-fn
+               (fn [^AttributedElement ae ^objects ary]
+                 (let [^AttributedElementClass klass (attributed-element-class ae)
+                       old-idx (old-idx-map klass)
+                       new-idx (.getAttributeIndex klass (name newname))]
+                   (println klass old-idx new-idx)
+                   (if (== old-idx new-idx)
+                     ary
+                     (amap ary idx ret (cond
+                                        (< idx new-idx) (aget ary (dec idx))
+                                        (> idx new-idx) (aget ary (inc idx))
+                                        :else (aget ary old-idx)))))))]
+      (with-open-schema g
+        (.setName attribute (name newname)))
+      (doseq [^AttributedElement ae (element-seq g aec)]
+        (.invokeOnAttributesArray ae oaf)))))
 
 ;;## Type Hierarchies
 

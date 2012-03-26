@@ -7,6 +7,8 @@
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.schema.impl SchemaImpl]))
 
+;;* Tests
+
 (deftransformation transformation-1-instance-only
   "Creates a graph with 4 vertices and 3 edges."
   [g]
@@ -78,6 +80,8 @@
     (is (== 3 (count (filter (fn [p] (value p :birthday))
                              (vseq g 'Person)))))))
 
+;;** Inheritance hierarchy
+
 (defn- top-sibs-bottom [g]
   (create-vertex-class! g {:qname 'Top} (fn [] [:t]))
   (create-vertex-class! g {:qname 'Sibling1} (fn [] [:s1]))
@@ -142,3 +146,4 @@
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? Exception #"Sibling1 tries to inherit name with different domains"
           (multiple-inheritance-3 g)))))
+
