@@ -375,6 +375,14 @@ before."
   (let [[qn aname _] (split-qname oldname)
         aec ^AttributedElementClass (attributed-element-class g qn)
         ^Attribute attribute (.getAttribute aec aname)]
+    ;; Check that no subclass (or even this class) contains attribute `newname`
+    (when (.containsAttribute aec (name newname))
+      (error (format "%s already has a %s attribute." aec (name newname))))
+    (when (instance? GraphElementClass aec)
+      (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
+        (when (.containsAttribute sub (name newname))
+          (error (format "%s subclass %s already has a %s attribute."
+                         aec sub (name newname))))))
     (let [old-idx-map (if (instance? GraphClass aec)
                         {aec (.getAttributeIndex aec aname)}
                         (reduce (fn [m ^GraphElementClass sub]
@@ -386,7 +394,6 @@ before."
                  (let [^AttributedElementClass klass (attributed-element-class ae)
                        old-idx (old-idx-map klass)
                        new-idx (.getAttributeIndex klass (name newname))]
-                   (println klass old-idx new-idx)
                    (if (== old-idx new-idx)
                      ary
                      (amap ary idx ret (cond
@@ -395,7 +402,7 @@ before."
                                         :else (aget ary old-idx)))))))]
       (with-open-schema g
         (.setName attribute (name newname)))
-      (doseq [^AttributedElement ae (element-seq g aec)]
+      (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
         (.invokeOnAttributesArray ae oaf)))))
 
 ;;## Type Hierarchies

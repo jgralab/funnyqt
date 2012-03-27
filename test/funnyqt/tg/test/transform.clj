@@ -5,7 +5,9 @@
   (:use funnyqt.tg.test.core)
   (:use funnyqt.generic)
   (:use clojure.test)
-  (:import [de.uni_koblenz.jgralab.schema.impl SchemaImpl]))
+  (:import
+   [de.uni_koblenz.jgralab.schema AttributedElementClass]
+   [de.uni_koblenz.jgralab.schema.impl SchemaImpl]))
 
 ;;* Tests
 
@@ -146,4 +148,41 @@
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? Exception #"Sibling1 tries to inherit name with different domains"
           (multiple-inheritance-3 g)))))
+
+;;## Attribute renames
+
+(deftransformation attr-rename-1
+  [g]
+  ;; Must error, cause subclass Locality already declares inhabitants
+  (rename-attribute! g 'NamedElement.name :inhabitants))
+
+(deftest test-attr-rename-1
+  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute."
+        (attr-rename-1 (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")))))
+
+(deftransformation attr-rename-2
+  [g]
+  ;; Must error, cause Locality already declares inhabitants
+  (rename-attribute! g 'localities.Locality.year :inhabitants))
+
+(deftest test-attr-rename-2
+  (is (thrown-with-msg? Exception #"localities.Locality already has a inhabitants attribute."
+        (attr-rename-1 (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")))))
+
+(deftransformation attr-rename-3
+  [g]
+  ;; Should work
+  (rename-attribute! g 'NamedElement.name :id))
+
+(deftest test-attr-rename-3
+  (let [g (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")
+        attr-map (fn [attr]
+                   (apply hash-map (mapcat (fn [ne]
+                                             [ne (value ne attr)])
+                                           (vseq g 'NamedElement))))
+        name-map (attr-map :name)]
+    (attr-rename-3 g)
+    (is (not (.containsAttribute ^AttributedElementClass (attributed-element-class g 'NamedElement) "name")))
+    (is (= name-map (attr-map :id)))))
+
 
