@@ -185,4 +185,39 @@
     (is (not (.containsAttribute ^AttributedElementClass (attributed-element-class g 'NamedElement) "name")))
     (is (= name-map (attr-map :id)))))
 
+;;** Attribute deletions
 
+(defn- attr-seq
+  [ae]
+  (map #(.getName %1)
+       (.getAttributeList (attributed-element-class ae))))
+
+(deftransformation delete-attr-1-setup
+  [g]
+  (let [abc [:a :b :c :d :e :f :g :h :i :j :k :l :m :n :o :p :q :r :s :t :u :v :w :x :y :z]]
+    (create-vertex-class! g {:qname 'Node} (fn [] abc))
+    (doseq [a abc]
+      (create-attribute! g {:qname (str 'Node "." (name a)) :domain 'String}
+                         (fn [] (zipmap (map resolve-element abc)
+                                       (repeat (name a))))))))
+
+(deftransformation delete-attr-1
+  "Deletes a random Node attribute."
+  [g]
+  (delete-attribute! g (str 'Node "." (name (rand-nth (attr-seq (first-vertex g)))))))
+
+(deftest test-delete-attr-1
+  (let [g (empty-graph 'foo.bar.BazSchema 'BazGraph)
+        check (fn [g]
+                (is (== 26 (vcount g)))
+                ;; For all nodes, all existing attributes have a value that
+                ;; corresponds to the attribute name.
+                (is (forall? (fn [n]
+                               (forall? (fn [a] (= a (value n a)))
+                                        (attr-seq n)))
+                             (vseq g))))]
+    (delete-attr-1-setup g)
+    (check g)
+    (dotimes [i 26]
+      (delete-attr-1 g)
+      (check g))))

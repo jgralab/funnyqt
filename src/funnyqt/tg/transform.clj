@@ -367,6 +367,17 @@ before."
 
 ;;### Renaming
 
+(defn- old-attr-idx-map
+  "Returns a map with `aec` and all its subclasses as keys, and the indices of
+  attribute `aname` as values."
+  [^AttributedElementClass aec aname]
+  (if (instance? GraphClass aec)
+    {aec (.getAttributeIndex aec aname)}
+    (reduce (fn [m ^GraphElementClass sub]
+              (assoc m sub (.getAttributeIndex sub aname)))
+            {}
+            (cons aec (.getAllSubClasses ^GraphElementClass aec)))))
+
 (defn rename-attribute!
   "Renames attribute `oldname` to `newname` in the schema of graph `g`.
   `oldname` is a fully qualified name (e.g., `contacts.Person.name`), and
@@ -383,12 +394,7 @@ before."
         (when (.containsAttribute sub (name newname))
           (error (format "%s subclass %s already has a %s attribute."
                          aec sub (name newname))))))
-    (let [old-idx-map (if (instance? GraphClass aec)
-                        {aec (.getAttributeIndex aec aname)}
-                        (reduce (fn [m ^GraphElementClass sub]
-                                  (assoc m sub (.getAttributeIndex sub aname)))
-                                {}
-                                (cons aec (.getAllSubClasses ^GraphElementClass aec))))
+    (let [old-idx-map (old-attr-idx-map aec aname)
           oaf (on-attributes-fn
                (fn [^AttributedElement ae ^objects ary]
                  (let [^AttributedElementClass klass (attributed-element-class ae)
@@ -404,6 +410,26 @@ before."
         (.setName attribute (name newname)))
       (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
         (.invokeOnAttributesArray ae oaf)))))
+
+(defn delete-attribute!
+  "Deletes `attr` (a fully qualified name, e.g., `contacts.Person.name`."
+  [g attr]
+  (let [[qn aname _] (split-qname attr)
+        aec ^AttributedElementClass (attributed-element-class g qn)
+        ^Attribute attribute (.getAttribute aec aname)
+        old-idx-map (old-attr-idx-map aec aname)
+        oaf (on-attributes-fn
+             (fn [^AttributedElement ae ^objects ary]
+               (let [^AttributedElementClass klass (attributed-element-class ae)
+                     old-idx (old-idx-map klass)
+                     new-ary (object-array (dec (alength ary)))]
+                 (dotimes [i (alength new-ary)]
+                   (aset new-ary i (aget ary (if (< i old-idx) i (inc i)))))
+                 new-ary)))]
+    (with-open-schema g
+      (.delete attribute))
+    (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
+      (.invokeOnAttributesArray ae oaf))))
 
 ;;## Type Hierarchies
 
