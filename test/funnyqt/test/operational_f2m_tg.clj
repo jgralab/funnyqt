@@ -61,20 +61,17 @@
 
   (defmapping member2male [m]
     (let [male (create-vertex! out 'Male)]
-      (set-person-props male m)
       (deferred
         (when-let [w (resolve-in member2person (wife m))]
           (add-adj! male :wife w)))
       male))
 
   (defmapping member2female [m]
-    (doto (create-vertex! out 'Female)
-      (set-person-props m)))
+    (create-vertex! out 'Female))
 
   (defmapping member2person [m]
-    (if (male? m)
-      (member2male m)
-      (member2female m)))
+    (doto (if (male? m) (member2male m) (member2female m))
+      (set-person-props m)))
 
   (defmapping familymodel2genealogy []
     (doseq [f (vseq in 'Family)]

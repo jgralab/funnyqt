@@ -168,10 +168,8 @@
   `then`.  Else expand to `else`.
 
   (compile-if (Class/forName \"java.util.concurrent.ForkJoinTask\")
-    (defn my-cool-fj-fn
-      \"Do Stuff with ForkJoinTask\"
-      [x]
-      (magick x))"
+    (do-cool-stuff-with-fork-join)
+    (fall-back-to-executor-services))"
   [exp then else]
   (if (try (eval exp)
            (catch Throwable _ false))
