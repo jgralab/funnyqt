@@ -7,8 +7,8 @@ VertexClass Resource;
 
 EdgeClass Next from Process (0,1) role prev to Process (0,1) role next;
 
-EdgeClass Blocked from Resource (0,*) to Process (0,*);
-EdgeClass HeldBy from Resource (0,*) to Process (0,1);
-EdgeClass Token from Resource (0,*) to Process (0,1);
-EdgeClass Release from Resource (0,*) to Process (0,1);
-EdgeClass Request from Process (0,*) to Resource (0,*);
+EdgeClass Blocked from Resource (0,*) role blocked to Process (0,*) role blocker;
+EdgeClass HeldBy from Resource (0,*) role held to Process (0,1) role holder;
+EdgeClass Token from Resource (0,*) role taken to Process (0,1) role taker;
+EdgeClass Release from Resource (0,*) role released to Process (0,1) role releaser;
+EdgeClass Request from Process (0,*) role requester to Resource (0,*) role requested;

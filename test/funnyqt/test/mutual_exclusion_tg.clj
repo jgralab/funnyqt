@@ -119,14 +119,12 @@
 
 (defrule waiting-rule
   "Moves the blocked state."
-  ([g] [r1 (vseq g 'Resource)
-        req (iseq r1 'Request :in)
-        :let [p2 (alpha req)]
-        hb  (iseq r1 'HeldBy :out)
-        :let [p1 (omega hb)]
-        b   (iseq p1 'Blocked :in)
+  ([g] [hb (eseq g 'HeldBy)
+        :let [r1 (alpha hb)
+              p1 (omega hb)]
+        b (iseq p1 'Blocked :in)
         :let [r2 (alpha b)]
-        :when (not= r1 r2)]
+        p2 (adjs r1 :requester)]
      (waiting-rule g r1 b p2))
   ([g r1] [req (iseq r1 'Request :in)
            :let [p2 (alpha req)]
