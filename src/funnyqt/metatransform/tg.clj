@@ -86,8 +86,8 @@
   (with-open-schema g
     (let [ed (.createEnumDomain ^Schema (schema g)
                                 ^String (clojure.core/name name)
-                                ^java.util.List (vec (map clojure.core/name
-                                                          literals)))])))
+                                ^java.util.List  (mapv clojure.core/name
+                                                       literals))])))
 
 
 ;;## VertexClasses

@@ -192,12 +192,12 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
   [^AttributedElementClass c]
   (let [n (.getUniqueName c)
         fqn (.getQualifiedName c)]
-    (vec (map (fn [s]
-                (with-meta (symbol s)
-                  {:unique-name
-                   (symbol (str "+" (clojure.string/replace
-                                     s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
-              [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")]))))
+    (mapv (fn [s]
+            (with-meta (symbol s)
+              {:unique-name
+               (symbol (str "+" (clojure.string/replace
+                                 s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
+          [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
 (defn- create-vc-relations
   "Creates relations for the given vertex class."
@@ -254,7 +254,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
 (defn- create-attr-relation
   "Creates relations for the given attribute."
   [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having such an attr
-  (let [ts     (vec (map #(genprots/qname %) aecs)) ;; a type spec
+  (let [ts     (mapv #(genprots/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq

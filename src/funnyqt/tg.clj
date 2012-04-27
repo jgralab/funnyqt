@@ -154,7 +154,11 @@ See `tgtree`, `show-graph`, and `print-graph`."
      (load-schema file ImplementationType/GENERIC))
   ([file impl]
      (let [^Schema s (with-open [is (clojure.java.io/input-stream file)]
-                       (GraphIO/loadSchemaFromStream is))
+                       (GraphIO/loadSchemaFromStream
+                        (if (and (string? file)
+                                 (.endsWith ^String file ".gz"))
+                          (java.util.zip.GZIPInputStream is)
+                          is)))
            it (impl-type impl)]
        (.finish s)
        ;; TODO: What if the schema has already been compiled for this impl
@@ -188,7 +192,13 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([file impl]
      (with-open [is (clojure.java.io/input-stream file)]
        (GraphIO/loadGraphFromStream
-        is nil nil ^ImplementationType (impl-type impl) (ConsoleProgressFunction. "Loading")))))
+        (if (and (string? file)
+                 (.endsWith ^String file ".gz"))
+          (java.util.zip.GZIPInputStream is)
+          is)
+        nil nil
+        ^ImplementationType (impl-type impl)
+        (ConsoleProgressFunction. "Loading")))))
 
 (defn save-graph
   "Saves `g` to `file`."
