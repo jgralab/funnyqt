@@ -1,4 +1,4 @@
-(ns funnyqt.tg.relational
+(ns funnyqt.relational.tg
   "Querying graphs as if they were prolog fact bases.
 
 Getting Started
@@ -22,7 +22,7 @@ Then, we load the GReQL test graph and bind it to a var `g`.
 
 We import the relational namespace.
 
-    user> (use 'funnyqt.tg.relational)
+    user> (use 'funnyqt.relational.tg)
 
 Now, we can generate relations and facts for a graph and its schema.  The first
 argument is the graph, and the second argument is a new namespace name.  That
@@ -173,7 +173,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
           (connectedo ?middle j2)))))"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:use [funnyqt.tg.relational.generic])
+  (:use [funnyqt.relational])
   (:require [funnyqt.tg :as core])
   (:require [funnyqt.protocols :as genprots])
   (:require [funnyqt.query.tg :as query])
@@ -292,7 +292,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                 (ns ~nssym
                   (:refer-clojure :exclude [~'==])
                   (:use [clojure.core.logic])
-                  (:use [funnyqt.tg.relational.generic]))
+                  (:use [funnyqt.relational]))
                 ;; The graph of this namespace, to be set later on.
                 (def ~'+graph+ nil)
                 ;;;;;;;;;;;;;;;;;;;;;;;

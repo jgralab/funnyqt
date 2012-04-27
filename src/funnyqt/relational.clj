@@ -1,4 +1,4 @@
-(ns funnyqt.tg.relational.generic
+(ns funnyqt.relational
   "Generic relations"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
