@@ -2,6 +2,20 @@
   "Generic functions like quantified expressions."
   (:use [funnyqt.utils :only [error]]))
 
+;;# Comprehensions
+
+(defmacro for*
+  "Exactly like `clojure.core/for`, but allows :let as first binding form,
+  too."
+  [seq-exprs body-expr]
+  (let [[bind exp] seq-exprs]
+    (if (= bind :let)
+      `(let ~exp
+         (for ~(vec (rest (rest seq-exprs)))
+           ~body-expr))
+      `(for ~seq-exprs
+         ~body-expr))))
+
 ;;# Quantified Expressions
 
 (def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."}

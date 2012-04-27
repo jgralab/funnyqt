@@ -173,8 +173,25 @@
   [exp then else]
   (if (try (eval exp)
            (catch Throwable _ false))
-    `(do ~then)
+    `(do
+       ~then
+       (comment ~else))
     `(do
        (comment ~then)
        ~else)))
+
+(defmacro compile-when
+  "Evaluate `exp` and if it returns logical true and doesn't error, expand to
+  `then`.  Else expand to `else`.
+
+  (compile-when (and (< (:minor *clojure-version*) 4)
+                     (= (:major *clojure-version*) 1))
+    ;; Can't live without mapv and filterv!
+    (defn mapv [...] ...)
+    (defn filterv [...] ...))"
+  [exp & then]
+  (if (try (eval exp)
+           (catch Throwable _ false))
+    `(do
+       ~@then)))
 

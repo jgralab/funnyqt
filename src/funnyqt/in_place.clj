@@ -1,7 +1,7 @@
 (ns funnyqt.in-place
   "Match elements in a structure, and act on them."
   (:use [funnyqt.utils :only [error pr-identity]])
-  (:use [funnyqt.query :only [the]])
+  (:use [funnyqt.query :only [the for*]])
   (:use funnyqt.macro-utils)
   (:require clojure.set)
   (:use [funnyqt.query :only [member?]])
@@ -49,7 +49,7 @@
 
 (defmacro with-match
   "Establish bindings as specified in `bindings`, and execute `body`.
-  `bindings` is a vector of bindings with the syntax of `for`.
+  `bindings` is a vector of bindings with the syntax of `for*`.
 
   If a match could be found, that is, all symbols in `bindings` can be bound to
   non-nil values, `body` is executed with the established bindings and `body`s
@@ -62,7 +62,7 @@
   (let [arglist (bindings-to-arglist bindings)
         sbindings (shortcut-bindings bindings)
         r `r#]
-    `(when-let [~r (first (for ~sbindings ~arglist))]
+    `(when-let [~r (first (for* ~sbindings ~arglist))]
        ;; We want no matches with nil values
        (when (every? (complement nil?) ~r)
          ;; Rip out the individual values of the result and let-bind them.
