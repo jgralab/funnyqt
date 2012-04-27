@@ -1,7 +1,8 @@
 (ns funnyqt.tg.test.transform
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
-  (:use funnyqt.meta-transform.tg)
+  (:use funnyqt.metatransform.tg)
+  (:use funnyqt.extensional.tg)
   (:use funnyqt.tg.test.core)
   (:use funnyqt.query)
   (:use clojure.test)
