@@ -3,7 +3,7 @@
   (:use funnyqt.tg.query)
   (:use funnyqt.tg.transform)
   (:use funnyqt.tg.test.core)
-  (:use funnyqt.generic)
+  (:use funnyqt.query)
   (:use clojure.test)
   (:import
    [de.uni_koblenz.jgralab.schema AttributedElementClass]

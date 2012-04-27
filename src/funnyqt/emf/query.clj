@@ -1,8 +1,8 @@
 (ns funnyqt.emf.query
   "More sophisticated constructs for querying EMF models."
   (:use funnyqt.utils)
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf.core)

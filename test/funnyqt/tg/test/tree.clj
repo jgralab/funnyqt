@@ -1,6 +1,6 @@
 (ns funnyqt.tg.test.tree
   (:use funnyqt.tg.core)
-  (:use funnyqt.match-replace)
+  (:use funnyqt.in-place)
   (:use funnyqt.tg.query)
   (:use [funnyqt.utils :only [timing]])
   (:use clojure.test)

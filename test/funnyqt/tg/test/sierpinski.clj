@@ -1,6 +1,6 @@
 (ns funnyqt.tg.test.sierpinski
   (:use funnyqt.tg.core)
-  (:use funnyqt.match-replace)
+  (:use funnyqt.in-place)
   (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import [java.util.concurrent Executors ExecutorService Future]
@@ -116,7 +116,7 @@
   (println "Sierpinski Triangles")
   (println "====================")
   (doseq [variant [:generic :standard]]
-    (doseq [n (range 8 13)]
+    (doseq [n (range 8 12)]
       (let [correct-vc (int (* 3/2 (inc (Math/pow 3 n))))
             correct-ec (int (Math/pow 3 (inc n)))]
         (System/gc)

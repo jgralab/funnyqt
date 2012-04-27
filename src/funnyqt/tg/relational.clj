@@ -175,7 +175,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
   (:use [clojure.core.logic])
   (:use [funnyqt.tg.relational.generic])
   (:require [funnyqt.tg.core :as core])
-  (:require [funnyqt.generic-protocols :as genprots])
+  (:require [funnyqt.protocols :as genprots])
   (:require [funnyqt.tg.query :as query])
   ;; (:require [funnyqt.tg.query :as q])
   (:import

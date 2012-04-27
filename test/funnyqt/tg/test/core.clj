@@ -1,7 +1,7 @@
 (ns funnyqt.tg.test.core
   (:use [ordered.set])
   (:use [funnyqt.tg.core])
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.protocols)
   (:use [clojure.test])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)))
 

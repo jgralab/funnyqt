@@ -2,7 +2,7 @@
   "Stuff for writing QVT Operational Mappings like transformations."
   (:use [funnyqt.utils :only [error]])
   (:use funnyqt.macro-utils)
-  (:use [funnyqt.generic :only [the]])
+  (:use [funnyqt.query :only [the]])
   (:require [clojure.tools.macro :as m]))
 
 ;;# Mappings

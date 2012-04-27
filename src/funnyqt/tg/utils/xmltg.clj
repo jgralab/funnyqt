@@ -23,7 +23,7 @@ attribute type as string.
                 (= %2 \"children\")  \"IDREFS\"))"
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query)
-  (:use funnyqt.generic)
+  (:use funnyqt.query)
   (:use [funnyqt.utils :only [error]])
   (:require clojure.string)
   (:require [clojure.java.io :as io])

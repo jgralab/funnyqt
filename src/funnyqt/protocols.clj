@@ -1,4 +1,4 @@
-(ns funnyqt.generic-protocols
+(ns funnyqt.protocols
   "Generic functions like quantified expressions.")
 
 

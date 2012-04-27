@@ -1,7 +1,7 @@
 (ns funnyqt.emf.test.query
   (:refer-clojure :exclude [parents])
   (:use funnyqt.utils)
-  (:use funnyqt.generic)
+  (:use funnyqt.query)
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf.core)

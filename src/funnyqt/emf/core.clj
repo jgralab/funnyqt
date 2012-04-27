@@ -1,8 +1,8 @@
 (ns funnyqt.emf.core
   "Core functions for accessing and manipulating EMF models."
   (:use funnyqt.utils)
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:require clojure.java.shell)

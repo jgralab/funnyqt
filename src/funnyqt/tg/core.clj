@@ -29,8 +29,8 @@ Visualization
 =============
 
 See `tgtree`, `show-graph`, and `print-graph`."
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:import
    (java.awt.event KeyEvent KeyListener)

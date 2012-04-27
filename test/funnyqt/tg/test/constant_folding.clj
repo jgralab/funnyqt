@@ -1,8 +1,8 @@
 (ns funnyqt.tg.test.constant-folding
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
   (:use funnyqt.tg.core)
-  (:use funnyqt.match-replace)
+  (:use funnyqt.in-place)
   (:use funnyqt.tg.query)
   (:use clojure.test)
   (:import

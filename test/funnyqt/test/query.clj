@@ -1,6 +1,6 @@
-(ns funnyqt.test.generic
+(ns funnyqt.test.query
   (:use [ordered.set])
-  (:use [funnyqt.generic])
+  (:use [funnyqt.query])
   (:use [clojure.test]))
 
 (deftest test-forall?

@@ -104,10 +104,10 @@ can compute that like so:
       (/ (reduce-values + 0 locs :foundingDate :year)
          (count locs)))"
   (:use funnyqt.tg.core)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use ordered.set)
-  (:use funnyqt.generic)
+  (:use funnyqt.query)
   (:require clojure.set)
   (:require clojure.string)
   (:import

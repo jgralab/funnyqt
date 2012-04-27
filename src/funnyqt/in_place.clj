@@ -1,10 +1,10 @@
-(ns funnyqt.match-replace
+(ns funnyqt.in-place
   "Match elements in a structure, and act on them."
   (:use [funnyqt.utils :only [error pr-identity]])
-  (:use [funnyqt.generic :only [the]])
+  (:use [funnyqt.query :only [the]])
   (:use funnyqt.macro-utils)
   (:require clojure.set)
-  (:use [funnyqt.generic :only [member?]])
+  (:use [funnyqt.query :only [member?]])
   (:require [clojure.tools.macro :as m]))
 
 ;;# Matching

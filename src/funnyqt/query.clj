@@ -1,4 +1,4 @@
-(ns funnyqt.generic
+(ns funnyqt.query
   "Generic functions like quantified expressions."
   (:use [funnyqt.utils :only [error]]))
 

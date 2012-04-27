@@ -11,8 +11,8 @@ extend an existing Graph without having to create artificial archetypes
 before."
   (:use funnyqt.tg.core)
   (:use funnyqt.tg.query)
-  (:use funnyqt.generic)
-  (:use funnyqt.generic-protocols)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
   (:use [funnyqt.utils :only [error split-qname pr-identity]])
   (:require clojure.set)
   (:require clojure.pprint)
@@ -70,8 +70,8 @@ before."
   [g aec]
   (cond
    (instance? GraphClass aec)  [g]
-   (instance? VertexClass aec) (vseq g (funnyqt.generic-protocols/qname aec))
-   (instance? EdgeClass aec)   (eseq g (funnyqt.generic-protocols/qname aec))
+   (instance? VertexClass aec) (vseq g (funnyqt.protocols/qname aec))
+   (instance? EdgeClass aec)   (eseq g (funnyqt.protocols/qname aec))
    :else (error (format "Cannot handle %s." aec))))
 
 (defn- checked-merge

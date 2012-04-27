@@ -1,9 +1,9 @@
 (ns funnyqt.test.mutual-exclusion-emf
   (:use funnyqt.emf.core)
-  (:use funnyqt.generic-protocols)
-  (:use funnyqt.generic)
+  (:use funnyqt.protocols)
+  (:use funnyqt.query)
   (:use funnyqt.utils)
-  (:use funnyqt.match-replace)
+  (:use funnyqt.in-place)
   (:use funnyqt.emf.query)
   (:use clojure.test))
 
