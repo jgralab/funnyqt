@@ -1,7 +1,7 @@
-(ns funnyqt.tg.utils.test.xmltg
+(ns funnyqt.utils.test.xmltg
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
-  (:use funnyqt.tg.utils.xmltg)
+  (:use funnyqt.utils.xmltg)
   (:use clojure.test))
 
 (deftest test-example-with-dtd
