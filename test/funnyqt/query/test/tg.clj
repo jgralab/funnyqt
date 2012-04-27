@@ -1,13 +1,13 @@
-(ns funnyqt.tg.test.query
+(ns funnyqt.query.test.tg
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
-  (:use funnyqt.tg.test.core)
+  (:use funnyqt.test.tg)
   (:use clojure.test)
-  (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)
-           (de.uni_koblenz.jgralab.schema AttributedElementClass)))
+  (:import
+   (de.uni_koblenz.jgralab.schema AttributedElementClass)))
 
 ;; Don't print that much on failing assertions of large collections.
 (use-fixtures :once (fn [f]

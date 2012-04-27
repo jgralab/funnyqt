@@ -1,4 +1,4 @@
-(ns funnyqt.emf.test.core
+(ns funnyqt.test.emf
   (:use [funnyqt.emf])
   (:use [funnyqt.query])
   (:use [funnyqt.protocols])

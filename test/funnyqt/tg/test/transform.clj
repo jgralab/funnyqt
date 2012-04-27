@@ -3,7 +3,7 @@
   (:use funnyqt.query.tg)
   (:use funnyqt.metatransform.tg)
   (:use funnyqt.extensional.tg)
-  (:use funnyqt.tg.test.core)
+  (:use funnyqt.test.tg)
   (:use funnyqt.query)
   (:use clojure.test)
   (:import

@@ -1,4 +1,4 @@
-(ns funnyqt.emf.test.query
+(ns funnyqt.query.test.emf
   (:refer-clojure :exclude [parents])
   (:use funnyqt.utils)
   (:use funnyqt.query)
@@ -6,7 +6,7 @@
   (:use ordered.map)
   (:use funnyqt.emf)
   (:use funnyqt.query.emf)
-  (:use [funnyqt.emf.test.core :only [family-model]])
+  (:use [funnyqt.test.emf :only [family-model]])
   (:use clojure.test))
 
 (deftest test-basic
