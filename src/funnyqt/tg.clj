@@ -157,7 +157,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
                        (GraphIO/loadSchemaFromStream
                         (if (and (string? file)
                                  (.endsWith ^String file ".gz"))
-                          (java.util.zip.GZIPInputStream is)
+                          (java.util.zip.GZIPInputStream. is)
                           is)))
            it (impl-type impl)]
        (.finish s)
@@ -194,7 +194,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (GraphIO/loadGraphFromStream
         (if (and (string? file)
                  (.endsWith ^String file ".gz"))
-          (java.util.zip.GZIPInputStream is)
+          (java.util.zip.GZIPInputStream. is)
           is)
         nil nil
         ^ImplementationType (impl-type impl)
