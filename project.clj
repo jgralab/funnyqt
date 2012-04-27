@@ -11,7 +11,6 @@
   :dependencies [[org.clojure/clojure "1.4.0"]
 		 [de.uni-koblenz.ist/jgralab "6.2.4"]
                  [org.clojure/core.logic "0.6.8"]
-                 [org.clojure/core.match "0.2.0-alpha9"]
 		 [ordered "1.1.0" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.macro "0.1.1"]
                  [emf-xsd-sdk "2.7.1"]]
