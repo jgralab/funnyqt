@@ -1,10 +1,9 @@
-(ns funnyqt.tg.test.tree
+(ns funnyqt.test.tree-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
   (:use [funnyqt.utils :only [timing]])
-  (:use clojure.test)
-  (:import [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]))
+  (:use clojure.test))
 
 
 (defn mintree-init

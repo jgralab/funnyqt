@@ -1,12 +1,11 @@
-(ns funnyqt.tg.test.constant-folding
+(ns funnyqt.test.constant-folding-tg
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
-  (:use clojure.test)
-  (:import
-   (de.uni_koblenz.jgralab ImplementationType)))
+  (:use [funnyqt.utils :only [error]])
+  (:use clojure.test))
 
 
 (defn binary-eval
@@ -19,7 +18,7 @@
      (type-of? b 'Sub) (- v1 v2)
      (type-of? b 'Mul) (* v1 v2)
      (type-of? b 'Div) (quot v1 v2)
-     :default (RuntimeException. ^String (format "Unknown binary op: %s" b)))))
+     :default (error (format "Unknown binary op: %s" b)))))
 
 (defrule pull-up-consts
   "Pulls up constants to make replace-binary apply."
@@ -90,8 +89,8 @@
     ;; Evaluate binaries with 2 constants
     (iteratively replace-binary g start-block)))
 
-(def firm1 (memoize #(load-graph "test/input/firm_small_46.tg" ImplementationType/STANDARD)))
-(def firm2 (memoize #(load-graph "test/input/firm_medium_1248803056.tg" ImplementationType/STANDARD)))
+(def firm1 (memoize #(load-graph "test/input/firm_small_46.tg" :standard)))
+(def firm2 (memoize #(load-graph "test/input/firm_medium_1248803056.tg" :standard)))
 
 (deftest constant-folding-1
   (let [g (firm1)]

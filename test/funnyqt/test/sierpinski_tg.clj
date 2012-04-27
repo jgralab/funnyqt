@@ -1,11 +1,8 @@
-(ns funnyqt.tg.test.sierpinski
+(ns funnyqt.test.sierpinski-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
-  (:use clojure.test)
-  (:import [java.util.concurrent Executors ExecutorService Future]
-           [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]
-           [de.uni_koblenz.jgralab ImplementationType]))
+  (:use clojure.test))
 
 
 (defn sierpinski-init
