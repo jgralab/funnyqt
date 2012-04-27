@@ -1,5 +1,5 @@
 (ns funnyqt.protocols
-  "Generic functions like quantified expressions.")
+  "Generic protocols extended upon many different types.")
 
 
 ;;# Describing Elements
