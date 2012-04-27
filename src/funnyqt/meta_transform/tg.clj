@@ -1,4 +1,4 @@
-(ns funnyqt.tg.transform
+(ns funnyqt.meta-transform.tg
   "Schema-creating transformations on TGraphs.
 
 This is basically a GReTL implementation in Clojure.  Consequently, it has
