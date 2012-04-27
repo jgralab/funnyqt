@@ -1,11 +1,11 @@
-(ns funnyqt.emf.query
+(ns funnyqt.query.emf
   "More sophisticated constructs for querying EMF models."
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
-  (:use funnyqt.emf.core)
+  (:use funnyqt.emf)
   (:require clojure.set))
 
 ;;# Regular Path Descriptions

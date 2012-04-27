@@ -21,8 +21,8 @@ attribute type as string.
                 (= %2 \"id\")        \"ID\"
                 (= %2 \"links\")     \"IDREF\"
                 (= %2 \"children\")  \"IDREFS\"))"
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use [funnyqt.utils :only [error]])
   (:require clojure.string)

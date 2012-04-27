@@ -1,5 +1,5 @@
 (ns funnyqt.emf.test.core
-  (:use [funnyqt.emf.core])
+  (:use [funnyqt.emf])
   (:use [funnyqt.query])
   (:use [funnyqt.protocols])
   (:use [ordered.set])
@@ -12,7 +12,7 @@
 
 (deftest test-load-metamodel
   (let [mm (load-metamodel "test/input/Families.ecore")]
-    (is (instance? funnyqt.emf.core.EcoreModel mm))
+    (is (instance? funnyqt.emf.EcoreModel mm))
     ;; Restricting to our custom one by its nsURI...
     (with-ns-uris ["http://families/1.0"]
       (is (== 1 (count (epackages)))))))

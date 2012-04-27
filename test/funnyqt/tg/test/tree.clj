@@ -1,7 +1,7 @@
 (ns funnyqt.tg.test.tree
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.query.tg)
   (:use [funnyqt.utils :only [timing]])
   (:use clojure.test)
   (:import [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]))

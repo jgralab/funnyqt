@@ -1,6 +1,6 @@
 (ns funnyqt.tg.test.transform
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg)
   (:use funnyqt.tg.transform)
   (:use funnyqt.tg.test.core)
   (:use funnyqt.query)

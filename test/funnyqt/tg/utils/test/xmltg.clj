@@ -1,6 +1,6 @@
 (ns funnyqt.tg.utils.test.xmltg
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg)
   (:use funnyqt.tg.utils.xmltg)
   (:use clojure.test))
 

@@ -4,8 +4,8 @@
   (:use funnyqt.query)
   (:use ordered.set)
   (:use ordered.map)
-  (:use funnyqt.emf.core)
-  (:use funnyqt.emf.query)
+  (:use funnyqt.emf)
+  (:use funnyqt.query.emf)
   (:use [funnyqt.emf.test.core :only [family-model]])
   (:use clojure.test))
 

@@ -3,8 +3,8 @@
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
   (:use [funnyqt.utils :only [error]])
-  (:require [funnyqt.tg.core :as core])
-  (:require [funnyqt.tg.query :as funql])
+  (:require [funnyqt.tg :as core])
+  (:require [funnyqt.query.tg :as funql])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)))
 
 

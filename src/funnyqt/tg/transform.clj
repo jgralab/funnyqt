@@ -9,8 +9,8 @@ the edges to be created, not their archetypes.  Similarily, `set-values!` and
 the archetype of it.  This design decision allows for using those functions to
 extend an existing Graph without having to create artificial archetypes
 before."
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use [funnyqt.utils :only [error split-qname pr-identity]])
@@ -348,7 +348,7 @@ before."
   (with-open-schema g
     (let [[qn aname _] (split-qname qname)
           aec          ^AttributedElementClass (attributed-element-class g qn)]
-      (.createAttribute aec aname (funnyqt.tg.core/domain g domain) default)
+      (.createAttribute aec aname (funnyqt.tg/domain g domain) default)
       (fix-attr-array-after-add!
        (element-seq g aec)
        (.getAttribute aec aname)))))

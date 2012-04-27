@@ -5,8 +5,8 @@ Yeah, this doesn't have any public vars.  It just extends IMatchLookup to
 vertices, edges, and graphs."
   (:use [clojure.core.match :only [IMatchLookup match]])
   (:use [funnyqt.utils :only [error]])
-  (:require [funnyqt.tg.core :as core])
-  (:require [funnyqt.tg.query :as query]))
+  (:require [funnyqt.tg :as core])
+  (:require [funnyqt.query.tg :as query]))
 
 
 (defn- match-attribute [this k not-found]

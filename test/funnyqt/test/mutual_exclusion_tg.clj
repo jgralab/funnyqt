@@ -1,9 +1,9 @@
 (ns funnyqt.test.mutual-exclusion-tg
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.utils)
   (:use funnyqt.protocols)
   (:use funnyqt.in-place)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.query.tg)
   (:use clojure.test))
 
 ;;* Rules

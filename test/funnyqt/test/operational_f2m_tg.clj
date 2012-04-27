@@ -3,8 +3,8 @@
   (:use funnyqt.query)
   (:use funnyqt.utils)
   (:use clojure.test)
-  (:use funnyqt.tg.core)
-  (:use funnyqt.tg.query))
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg))
 
 ;; Define some helpers and mappings outside of the transformation to see if
 ;; that internal/external stuff works.

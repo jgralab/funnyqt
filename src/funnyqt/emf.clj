@@ -1,4 +1,4 @@
-(ns funnyqt.emf.core
+(ns funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
   (:use funnyqt.utils)
   (:use funnyqt.query)

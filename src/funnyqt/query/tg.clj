@@ -1,4 +1,4 @@
-(ns funnyqt.tg.query
+(ns funnyqt.query.tg
   "Functional TGraph querying.
 
 Sequence Functions
@@ -103,7 +103,7 @@ can compute that like so:
     (let [locs (vseq (rg) 'localities.Locality)]
       (/ (reduce-values + 0 locs :foundingDate :year)
          (count locs)))"
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use ordered.set)

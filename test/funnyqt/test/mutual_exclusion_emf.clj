@@ -1,10 +1,10 @@
 (ns funnyqt.test.mutual-exclusion-emf
-  (:use funnyqt.emf.core)
+  (:use funnyqt.emf)
   (:use funnyqt.protocols)
   (:use funnyqt.query)
   (:use funnyqt.utils)
   (:use funnyqt.in-place)
-  (:use funnyqt.emf.query)
+  (:use funnyqt.query.emf)
   (:use clojure.test))
 
 ;;* Rules

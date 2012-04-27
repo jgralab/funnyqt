@@ -13,7 +13,7 @@ schema) and populate them with facts (from the graph).  Here's how to do this.
 First, we require the FunnyQT TG core namespace with prefix core, so that we
 can use its general graph loading function.
 
-    user> (require '[funnyqt.tg.core :as core])
+    user> (require '[funnyqt.tg :as core])
 
 Then, we load the GReQL test graph and bind it to a var `g`.
 
@@ -174,10 +174,10 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
   (:use [funnyqt.tg.relational.generic])
-  (:require [funnyqt.tg.core :as core])
+  (:require [funnyqt.tg :as core])
   (:require [funnyqt.protocols :as genprots])
-  (:require [funnyqt.tg.query :as query])
-  ;; (:require [funnyqt.tg.query :as q])
+  (:require [funnyqt.query.tg :as query])
+  ;; (:require [funnyqt.query.tg :as q])
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
@@ -256,10 +256,10 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
   [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having such an attr
   (let [ts     (vec (map #(genprots/qname %) aecs)) ;; a type spec
         seqf   (cond
-                (every? #(instance? VertexClass %) aecs) 'funnyqt.tg.query/vseq
-                (every? #(instance? EdgeClass %)   aecs) 'funnyqt.tg.query/eseq
-                :else `(fn [graph# ts#] (apply concat ((juxt funnyqt.tg.query/vseq
-                                                             funnyqt.tg.query/eseq)
+                (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
+                (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq
+                :else `(fn [graph# ts#] (apply concat ((juxt funnyqt.query.tg/vseq
+                                                             funnyqt.query.tg/eseq)
                                                        graph# ts#))))
         elem   (gensym "elem")
         val    (gensym "val")]
@@ -399,7 +399,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
 
 (comment
   ;; SETUP
-  (require '[funnyqt.tg.core :as core])
+  (require '[funnyqt.tg :as core])
   (def g (core/load-graph "/home/horn/Repos/uni/funtg/test/greqltestgraph.tg"))
   (use 'funnyqt.tg.funrl)
   (create-graph-relations-ns g 'roadmap)
@@ -506,8 +506,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
       (== q [?l1 ?l2])))
 
   ;; Some tests with a java graph
-  (require '[funnyqt.tg.query :as query])
-  (require '[funnyqt.tg.core :as core])
+  (require '[funnyqt.query.tg :as query])
+  (require '[funnyqt.tg :as core])
   (def g (core/load-graph "/home/horn/Repos/uni/funtg-pub/funql-whitepaper/jgralab.tg.gz"))
   (create-graph-relations-ns g 'jgralab)
 

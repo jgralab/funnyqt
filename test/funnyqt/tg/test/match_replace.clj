@@ -1,9 +1,9 @@
 (ns funnyqt.tg.test.match-replace
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.query.tg)
   (:use funnyqt.tg.test.core)
   (:use [funnyqt.tg.test.query :only (eval-exp)])
   (:use clojure.test))

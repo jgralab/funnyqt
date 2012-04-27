@@ -1,7 +1,7 @@
 (ns funnyqt.tg.test.sierpinski
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.query.tg)
   (:use clojure.test)
   (:import [java.util.concurrent Executors ExecutorService Future]
            [de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration]

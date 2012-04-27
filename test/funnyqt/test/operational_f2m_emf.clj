@@ -3,9 +3,9 @@
   (:use funnyqt.query)
   (:use funnyqt.utils)
   (:use clojure.test)
-  (:use funnyqt.emf.core)
-  (:use funnyqt.emf.query)
-  (:import [funnyqt.emf.core EMFModel]))
+  (:use funnyqt.emf)
+  (:use funnyqt.query.emf)
+  (:import [funnyqt.emf EMFModel]))
 
 ;; Just for the fun of it, declare some helpers and mapping outside of the
 ;; transformation, so that we see if the expansion context works.

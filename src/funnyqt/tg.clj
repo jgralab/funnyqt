@@ -1,4 +1,4 @@
-(ns funnyqt.tg.core
+(ns funnyqt.tg
   "Core functions for accessing and manipulating TGraphs.
 
 Loading/Saving

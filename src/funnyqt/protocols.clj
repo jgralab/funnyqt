@@ -30,8 +30,8 @@
   Implementations are provided for:
 
     - java.lang.Class: default impl in this namespace
-    - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg.core
-    - org.eclipse.emf.ecore.EClass: funnyqt.emf.core"))
+    - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg
+    - org.eclipse.emf.ecore.EClass: funnyqt.emf"))
 
 (extend-protocol Abstractness
   java.lang.Class
@@ -47,14 +47,14 @@
   Implementations are provided for:
 
     - java.lang.Class: default impl in this namespace (synonym to clojure.core/instance?)
-    - de.uni_koblenz.jgralab.schema.AttributedElementClass: funnyqt.tg.core
-    - org.eclipse.emf.ecore.EClassifier: funnyqt.emf.core")
+    - de.uni_koblenz.jgralab.schema.AttributedElementClass: funnyqt.tg
+    - org.eclipse.emf.ecore.EClassifier: funnyqt.emf")
   (type-of? [object spec]
     "Returns true, iff `object`s type matches `spec`.
   Implementations are provided for:
 
-    - de.uni_koblenz.jgralab.AttributedElement: funnyqt.tg.core
-    - org.eclipse.emf.ecore.EObject: funnyqt.emf.core"))
+    - de.uni_koblenz.jgralab.AttributedElement: funnyqt.tg
+    - org.eclipse.emf.ecore.EObject: funnyqt.emf"))
 
 (extend-protocol InstanceOf
   java.lang.Class

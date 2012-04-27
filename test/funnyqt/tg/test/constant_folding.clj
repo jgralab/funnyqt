@@ -1,9 +1,9 @@
 (ns funnyqt.tg.test.constant-folding
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use funnyqt.tg.core)
+  (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.tg.query)
+  (:use funnyqt.query.tg)
   (:use clojure.test)
   (:import
    (de.uni_koblenz.jgralab ImplementationType)))
