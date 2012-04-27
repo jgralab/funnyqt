@@ -13,10 +13,7 @@
                  [org.clojure/core.logic "0.6.8"]
 		 [ordered "1.1.0" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.macro "0.1.1"]
-                 [emf-xsd-sdk "2.7.1"]
-                 ;; FIXME: This should not be needed...
-                 [lein-html5-docs "1.2.0"]
-                 ]
+                 [emf-xsd-sdk "2.7.1"]]
   :dev-dependencies [[hiccup "0.3.7"]]
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
@@ -27,7 +24,6 @@
             :url "http://www.gnu.org/copyleft/gpl.html"
             :distribution :repo}
   :url "https://github.com/jgralab/funnyqt"
-  :plugins [[lein-html5-docs "1.2.0"]]
   ;; Stuff specific to generating API docs
   :html5-docs-name "FunnyQT"
   :html5-docs-page-title nil ;; => "FunnyQT API Documentation"
