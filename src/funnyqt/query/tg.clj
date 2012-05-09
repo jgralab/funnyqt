@@ -416,6 +416,16 @@ can compute that like so:
          (mapcat #(apply adjs % (first more) (rest more)) ads)
          ads))))
 
+(defn adj
+  "Returns the vertex adjacent to `v` via `role` or `more` roles.
+  If there are more than one such vertices, an exception is thrown."
+  [v role & more]
+  (let [a (apply adjs v role more)]
+    (if (next a)
+      (error (format "There is more than one adjacent vertex of %s: %s"
+                     v a))
+      (first a))))
+
 (defn adjs-no-error
   "Like `adjs`, but doesn't error if the given role is not defined.  In that
   case, it simly returns nil."
@@ -427,16 +437,6 @@ can compute that like so:
           dir (.getDirection dec)]
       (map that
            (iseq v (fn [e] (instance-of? ec e)) dir)))))
-
-(defn adj
-  "Returns the vertex adjacent to `v` via `role` or `more` roles.
-  If there are more than one such vertices, an exception is thrown."
-  [v role & more]
-  (let [a (apply adjs v role more)]
-    (if (next a)
-      (error (format "There is more than one adjacent vertex of %s: %s"
-                     v a))
-      (first a))))
 
 ;;# Path Functions
 
