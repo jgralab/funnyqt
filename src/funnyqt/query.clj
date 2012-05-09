@@ -1,6 +1,7 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error]]))
+  (:use [funnyqt.utils :only [error to-oset into-oset]])
+  (:require clojure.set))
 
 ;;# Comprehensions
 
@@ -175,4 +176,91 @@
   (fn [a b]
     (or (first (remove zero? (map #(%1 %2 %3) cmps a b)))
         (- (hash a) (hash b)))))
+
+;;# Regular Path Expressions
+
+(def ^{:dynamic true
+       :doc "Path application function.
+  Will be bound dynamically by the different `reachables' functions."}
+  *p-apply*)
+
+(def ^{:dynamic true
+       :doc "Path restriction function.
+  Will be bound dynamically by the different `reachables' functions."}
+  *p-restr*)
+
+(defn p-seq
+  "Path sequence starting at `v` and traversing `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a varargs seq of path descriptions."
+  [v & p]
+  (if (seq p)
+    (recur (*p-apply* v (first p)) (rest p))
+    (to-oset v)))
+
+(defn p-opt
+  "Path option starting at `v` and maybe traversing `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
+  [v p]
+  (into-oset v (*p-apply* v p)))
+
+(defn p-alt
+  "Path alternative starting at `v` and traversing one of `p`.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a varags seq of the alternative path descriptions."
+  [v & p]
+  (to-oset (mapcat #(*p-apply* v %) p)))
+
+(defn p-+
+  "Path iteration starting at `v` and traversing `p` one or many times.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
+  ([v p]
+     (p-+ v p false true))
+  ([v p d skip-v]
+     (let [v  (to-oset v)
+           n  (*p-apply* (if (false? d) v d) p)
+           df (clojure.set/difference n v)
+           sv (if skip-v n (into-oset v n))]
+       (if (seq df)
+         (recur sv p df false)
+         sv))))
+
+(defn p-*
+  "Path iteration starting at `v` and traversing `p` zero or many times.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
+  [v p]
+  (p-+ v p false false))
+
+(defn p-exp
+  "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
+  and at most `p` times.
+  `v` may be a vertex or a seq of vertices.
+  `n` or `l` and `v` are integers with `l` <= `b`.
+  `p` is a path description."
+  ([v l u p]
+     {:pre [(<= l u) (>= l 0) (>= u 0)]}
+     (loop [i (- u l), s (p-exp v l p)]
+       (if (pos? i)
+         (let [ns (into s (*p-apply* s p))]
+           (if (= (count s) (count ns))
+             s
+             (recur (dec i) ns)))
+         s)))
+  ([v n p]
+     {:pre [(>= n 0)]}
+     (if (zero? n)
+       (to-oset v)
+       (recur (*p-apply* v p) (dec n) p))))
+
+(defn p-restr
+  "Path restriction concerning `ts` and `pred` on each object in `objs`.
+  ts is a type specification (see `type-matcher` and `eclass-matcher`), `pred`
+  a predicate."
+  ([objs ts]
+     (*p-restr* objs ts identity))
+  ([objs ts pred]
+     (*p-restr* objs ts pred)))
 

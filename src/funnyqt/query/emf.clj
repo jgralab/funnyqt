@@ -5,8 +5,7 @@
   (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
-  (:use funnyqt.emf)
-  (:require clojure.set))
+  (:use funnyqt.emf))
 
 ;;# Regular Path Descriptions
 
@@ -73,9 +72,7 @@
   ([obj rs container]
      (mapcat #(inv-erefs % rs container) (to-oset obj))))
 
-(defn reachables
-  "Returns the ordered set of EObjects reachable from `obj` by via the path
-  description `p`.  `obj` may be an EObject or a seq of EObjects."
+(defn- p-apply-emf
   [obj p]
   (cond
    ;; funs: -->
@@ -86,78 +83,11 @@
    (qname? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
    :else (error (format "Don't know how to apply %s." p))))
 
-
-(defn p-seq
-  "Path sequence starting at `obj` and traversing `p`.
-  `obj` may be an EObject or a seq of EObjects.
-  `p` is a varargs seq of path descriptions."
-  [obj & p]
-  (if (seq p)
-    (recur (reachables obj (first p)) (rest p))
-    (to-oset obj)))
-
-(defn p-opt
-  "Path option starting at `obj` and maybe traversing `p`.
-  `obj` may be an EObject or a seq of EObjects.
-  `p` is a path description."
-  [obj p]
-  (into-oset obj (reachables obj p)))
-
-(defn p-alt
-  "Path alternative starting at `obj` and traversing one of `p`.
-  `obj` may be an EObject or a seq of EObjects.
-  `p` is a varags seq of the alternative path descriptions."
-  [obj & p]
-  (to-oset (mapcat #(reachables obj %) p)))
-
-(defn p-+
-  "Path iteration starting at `obj` and traversing `p` one or many times.
-  `obj` may be an EObject or a seq of EObjects.
-  `p` is a path description."
-  ([obj p]
-     (p-+ obj p false true))
-  ([obj p d skip-obj]
-     (let [obj (to-oset obj)
-           n   (reachables (if (false? d) obj d) p)
-           sv  (if skip-obj n (into-oset obj n))
-           df  (clojure.set/difference n obj)]
-       (if (seq df)
-         (recur sv p df false)
-         sv))))
-
-(defn p-*
-  "Path iteration starting at `obj` and traversing `p` zero or many times.
-  `obj` may be an EObject or a seq of EObjects.
-  `p` is a path description."
-  [obj p]
-  (p-+ obj p false false))
-
-(defn p-exp
-  "Path exponent starting at `obj` and traversing `p` `n` times, or at least `l`
-  and at most `p` times.
-  `obj` may be an EObject or a seq of EObjects.
-  `n` or `l` and `obj` are integers with `l` <= `b`.
-  `p` is a path description."
-  ([obj l u p]
-     {:pre [(<= l u) (>= l 0) (>= u 0)]}
-     (loop [i (- u l), s (p-exp obj l p)]
-       (if (pos? i)
-         (let [ns (into s (reachables s p))]
-           (if (= (count s) (count ns))
-             s
-             (recur (dec i) ns)))
-         s)))
-  ([obj n p]
-     {:pre [(>= n 0)]}
-     (if (zero? n)
-       (to-oset obj)
-       (recur (reachables obj p) (dec n) p))))
-
-(defn p-restr
+(defn- p-restr-emf
   "EObject restriction concerning `ts` and `pred` on each object in `objs`.
   ts is a type specification (see `eclass-matcher`), `pred` a predicate."
   ([objs ts]
-     (p-restr objs ts identity))
+     (p-restr-emf objs ts identity))
   ([objs ts pred]
      (let [objs (to-oset objs)]
        (to-oset
@@ -166,6 +96,15 @@
             (filter (every-pred tm pred)
                     objs))
           objs)))))
+
+(defn reachables
+  "Returns the ordered set of EObjects reachable from `obj` by via the path
+  description `p`.  `obj` may be an EObject or a seq of EObjects."
+  [obj p]
+  (binding [*p-apply* p-apply-emf
+            *p-restr* p-restr-emf]
+    (*p-apply* obj p)))
+
 
 ;;# Describing EObjects and EClasses
 

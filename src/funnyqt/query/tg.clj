@@ -42,7 +42,8 @@ collection of start vertices.
 
 All of them can be restricted by type (see `type-matcher` in core) and an
 arbitrary predicate on the edges.  These basic path functions can then be
-combined using these regular path expression functions:
+combined using these generic, regular path expression functions, which are
+provided by the `funnyqt.query` namespace:
 
     p-seq   ;; sequence
     p-opt   ;; option
@@ -108,7 +109,6 @@ can compute that like so:
   (:use funnyqt.utils)
   (:use ordered.set)
   (:use funnyqt.query)
-  (:require clojure.set)
   (:require clojure.string)
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
@@ -440,10 +440,7 @@ can compute that like so:
 
 ;;# Path Functions
 
-(defn reachables
-  "Returns the ordered set of vertices reachable from `v` by via the path
-  description `p`.
-  `v` may be a vertex or a seq of vertices."
+(defn- p-apply-tg
   [v p]
   (cond
    ;; funs: -->
@@ -453,6 +450,29 @@ can compute that like so:
    ;; adjacences / that-role names
    (qname? p) (to-oset (mapcat #(adjs-no-error % p) (to-oset v)))
    :else (error (format "Don't know how to apply %s." p))))
+
+(defn- p-restr-tg
+  "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
+  ts is a type specification (see `type-matcher`)."
+  ([vs ts]
+     (p-restr-tg vs ts identity))
+  ([vs ts pred]
+     (let [vs (to-oset vs)]
+       (to-oset
+        (if (seq vs)
+          (let [tm (type-matcher (first vs) ts)]
+            (filter (every-pred tm pred)
+                    vs))
+          vs)))))
+
+(defn reachables
+  "Returns the ordered set of vertices reachable from `v` by via the path
+  description `p`.
+  `v` may be a vertex or a seq of vertices."
+  [v p]
+  (binding [*p-apply* p-apply-tg
+            *p-restr* p-restr-tg]
+    (*p-apply* v p)))
 
 (defn- ---
   "Returns the vertices reachable from `v` via incidences with direction `dir`
@@ -612,86 +632,6 @@ can compute that like so:
      (--- v :inout
           [AggregationKind/COMPOSITE] nil
           ts pred)))
-
-(defn p-seq
-  "Path sequence starting at `v` and traversing `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a varargs seq of path descriptions."
-  [v & p]
-  (if (seq p)
-    (recur (reachables v (first p)) (rest p))
-    (to-oset v)))
-
-(defn p-opt
-  "Path option starting at `v` and maybe traversing `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  [v p]
-  (into-oset v (reachables v p)))
-
-(defn p-alt
-  "Path alternative starting at `v` and traversing one of `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a varags seq of the alternative path descriptions."
-  [v & p]
-  (to-oset (mapcat #(reachables v %) p)))
-
-(defn p-+
-  "Path iteration starting at `v` and traversing `p` one or many times.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  ([v p]
-     (p-+ v p false true))
-  ([v p d skip-v]
-     (let [v  (to-oset v)
-           n  (reachables (if (false? d) v d) p)
-           df (clojure.set/difference n v)
-           sv (if skip-v n (into-oset v n))]
-       (if (seq df)
-         (recur sv p df false)
-         sv))))
-
-(defn p-*
-  "Path iteration starting at `v` and traversing `p` zero or many times.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  [v p]
-  (p-+ v p false false))
-
-(defn p-exp
-  "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
-  and at most `p` times.
-  `v` may be a vertex or a seq of vertices.
-  `n` or `l` and `v` are integers with `l` <= `b`.
-  `p` is a path description."
-  ([v l u p]
-     {:pre [(<= l u) (>= l 0) (>= u 0)]}
-     (loop [i (- u l), s (p-exp v l p)]
-       (if (pos? i)
-         (let [ns (into s (reachables s p))]
-           (if (= (count s) (count ns))
-             s
-             (recur (dec i) ns)))
-         s)))
-  ([v n p]
-     {:pre [(>= n 0)]}
-     (if (zero? n)
-       (to-oset v)
-       (recur (reachables v p) (dec n) p))))
-
-(defn p-restr
-  "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
-  ts is a type specification (see `type-matcher`)."
-  ([vs ts]
-     (p-restr vs ts identity))
-  ([vs ts pred]
-     (let [vs (to-oset vs)]
-       (to-oset
-        (if (seq vs)
-          (let [tm (type-matcher (first vs) ts)]
-            (filter (every-pred tm pred)
-                    vs))
-          vs)))))
 
 ;;# Describe Schema and Graph Elements
 

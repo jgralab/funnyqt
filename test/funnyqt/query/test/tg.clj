@@ -219,13 +219,13 @@
   (is (= 4272 (count (reachables (vertex (jg) 12) [p-seq [p-* <>--] [p-+ -->]]))))
   (is (= 2337 (count (reachables (vertex (jg) 12) [p-+ [p-seq <>-- -->]]))))
   (is (= 6 (count (reachables (vertex (jg) 12)
-			   [p-seq
-			    [p-+ [p-seq <>-- -->]]
-			    [p-restr  'annotations.Annotable]]))))
+                              [p-seq
+                               [p-+ [p-seq <>-- -->]]
+                               [p-restr  'annotations.Annotable]]))))
   (is (= 3280 (count (reachables (vertex (jg) 12)
-			      [p-seq [p-opt --<>]
-			       [p-+ [p-seq <>-- -->]]
-			       [p-opt <--]]))))
+                                 [p-seq [p-opt --<>]
+                                  [p-+ [p-seq <>-- -->]]
+                                  [p-opt <--]]))))
   (is (= 6 (count (reachables (vertex (jg) 12) [p-alt <>-- --<>])))))
 
 (deftest test-p-exp
