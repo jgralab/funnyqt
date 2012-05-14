@@ -212,27 +212,26 @@
   [v & p]
   (to-oset (mapcat #(*p-apply* v %) p)))
 
-(defn p-+
-  "Path iteration starting at `v` and traversing `p` one or many times.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  ([v p]
-     (p-+ v p false true))
-  ([v p d skip-v]
-     (let [v  (to-oset v)
-           n  (*p-apply* (if (false? d) v d) p)
-           df (clojure.set/difference n v)
-           sv (if skip-v n (into-oset v n))]
-       (if (seq df)
-         (recur sv p df false)
-         sv))))
-
 (defn p-*
   "Path iteration starting at `v` and traversing `p` zero or many times.
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
+  ([v p]
+     (p-* v p (to-oset v)))
+  ([v p ret]
+     (let [n (clojure.set/difference
+              (to-oset (*p-apply* v p))
+              ret)]
+       (if (seq n)
+         (recur n p (into-oset ret n))
+         ret))))
+
+(defn p-+
+  "Path iteration starting at `v` and traversing `p` one or many times.
+  `v` may be a vertex or a seq of vertices.
+  `p` is a path description."
   [v p]
-  (p-+ v p false false))
+  (*p-apply* v [p-seq p [p-* p]]))
 
 (defn p-exp
   "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`

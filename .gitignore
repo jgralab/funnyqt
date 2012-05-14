@@ -10,3 +10,4 @@ html5-docs.log
 funnyqt-?.?.?.jar
 hs_err_pid*.log
 test/output/*
+target/
