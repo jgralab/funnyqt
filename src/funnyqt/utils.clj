@@ -173,12 +173,8 @@
   [exp then else]
   (if (try (eval exp)
            (catch Throwable _ false))
-    `(do
-       ~then
-       (comment ~else))
-    `(do
-       (comment ~then)
-       ~else)))
+    `(do ~then)
+    `(do ~else)))
 
 (defmacro compile-when
   "Evaluate `exp` and if it returns logical true and doesn't error, expand to

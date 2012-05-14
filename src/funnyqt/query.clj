@@ -231,7 +231,7 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   [v p]
-  (*p-apply* v [p-seq p [p-* p]]))
+  (p-* v p (ordered.set/ordered-set)))
 
 (defn p-exp
   "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
