@@ -240,6 +240,27 @@
   (is (= (reachables (vertex (jg) 12) [p-seq [p-opt -->] [p-opt -->] [p-opt -->]])
          (reachables (vertex (jg) 12) [p-exp 0 3 -->]))))
 
+(deftest test-p-+*
+  (is (= (reachables (vertex (jg) 1) [p-+ <->])
+         (reachables (vertex (jg) 1) [p-seq <-> [p-* <->]])))
+  (is (contains? (reachables (vertex (jg) 1) [p-* <*>--])
+                 (vertex (jg) 1)))
+  (is (not (contains? (reachables (vertex (jg) 1) [p-+ <*>--])
+                      (vertex (jg) 1)))))
+
+(deftest test-p-+*2
+  (doseq [p [[p-seq <-> <->]
+             <>--
+             <*>--
+             <_>--
+             [p-alt [p-seq --> -->]
+                    [p-seq <-- <--]]]]
+    (doseq [vid [1 20 117 3038]]
+      (is (= (reachables (vertex (jg) vid) [p-+ p])
+             (reachables (vertex (jg) vid) [p-seq p [p-* p]])))
+      (is (= (reachables (vertex (jg) vid) [p-* p])
+             (reachables (vertex (jg) vid) [p-opt [p-+ p]]))))))
+
 (deftest test-derived-from-state
   (let [start (the (filter #(= (value %1 :name) "State")
 			   (vseq (jg) 'classifiers.Class)))]
