@@ -75,7 +75,7 @@
   (lazy-seq
    (if (seq s)
      (succ-seq-internal (rest s)
-                        (conj acc [(first s) (first (next s))]))
+                        (conj acc [(first s) (fnext s)]))
      acc)))
 
 (defn succ-seq

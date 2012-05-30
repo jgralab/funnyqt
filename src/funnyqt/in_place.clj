@@ -43,7 +43,7 @@
     (if (seq p)
       (if (= :let (first p))
         (recur (rest (rest p))
-               (vec (concat nb (shortcut-let-vector (first (next p))))))
+               (vec (concat nb (shortcut-let-vector (fnext p)))))
         (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
       (vec nb))))
 
