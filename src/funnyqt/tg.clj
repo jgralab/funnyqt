@@ -78,12 +78,11 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([^Graph g reversed]
      (if (> (+ (.getVCount g) (.getECount g)) 600)
        (do (println "Graph too big for visualizing!") nil)
-       (let [img (-> (doto ^Tg2Dot (Tg2Dot.)
-                           (.setGraph ^Graph g)
-                           (.setReversedEdges reversed))
-                     (.convertToGraphVizImageIcon
-                      (-> (GraphVizProgram.)
-                          (.outputFormat GraphVizOutputFormat/PNG))))
+       (let [img (.convertToGraphVizImageIcon
+                  (doto ^Tg2Dot (Tg2Dot.)
+                        (.setGraph ^Graph g)
+                        (.setReversedEdges reversed))
+              (.outputFormat (GraphVizProgram.) GraphVizOutputFormat/PNG))
              label (JLabel. img)
              frame (JFrame. (str "Graph: " (.getId g)))
              scale (atom 1.0)]
@@ -120,8 +119,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (defn tgtree
   "Shows a simple Swing tree view representation of the graph `g`."
   [g]
-  (-> (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g)
-      (.setVisible true)))
+  (.setVisible (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g) true))
 
 (declare attributed-element-class)
 (defn print-graph
@@ -297,8 +295,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (or (-> this .getSchema (.getAttributedElementClass (name qname)))
            (error (format "No such attributed element class %s" (name qname))))))
   (domain [elem qname]
-    (or (-> (.getSchema elem)
-            (.getDomain (domain-qname qname)))
+    (or (.getDomain (.getSchema elem) (domain-qname qname))
         (error (format "No such domain %s" (domain-qname qname)))))
   (schema [ae]
     (.getSchema ae))
@@ -314,8 +311,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
     ([this qname]
        (-> this .getSchema (.getAttributedElementClass (name qname)))))
   (domain [aec qname]
-    (or (-> (.getSchema aec)
-            (.getDomain (domain-qname qname)))
+    (or (.getDomain (.getSchema aec) (domain-qname qname))
         (error (format "No such domain %s" (domain-qname qname)))))
   (schema [this]
     (.getSchema this))
@@ -335,8 +331,9 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (defn schema-graph
   "Returns the SchemaGraph of `g`."
   [^Graph g]
-  (-> (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
-      (.convert2SchemaGraph ^Schema (schema g))))
+  (.convert2SchemaGraph
+   (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
+   ^Schema (schema g)))
 
 (defn- type-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
@@ -423,21 +420,19 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (extend-protocol IDOps
   Graph
   (id [g]
-      (.getId g))
+    (.getId g))
   (vertex [g id]
-	  (.getVertex g id))
+    (.getVertex g id))
   (edge [g id]
-	(.getEdge g id))
+    (.getEdge g id))
 
   GraphElement
   (id [ge]
-      (.getId ge))
+    (.getId ge))
   (edge [ge id]
-	(-> (.getGraph ge)
-	    (.getEdge id)))
+    (.getEdge (.getGraph ge) id))
   (vertex [ge id]
-	  (-> (.getGraph ge)
-	      (.getVertex id))))
+    (.getVertex (.getGraph ge) id)))
 
 ;;## Edge functions
 
@@ -573,13 +568,11 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (extend-protocol ClojureValues2JGraLabValues
   clojure.lang.ISeq
   (clj2jgval [coll]
-    (-> (ArrayPVector/empty)
-        (.plusAll ^Collection (map clj2jgval coll))))
+    (.plusAll (ArrayPVector/empty) ^Collection (map clj2jgval coll)))
 
   clojure.lang.IPersistentVector
   (clj2jgval [coll]
-    (-> (ArrayPVector/empty)
-        (.plusAll ^Collection (map clj2jgval coll))))
+    (.plusAll (ArrayPVector/empty) ^Collection (map clj2jgval coll)))
 
   clojure.lang.IPersistentMap
   (clj2jgval [coll]
@@ -591,8 +584,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
   clojure.lang.IPersistentSet
   (clj2jgval [coll]
-    (-> (ArrayPSet/empty)
-        (.plusAll ^Collection (map clj2jgval coll))))
+    (.plusAll (ArrayPSet/empty) ^Collection (map clj2jgval coll)))
 
   Record (clj2jgval [r] r)
 

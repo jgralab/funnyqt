@@ -91,7 +91,7 @@
                               (or *ns-uris* (keys epackage-registry)))))]
        (when-not tops
          (error (format "No such root package %s." f)))
-       (when (next (next tops))
+       (when (nnext tops)
          (error (format "Multiple root packages named %s: %s\n%s" f tops
                         "Restrict the search space using `with-ns-uris`.")))
        (if (seq r)
