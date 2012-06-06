@@ -1,7 +1,4 @@
-.hg/
-.hgignore
 .lein*
-.cake/
 lib/
 classes/
 docs/
@@ -10,4 +7,8 @@ html5-docs.log
 funnyqt-?.?.?.jar
 hs_err_pid*.log
 test/output/*
+target/bin/
+clojure-src.jar
+clojure.jar
 target/
+bin/
