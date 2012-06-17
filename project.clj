@@ -13,8 +13,8 @@
   ;;             :snapshots true}}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [de.uni-koblenz.ist/jgralab "6.3.0"]
-                 [org.clojure/core.logic "0.6.8"]
-                 [ordered "1.1.0" :exclusions [org.clojure/clojure]]
+                 [org.clojure/core.logic "0.7.3"]
+                 [ordered "1.2.2" :exclusions [org.clojure/clojure]]
                  [org.clojure/tools.macro "0.1.1"]
                  [emf-xsd-sdk "2.7.1"]]
   :dev-dependencies [[hiccup "0.3.7"]]
@@ -22,7 +22,7 @@
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
   :warn-on-reflection true
-  :jvm-opts ["-Xmx2G"]
+  :jvm-opts ["-Xmx1G"]
   :license {:name "GNU General Public License, Version 3"
             :url "http://www.gnu.org/copyleft/gpl.html"
             :distribution :repo}
