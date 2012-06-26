@@ -15,6 +15,8 @@
        :doc "Actions deferred to the end of the transformation."}
   *deferred-actions*)
 
+;; TODO: Man will vermutlich ne Variante, bei der man bestimmen kann, für
+;; welche Parameter Trace-Links erzeugt werden.
 (defmacro defmapping
   "Defines a mapping function named `name` with optional `doc-string?',
   an argument vector `args`, and a `body`.  The syntax is the same as for
@@ -38,11 +40,8 @@
       `(~@(expansion-context-defn-maybe name)
         ~args
         ~(if (seq args)
-           `(let [result# (do ~@body)
-                  current# (get @*traceability-mappings* ~name)]
-              (swap! *traceability-mappings* #(assoc % ~name
-                                                     (assoc current#
-                                                       ~(first args) result#)))
+           `(let [result# (do ~@body)]
+              (swap! *traceability-mappings* assoc-in [~name ~(first args)] result#)
               result#)
            `(do ~@body)))
       (error (format "Invalid defmapping form: expected arg vector but got %s."
@@ -77,7 +76,7 @@
   (get (get @*traceability-mappings* mapping) obj))
 
 (defn resolve-all-in
-  "Returns a collection of target objects created for `objs` in `mapping`."
+  "Returns a seq of target objects created for `objs` in `mapping`."
   [mapping objs]
   (into (empty objs)
         (map #(resolve-in mapping %)

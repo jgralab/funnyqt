@@ -77,12 +77,11 @@
     (doseq [f (vseq in 'Family)]
       (family2address f out))
     (doseq [p (vseq in 'Member)]
-      (member2person p)))
+      (member2person p))
+    out)
 
   ;; The main form
-  (do
-    (familymodel2genealogy)
-    out))
+  (familymodel2genealogy))
 
 ;; Run it!
 
