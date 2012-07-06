@@ -52,9 +52,9 @@ installed to get some better editing and history support.)
 ```
 $ lein repl
 REPL started; server listening on localhost port 22815
-user=> (use 'funnyqt.tg.core)
+user=> (use 'funnyqt.tg)
 nil
-user=> (use 'funnyqt.tg.query)
+user=> (use 'funnyqt.query.tg)
 nil
 user=> (def g (load-graph "test/greqltestgraph.tg"))
 #<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
