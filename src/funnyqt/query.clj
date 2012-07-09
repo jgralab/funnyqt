@@ -1,6 +1,8 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error to-oset into-oset]])
+  (:use [funnyqt.utils :only [error to-oset into-oset]]
+        [funnyqt.protocols :only [adj-internal adjs-internal
+                                  adj*-internal adjs*-internal]])
   (:require clojure.set))
 
 ;;# Comprehensions
@@ -176,6 +178,36 @@
   (fn [a b]
     (or (first (remove zero? (map #(%1 %2 %3) cmps a b)))
         (- (hash a) (hash b)))))
+
+;;# Adjacencies
+
+;; Those are defined in funnyqt.query.tg and funnyqt.query.emf
+
+(defn adj
+  "Traverses `roles` starting at `elem`, and returns the target object.
+  Errors if a role is undefined, intermediate targets are nil, or there are
+  more elements that can be reached that way."
+  [elem & roles]
+  (adj-internal elem roles))
+
+(defn adj*
+  "Like `adj`, but doesn't error if some role is not defined.  In that case, it
+  simlpy returns nil."
+  [elem & roles]
+  (adj*-internal elem roles))
+
+(defn adjs
+  "Traverses `roles` starting at `elem`, and returns the seq of target objects.
+  Errors if a role is undefined or intermediate targets are nil."
+  [elem & roles]
+  (adjs-internal elem roles))
+
+(defn adjs*
+  "Like `adjs`, but doesn't error if some role is not defined.  In that case,
+  it simply returns nil."
+  [elem & roles]
+  (adjs*-internal elem roles))
+
 
 ;;# Regular Path Expressions
 

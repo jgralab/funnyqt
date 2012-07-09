@@ -4,6 +4,7 @@
   (:use funnyqt.protocols)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
+  (:use funnyqt.query)
   (:use clojure.test))
 
 ;;* Rules

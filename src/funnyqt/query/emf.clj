@@ -7,6 +7,10 @@
   (:use ordered.map)
   (:use funnyqt.emf))
 
+;;# Adjancencies
+
+;; TODO: Extend Adjancencies protocol on EObject!
+
 ;;# Regular Path Descriptions
 
 (defn <>--
