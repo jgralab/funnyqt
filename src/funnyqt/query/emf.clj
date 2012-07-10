@@ -5,11 +5,36 @@
   (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
-  (:use funnyqt.emf))
+  (:use funnyqt.emf)
+  (:import
+   [org.eclipse.emf.ecore EObject EReference EStructuralFeature]))
+
 
 ;;# Adjancencies
 
-;; TODO: Extend Adjancencies protocol on EObject!
+(defn- eget-ref ^EReference [^EObject eo ref]
+  (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
+    (if (instance? EReference sf)
+      (.eGet eo sf)
+      (error (format "'%s' at %s is no EReference." sf eo)))
+    (error (format "No such structural feature '%s' at %s." ref eo))))
+
+(extend-protocol Adjacencies
+  EObject
+  (adj-internal [this roles]
+    (if (seq roles)
+      (recur (emf2clj (eget-ref this (first roles)))
+             (rest roles))
+      this))
+  (adjs-internal [this roles]
+    ;; TODO
+    )
+  (adj*-internal [this roles]
+    ;; TODO
+    )
+  (adjs*-internal [this roles]
+    ;; TODO
+    ))
 
 ;;# Regular Path Descriptions
 
