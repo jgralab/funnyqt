@@ -12,18 +12,29 @@
 
 ;;# Adjancencies
 
-(defn- eget-ref ^EReference [^EObject eo ref]
+(defn- eget-single-valued-ref ^EReference [^EObject eo ref]
   (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
     (if (instance? EReference sf)
-      (.eGet eo sf)
+      (let [ub (.getUpperBound sf)]
+        (if (== 1 ub)
+          (.eGet eo sf)
+          (error (format "Must not call adj on EReference '%s' with upper bound %s."
+                         sf ub))))
       (error (format "'%s' at %s is no EReference." sf eo)))
     (error (format "No such structural feature '%s' at %s." ref eo))))
+
+(defn- zero-or-one [s]
+  (if-not (coll? s)
+    s
+    (if (next s)
+      (error (format "More than one adjacent vertex found: %s" s))
+      (first s))))
 
 (extend-protocol Adjacencies
   EObject
   (adj-internal [this roles]
     (if (seq roles)
-      (recur (emf2clj (eget-ref this (first roles)))
+      (recur (emf2clj (eget-single-valued-ref this (first roles)))
              (rest roles))
       this))
   (adjs-internal [this roles]

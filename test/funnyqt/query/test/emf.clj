@@ -20,6 +20,16 @@
          (erefs fm [:members :families]) (reachables fm [p-alt :members :families]) 16
          (eallobjects family-model) (reachables fm [p-* -->>]) 17)))
 
+(deftest test-adj
+  (is (every? #(= %
+                  (adj % :father :familyFather)
+                  (adj % :mother :familyMother)
+                  (eget (eget % :father) :familyFather)
+                  (eget (eget % :mother) :familyMother))
+              (eallobjects family-model 'Family)))
+  ;; Multivalued refs should throw
+  (is (thrown? RuntimeException (adj (first (econtents family-model)) :members))))
+
 (defn get-member
   [first-name]
   (the (filter #(= (eget % :firstName) first-name)
