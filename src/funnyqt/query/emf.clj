@@ -12,16 +12,20 @@
 
 ;;# Adjancencies
 
-(defn- eget-single-valued-ref ^EReference [^EObject eo ref]
+(defn- eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
   (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
     (if (instance? EReference sf)
-      (let [ub (.getUpperBound sf)]
-        (if (== 1 ub)
-          (.eGet eo sf)
-          (error (format "Must not call adj on EReference '%s' with upper bound %s."
-                         sf ub))))
+      (if single-valued
+        (let [ub (.getUpperBound sf)]
+          (if (== 1 ub)
+            (.eGet eo sf)
+            (error (format "Must not call adj on EReference '%s' with upper bound %s."
+                           sf ub))))
+        (.eGet eo sf))
       (error (format "'%s' at %s is no EReference." sf eo)))
-    (error (format "No such structural feature '%s' at %s." ref eo))))
+    (if allow-unknown-ref
+      nil
+      (error (format "No such structural feature '%s' at %s." ref eo)))))
 
 (defn- zero-or-one [s]
   (if-not (coll? s)
@@ -34,18 +38,24 @@
   EObject
   (adj-internal [this roles]
     (if (seq roles)
-      (recur (emf2clj (eget-single-valued-ref this (first roles)))
-             (rest roles))
+      (when-let [a (emf2clj (eget-ref this (first roles) false true))]
+        (recur a (rest roles)))
+      this))
+  (adj*-internal [this roles]
+    (if (seq roles)
+      (when-let [a (emf2clj (eget-ref this (first roles) true true))]
+        (recur a (rest roles)))
       this))
   (adjs-internal [this roles]
-    ;; TODO
-    )
-  (adj*-internal [this roles]
-    ;; TODO
-    )
+    (if (seq roles)
+      (when-let [a (emf2clj (eget-ref this (first roles) false false))]
+        (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
+      [this]))
   (adjs*-internal [this roles]
-    ;; TODO
-    ))
+    (if (seq roles)
+      (when-let [a (emf2clj (eget-ref this (first roles) true false))]
+        (mapcat #(adjs*-internal % (rest roles)) (if (coll? a) a [a])))
+      [this])))
 
 ;;# Regular Path Descriptions
 

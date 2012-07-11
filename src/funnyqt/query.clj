@@ -186,13 +186,15 @@
 (defn adj
   "Traverses `roles` starting at `elem`, and returns the target object.
   Errors if a role is undefined, intermediate targets are nil, or there are
-  more elements that can be reached that way."
+  more elements that can be reached that way.
+  For EMF EObjects, only single-valued references are allowed."
   [elem & roles]
   (adj-internal elem roles))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
-  simlpy returns nil."
+  simply returns nil.
+  For EMF EObjects, only single-valued references are allowed."
   [elem & roles]
   (adj*-internal elem roles))
 
