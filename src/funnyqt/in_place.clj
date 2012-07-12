@@ -91,8 +91,13 @@
               (set blist)
               (set args)))
       (errorf "Arglist and match vector overlap!")
-      ;; TODO: Check frequencies!
-      match)))
+      (if-let [double-syms (seq (mapcat (fn [[sym freq]]
+                                          (when (> freq 1)
+                                            (str "- " sym " is declared " freq " times\n")))
+                                        (frequencies blist)))]
+        (errorf "These symbols are declared multiple times:\n%s"
+                (apply str double-syms))
+        match))))
 
 (defn- symbol-and-type [sym]
   (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]+)?(?::([a-zA-Z_0-9]+))?(?:-|->)?"
