@@ -102,6 +102,12 @@
   ([msg cause]
      `(throw (RuntimeException. ~msg ~cause))))
 
+(defmacro errorf
+  "Throws an exception with the given `msg` and `objs` passed to `format`.
+  `msg` is a format string."
+  [msg & objs]
+  `(error (format ~msg ~@objs)))
+
 ;;# Debugging
 
 (defn pr-identity

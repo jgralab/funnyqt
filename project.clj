@@ -13,8 +13,8 @@
   ;;             :snapshots true}}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [de.uni-koblenz.ist/jgralab "6.3.0"]
-                 [org.clojure/core.logic "0.7.3"]
-                 [ordered "1.2.2" :exclusions [org.clojure/clojure]]
+                 [org.clojure/core.logic "0.7.5"]
+                 [ordered "1.3.0"]
                  [org.clojure/tools.macro "0.1.1"]
                  [emf-xsd-sdk "2.7.1"]]
   :dev-dependencies [[hiccup "0.3.7"]]
