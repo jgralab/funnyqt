@@ -1,10 +1,11 @@
 (ns funnyqt.in-place
   "Match elements in a structure, and act on them."
   (:use [funnyqt.utils :only [errorf pr-identity]])
-  (:use [funnyqt.query :only [the for*]])
+  (:use [funnyqt.query :only [the for* pred-succ-seq]])
   (:use funnyqt.macro-utils)
   (:use funnyqt.protocols)
   (:require [funnyqt.tg :as tg]
+            [funnyqt.query.tg :as tgq]
             [funnyqt.emf :as emf])
   (:require clojure.set)
   (:use [funnyqt.query :only [member?]])
@@ -92,9 +93,9 @@
     match))
 
 (defn- symbol-and-type [sym]
-  (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]*):([a-zA-Z_0-9]+)(?:-|->)?"
+  (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]+)?(?::([a-zA-Z_0-9]+))?(?:-|->)?"
                                (name sym))]
-    [(symbol s) (symbol t)]
+    [(and s (symbol s)) (and t `'~(symbol t))]
     (errorf "No valid pattern symbol: %s" sym)))
 
 (defn- edge-sym? [sym]
@@ -104,36 +105,72 @@
 (defn- edge-dir [esym]
   (if (edge-sym? esym)
     (if (re-matches #"<-.*" (name esym))
-      :left
-      :right)
+      :in
+      :out)
     (errorf "%s is not edge symbol." esym)))
 
-(defn- decl-sym [s t p]
-  (if (edge-sym? p)
-    [:let [s `(~@(if (= (edge-dir p) :left)
-                   [#'tg/omega (first (symbol-and-type p))]
-                   [#'tg/alpha (first (symbol-and-type p))]))]
-     :when `(has-type? ~s '~t)]))
+(defn- blank-sym? [sym]
+  (re-matches #"[a-zA-Z0-9]" (name sym)))
+
+(defn- decl-sym [p sym n graph]
+  (println p sym n)
+  (letfn [(alpha-omega [p]
+            (if (= (edge-dir p) :out)
+              `(tg/omega ~(first (symbol-and-type p)))
+              `(tg/alpha ~(first (symbol-and-type p)))))]
+    (if (or
+         ;; `for` special keywords, pass them straight thru
+         (#{:when :let :while} sym)
+         (#{:when :let :while} p)
+         ;; Embedded normal decls: a (vseq ...)
+         (and (symbol? sym) (blank-sym? sym) (list? n))
+         (and (symbol? p)   (blank-sym? p)   (list? sym)))
+      [sym]
+      (let [[s t] (symbol-and-type sym)]
+        (cond
+         ;; No previous symbol
+         (nil? p) (if (edge-sym? sym)
+                    `[~s (tgq/eseq ~graph ~t)]
+                    `[~s (tgq/vseq ~graph ~t)])
+         ;; -x:E-> z:V, a (a was declared before), or
+         (and (blank-sym? sym) (not (edge-sym? p)))
+         nil ;; nothing to do here
+         ;; -x:E-> a (a was declared before), or
+         (and (blank-sym? sym) (edge-sym? p))
+         `[:when (= ~sym ~(alpha-omega p))]
+         ;; -a:E-> b:V (node after edge)
+         (and (edge-sym? p) (not (edge-sym? sym)))
+         `[:let [~s ~(alpha-omega p)]
+           ~@(when t
+               `[:when (has-type? ~s ~t)])]
+         ;; b:V -a:E-> (edge after node)
+         (and (not (edge-sym? p)) (edge-sym? sym))
+         `[~s (tgq/iseq ~@(symbol-and-type p) ~(edge-dir sym))]
+         ;; b:V, c:V (node after node)
+         (and (not (edge-sym? p)) (not (edge-sym? sym)))
+         `[~s (tgq/vseq ~graph ~t)]
+         :else (errorf "Cannot handle pattern part '%s %s' (previous, current)."
+                       p sym))))))
 
 (defn- transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax."
   [match args]
   ;; NOTE: the first element in args must be the graph/model symbol...
-  (let [m (first args)
-        ;; Maps -a:A-> to a, b:B to b, etc.
-        symmap (atom {})]
-    (letfn [(get-or-decl [sym prev]
-              (or (@symmap sym)
-                  (let [[id type] (symbol-and-type sym)]
-                    (swap! symmap assoc sym id)
-                    (decl-sym id type prev))))]
-      )
+  #_(let [m (first args)]
+    (vec (mapcat (fn [[p s n]] (decl-sym p s n m)) (pred-succ-seq match)))
     )
   (verify-match-vector match args))
 
 (comment
   (transform-match-vector '[v1:V1 -e1:E1-> v2:V2 <-e2:E2- v1
-                            :when (not (= e1 e2))] '[g]))
+                            :when (not (= e1 e2))] '[g])
+  [a (funnyqt.query.tg/vseq g (quote A))
+   b (funnyqt.query.tg/iseq a (quote A) :out)
+   :let [c (funnyqt.tg/omega b)]
+   :when (funnyqt.protocols/has-type? c (quote (quote C)))
+   d (funnyqt.query.tg/iseq c (quote C) :out)
+   :when (clojure.core/= a (funnyqt.tg/omega d))]
+)
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,

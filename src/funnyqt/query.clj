@@ -86,6 +86,22 @@
   [s]
   (succ-seq-internal s []))
 
+(defn- pred-succ-seq-internal
+  [s pp p acc]
+  (lazy-seq
+   (if (seq s)
+     (pred-succ-seq-internal (rest s)
+                             p
+                             (first s)
+                             (conj acc [pp p (first s)]))
+     (conj acc [pp p nil]))))
+
+(defn pred-succ-seq
+  "Predecessor-Successor Seq: Returns a lazy seq of triples of seq `s`s elements.
+  Each triple has the form [pred cur succ]."
+  [s]
+  (rest (pred-succ-seq-internal s nil nil [])))
+
 ;;# Logical (higher-order) funs
 
 (defn xor
