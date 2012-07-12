@@ -163,15 +163,6 @@
                       :else (errorf "Cannot handle pattern part '%s %s' (previous, current)."
                                     p sym)))))))
 
-(comment
-  [a (funnyqt.query.tg/vseq g (quote A))
-   anonedge30027 (funnyqt.query.tg/iseq a (quote Foo) :out)
-   :when (clojure.core/= a (funnyqt.tg/omega anonedge30027))
-   anonedge30028 (funnyqt.query.tg/iseq a (quote Bar) :in)
-   :when (clojure.core/= a (funnyqt.tg/alpha anonedge30028))]
-
-  )
-
 (defn- transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax."
   [match args]
