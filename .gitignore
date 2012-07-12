@@ -12,3 +12,5 @@ clojure-src.jar
 clojure.jar
 target/
 bin/
+.settings/
+pom.xml.asc
