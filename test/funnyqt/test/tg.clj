@@ -58,22 +58,19 @@
            #{1 2 (vertex (rg) 1)}]]
     (is (= x (tg-read-str (tg-pr-str x) (rg))))))
 
-(deftest test-instance-of?
+(deftest test-is-instance?
   (let [g     (rg)
         gc    (attributed-element-class g)
         city  (vertex g 7)
         cityc (attributed-element-class city)
         hw    (edge g 28)
         hwc   (attributed-element-class hw)]
-    (is (instance-of? gc g))
-    (is (instance-of? cityc city))
-    (is (instance-of? hwc hw))
+    (is (is-instance? g gc))
+    (is (is-instance? city cityc))
+    (is (is-instance? hw hwc))
 
     (let [loc (attributed-element-class g 'localities.Locality)]
-      (is (not (instance-of? loc g)))
-      (is (instance-of? loc city))
-      (is (not (instance-of? loc hw)))
-
-      (is (not (instance-of? loc 1)))
-      (is (not (instance-of? loc "Foo"))))))
+      (is (not (is-instance? g loc)))
+      (is (is-instance? city loc))
+      (is (not (is-instance? hw loc))))))
 

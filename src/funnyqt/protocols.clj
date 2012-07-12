@@ -42,24 +42,10 @@
 
 (defprotocol InstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
-  (instance-of? [class object]
-    "Returns true, iff `object` is an instance of `class`.
-  Implementations are provided for:
-
-    - java.lang.Class: default impl in this namespace (synonym to clojure.core/instance?)
-    - de.uni_koblenz.jgralab.schema.AttributedElementClass: funnyqt.tg
-    - org.eclipse.emf.ecore.EClassifier: funnyqt.emf")
-  (type-of? [object spec]
-    "Returns true, iff `object`s type matches `spec`.
-  Implementations are provided for:
-
-    - de.uni_koblenz.jgralab.AttributedElement: funnyqt.tg
-    - org.eclipse.emf.ecore.EObject: funnyqt.emf"))
-
-(extend-protocol InstanceOf
-  java.lang.Class
-  (instance-of? [class object]
-    (instance? class object)))
+  (is-instance? [object class]
+    "Returns true, iff `object` is an instance of `class`.")
+  (has-type? [object spec]
+    "Returns true, iff `object`s type matches `spec`."))
 
 ;;# Deletion
 

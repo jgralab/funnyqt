@@ -278,7 +278,7 @@
 	      [p-restr 'classifiers.Class
 	       (fn [v]
 		 (empty? (filter
-			  #(type-of? %1 'modifiers.Abstract)
+			  #(has-type? %1 'modifiers.Abstract)
 			  (adjs v :annotationsAndModifiers))))]]))))))
 
 (defn coupled-classes
@@ -325,11 +325,11 @@
   (let [eval-args #(map eval-bin-tree
                         (--> % 'HasArg))]
     (cond
-     (type-of? v 'Const) (value v :value)
-     (type-of? v 'Add)   (reduce + (eval-args v))
-     (type-of? v 'Sub)   (reduce - (eval-args v))
-     (type-of? v 'Mul)   (reduce * (eval-args v))
-     (type-of? v 'Div)   (reduce / (eval-args v)))))
+     (has-type? v 'Const) (value v :value)
+     (has-type? v 'Add)   (reduce + (eval-args v))
+     (has-type? v 'Sub)   (reduce - (eval-args v))
+     (has-type? v 'Mul)   (reduce * (eval-args v))
+     (has-type? v 'Div)   (reduce / (eval-args v)))))
 
 (defprotocol BinTreeEval (eval-exp [this]))
 

@@ -356,6 +356,6 @@
     ;; Ok, deletion while iteration won't do, so we have to get rid of lazyness
     ;; doall.
     (doseq [o (doall (eallobjects fm))]
-      (when-not (type-of? o 'FamilyModel)
+      (when-not (has-type? o 'FamilyModel)
         (delete! o)))
     (is (== 1 (count (eallobjects fm))))))

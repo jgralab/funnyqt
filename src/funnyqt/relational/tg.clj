@@ -215,7 +215,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                           (query/vseq ~'+graph+ '~na))
                      (remove not)))
                (if (and (.containsVertex ~'+graph+ v#)
-                        (genprots/type-of? v# '~na))
+                        (genprots/has-type? v# '~na))
                  a#
                  (fail a#)))))))))
 

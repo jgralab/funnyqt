@@ -380,23 +380,23 @@ See `tgtree`, `show-graph`, and `print-graph`."
           (format "Don't know how to create a type matcher for %s" ts))))
 
 (extend-protocol InstanceOf
-  GraphClass
-  (instance-of? [class object]
-    (if (instance? Graph object)
-      (.isInstanceOf ^Graph object class)
-      false))
-  VertexClass
-  (instance-of? [class object]
-    (if (instance? Vertex object)
-      (.isInstanceOf ^Vertex object class)
-      false))
-  EdgeClass
-  (instance-of? [class object]
-    (if (instance? Edge object)
-      (.isInstanceOf ^Edge object class)
-      false))
-  AttributedElement
-  (type-of? [obj spec]
+  Graph
+  (is-instance? [object class]
+    (and (instance? GraphClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
+    ((type-matcher obj spec) obj))
+  Vertex
+  (is-instance? [object class]
+    (and (instance? VertexClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
+    ((type-matcher obj spec) obj))
+  Edge
+  (is-instance? [object class]
+    (and (instance? EdgeClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
     ((type-matcher obj spec) obj)))
 
 ;;# Graph Access
@@ -772,7 +772,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
              (name role))
         ec (.getEdgeClass dec)
         ed (.getDirection dec)]
-    (unlink! v #(instance-of? ec %) ed))
+    (unlink! v #(is-instance? % ec) ed))
   (doseq [av adjvs]
     (add-adj! v role av)))
 

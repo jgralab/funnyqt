@@ -1,8 +1,11 @@
 (ns funnyqt.in-place
   "Match elements in a structure, and act on them."
-  (:use [funnyqt.utils :only [error pr-identity]])
+  (:use [funnyqt.utils :only [errorf pr-identity]])
   (:use [funnyqt.query :only [the for*]])
   (:use funnyqt.macro-utils)
+  (:use funnyqt.protocols)
+  (:require [funnyqt.tg :as tg]
+            [funnyqt.emf :as emf])
   (:require clojure.set)
   (:use [funnyqt.query :only [member?]])
   (:require [clojure.tools.macro :as m]))
@@ -26,8 +29,8 @@
        ;; A vector destructuring form
        (vector? (first p)) (recur (rest (rest p)) (vec (concat l (first p))))
        ;; Anothen destructuring form
-       (coll? (first p)) (error (format "Only vector destructuring is permitted outside :let, got: %s"
-                                        (first p)))
+       (coll? (first p)) (errorf "Only vector destructuring is permitted outside :let, got: %s"
+                                 (first p))
        ;; That's a normal binding
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
@@ -58,7 +61,7 @@
   {:arglists '([[bindings*] & body])}
   [bindings & body]
   (when (not= 0 (mod (count bindings) 2))
-    (error "bindings has to be var-exp pairs"))
+    (errorf "bindings has to be var-exp pairs"))
   (let [arglist (bindings-to-arglist bindings)
         sbindings (shortcut-bindings bindings)
         r `r#]
@@ -85,8 +88,52 @@
   (if (seq (clojure.set/intersection
             (set (bindings-to-arglist match))
             (set args)))
-    (error "Arglist and match vector overlap!")
+    (errorf "Arglist and match vector overlap!")
     match))
+
+(defn- symbol-and-type [sym]
+  (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]*):([a-zA-Z_0-9]+)(?:-|->)?"
+                               (name sym))]
+    [(symbol s) (symbol t)]
+    (errorf "No valid pattern symbol: %s" sym)))
+
+(defn- edge-sym? [sym]
+  (or (re-matches #"<-[a-zA-Z:_0-9]*-" (name sym))
+      (re-matches #"-[a-zA-Z:_0-9]*->" (name sym))))
+
+(defn- edge-dir [esym]
+  (if (edge-sym? esym)
+    (if (re-matches #"<-.*" (name esym))
+      :left
+      :right)
+    (errorf "%s is not edge symbol." esym)))
+
+(defn- decl-sym [s t p]
+  (if (edge-sym? p)
+    [:let [s `(~@(if (= (edge-dir p) :left)
+                   [#'tg/omega (first (symbol-and-type p))]
+                   [#'tg/alpha (first (symbol-and-type p))]))]
+     :when `(has-type? ~s '~t)]))
+
+(defn- transform-match-vector
+  "Transforms patterns like a:X -:role-> b:Y to `for` syntax."
+  [match args]
+  ;; NOTE: the first element in args must be the graph/model symbol...
+  (let [m (first args)
+        ;; Maps -a:A-> to a, b:B to b, etc.
+        symmap (atom {})]
+    (letfn [(get-or-decl [sym prev]
+              (or (@symmap sym)
+                  (let [[id type] (symbol-and-type sym)]
+                    (swap! symmap assoc sym id)
+                    (decl-sym id type prev))))]
+      )
+    )
+  (verify-match-vector match args))
+
+(comment
+  (transform-match-vector '[v1:V1 -e1:E1-> v2:V2 <-e2:E2- v1
+                            :when (not (= e1 e2))] '[g]))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
@@ -113,7 +160,7 @@
   (let [[name more] (m/name-with-attributes name more)
         convert (fn [[a m]]
                   `(~a
-                    (for ~(verify-match-vector m a)
+                    (for ~(transform-match-vector m a)
                       ~(bindings-to-arglist m))))]
     `(~@(expansion-context-defn-maybe name)
       ~@(if (seq? (first more))
@@ -140,7 +187,7 @@
                       (let [match (first more)
                             body (next more)]
                         `(~args
-                          (with-match ~(verify-match-vector match args)
+                          (with-match ~(transform-match-vector match args)
                             ~@(when debug
                                 `((when *on-matched-rule-fn*
                                     (*on-matched-rule-fn* '~name ~args ~(bindings-to-arglist match)))))
@@ -151,8 +198,6 @@
       ~@(if (seq? (first more))
           (map convert more)
           (convert more)))))
-
-
 
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
@@ -215,7 +260,7 @@
         body (next more)]
     ;; Validate
     (when-not (vector? args)
-      (error (format "No args vector specified for transformation %s." args)))
+      (errorf "No args vector specified for transformation %s." args))
     (let [[rules-and-patterns main-form]
           ((juxt filter remove)
            #(let [x (first %)]
@@ -226,8 +271,8 @@
                          (= var #'defrule-debug)))))
            body)]
       (when (not= (count main-form) 1)
-        (error (format "There must be exactly one main form in a transformation but got %d: %s"
-                       (count main-form) (print-str main-form))))
+        (errorf "There must be exactly one main form in a transformation but got %d: %s"
+                (count main-form) (print-str main-form)))
       (binding [*expansion-context* :internal]
         ;; Ok, here we go.
         `(defn ~tname ~(meta tname)

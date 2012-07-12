@@ -270,11 +270,12 @@
    :else (error (format "Don't know how to create a type matcher for %s" ts))))
 
 (extend-protocol InstanceOf
-  EClassifier
-  (instance-of? [class object]
-    (.isInstance class object))
   EObject
-  (type-of? [obj spec]
+  (is-instance? [object class]
+    (if (instance? EClass class)
+      (.isInstance ^EClass class object)
+      false))
+  (has-type? [obj spec]
     ((eclass-matcher spec) obj)))
 
 (defprotocol EContents
