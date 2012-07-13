@@ -6,8 +6,6 @@
   (:use funnyqt.tg)
   (:use funnyqt.query.tg))
 
-(def ^:dynamic *output*)
-
 (defn male? [m]
   (or (adj m :familyFather)
       (adj m :familySon)))
@@ -27,29 +25,29 @@
                    :familyMother]
       [p-alt :sons :daughters]]))
 
-(defmapping family2address [f]
-  (let [v (create-vertex! *output* 'Address)]
-    (set-value! v :street (value f :street))
-    (set-value! v :town (value f :town))
-    v))
-
-(defmapping member2person [m]
-  (let [p (create-vertex! *output* (if (male? m)
-                                'Male 'Female))]
-    (set-value! p :fullName
-                (str (value m :firstName)
-                     " "
-                     (value (family m) :lastName)))
-    (deferred
-      (add-adj! p :address (resolve-in family2address (family m)))
-      (set-adjs! p :children
-                 (resolve-all-in member2person (children m)))
-      (when-let [w (wife m)]
-        (add-adj! p :wife (resolve-in member2person w))))
-    p))
-
 (deftransformation families2genealogy-tg [in out]
-  (binding [*output* out]
+  (letmapping [(family2address
+                [f]
+                (let [v (create-vertex! out 'Address)]
+                  (set-value! v :street (value f :street))
+                  (set-value! v :town (value f :town))
+                  v))
+
+               (member2person
+                [m]
+                (let [p (create-vertex! out (if (male? m)
+                                              'Male 'Female))]
+                  (set-value! p :fullName
+                              (str (value m :firstName)
+                                   " "
+                                   (value (family m) :lastName)))
+                  (deferred
+                    (add-adj! p :address (resolve-in family2address (family m)))
+                    (set-adjs! p :children
+                               (resolve-all-in member2person (children m)))
+                    (when-let [w (wife m)]
+                      (add-adj! p :wife (resolve-in member2person w))))
+                  p))]
     (mapv family2address (vseq in 'Family))
     (mapv member2person (vseq in 'Member))
     out))
