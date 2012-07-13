@@ -3,6 +3,7 @@
   (:use funnyqt.utils)
   (:use funnyqt.protocols)
   (:use funnyqt.in-place)
+  (:use funnyqt.pmatch)
   (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use clojure.test))
@@ -159,22 +160,21 @@
 
 (deftransformation apply-mutual-exclusion-sts
   [g n param-pass]
-  (do
-    ;; n-2 times new-rule ==> n processes in a ring
-    (dotimes [_ (- n 2)]
-      (new-rule g))
-    ;; mount a resource and give token to one process
-    (mount-rule g)
-    ;; Let all processe issue a request to the single resource
-    (dotimes [_ n]
-      (request-rule g))
-    ;; Handle the requests...
-    (if param-pass
-      (iteratively #(apply give-rule g (apply release-rule g (take-rule g))))
-      (iteratively #(do
-                      (take-rule g)
-                      (release-rule g)
-                      (give-rule g))))))
+  ;; n-2 times new-rule ==> n processes in a ring
+  (dotimes [_ (- n 2)]
+    (new-rule g))
+  ;; mount a resource and give token to one process
+  (mount-rule g)
+  ;; Let all processe issue a request to the single resource
+  (dotimes [_ n]
+    (request-rule g))
+  ;; Handle the requests...
+  (if param-pass
+    (iteratively #(apply give-rule g (apply release-rule g (take-rule g))))
+    (iteratively #(do
+                    (take-rule g)
+                    (release-rule g)
+                    (give-rule g)))))
 
 (defn g-sts
   "Returns an initial graph for the STS.
@@ -190,65 +190,64 @@
 
 ;;** Long Transformation Sequence
 
+(defrule request-star-rule
+  "Matches a process and its successor that hold two different resources, and
+  makes the successor request its predecessor's resource."
+  [g] [r1 (vseq g 'Resource)
+       h1 (iseq r1 'HeldBy :out)
+       :let [p1 (omega h1)]
+       n  (iseq p1 'Next :in)
+       :let [p2 (alpha n)]
+       h2 (iseq p2 'HeldBy :in)
+       :let [r2 (alpha h2)]
+       :when (not= r1 r2)
+       :when (empty? (filter #(= p1 (alpha %))
+                             (iseq r2 'Request :in)))]
+  (create-edge! g 'Request p1 r2))
+
+(defpattern release-star-pattern
+  "Given a resource and a process, matches another process and resource where
+    the resource is held by the given process and another process requests it."
+  [g r2 p2] [h1 (iseq p2 'HeldBy :in)
+             :let [r1 (alpha h1)]
+             rq (iseq r1 'Request :in)
+             :let [p1 (alpha rq)]
+             :when (and (not= r1 r2) (not= p1 p2))])
+
+(defrule release-star-rule
+  "Matches a process holding 2 resources where one is requested by another
+  process, and releases the requested one."
+  ([g] [p2 (vseq g 'Process)
+        h2 (iseq p2 'HeldBy :in)
+        :let [r2 (alpha h2)]
+        [h1 r1 rq p1] (release-star-pattern g r2 p2)]
+     (release-star-rule g r2 h2 p2 h1 r1 rq p1))
+  ([g r2 h2 p2] [[h1 r1 rq p1] (release-star-pattern g r2 p2)]
+     (release-star-rule g r2 h2 p2 h1 r1 rq p1))
+  ([g r2 h2 p2 h1 r1 rq p1]
+     (delete! h1)
+     (create-edge! g 'Release r1 p2)))
+
+
 (deftransformation apply-mutual-exclusion-lts
   [g n param-pass]
-
-  (defrule request-star-rule
-    "Matches a process and its successor that hold two different resources, and
-  makes the successor request its predecessor's resource."
-    [g] [r1 (vseq g 'Resource)
-         h1 (iseq r1 'HeldBy :out)
-         :let [p1 (omega h1)]
-         n  (iseq p1 'Next :in)
-         :let [p2 (alpha n)]
-         h2 (iseq p2 'HeldBy :in)
-         :let [r2 (alpha h2)]
-         :when (not= r1 r2)
-         :when (empty? (filter #(= p1 (alpha %))
-                               (iseq r2 'Request :in)))]
-    (create-edge! g 'Request p1 r2))
-
-  (defpattern release-star-pattern
-    "Given a resource and a process, matches another process and resource where
-    the resource is held by the given process and another process requests it."
-    [g r2 p2] [h1 (iseq p2 'HeldBy :in)
-               :let [r1 (alpha h1)]
-               rq (iseq r1 'Request :in)
-               :let [p1 (alpha rq)]
-               :when (and (not= r1 r2) (not= p1 p2))])
-
-  (defrule release-star-rule
-    "Matches a process holding 2 resources where one is requested by another
-  process, and releases the requested one."
-    ([g] [p2 (vseq g 'Process)
-          h2 (iseq p2 'HeldBy :in)
-          :let [r2 (alpha h2)]
-          [h1 r1 rq p1] (release-star-pattern g r2 p2)]
-       (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-    ([g r2 h2 p2] [[h1 r1 rq p1] (release-star-pattern g r2 p2)]
-       (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-    ([g r2 h2 p2 h1 r1 rq p1]
-       (delete! h1)
-       (create-edge! g 'Release r1 p2)))
-
-  (do
-    (dotimes [_ n]
-      (request-star-rule g))
-    (blocked-rule g)
-    (dotimes [_ (dec n)]
-      (waiting-rule g))
-    (unlock-rule g)
-    (blocked-rule g)
-    (if param-pass
-      (iteratively #(or (iteratively* waiting-rule g)
-                        (waiting-rule g)))
-      (iteratively #(waiting-rule g)))
-    (ignore-rule g)
-    (if param-pass
-      (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) g)
-      (iteratively #(do (give-rule g) (take-rule g) (release-star-rule g))))
-    (give-rule g)
-    (take-rule g)))
+  (dotimes [_ n]
+    (request-star-rule g))
+  (blocked-rule g)
+  (dotimes [_ (dec n)]
+    (waiting-rule g))
+  (unlock-rule g)
+  (blocked-rule g)
+  (if param-pass
+    (iteratively #(or (iteratively* waiting-rule g)
+                      (waiting-rule g)))
+    (iteratively #(waiting-rule g)))
+  (ignore-rule g)
+  (if param-pass
+    (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) g)
+    (iteratively #(do (give-rule g) (take-rule g) (release-star-rule g))))
+  (give-rule g)
+  (take-rule g))
 
 (defn g-lts
   "Returns an initial graph for the LTS.

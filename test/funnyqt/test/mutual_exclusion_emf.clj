@@ -181,71 +181,58 @@
 
 ;;** Long Transformation Sequence
 
-(deftransformation apply-mutual-exclusion-lts
-  "Performs the LTS transformation."
-  [m n param-pass]
-
-  (defrule request-star-rule
-    "Matches a process and its successor that hold two different resources, and
+(defrule request-star-rule
+  "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
-    [sys] [r1 (econtents sys 'Resource)
-           :let [p1 (eget r1 :holder)
-                 p2 (eget p1 :prev)]
-           r2 (eget p2 :held)
-           :when (not (member? r2 (eget p1 :requested)))]
-    (eadd! p1 :requested r2))
+  [sys] [r1 (econtents sys 'Resource)
+         :let [p1 (eget r1 :holder)
+               p2 (eget p1 :prev)]
+         r2 (eget p2 :held)
+         :when (not (member? r2 (eget p1 :requested)))]
+  (eadd! p1 :requested r2))
 
-  (defrule release-star-rule
-    "Matches a process holding 2 resources where one is requested by another
+(defrule release-star-rule
+  "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-    ([sys] [r2 (econtents sys 'Resource)
-            :let [p2 (eget r2 :holder)]
-            r1 (eget p2 :held)
-            ;:when (not= r1 r2)
-            p1 (eget r1 :requester)
-            ;:when (not= p1 p2)
-            ]
+  ([sys] [r2 (econtents sys 'Resource)
+          :let [p2 (eget r2 :holder)]
+          r1 (eget p2 :held)
+          p1 (eget r1 :requester)]
        (release-star-rule sys r2 p2))
     ([sys r2 p2] [r1 (eget p2 :held)
-                  ;:when (not= r1 r2)
-                  p1 (eget r1 :requester)
-                  ;:when (not= p1 p2)
-                  ]
+                  p1 (eget r1 :requester)]
        (eunset! r1 :holder)
        (eset! r1 :releaser p2)))
 
+
+(deftransformation apply-mutual-exclusion-lts
+  "Performs the LTS transformation."
+  [m n param-pass]
   ;; The main entry point
   (let [sys (the (econtents m 'System))
         cnt (atom 0)]
-    (binding [*on-matched-rule-fn*
-              (fn [rname rargs rmatch]
-                (swap! cnt inc)
-                (print-model m (format "/tmp/me-lts-%02d-%s.pdf"
-                                       @cnt rname)
-                              :exclude [(first rargs)]
-                              :mark (concat rargs rmatch)))]
-      (dotimes [_ n]
-        (request-star-rule sys))
-      (blocked-rule sys)
-      (dotimes [_ (dec n)]
-        (waiting-rule sys))
-      (unlock-rule sys)
-      (blocked-rule sys)
-      (if param-pass
-        (iteratively #(or (iteratively* waiting-rule sys)
-                          (waiting-rule sys)))
-        (iteratively #(waiting-rule sys)))
-      (ignore-rule sys)
-      (if param-pass
-        (iteratively #(apply release-star-rule sys
-                             (apply take-rule sys
-                                    (give-rule sys))))
-        (iteratively #(do
-                        (give-rule sys)
-                        (take-rule sys)
-                        (release-star-rule sys))))
-      (give-rule sys)
-      (take-rule sys))))
+    (dotimes [_ n]
+      (request-star-rule sys))
+    (blocked-rule sys)
+    (dotimes [_ (dec n)]
+      (waiting-rule sys))
+    (unlock-rule sys)
+    (blocked-rule sys)
+    (if param-pass
+      (iteratively #(or (iteratively* waiting-rule sys)
+                        (waiting-rule sys)))
+      (iteratively #(waiting-rule sys)))
+    (ignore-rule sys)
+    (if param-pass
+      (iteratively #(apply release-star-rule sys
+                           (apply take-rule sys
+                                  (give-rule sys))))
+      (iteratively #(do
+                      (give-rule sys)
+                      (take-rule sys)
+                      (release-star-rule sys))))
+    (give-rule sys)
+    (take-rule sys)))
 
 (defn g-lts
   "Returns an initial graph for the LTS.

@@ -15,83 +15,86 @@
   [m]
   (or (eget m :familyFather) (eget m :familyMother)
       (eget m :familySon)    (eget m :familyDaughter)))
+(defhelper male?
+  "Returns true, iff member m is male."
+  [m]
+  (or (eget m :familyFather)
+      (eget m :familySon)))
 
-(defmapping family2address [f out]
-  (doto (ecreate! out 'Address)
+(defhelper parents-of
+  "Returns the set of parent members of m."
+  [m]
+  (reachables
+   m [p-seq
+      [p-alt :familySon :familyDaughter]
+      [p-alt :father :mother]]))
+
+(defhelper wife
+  "Returns the wife member of member m."
+  [m]
+  (when-let [w (seq (reachables
+                     m [p-seq :familyFather :mother]))]
+    (the w)))
+
+(def ^:dynamic *in*)
+(def ^:dynamic *out*)
+
+(defmapping family2address [f]
+  (doto (ecreate! *out* 'Address)
     (eset! :street (eget f :street))
     (eset! :town (eget f :town))))
 
+(declare member2person)
+
+(defhelper set-person-props
+  "Sets the person p's attributes according to its source member m."
+  [p m]
+  (eset! p :fullName
+         (str (eget m :firstName) " "
+              (eget (family m) :lastName)))
+  (eset! p :ageGroup
+         (eenum-literal (if (>= (eget m :age) 18)
+                          'AgeGroup.ADULT
+                          'AgeGroup.CHILD)))
+  (eset! p :address
+         (resolve-in family2address (family m)))
+  (deferred
+    (eset! p :parents
+           (resolve-all-in member2person (parents-of m)))))
+
+(defmapping member2male
+  "Transforms a Member to a Male."
+  [m]
+  (let [male (ecreate! 'Male)]
+    (set-person-props male m)
+    (deferred
+      (when-let [wife (resolve-in member2person (wife m))]
+        (eset! male :wife wife)))
+    male))
+
+(defmapping member2female
+  "Transforms a Member to a Female."
+  [m]
+  (doto (ecreate! 'Female)
+    (set-person-props m)))
+
+(defmapping member2person [m]
+  (if (male? m)
+    (member2male m)
+    (member2female m)))
+
+(defmapping familymodel2genealogy []
+  (doseq [f (eallobjects *in* 'Family)]
+    (family2address f))
+  (doto (ecreate! *out* 'Genealogy)
+    (eset! :persons (map member2person
+                         (eallobjects *in* 'Member)))))
+
 ;; Here comes the transformation that uses those external helpers and mappings.
 (deftransformation families2genealogy-emf [in out]
-  (defhelper male?
-    "Returns true, iff member m is male."
-    [m]
-    (or (eget m :familyFather)
-        (eget m :familySon)))
-
-  (defhelper parents-of
-    "Returns the set of parent members of m."
-    [m]
-    (reachables
-     m [p-seq
-        [p-alt :familySon :familyDaughter]
-        [p-alt :father :mother]]))
-
-  (defhelper wife
-    "Returns the wife member of member m."
-    [m]
-    (when-let [w (seq (reachables
-                       m [p-seq :familyFather :mother]))]
-      (the w)))
-
-  (defhelper set-person-props
-    "Sets the person p's attributes according to its source member m."
-    [p m]
-    (eset! p :fullName
-           (str (eget m :firstName) " "
-                (eget (family m) :lastName)))
-    (eset! p :ageGroup
-           (eenum-literal (if (>= (eget m :age) 18)
-                            'AgeGroup.ADULT
-                            'AgeGroup.CHILD)))
-    (eset! p :address
-           (resolve-in family2address (family m)))
-    (deferred
-      (eset! p :parents
-             (resolve-all-in member2person (parents-of m)))))
-
-  (defmapping member2male
-    "Transforms a Member to a Male."
-    [m]
-    (let [male (ecreate! 'Male)]
-      (set-person-props male m)
-      (deferred
-        (when-let [wife (resolve-in member2person (wife m))]
-          (eset! male :wife wife)))
-      male))
-
-  (defmapping member2female
-    "Transforms a Member to a Female."
-    [m]
-    (doto (ecreate! 'Female)
-      (set-person-props m)))
-
-  (defmapping member2person [m]
-    (if (male? m)
-      (member2male m)
-      (member2female m)))
-
-  (defmapping familymodel2genealogy []
-    (doseq [f (eallobjects in 'Family)]
-      (family2address f out))
-    (doto (ecreate! out 'Genealogy)
-      (eset! :persons (map member2person
-                           (eallobjects in 'Member)))))
-
-  ;; The main form
-  (do
-    (familymodel2genealogy)
-    out))
+  (binding [*in* in, *out* out]
+    (familymodel2genealogy))
+  out)
 
 (load-metamodel "test/input/Families.ecore")
 (load-metamodel "test/input/Genealogy.ecore")

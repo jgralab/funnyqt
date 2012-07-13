@@ -37,7 +37,7 @@
         args (first more)
         body (next more)]
     (if (vector? args)
-      `(~@(expansion-context-defn-maybe name)
+      `(defn ~name ~(meta name)
         ~args
         ~(if (seq args)
            `(let [result# (do ~@body)]
@@ -57,7 +57,7 @@
                  [name doc-string? ([args] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
-    `(~@(expansion-context-defn-maybe name)
+    `(defn ~name ~(meta name)
       ~@more)))
 
 ;;# Deferring
@@ -102,26 +102,12 @@
     ;; Validate
     (when-not (vector? args)
       (errorf "No args vector specified for transformation %s." args))
-    (let [[mappings-and-helpers main-form]
-          ((juxt filter remove)
-           #(let [x (first %)]
-              (and (symbol? x)
-                   (let [var (resolve x)]
-                     (or (= var #'defmapping)
-                         (= var #'defhelper)))))
-           body)]
-      (when (not= (count main-form) 1)
-        (errorf "There must be exactly one main form in a transformation but got %d: %s"
-                (count main-form) (print-str main-form)))
-      (binding [*expansion-context* :internal]
-        ;; Ok, here we go.
-        `(defn ~tname ~(meta tname)
-           ~args
-           (letfn [~@(map macroexpand-1 mappings-and-helpers)]
-             (binding [*traceability-mappings* (atom {})
-                       *deferred-actions* (atom [])]
-               (let [r# ~(the main-form)]
-                 (doseq [da# @*deferred-actions*]
-                   (da#))
-                 r#))))))))
+    `(defn ~tname ~(meta tname)
+       ~args
+       (binding [*traceability-mappings* (atom {})
+                 *deferred-actions* (atom [])]
+         (let [r# (do ~@body)]
+           (doseq [da# @*deferred-actions*]
+             (da#))
+           r#)))))
 

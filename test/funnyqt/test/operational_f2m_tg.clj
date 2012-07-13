@@ -6,82 +6,53 @@
   (:use funnyqt.tg)
   (:use funnyqt.query.tg))
 
-;; Define some helpers and mappings outside of the transformation to see if
-;; that internal/external stuff works.
+(def ^:dynamic *out*)
 
-(defhelper family
-  "Returns the main family of member m."
-  [m]
-  (or (adj m :familyFather) (adj m :familyMother)
-      (adj m :familySon)    (adj m :familyDaughter)))
-
-(defhelper male?
-  "Returns true, iff member m is male."
-  [m]
+(defhelper male? [m]
   (or (adj m :familyFather)
       (adj m :familySon)))
 
-(defhelper parents-of
-  "Returns the set of parent members of m."
-  [m]
+(defhelper family [m]
+  (or (adj m :familyFather)
+      (adj m :familyMother)
+      (adj m :familySon)
+      (adj m :familyDaughter)))
+
+(defhelper wife [mm]
+  (adj mm :familyFather :mother))
+
+(defhelper children [m]
   (reachables
-   m [p-seq
-      [p-alt :familySon :familyDaughter]
-      [p-alt :father :mother]]))
+   m [p-seq [p-alt :familyFather
+                   :familyMother]
+      [p-alt :sons :daughters]]))
 
-(defmapping family2address [f out]
-  (doto (create-vertex! out 'Address)
-    (set-value! :street (value f :street))
-    (set-value! :town   (value f :town))))
+(defmapping family2address [f]
+  (let [v (create-vertex! *out* 'Address)]
+    (set-value! v :street (value f :street))
+    (set-value! v :town (value f :town))
+    v))
 
-;; Here goes the transformation using those external helpers/mappings...
-(deftransformation families2genealogy-tg [in out]
-  (defhelper set-person-props
-    "Sets the person p's attributes according to its source member m."
-    [p m]
+(defmapping member2person [m]
+  (let [p (create-vertex! *out* (if (male? m)
+                                'Male 'Female))]
     (set-value! p :fullName
-                (str (value m :firstName) " "
+                (str (value m :firstName)
+                     " "
                      (value (family m) :lastName)))
-    (set-value! p :ageGroup
-                (enum-constant p (if (>= (value m :age) 18)
-                                   'AgeGroup.ADULT
-                                   'AgeGroup.CHILD)))
-    (add-adj! p :address
-              (resolve-in family2address (family m)))
     (deferred
-      (set-adjs! p :parents
-                 (resolve-all-in member2person (parents-of m)))))
+      (add-adj! p :address (resolve-in family2address (family m)))
+      (set-adjs! p :children
+                 (resolve-all-in member2person (children m)))
+      (when-let [w (wife m)]
+        (add-adj! p :wife (resolve-in member2person w))))
+    p))
 
-  (defhelper wife
-    "Returns the wife member of member m."
-    [m]
-    (when-let [w (seq (reachables
-                       m [p-seq :familyFather :mother]))]
-      (the w)))
-
-  (defmapping member2male [m]
-    (let [male (create-vertex! out 'Male)]
-      (deferred
-        (when-let [w (resolve-in member2person (wife m))]
-          (add-adj! male :wife w)))
-      male))
-
-  (defmapping member2female [m]
-    (create-vertex! out 'Female))
-
-  (defmapping member2person [m]
-    (doto (if (male? m) (member2male m) (member2female m))
-      (set-person-props m)))
-
-  (defmapping familymodel2genealogy []
-    (doseq [f (vseq in 'Family)]
-      (family2address f out))
-    (doseq [p (vseq in 'Member)]
-      (member2person p))
-    out)
-
-  ;; The main form
-  (familymodel2genealogy))
+(deftransformation families2genealogy-tg [in out]
+  (binding [*out* out]
+    (mapv family2address (vseq in 'Family))
+    (mapv member2person (vseq in 'Member))
+    out))
 
 ;; Run it!
 
