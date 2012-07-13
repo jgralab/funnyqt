@@ -9,44 +9,6 @@
   (:use clojure.test))
 
 
-;;* Pattern match tests
-
-(deftest with-match-1
-  (with-match [a (vseq (rg) 'localities.Village)
-               :when (> (value a :inhabitants) 252)
-               e (iseq a nil :in)
-               :let [b (that e)]
-               :when (has-type? b 'localities.County)]
-    (is (= (vertex (rg) 2) a))
-    (is (= (vertex (rg) 12) b))
-    (is (= (edge (rg) 23) (normal-edge e)))))
-
-(deftest with-match-2
-  (with-match [hc (eseq (rg) 'localities.HasCapital)
-               :let [b (alpha hc)
-                     a (omega hc)]
-               :when (has-type? a 'localities.City)
-               :when (has-type? b 'localities.County)
-               cl (iseq b 'localities.ContainsLocality :out)
-               :when (= (omega cl) a)]
-    (is (= (vertex (rg) 6)  a))
-    (is (= (vertex (rg) 12) b))
-    (is (= (edge (rg) 218)  hc))
-    (is (= (edge (rg) 18)   cl))))
-
-(deftest with-match-3
-  (is (not (with-match [hc (eseq (rg) 'localities.HasCapital)
-                        :let [b (alpha hc)
-                              a (omega hc)]
-                        :when (has-type? a 'localities.City)
-                        :when (has-type? b 'localities.County)
-                        cl (iseq b 'localities.ContainsLocality :out)
-                        :when (= (omega cl) a)
-                        ;; that's impossible, so body must not be executed
-                        :when (= a b hc cl)]
-             (println a b hc cl)
-             (is false "I must not be executed!")))))
-
 ;;* BinTree eval
 
 (defn bin-tree

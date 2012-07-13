@@ -11,22 +11,14 @@
 
 ;;# Rules
 
-(defn- shortcut-let-vector [lv]
-  (mapcat (fn [[s v]]
-            [:let [s v]
-             :when s])
-          (partition 2 lv)))
-
-(defn- shortcut-bindings
-  "Converts :let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
-  [bindings]
-  (loop [p bindings, nb []]
-    (if (seq p)
-      (if (= :let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
+(def ^{:dynamic true
+       :doc "A function that is invoked when a rule matches,
+  mainly for debugging purposes.
+  The function gets the following arguments: [r args match]
+    - r is a symbol denoting the current matched rule
+    - args is the vector of the rule's input arguments
+    - match is the vector of the elements matched by the rule"}
+  *on-matched-rule-fn* nil)
 
 (defmacro with-match
   "Establish bindings as specified in `bindings`, and execute `body`.
@@ -36,35 +28,17 @@
   non-nil values, `body` is executed with the established bindings and `body`s
   value is the return value.  If no match is found, nil is returned."
   ;; Nicer arglist in doc
-  {:arglists '([[bindings] & body])}
+  {:arglists '([[matchspec] & body])}
   [bindings & body]
   (when (not= 0 (mod (count bindings) 2))
     (errorf "bindings has to be var-exp pairs"))
   (let [arglist (bindings-to-arglist bindings)
-        sbindings (shortcut-bindings bindings)
         r `r#]
-    `(when-let [~r (first (for* ~sbindings ~arglist))]
+    `(when-let [~r (first (for* ~bindings ~arglist))]
        ;; We want no matches with nil values
        (when (every? (complement nil?) ~r)
-         ;; Rip out the individual values of the result and let-bind them.
-         ;; Alternatively, one could create a (apply (fn [args] body) result),
-         ;; but that consumes much more stack space in plain recursive rules
-         ;; (i.e., when one cannot use recur because it is recursed more than
-         ;; once).
-         (let ~(loop [a arglist, i 0, res []]
-                 (if (seq a)
-                   (recur (rest a) (inc i) (concat res [(first a) `(~r ~i)]))
-                   (vec res)))
+         (let [~arglist ~r]
            ~@body)))))
-
-(def ^{:dynamic true
-       :doc "A function that is invoked when a rule matches,
-  mainly for debugging purposes.
-  The function gets the following arguments: [r args match]
-    - r is a symbol denoting the current matched rule
-    - args is the vector of the rule's input arguments
-    - match is the vector of the elements matched by the rule"}
-  *on-matched-rule-fn* nil)
 
 (defn- convert-spec
   "spec is ([args] [match] & body) or ([args] & body)."

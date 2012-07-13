@@ -146,16 +146,41 @@
 (def ^:dynamic *pattern-match-context*
   nil)
 
+(defn- shortcut-let-vector [lv]
+  (mapcat (fn [[s v]]
+            [:let [s v] :when s])
+          (partition 2 lv)))
+
+(defn- shortcut-bindings
+  "Converts :let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  [bindings]
+  (loop [p bindings, nb []]
+    (if (seq p)
+      (if (= :let (first p))
+        (recur (rest (rest p))
+               (vec (concat nb (shortcut-let-vector (fnext p)))))
+        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
+      (vec nb))))
+
 (defn transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax.
   (Only used internally)"
   [match args]
   ;; NOTE: the first element in args must be the graph/model symbol...
-  (let [m (first args)]
-    (case *pattern-match-context*
-      :tgraph (verify-match-vector (transform-match-vector-tg match m) args)
-      :emf    (errorf "Not yet implemented.")
-      (verify-match-vector match args))))
+  (verify-match-vector
+   (shortcut-bindings
+    (let [m (first args)]
+      (case *pattern-match-context*
+        :tgraph (transform-match-vector-tg match m)
+        :emf    (errorf "Not yet implemented.")
+        match)))
+   args))
+
+(defn- convert-spec [[a m]]
+  (let [tm (transform-match-vector m a)]
+    `(~a
+      (for ~tm
+        ~(bindings-to-arglist tm)))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
@@ -179,13 +204,8 @@
   {:arglists '([name doc-string? attr-map? [args] [match]]
                  [name doc-string? attr-map? ([args] [match])+])}
   [name & more]
-  (let [[name more] (m/name-with-attributes name more)
-        convert (fn [[a m]]
-                  (let [tm (transform-match-vector m a)]
-                    `(~a
-                      (for ~tm
-                        ~(bindings-to-arglist tm)))))]
+  (let [[name more] (m/name-with-attributes name more)]
     `(defn ~name ~(meta name)
       ~@(if (seq? (first more))
-          (map convert more)
-          (convert more)))))
+          (map convert-spec more)
+          (convert-spec more)))))
