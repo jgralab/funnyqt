@@ -6,35 +6,35 @@
   (:use funnyqt.tg)
   (:use funnyqt.query.tg))
 
-(def ^:dynamic *out*)
+(def ^:dynamic *output*)
 
-(defhelper male? [m]
+(defn male? [m]
   (or (adj m :familyFather)
       (adj m :familySon)))
 
-(defhelper family [m]
+(defn family [m]
   (or (adj m :familyFather)
       (adj m :familyMother)
       (adj m :familySon)
       (adj m :familyDaughter)))
 
-(defhelper wife [mm]
+(defn wife [mm]
   (adj mm :familyFather :mother))
 
-(defhelper children [m]
+(defn children [m]
   (reachables
    m [p-seq [p-alt :familyFather
                    :familyMother]
       [p-alt :sons :daughters]]))
 
 (defmapping family2address [f]
-  (let [v (create-vertex! *out* 'Address)]
+  (let [v (create-vertex! *output* 'Address)]
     (set-value! v :street (value f :street))
     (set-value! v :town (value f :town))
     v))
 
 (defmapping member2person [m]
-  (let [p (create-vertex! *out* (if (male? m)
+  (let [p (create-vertex! *output* (if (male? m)
                                 'Male 'Female))]
     (set-value! p :fullName
                 (str (value m :firstName)
@@ -49,7 +49,7 @@
     p))
 
 (deftransformation families2genealogy-tg [in out]
-  (binding [*out* out]
+  (binding [*output* out]
     (mapv family2address (vseq in 'Family))
     (mapv member2person (vseq in 'Member))
     out))

@@ -10,18 +10,18 @@
 ;; Just for the fun of it, declare some helpers and mapping outside of the
 ;; transformation, so that we see if the expansion context works.
 
-(defhelper family
+(defn family
   "Returns the main family of member m."
   [m]
   (or (eget m :familyFather) (eget m :familyMother)
       (eget m :familySon)    (eget m :familyDaughter)))
-(defhelper male?
+(defn male?
   "Returns true, iff member m is male."
   [m]
   (or (eget m :familyFather)
       (eget m :familySon)))
 
-(defhelper parents-of
+(defn parents-of
   "Returns the set of parent members of m."
   [m]
   (reachables
@@ -29,24 +29,24 @@
       [p-alt :familySon :familyDaughter]
       [p-alt :father :mother]]))
 
-(defhelper wife
+(defn wife
   "Returns the wife member of member m."
   [m]
   (when-let [w (seq (reachables
                      m [p-seq :familyFather :mother]))]
     (the w)))
 
-(def ^:dynamic *in*)
-(def ^:dynamic *out*)
+(def ^:dynamic *input*)
+(def ^:dynamic *output*)
 
 (defmapping family2address [f]
-  (doto (ecreate! *out* 'Address)
+  (doto (ecreate! *output* 'Address)
     (eset! :street (eget f :street))
     (eset! :town (eget f :town))))
 
 (declare member2person)
 
-(defhelper set-person-props
+(defn set-person-props
   "Sets the person p's attributes according to its source member m."
   [p m]
   (eset! p :fullName
@@ -84,15 +84,15 @@
     (member2female m)))
 
 (defmapping familymodel2genealogy []
-  (doseq [f (eallobjects *in* 'Family)]
+  (doseq [f (eallobjects *input* 'Family)]
     (family2address f))
-  (doto (ecreate! *out* 'Genealogy)
+  (doto (ecreate! *output* 'Genealogy)
     (eset! :persons (map member2person
-                         (eallobjects *in* 'Member)))))
+                         (eallobjects *input* 'Member)))))
 
 ;; Here comes the transformation that uses those external helpers and mappings.
 (deftransformation families2genealogy-emf [in out]
-  (binding [*in* in, *out* out]
+  (binding [*input* in, *output* out]
     (familymodel2genealogy))
   out)
 

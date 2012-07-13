@@ -47,19 +47,6 @@
       (errorf "Invalid defmapping form: expected arg vector but got %s."
               args))))
 
-;;# Helpers
-
-(defmacro defhelper
-  "Defines a helper function.
-  The syntax is the same as for `defn`."
-
-  {:arglists '([name doc-string? [args] & body]
-                 [name doc-string? ([args] & body)+])}
-  [name & more]
-  (let [[name more] (m/name-with-attributes name more)]
-    `(defn ~name ~(meta name)
-      ~@more)))
-
 ;;# Deferring
 
 (defmacro deferred
@@ -86,14 +73,7 @@
 
 (defmacro deftransformation
   "Defines an operational transformation named `name` with optional
-  `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`.
-  The `body` must consist of arbitrary `defmapping` and `defhelper` forms, and
-  exactly one other form, the main entry point of the transformation.  This
-  form is evaluated when the transformation is called.
-
-  All helpers, mappings, and the main form of the transformation have access to
-  the `args` of the transformation."
-
+  `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`."
   {:arglists '([name doc-string? meta-map? [args] & body])}
   [tname & more]
   (let [[tname more] (m/name-with-attributes tname more)
