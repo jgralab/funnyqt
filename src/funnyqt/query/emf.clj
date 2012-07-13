@@ -19,19 +19,19 @@
         (let [ub (.getUpperBound sf)]
           (if (== 1 ub)
             (.eGet eo sf)
-            (error (format "Must not call adj on EReference '%s' with upper bound %s."
-                           sf ub))))
+            (errorf "Must not call adj on EReference '%s' with upper bound %s."
+                    sf ub)))
         (.eGet eo sf))
-      (error (format "'%s' at %s is no EReference." sf eo)))
+      (errorf "'%s' at %s is no EReference." sf eo))
     (if allow-unknown-ref
       nil
-      (error (format "No such structural feature '%s' at %s." ref eo)))))
+      (errorf "No such structural feature '%s' at %s." ref eo))))
 
 (defn- zero-or-one [s]
   (if-not (coll? s)
     s
     (if (next s)
-      (error (format "More than one adjacent vertex found: %s" s))
+      (error (format "More than one adjacent element found: %s" s))
       (first s))))
 
 (extend-protocol Adjacencies

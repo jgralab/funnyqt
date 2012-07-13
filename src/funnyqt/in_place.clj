@@ -178,22 +178,22 @@
                                       (when (= dir :out) ">"))))
                        sym))
                    match)]
-    (verify-match-vector
-     (loop [psn (pred-succ-seq match), acc []]
-       (if (seq psn)
-         (let [[p s n] (first psn)
-               decl (decl-sym-tg p s n m)]
-           (if (= decl [s])
-             (let [[p2 s2 n2] (second psn)]
-               (recur (cons [p s2 n2] (rest (rest psn))) (apply conj acc decl)))
-             (recur (rest psn) (if decl
-                                 (apply conj acc decl)
-                                 acc))))
-         acc))
+    #_(verify-match-vector
+       (loop [psn (pred-succ-seq match), acc []]
+         (if (seq psn)
+           (let [[p s n] (first psn)
+                 decl (decl-sym-tg p s n m)]
+             (if (= decl [s])
+               (let [[p2 s2 n2] (second psn)]
+                 (recur (cons [p s2 n2] (rest (rest psn))) (apply conj acc decl)))
+               (recur (rest psn) (if decl
+                                   (apply conj acc decl)
+                                   acc))))
+           acc))
      #_(vec (mapcat (fn [[p s n]] (decl-sym-tg p s n m))
-                  (pred-succ-seq match)))
+                    (pred-succ-seq match)))
      args))
-  #_(verify-match-vector match args))
+  (verify-match-vector match args))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,

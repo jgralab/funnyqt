@@ -114,11 +114,14 @@ can compute that like so:
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
    (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
    (de.uni_koblenz.jgralab.algolib.problems TopologicalOrderSolver AcyclicitySolver)
-   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order KahnKnuthAlgorithm TopologicalOrderWithDFS)
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext)
+   (de.uni_koblenz.jgralab.algolib.algorithms.topological_order
+    KahnKnuthAlgorithm TopologicalOrderWithDFS)
+   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement TraversalContext
+                           EdgeDirection)
    (de.uni_koblenz.jgralab.schema Attribute RecordDomain GraphClass
-                                  GraphElementClass AttributedElementClass VertexClass EdgeClass
-                                  AggregationKind)
+                                  GraphElementClass AttributedElementClass VertexClass
+                                  EdgeClass AggregationKind)
+   (de.uni_koblenz.jgralab.schema.impl DirectedSchemaEdgeClass)
    (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
 
 ;;# Funlib
@@ -241,37 +244,53 @@ can compute that like so:
 
 ;;# Adjancencies
 
-(defn- maybe-traverse [^Vertex v role]
+(defn- maybe-traverse [^Vertex v role allow-unknown-ref single-valued]
   (let [role (name role)]
-    (when (.getDirectedEdgeClassForFarEndRole
-           ^VertexClass (attributed-element-class v)
-           role)
-      (seq (.adjacences v role)))))
+    (if-let [^DirectedSchemaEdgeClass dec
+             (.getDirectedEdgeClassForFarEndRole
+              ^VertexClass (attributed-element-class v)
+              role)]
+      (if single-valued
+        (let [^EdgeClass ec (.getEdgeClass dec)
+              dir (.getDirection dec)
+              ub (if (= dir EdgeDirection/OUT)
+                   (-> ec .getTo .getMax)
+                   (-> ec .getFrom .getMax))]
+          (if (= ub 1)
+            (seq (.adjacences v role))
+            (errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
+                    role ec ub)))
+        (seq (.adjacences v role)))
+      (when-not allow-unknown-ref
+        (errorf "No %s role at vertex %s" role v)))))
 
 (defn- zero-or-one [s]
   (if (next s)
-    (error (format "More than one adjacent vertex found: %s" s))
+    (errorf "More than one adjacent vertex found: %s" s)
     (first s)))
 
 (extend-protocol Adjacencies
   Vertex
   (adj-internal [this roles]
     (if (seq roles)
-      (recur (zero-or-one (.adjacences this (name (first roles)))) (rest roles))
+      (when-let [target (zero-or-one (maybe-traverse this (first roles) false true))]
+        (recur target (rest roles)))
+      this))
+  (adj*-internal [this roles]
+    (if (seq roles)
+      (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
+        (recur target (rest roles)))
       this))
   (adjs-internal [this roles]
     (loop [r [this], roles roles]
       (if (and (seq roles) (seq r))
-        (recur (mapcat (fn [^Vertex v]
-                         (seq (.adjacences v (name (first roles))))) r)
+        (recur (mapcat #(maybe-traverse % (first roles) false false) r)
                (rest roles))
         r)))
-  (adj*-internal [this roles]
-    (zero-or-one (adjs*-internal this roles)))
   (adjs*-internal [this roles]
     (loop [r [this], roles roles]
       (if (and (seq roles) (seq r))
-        (recur (mapcat #(maybe-traverse % (first roles)) r)
+        (recur (mapcat #(maybe-traverse % (first roles) true false) r)
                (rest roles))
         r))))
 
@@ -288,10 +307,10 @@ can compute that like so:
 (extend-protocol GraphCounts
   Graph
   (vcount
-    ([g]     (.getVCount g))
+    ([g]    (.getVCount g))
     ([g ts] (count (vseq g ts))))
   (ecount
-    ([g]     (.getECount g))
+    ([g]    (.getECount g))
     ([g ts] (count (eseq g ts)))))
 
 

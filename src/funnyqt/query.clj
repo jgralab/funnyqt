@@ -200,17 +200,15 @@
 ;; Those are defined in funnyqt.query.tg and funnyqt.query.emf
 
 (defn adj
-  "Traverses `roles` starting at `elem`, and returns the target object.
+  "Traverses single-valued `roles` starting at `elem`, and returns the target object.
   Errors if a role is undefined, intermediate targets are nil, or there are
-  more elements that can be reached that way.
-  For EMF EObjects, only single-valued references are allowed."
+  more elements that can be reached that way."
   [elem & roles]
   (adj-internal elem roles))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
-  simply returns nil.
-  For EMF EObjects, only single-valued references are allowed."
+  simply returns nil."
   [elem & roles]
   (adj*-internal elem roles))
 
