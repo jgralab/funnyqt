@@ -42,7 +42,9 @@
              :when s])
           (partition 2 lv)))
 
-(defn- shortcut-bindings [bindings]
+(defn- shortcut-bindings
+  "Converts :let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  [bindings]
   (loop [p bindings, nb []]
     (if (seq p)
       (if (= :let (first p))
@@ -102,7 +104,7 @@
 (defn- symbol-and-type [sym]
   (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]+)?(?::([a-zA-Z_0-9]+))?(?:-|->)?"
                                (name sym))]
-    [(and s (symbol s)) (and t (symbol t))]
+    [(and s (symbol s)) (and t `'~(symbol t))]
     (errorf "No valid pattern symbol: %s" sym)))
 
 (defn- edge-sym? [sym]
@@ -117,83 +119,116 @@
     (errorf "%s is not edge symbol." esym)))
 
 (defn- blank-sym? [sym]
-  (re-matches #"[a-zA-Z0-9]" (name sym)))
+  (re-matches #"[a-zA-Z0-9]+" (name sym)))
 
-(defn- decl-sym-tg [p sym n graph]
-  (println "IN:" p "\t" sym "\t" n)
+(defn- transform-match-vector-tg [matchvec graph]
   (letfn [(alpha-omega [p]
             (if (= (edge-dir p) :out)
               `(tg/omega ~(first (symbol-and-type p)))
               `(tg/alpha ~(first (symbol-and-type p)))))]
-    (pr-identity "OUT:"
-                 (if (or
-                      ;; `for` special keywords, pass them straight thru
-                      (#{:when :let :while} sym)
-                      ;; function/pattern call or destructuring form
-                      (coll? sym)
-                      ;; exception for making :when true/false work, which
-                      ;; might be useful for debugging
-                      (#{true false} sym)
-                      ;; Embedded normal decls: a (vseq ...)
-                      (and (symbol? sym) (blank-sym? sym) (coll? n)))
-                   [sym]
-                   (let [[s t] (symbol-and-type sym)]
-                     (cond
-                      ;; No previous symbol
-                      (nil? p) (if (edge-sym? sym)
-                                 `[~s (tgq/eseq ~graph '~t)]
-                                 `[~s (tgq/vseq ~graph '~t)])
-                      ;; -x:E-> z:V, a (a was declared before), or
-                      (and (blank-sym? sym) (not (edge-sym? p)))
-                      nil ;; nothing to do here
-                      ;; -x:E-> a (a was declared before), or
-                      (and (blank-sym? sym) (edge-sym? p))
-                      `[:when (= ~sym ~(alpha-omega p))]
-                      ;; -a:E-> b:V (node after edge)
-                      (and (edge-sym? p) (not (edge-sym? sym)))
-                      `[:let [~s ~(alpha-omega p)]
-                        ~@(when t
-                            `[:when (has-type? ~s '~t)])]
-                      ;; b:V -a:E-> (edge after node)
-                      (and (not (edge-sym? p)) (edge-sym? sym))
-                      `[~s (tgq/iseq ~(first (symbol-and-type p)) '~t ~(edge-dir sym))]
-                      ;; b:V, c:V (node after node)
-                      (and (not (edge-sym? p)) (not (edge-sym? sym)))
-                      `[~s (tgq/vseq ~graph '~t)]
-                      :else (errorf "Cannot handle pattern part '%s %s' (previous, current)."
-                                    p sym)))))))
+    (loop [p nil, match matchvec, acc [], known #{}]
+      (if (seq match)
+        (let [sym (first match)]
+          #_(println "IN:" p "\t" sym "\t" (fnext match) "\t| known:" known)
+          (cond
+           ;; `for` special keywords
+           (#{:when :while} sym)
+           (recur nil (nnext match) (conj acc sym (fnext match)) known)
+           ;; `for` :let kw
+           (= sym :let)
+           (recur nil (nnext match) (conj acc sym (fnext match))
+                  (apply conj known (bindings-to-arglist (fnext match))))
+           ;; normal declaration: a (foo ...)
+           (and (symbol? sym) (blank-sym? sym) (coll? (fnext match)))
+           (recur nil (nnext match) (conj acc sym (fnext match))
+                  (conj known sym))
+           ;; destructuringforms: [a b] (call-to-some-fn ...)
+           (and (coll? sym) (coll? (fnext match)))
+           (recur nil (nnext match) (conj acc sym (fnext match))
+                  (apply conj known (bindings-to-arglist [sym (fnext match)])))
+           :else
+           (let [[s t] (symbol-and-type sym)]
+             (cond
+              ;; No previous symbol
+              (nil? p)
+              (recur sym (next match)
+                     (if (known s)
+                       acc
+                       (conj acc s (if (edge-sym? sym)
+                                     `(tgq/eseq ~graph ~t)
+                                     `(tgq/vseq ~graph ~t))))
+                     (conj known s))
+              ;; -x:E-> z:V, a (a was declared before), or
+              (and (blank-sym? sym) (not (edge-sym? p)))
+              (if (known sym)
+                (recur sym (next match) acc known)
+                (errorf "'%s' is not declared." sym))
+              ;; -x:E-> a (a was declared before)
+              (and (blank-sym? sym) (edge-sym? p))
+              (if (known sym)
+                (recur sym (next match)
+                       (conj acc :when `(= ~sym ~(alpha-omega p)))
+                       known)
+                (errorf "'%s' is not declared." sym))
+              ;; -a:E-> b:V (node after edge)
+              (and (edge-sym? p) (not (edge-sym? sym)))
+              (recur sym (next match)
+                     (if (first (symbol-and-type p))
+                       ;; The prev edge was named, so the node sym is the
+                       ;; target
+                       (apply conj acc `[:let [~s ~(alpha-omega p)]
+                                         ~@(when t
+                                             `[:when (has-type? ~s ~t)])])
+                       ;; The prev edge was anonymous, so it declared sym
+                       ;; already and we only need a type check here (if a
+                       ;; type is given)
+                       (if t
+                         (conj acc :when `(has-type? ~s ~t))
+                         acc))
+                     (if (first (symbol-and-type p))
+                       (conj known s)
+                       known))
+              ;; b:V -a:E-> (edge after node)
+              (and (not (edge-sym? p)) (edge-sym? sym))
+              (if s
+                (recur sym (next match)
+                       (conj acc s
+                             `(tgq/iseq ~(first (symbol-and-type p))
+                                        ~t ~(edge-dir sym)))
+                       (conj known s))
+                ;; Anonymous edge: a:A -:Foo-> b:B, mustn't create symbol for
+                (let [nextsym (first (symbol-and-type (fnext match)))]
+                  (recur sym (next match)
+                         (conj acc nextsym
+                               `(map tg/that
+                                     (tgq/iseq ~(first (symbol-and-type p))
+                                               ~t ~(edge-dir sym))))
+                         (conj known nextsym))))
+              ;; b:V, c:V (node after node)
+              (and (not (edge-sym? p)) (not (edge-sym? sym)))
+              (if (known s)
+                (recur sym (next match)
+                       (conj acc s) known)
+                (recur sym (next match)
+                       (conj acc s `(tgq/vseq ~graph ~t))
+                       (conj known s)))
+              :else (errorf "Cannot handle pattern %s at position %s"
+                            matchvec sym)))))
+        acc))))
+
+
+(def ^:dynamic *pattern-match-context*
+  nil)
 
 (defn- transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax."
   [match args]
   ;; NOTE: the first element in args must be the graph/model symbol...
-  (let [m (first args)
-        match (map (fn [sym]
-                     (if (and (symbol? sym) (edge-sym? sym))
-                       (let [[s t] (symbol-and-type sym)
-                             dir (edge-dir sym)]
-                         (symbol (str (when (= dir :in) "<")
-                                      "-" (or s (gensym "anonedge"))
-                                      (when t (str ":" t)) "-"
-                                      (when (= dir :out) ">"))))
-                       sym))
-                   match)]
-    #_(verify-match-vector
-       (loop [psn (pred-succ-seq match), acc []]
-         (if (seq psn)
-           (let [[p s n] (first psn)
-                 decl (decl-sym-tg p s n m)]
-             (if (= decl [s])
-               (let [[p2 s2 n2] (second psn)]
-                 (recur (cons [p s2 n2] (rest (rest psn))) (apply conj acc decl)))
-               (recur (rest psn) (if decl
-                                   (apply conj acc decl)
-                                   acc))))
-           acc))
-     #_(vec (mapcat (fn [[p s n]] (decl-sym-tg p s n m))
-                    (pred-succ-seq match)))
-     args))
-  (verify-match-vector match args))
+  (let [m (first args)]
+    (case *pattern-match-context*
+      :tgraph (verify-match-vector (transform-match-vector-tg match m) args)
+      :emf    (errorf "Not yet implemented.")
+      (verify-match-vector match args))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
