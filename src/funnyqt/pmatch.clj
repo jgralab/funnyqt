@@ -1,7 +1,7 @@
 (ns funnyqt.pmatch
   "Pattern Matching."
   (:use [funnyqt.utils :only [errorf pr-identity]])
-  (:use [funnyqt.query :only [the for*]])
+  (:use [funnyqt.query :only [the for* member?]])
   (:use funnyqt.macro-utils)
   (:use funnyqt.protocols)
   (:require [funnyqt.tg :as tg]
@@ -14,7 +14,8 @@
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
   Throws an exception if they overlap, else returns `match`."
   [match args]
-  (let [blist (bindings-to-arglist match)]
+  match
+  #_(let [blist (bindings-to-arglist match)]
       (if (seq (clojure.set/intersection
                 (set blist)
                 (set args)))
@@ -80,7 +81,7 @@
               (nil? p)
               (recur sym (next match)
                      (if (known s)
-                       acc
+                       (conj acc :let [s s])
                        (conj acc s (if (edge-sym? sym)
                                      `(tgq/eseq ~graph ~t)
                                      `(tgq/vseq ~graph ~t))))
@@ -124,13 +125,18 @@
                                         ~t ~(edge-dir sym)))
                        (conj known s))
                 ;; Anonymous edge: a:A -:Foo-> b:B, mustn't create symbol for
-                (let [nextsym (first (symbol-and-type (fnext match)))]
-                  (recur sym (next match)
-                         (conj acc nextsym
-                               `(map tg/that
-                                     (tgq/iseq ~(first (symbol-and-type p))
-                                               ~t ~(edge-dir sym))))
-                         (conj known nextsym))))
+                (let [[nsym nt] (symbol-and-type (fnext match))
+                      [psym pt] (symbol-and-type p)]
+                  (if (known nsym)
+                    (recur (fnext match) (nnext match)
+                           (conj acc :let [nsym nsym]
+                                 :when `(member? ~nsym (tgq/iseq ~psym ~t ~(edge-dir sym))))
+                           known)
+                    (recur sym (next match)
+                           (conj acc nsym
+                                 `(map tg/that
+                                       (tgq/iseq ~psym ~t ~(edge-dir sym))))
+                           (conj known nsym)))))
               ;; b:V, c:V (node after node)
               (and (not (edge-sym? p)) (not (edge-sym? sym)))
               (if (known s)
@@ -139,8 +145,8 @@
                 (recur sym (next match)
                        (conj acc s `(tgq/vseq ~graph ~t))
                        (conj known s)))
-              :else (errorf "Cannot handle pattern %s at position %s"
-                            matchvec sym)))))
+              :else (errorf "Cannot handle pattern %s at position %s %s %s"
+                            matchvec p sym (fnext match))))))
         acc))))
 
 (defn- shortcut-let-vector [lv]
@@ -160,7 +166,7 @@
       (vec nb))))
 
 (def ^:dynamic *pattern-match-context*
-  :tgraph)
+  nil)
 
 (defn transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax.
