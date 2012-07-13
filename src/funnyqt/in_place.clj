@@ -20,26 +20,6 @@
     - match is the vector of the elements matched by the rule"}
   *on-matched-rule-fn* nil)
 
-(defmacro with-match
-  "Establish bindings as specified in `bindings`, and execute `body`.
-  `bindings` is a vector of bindings with the syntax of `for*` or a pattern.
-
-  If a match could be found, that is, all symbols in `bindings` can be bound to
-  non-nil values, `body` is executed with the established bindings and `body`s
-  value is the return value.  If no match is found, nil is returned."
-  ;; Nicer arglist in doc
-  {:arglists '([[matchspec] & body])}
-  [bindings & body]
-  (when (not= 0 (mod (count bindings) 2))
-    (errorf "bindings has to be var-exp pairs"))
-  (let [arglist (bindings-to-arglist bindings)
-        r `r#]
-    `(when-let [~r (first (for* ~bindings ~arglist))]
-       ;; We want no matches with nil values
-       (when (every? (complement nil?) ~r)
-         (let [~arglist ~r]
-           ~@body)))))
-
 (defn- convert-spec
   "spec is ([args] [match] & body) or ([args] & body)."
   [debug spec]
@@ -48,14 +28,18 @@
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
+            match (transform-match-vector match args)
+            matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          (with-match ~(transform-match-vector match args)
-            ~@(when debug
-                `((when *on-matched-rule-fn*
-                    (*on-matched-rule-fn*
-                     '~name ~args ~(bindings-to-arglist match)))))
-            ~@body)))
+          (when-let [r# (first (for* ~match ~matchsyms))]
+            (when (every? (complement nil?) r#)
+              ~@(when debug
+                  `((when *on-matched-rule-fn*
+                      (*on-matched-rule-fn*
+                       '~name ~args ~matchsyms))))
+              (let [~matchsyms r#]
+                ~@body)))))
       ;; No match given
       `(~args ~@more))))
 

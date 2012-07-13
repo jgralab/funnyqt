@@ -15,17 +15,17 @@
   Throws an exception if they overlap, else returns `match`."
   [match args]
   (let [blist (bindings-to-arglist match)]
-    (if (seq (clojure.set/intersection
-              (set blist)
-              (set args)))
-      (errorf "Arglist and match vector overlap!")
-      (if-let [double-syms (seq (mapcat (fn [[sym freq]]
-                                          (when (> freq 1)
-                                            (str "- " sym " is declared " freq " times\n")))
-                                        (frequencies blist)))]
-        (errorf "These symbols are declared multiple times:\n%s"
-                (apply str double-syms))
-        match))))
+      (if (seq (clojure.set/intersection
+                (set blist)
+                (set args)))
+        (errorf "Arglist and match vector overlap!")
+        (if-let [double-syms (seq (mapcat (fn [[sym freq]]
+                                            (when (> freq 1)
+                                              (str "- " sym " is declared " freq " times\n")))
+                                          (frequencies blist)))]
+          (errorf "These symbols are declared multiple times:\n%s"
+                  (apply str double-syms))
+          match))))
 
 (defn- symbol-and-type [sym]
   (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]+)?(?::([a-zA-Z_0-9]+))?(?:-|->)?"
@@ -47,30 +47,31 @@
 (defn- blank-sym? [sym]
   (re-matches #"[a-zA-Z0-9]+" (name sym)))
 
-(defn- transform-match-vector-tg [matchvec graph]
-  (letfn [(alpha-omega [p]
-            (if (= (edge-dir p) :out)
-              `(tg/omega ~(first (symbol-and-type p)))
-              `(tg/alpha ~(first (symbol-and-type p)))))]
-    (loop [p nil, match matchvec, acc [], known #{}]
+(defn- transform-match-vector-tg [matchvec args]
+  (let [alpha-omega (fn [p]
+                      (if (= (edge-dir p) :out)
+                        `(tg/omega ~(first (symbol-and-type p)))
+                        `(tg/alpha ~(first (symbol-and-type p)))))
+        graph (first args)]
+    (loop [p nil, match matchvec, acc [], known (apply hash-set args)]
       (if (seq match)
         (let [sym (first match)]
           #_(println "IN:" p "\t" sym "\t" (fnext match) "\t| known:" known)
           (cond
            ;; `for` special keywords
            (#{:when :while} sym)
-           (recur nil (nnext match) (conj acc sym (fnext match)) known)
+           (recur p (nnext match) (conj acc sym (fnext match)) known)
            ;; `for` :let kw
            (= sym :let)
-           (recur nil (nnext match) (conj acc sym (fnext match))
+           (recur p (nnext match) (conj acc sym (fnext match))
                   (apply conj known (bindings-to-arglist (fnext match))))
            ;; normal declaration: a (foo ...)
            (and (symbol? sym) (blank-sym? sym) (coll? (fnext match)))
-           (recur nil (nnext match) (conj acc sym (fnext match))
+           (recur p (nnext match) (conj acc sym (fnext match))
                   (conj known sym))
            ;; destructuringforms: [a b] (call-to-some-fn ...)
            (and (coll? sym) (coll? (fnext match)))
-           (recur nil (nnext match) (conj acc sym (fnext match))
+           (recur p (nnext match) (conj acc sym (fnext match))
                   (apply conj known (bindings-to-arglist [sym (fnext match)])))
            :else
            (let [[s t] (symbol-and-type sym)]
@@ -142,10 +143,6 @@
                             matchvec sym)))))
         acc))))
 
-
-(def ^:dynamic *pattern-match-context*
-  nil)
-
 (defn- shortcut-let-vector [lv]
   (mapcat (fn [[s v]]
             [:let [s v] :when s])
@@ -162,6 +159,9 @@
         (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
       (vec nb))))
 
+(def ^:dynamic *pattern-match-context*
+  :tgraph)
+
 (defn transform-match-vector
   "Transforms patterns like a:X -:role-> b:Y to `for` syntax.
   (Only used internally)"
@@ -169,11 +169,10 @@
   ;; NOTE: the first element in args must be the graph/model symbol...
   (verify-match-vector
    (shortcut-bindings
-    (let [m (first args)]
-      (case *pattern-match-context*
-        :tgraph (transform-match-vector-tg match m)
-        :emf    (errorf "Not yet implemented.")
-        match)))
+    (case *pattern-match-context*
+      :tgraph (transform-match-vector-tg match args)
+      :emf    (errorf "Not yet implemented.")
+      match))
    args))
 
 (defn- convert-spec [[a m]]
