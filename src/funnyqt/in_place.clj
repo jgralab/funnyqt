@@ -66,29 +66,32 @@
     - match is the vector of the elements matched by the rule"}
   *on-matched-rule-fn* nil)
 
+(defn- convert-spec
+  "spec is ([args] [match] & body) or ([args] & body)."
+  [debug spec]
+  (let [args  (first spec)
+        more (next spec)]
+    (if (vector? (first more))
+      ;; match vector given
+      (let [match (first more)
+            body (next more)]
+        `(~args
+          (with-match ~(transform-match-vector match args)
+            ~@(when debug
+                `((when *on-matched-rule-fn*
+                    (*on-matched-rule-fn*
+                     '~name ~args ~(bindings-to-arglist match)))))
+            ~@body)))
+      ;; No match given
+      `(~args ~@more))))
+
 (defmacro defrule-internal
   [debug name more]
-  (let [[name more] (m/name-with-attributes name more)
-        convert (fn [s]
-                  (let [args  (first s)
-                        more (next s)]
-                    (if (vector? (first more))
-                      ;; match vector given
-                      (let [match (first more)
-                            body (next more)]
-                        `(~args
-                          (with-match ~(transform-match-vector match args)
-                            ~@(when debug
-                                `((when *on-matched-rule-fn*
-                                    (*on-matched-rule-fn*
-                                     '~name ~args ~(bindings-to-arglist match)))))
-                            ~@body)))
-                      ;; No match given
-                      `(~args ~@more))))]
+  (let [[name more] (m/name-with-attributes name more)]
     `(defn ~name ~(meta name)
        ~@(if (seq? (first more))
-           (map convert more)
-           (convert more)))))
+           (map (partial convert-spec debug) more)
+           (convert-spec debug more)))))
 
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
