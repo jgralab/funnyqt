@@ -15,6 +15,7 @@
   [m]
   (or (eget m :familyFather) (eget m :familyMother)
       (eget m :familySon)    (eget m :familyDaughter)))
+
 (defn male?
   "Returns true, iff member m is male."
   [m]
@@ -36,64 +37,35 @@
                      m [p-seq :familyFather :mother]))]
     (the w)))
 
-(def ^:dynamic *input*)
-(def ^:dynamic *output*)
-
-(defmapping family2address [f]
-  (doto (ecreate! *output* 'Address)
-    (eset! :street (eget f :street))
-    (eset! :town (eget f :town))))
-
-(declare member2person)
-
-(defn set-person-props
-  "Sets the person p's attributes according to its source member m."
-  [p m]
-  (eset! p :fullName
-         (str (eget m :firstName) " "
-              (eget (family m) :lastName)))
-  (eset! p :ageGroup
-         (eenum-literal (if (>= (eget m :age) 18)
-                          'AgeGroup.ADULT
-                          'AgeGroup.CHILD)))
-  (eset! p :address
-         (resolve-in family2address (family m)))
-  (deferred
-    (eset! p :parents
-           (resolve-all-in member2person (parents-of m)))))
-
-(defmapping member2male
-  "Transforms a Member to a Male."
-  [m]
-  (let [male (ecreate! 'Male)]
-    (set-person-props male m)
-    (deferred
-      (when-let [wife (resolve-in member2person (wife m))]
-        (eset! male :wife wife)))
-    male))
-
-(defmapping member2female
-  "Transforms a Member to a Female."
-  [m]
-  (doto (ecreate! 'Female)
-    (set-person-props m)))
-
-(defmapping member2person [m]
-  (if (male? m)
-    (member2male m)
-    (member2female m)))
-
-(defmapping familymodel2genealogy []
-  (doseq [f (eallobjects *input* 'Family)]
-    (family2address f))
-  (doto (ecreate! *output* 'Genealogy)
-    (eset! :persons (map member2person
-                         (eallobjects *input* 'Member)))))
-
 ;; Here comes the transformation that uses those external helpers and mappings.
 (deftransformation families2genealogy-emf [in out]
-  (binding [*input* in, *output* out]
-    (familymodel2genealogy))
+  (letmapping [(family2address
+                [f]
+                (doto (ecreate! out 'Address)
+                  (eset! :street (eget f :street))
+                  (eset! :town (eget f :town))))
+               (member2person
+                [m]
+                (let [p (ecreate! (if (male? m) 'Male 'Female))]
+                  (eset! p :fullName
+                         (str (eget m :firstName) " "
+                              (eget (family m) :lastName)))
+                  (eset! p :ageGroup
+                         (eenum-literal (if (>= (eget m :age) 18)
+                                          'AgeGroup.ADULT
+                                          'AgeGroup.CHILD)))
+                  (eset! p :address
+                         (resolve-in family2address (family m)))
+                  (deferred
+                    (eset! p :parents
+                           (resolve-all-in member2person (parents-of m)))
+                    (when (male? m)
+                      (when-let [wife (resolve-in member2person (wife m))]
+                        (eset! p :wife wife))))
+                  p))]
+    (mapv family2address (eallobjects in 'Family))
+    (doto (ecreate! out 'Genealogy)
+      (eset! :persons (mapv member2person (eallobjects in 'Member)))))
   out)
 
 (load-metamodel "test/input/Families.ecore")
@@ -103,7 +75,7 @@
 
 (deftest test-transformation
   (let [gen (families2genealogy-emf (load-model "test/input/example.families")
-                                   (new-model))]
+                                    (new-model))]
     (print-model gen "test/output/families2genealogy-emf.pdf")
     (save-model gen "test/output/families2genealogy-emf.xmi")
     (is gen)
