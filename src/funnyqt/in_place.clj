@@ -36,7 +36,7 @@
   non-nil values, `body` is executed with the established bindings and `body`s
   value is the return value.  If no match is found, nil is returned."
   ;; Nicer arglist in doc
-  {:arglists '([[bindings*] & body])}
+  {:arglists '([[bindings] & body])}
   [bindings & body]
   (when (not= 0 (mod (count bindings) 2))
     (errorf "bindings has to be var-exp pairs"))
