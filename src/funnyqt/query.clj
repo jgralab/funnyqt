@@ -1,6 +1,6 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error to-oset into-oset]]
+  (:use [funnyqt.utils :only [error errorf to-oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal]])
   (:require clojure.set))
@@ -51,9 +51,9 @@
   ([s]
      (if-let [f (first s)]
        (if (next s)
-         (error (format "seq contains more than one element!"))
+         (errorf "seq contains more than one element: %s" s)
          f)
-       (error (format "seq contains zero elements!"))))
+       (error "seq contains zero elements!")))
   ([pred s]
      (the (filter pred s))))
 

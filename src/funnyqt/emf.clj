@@ -90,10 +90,10 @@
                       (mapcat #(epackages (.getEPackage epackage-registry %))
                               (or *ns-uris* (keys epackage-registry)))))]
        (when-not tops
-         (error (format "No such root package %s." f)))
+         (errorf "No such root package %s." f))
        (when (nnext tops)
-         (error (format "Multiple root packages named %s: %s\n%s" f tops
-                        "Restrict the search space using `with-ns-uris`.")))
+         (errorf "Multiple root packages named %s: %s\n%s" f tops
+                 "Restrict the search space using `with-ns-uris`."))
        (if (seq r)
          (apply epackage (first tops) r)
          (first tops))))
@@ -104,7 +104,7 @@
                            (.getESubpackages ep))]
          (if (seq subps)
            (recur (the subps) (rest subqns))
-           (error (format "No such subpackage %s in %s." f (print-str ep)))))
+           (errorf "No such subpackage %s in %s." f (print-str ep))))
        ep)))
 
 (extend-protocol Abstractness
@@ -129,16 +129,15 @@
     (if (>= ld 0)
       (let [^EPackage ep (epackage (subs n 0 ld))]
         (or (.getEClassifier ep (subs n (inc ld)))
-            (error (format "No such EClassifier %s in %s." n (print-str ep)))))
+            (errorf "No such EClassifier %s in %s." n (print-str ep))))
       (let [classifiers (filter (fn [^EClassifier ec]
                                   (= (.getName ec) n))
                                 (eclassifiers))]
         (cond
-         (empty? classifiers) (error (format "No such EClassifier %s." n))
-         (next classifiers)   (error
-                               (format "EClassifier %s is ambiguous: %s\n%s"
-                                       n (print-str classifiers)
-                                       "Restrict the search space using `with-ns-uris`."))
+         (empty? classifiers) (errorf "No such EClassifier %s." n)
+         (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
+                                      n (print-str classifiers)
+                                      "Restrict the search space using `with-ns-uris`.")
          :else (first classifiers))))))
 
 (defn eenum-literal
@@ -147,8 +146,8 @@
   (let [[eenum elit] (split-qname qname)
         ^EEnum enum-cls (eclassifier eenum)]
     (or (.getEEnumLiteral enum-cls ^String elit)
-        (error (format "%s has no EEnumLiteral with name %s."
-                       (print-str enum-cls) elit)))))
+        (errorf "%s has no EEnumLiteral with name %s."
+                (print-str enum-cls) elit))))
 
 ;;# Model
 
@@ -267,7 +266,7 @@
                     (apply op (map eclass-matcher r)))
                   ;; Empty collection given: (), [], that's also ok
                   identity)
-   :else (error (format "Don't know how to create a type matcher for %s" ts))))
+   :else (errorf "Don't know how to create a type matcher for %s" ts)))
 
 (extend-protocol InstanceOf
   EObject
@@ -412,8 +411,8 @@
           (cond
            (instance? EMFModel container) (eallobjects container)
            (coll? container)              container
-           :else (error (format "container is neither an EMFModel nor a collection: %s"
-                                container)))))
+           :else (errorf "container is neither an EMFModel nor a collection: %s"
+                         container))))
 
 (extend-protocol EReferences
   EMFModel
@@ -564,7 +563,7 @@
                    sf
                    (.getEStructuralFeature (.eClass eo) (name sf)))]
     (.eGet eo sfeat)
-    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+    (errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eget
   "Returns the value of `eo`s structural feature `sf`.
@@ -586,7 +585,7 @@
         eo)
       (doto eo
         (.eSet sfeat value)))
-    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+    (errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eunset!
   "Unsets `eo`s structural feature `sf` and returns `eo`.
@@ -595,7 +594,7 @@
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
     (doto eo
       (.eUnset sfeat))
-    (error (format "No such structural feature %s for %s." sf (print-str eo)))))
+    (errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eadd!
   "Adds each value in `values` to `eo`s list of attribute/reference values
@@ -885,7 +884,7 @@
       (println "Printing model to" f))
     (let [r (clojure.java.shell/sh "dot" (str "-T" lang) "-o" f :in ds)]
       (when-not (zero? (:exit r))
-        (error (format "Dotting failed: %s" (:err r)))))))
+        (errorf "Dotting failed: %s" (:err r))))))
 
 ;;# Printing
 

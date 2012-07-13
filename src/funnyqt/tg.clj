@@ -66,7 +66,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
      :database    ImplementationType/DATABASE
      ;; Don't error with "no matching clause"
      nil)
-   (error (format "No such implementation type %s" kw))))
+   (errorf "No such implementation type %s" kw)))
 
 ;;## Graph utilities
 
@@ -293,10 +293,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (.getAttributedElementClass this))
     ([this qname]
        (or (-> this .getSchema (.getAttributedElementClass (name qname)))
-           (error (format "No such attributed element class %s" (name qname))))))
+           (errorf "No such attributed element class %s" (name qname)))))
   (domain [elem qname]
     (or (.getDomain (.getSchema elem) (domain-qname qname))
-        (error (format "No such domain %s" (domain-qname qname)))))
+        (errorf "No such domain %s" (domain-qname qname))))
   (schema [ae]
     (.getSchema ae))
 
@@ -312,7 +312,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (-> this .getSchema (.getAttributedElementClass (name qname)))))
   (domain [aec qname]
     (or (.getDomain (.getSchema aec) (domain-qname qname))
-        (error (format "No such domain %s" (domain-qname qname)))))
+        (errorf "No such domain %s" (domain-qname qname))))
   (schema [this]
     (.getSchema this))
 
@@ -324,7 +324,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (.getAttributedElementClass this (name qname))))
   (domain [s qname]
     (or (.getDomain s (domain-qname qname))
-        (error (format "No such domain %s" (domain-qname qname)))))
+        (errorf "No such domain %s" (domain-qname qname))))
   (schema [this]
     this))
 
@@ -530,7 +530,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
      (= dir EdgeDirection/OUT)   normal-edge?
      (= dir EdgeDirection/IN)    (complement normal-edge?)
      (= dir EdgeDirection/INOUT) identity
-     :default (error (format "Unknown direction %s" dir)))))
+     :default (errorf "Unknown direction %s" dir))))
 
 (defn first-inc
   "Returns the first incidence in iseq of `v` accepted by the type matcher `tm`

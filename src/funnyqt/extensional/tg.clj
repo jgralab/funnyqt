@@ -4,7 +4,7 @@
   (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use [funnyqt.utils :only [error split-qname pr-identity]])
+  (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
   (:require clojure.set)
   (:require clojure.pprint)
   (:require [clojure.tools.macro :as m])
@@ -46,8 +46,8 @@
   [m1 m2]
   (if-let [isect (seq (clojure.set/intersection
                        (keys m1) (keys m2)))]
-    (error (format "Traceability clash! %s should be added but were already present."
-                   isect))
+    (errorf "Traceability clash! %s should be added but were already present."
+            isect)
     (merge m1 m2)))
 
 (defn- into-trace-map [trace-map aec new]
@@ -66,8 +66,8 @@
 (defn- img-internal
   [aec arch]
   (or (img-internal-1 aec arch)
-      (error (format "Couldn't resolve image of %s in img fn of %s: %s"
-                     arch aec @*img*))))
+      (errorf "Couldn't resolve image of %s in img fn of %s: %s"
+              arch aec @*img*)))
 
 (defn- arch-internal-1
   "Returns the archetype of `img` for AttributedElementClass `aec`.
@@ -82,8 +82,8 @@
 (defn- arch-internal
   [aec img]
   (or (arch-internal-1 aec img)
-      (error (format "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                     img aec @*arch*))))
+      (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
+              img aec @*arch*)))
 
 ;;# Creating Elements
 

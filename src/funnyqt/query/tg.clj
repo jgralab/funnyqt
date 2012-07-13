@@ -465,7 +465,7 @@ can compute that like so:
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
    (qname? p) (to-oset (mapcat #(adjs* % p) (to-oset v)))
-   :else (error (format "Don't know how to apply %s." p))))
+   :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
   "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.

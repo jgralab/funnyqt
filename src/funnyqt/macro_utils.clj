@@ -10,8 +10,8 @@
 (defn expansion-context-defn-maybe [n]
   "Return a definition form usable to be spliced in depending on
   *expansion-context*."
-  (cond
-   (= *expansion-context* :internal) [n]
-   (= *expansion-context* :external) `[clojure.core/defn ~n ~(meta n)]
-   :else (error (format "Unknown expansion context: %s" *expansion-context*))))
+  (case *expansion-context*
+    :internal [n]
+    :external `[clojure.core/defn ~n ~(meta n)]
+    (errorf "Unknown expansion context: %s" *expansion-context*)))
 

@@ -31,7 +31,7 @@
   (if-not (coll? s)
     s
     (if (next s)
-      (error (format "More than one adjacent element found: %s" s))
+      (errorf "More than one adjacent element found: %s" s)
       (first s))))
 
 (extend-protocol Adjacencies
@@ -131,7 +131,7 @@
    (coll? p) (to-oset (apply (first p) obj (rest p)))
    ;; EReference names
    (qname? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
-   :else (error (format "Don't know how to apply %s." p))))
+   :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-emf
   "EObject restriction concerning `ts` and `pred` on each object in `objs`.

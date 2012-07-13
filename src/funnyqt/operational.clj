@@ -1,6 +1,6 @@
 (ns funnyqt.operational
   "Stuff for writing QVT Operational Mappings like transformations."
-  (:use [funnyqt.utils :only [error]])
+  (:use [funnyqt.utils :only [error errorf]])
   (:use funnyqt.macro-utils)
   (:use [funnyqt.query :only [the]])
   (:require [clojure.tools.macro :as m]))
@@ -44,8 +44,8 @@
               (swap! *traceability-mappings* assoc-in [~name ~(first args)] result#)
               result#)
            `(do ~@body)))
-      (error (format "Invalid defmapping form: expected arg vector but got %s."
-                     args)))))
+      (errorf "Invalid defmapping form: expected arg vector but got %s."
+              args))))
 
 ;;# Helpers
 
@@ -101,8 +101,7 @@
         body (next more)]
     ;; Validate
     (when-not (vector? args)
-      (error (format "No args vector specified for transformation %s."
-                     args)))
+      (errorf "No args vector specified for transformation %s." args))
     (let [[mappings-and-helpers main-form]
           ((juxt filter remove)
            #(let [x (first %)]
@@ -112,8 +111,8 @@
                          (= var #'defhelper)))))
            body)]
       (when (not= (count main-form) 1)
-        (error (format "There must be exactly one main form in a transformation but got %d: %s"
-                       (count main-form) (print-str main-form))))
+        (errorf "There must be exactly one main form in a transformation but got %d: %s"
+                (count main-form) (print-str main-form)))
       (binding [*expansion-context* :internal]
         ;; Ok, here we go.
         `(defn ~tname ~(meta tname)

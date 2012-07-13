@@ -4,7 +4,7 @@
   (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use [funnyqt.utils :only [error split-qname pr-identity]])
+  (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
   (:use funnyqt.extensional.tg)
   (:require clojure.set)
   (:require clojure.pprint)
@@ -39,7 +39,7 @@
    (instance? GraphClass aec)  [g]
    (instance? VertexClass aec) (vseq g (funnyqt.protocols/qname aec))
    (instance? EdgeClass aec)   (eseq g (funnyqt.protocols/qname aec))
-   :else (error (format "Cannot handle %s." aec))))
+   :else (errorf "Cannot handle %s." aec)))
 
 (defmacro with-open-schema [g & body]
   `(let [g# ~g
@@ -237,12 +237,12 @@
         ^Attribute attribute (.getAttribute aec aname)]
     ;; Check that no subclass (or even this class) contains attribute `newname`
     (when (.containsAttribute aec (name newname))
-      (error (format "%s already has a %s attribute." aec (name newname))))
+      (errorf "%s already has a %s attribute." aec (name newname)))
     (when (instance? GraphElementClass aec)
       (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
         (when (.containsAttribute sub (name newname))
-          (error (format "%s subclass %s already has a %s attribute."
-                         aec sub (name newname))))))
+          (errorf "%s subclass %s already has a %s attribute."
+                  aec sub (name newname)))))
     (let [old-idx-map (old-attr-idx-map aec aname)
           oaf (on-attributes-fn
                (fn [^AttributedElement ae ^objects ary]
@@ -309,14 +309,15 @@
        ;; favour of the inherited one.
        (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
                                    (.delete oa)
-                                   (error (format
-                                           (str "%s tries to inherit different %s attributes. "
-                                                "It already has one from %s and now gets another one from %s.")
-                                           sub a (.getAttributedElementClass (.getAttribute sub a)) super)))
-       :else (error (format "%s tries to inherit %s with different domains: %s from %s and %s from %s"
-                            sub a
-                            (supmap a) (.getAttributedElementClass (.getAttribute sub a))
-                            (submap a) super))))
+                                   (errorf
+                                    (str "%s tries to inherit different %s attributes. "
+                                         "It already has one from %s and now gets another one from %s.")
+                                    sub a (.getAttributedElementClass (.getAttribute sub a)) super))
+       :else (errorf
+              "%s tries to inherit %s with different domains: %s from %s and %s from %s"
+              sub a
+              (supmap a) (.getAttributedElementClass (.getAttribute sub a))
+              (submap a) super)))
     ;; Return the seq of attributes that are really new for the subclass.  For
     ;; those, the attributes array has to be adjusted.
     (map #(.getAttribute super %1)
