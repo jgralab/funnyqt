@@ -1,6 +1,8 @@
 (ns funnyqt.extensional.test.tg
   (:use funnyqt.tg)
+  (:require [funnyqt.emf :as emf])
   (:use funnyqt.query.tg)
+  (:require [funnyqt.query.emf :as emfq])
   (:use funnyqt.extensional.tg)
   (:use funnyqt.query)
   (:use [funnyqt.test.tg :only [rg]])
@@ -30,3 +32,62 @@
     (is (= "Köln"      (value (vertex g 1) :name)))
     (is (= "Frankfurt" (value (vertex g 2) :name)))))
 
+;; The Family2Genealogy transformation from EMF to TG
+
+(defn family
+  "Returns the main family of member m."
+  [m]
+  (or (adj m :familyFather) (adj m :familyMother)
+      (adj m :familySon)    (adj m :familyDaughter)))
+
+(defn male?
+  "Returns true, iff member m is male."
+  [m]
+  (or (adj m :familyFather)
+      (adj m :familySon)))
+
+(defn parents-of
+  "Returns the set of parent members of m."
+  [m]
+  (emfq/reachables
+   m [p-seq
+      [p-alt :familySon :familyDaughter]
+      [p-alt :father :mother]]))
+
+(defn wife
+  "Returns the wife member of member m."
+  [m]
+  (adj m :familyFather :mother))
+
+(deftransformation families2genealogy [m g]
+  (create-vertices! g 'Male
+                    (fn []
+                      (filter male?
+                              (emf/eallobjects m 'Member))))
+  (create-vertices! g 'Female
+                    (fn []
+                      (filter (complement male?)
+                              (emf/eallobjects m 'Member))))
+  (set-values! g 'Person.fullName
+               (fn []
+                 (for [mem (emf/eallobjects m 'Member)]
+                   [(resolve-element mem)
+                    (str (emf/eget mem :firstName) " "
+                         (emf/eget (family mem) :lastName))])))
+  (create-edges! g 'HasSpouse
+                 (fn []
+                   (for [mem (filter wife (emf/eallobjects m 'Member))
+                         :let [w (wife mem)]]
+                     [(family mem) (resolve-alpha mem) (resolve-omega w)])))
+  (create-edges! g 'HasChild
+                 (fn []
+                   (for [child (emf/eallobjects m 'Member)
+                         parent (parents-of child)]
+                     [[child parent] (resolve-alpha parent) (resolve-omega child)]))))
+
+(deftest test-families2genealogy-extensional
+  (let [g (create-graph (load-schema "test/input/genealogy-schema.tg"))
+        _ (emf/load-metamodel "test/input/Families.ecore")
+        m (emf/load-model "test/input/example.families")]
+    (families2genealogy m g)
+    (show-graph g)))
