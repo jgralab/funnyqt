@@ -89,5 +89,7 @@
   (let [g (create-graph (load-schema "test/input/genealogy-schema.tg"))
         _ (emf/load-metamodel "test/input/Families.ecore")
         m (emf/load-model "test/input/example.families")]
+    ;; TODO: Add assertions
     (families2genealogy m g)
-    (show-graph g)))
+    ;;(show-graph g)
+    ))

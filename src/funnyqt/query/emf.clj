@@ -68,7 +68,7 @@
   ([obj ts]
      (mapcat #(econtents % ts) (to-oset obj))))
 
-(defn -->
+(defn --->
   "Returns the EObjects cross-referenced by `obj` where the references may be
   restricted by `rs`, a reference specification (see `eref-matcher` for
   details).  `obj` may also be a collection of EObjects.  In EMF,
@@ -78,11 +78,11 @@
   ([obj rs]
      (mapcat #(ecrossrefs % rs) (to-oset obj))))
 
-(defn -->>
+(defn -->
   "Returns the EObjects referenced by `obj` where the references may be
   restricted by `rs`, a reference specification (see `eref-matcher` for
-  details).  `obj` may also be a collection of EObjects.  In contrast to `-->`,
-  this function includes both cross-references and containments."
+  details).  `obj` may also be a collection of EObjects.  In contrast to
+  `--->`, this function includes both cross-references and containments."
   ([obj]
      (mapcat erefs (to-oset obj)))
   ([obj rs]
@@ -96,7 +96,7 @@
              [c])
           (to-oset obj)))
 
-(defn <--
+(defn <---
   "Returns all EObjects cross-referencing `obj` with a reference matching the
   reference specification `rs` (see `eref-matcher` for details).  `obj` may also
   be a collection of EObjects, in which case all objects cross-referencing any
@@ -109,11 +109,11 @@
   ([obj rs container]
      (mapcat #(inv-ecrossrefs % rs container) (to-oset obj))))
 
-(defn <<--
+(defn <--
   "Returns all EObjects referencing `obj` with a reference matching the
   reference specification `rs` (see `eref-matcher` for details).  `obj` may also
   be a collection of EObjects, in which case all objects referencing any of the
-  objects in `obj` is returned.  In contrast to `<--', this function includes
+  objects in `obj` is returned.  In contrast to `<---', this function includes
   both cross-references and containments."
   ([obj]
      (mapcat inv-erefs (to-oset obj)))
@@ -125,9 +125,9 @@
 (defn- p-apply-emf
   [obj p]
   (cond
-   ;; funs: -->
+   ;; funs: --->
    (fn? p) (to-oset (p obj))
-   ;; funs with params: [--> :foo], [p-alt :foo :bar]
+   ;; funs with params: [---> :foo], [p-alt :foo :bar]
    (coll? p) (to-oset (apply (first p) obj (rest p)))
    ;; EReference names
    (qname? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
