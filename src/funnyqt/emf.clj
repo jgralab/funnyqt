@@ -375,12 +375,12 @@
     "Returns a seq of EObjects that cross-reference `this` with a ref matching
   `rm`.  Cross-referenced objects are those that are referenced by a
   non-containment relationship.  If `container` is nil, check only opposites of
-  this object's ref, else do a search over the nconts of `container`, which
+  this object's ref, else do a search over the contents of `container`, which
   may be an EMFModel or a collection of EObjects.")
   (inv-erefs-internal [this rm container]
     "Returns a seq of EObjects that reference `this` with a ref matching `rm`.
   If `container` is nil, check only opposites of this object's ref, else do a
-  search over the nconts of `container`, which may be an EMFModel or a
+  search over the contents of `container`, which may be an EMFModel or a
   collection of EObjects."))
 
 (defn- eopposite-refs
