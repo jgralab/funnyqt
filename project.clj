@@ -12,7 +12,7 @@
   ;;  {"sonatype" {:url "http://oss.sonatype.org/content/repositories/snapshots"
   ;;             :snapshots true}}
   :dependencies [[org.clojure/clojure "1.4.0"]
-                 [de.uni-koblenz.ist/jgralab "6.3.0"]
+                 [de.uni-koblenz.ist/jgralab "6.3.1"]
                  [org.clojure/core.logic "0.7.5"]
                  [ordered "1.3.0"]
                  [org.clojure/tools.macro "0.1.1"]
