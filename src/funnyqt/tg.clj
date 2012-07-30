@@ -81,7 +81,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (let [img (.convertToGraphVizImageIcon
                   (doto ^Tg2Dot (Tg2Dot.)
                         (.setGraph ^Graph g)
-                        (.setReversedEdges reversed))
+                        (.setReversedEdges reversed)
+                        (.setPrintEdgeAttributes true))
               (.outputFormat (GraphVizProgram.) GraphVizOutputFormat/PNG))
              label (JLabel. img)
              frame (JFrame. (str "Graph: " (.getId g)))

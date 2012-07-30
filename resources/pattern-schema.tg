@@ -1,0 +1,16 @@
+TGraph 2;
+Schema de.uni_koblenz.jgralab.patternschema.PatternSchema;
+GraphClass PatternGraph;
+
+VertexClass PatternVertex
+  { name : String,
+    type : String };
+
+EdgeClass PatternEdge
+  from PatternVertex (0,*) role src
+  to PatternVertex (0,*) role dst
+  { name : String,
+    type : String };
+
+VertexClass Text
+  { text : String };
