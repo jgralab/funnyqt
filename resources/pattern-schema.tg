@@ -2,15 +2,27 @@ TGraph 2;
 Schema de.uni_koblenz.jgralab.patternschema.PatternSchema;
 GraphClass PatternGraph;
 
-VertexClass PatternVertex
-  { name : String,
-    type : String };
+abstract VertexClass APatternVertex
+  { name : String };
 
-EdgeClass PatternEdge
-  from PatternVertex (0,*) role src
-  to PatternVertex (0,*) role dst
-  { name : String,
-    type : String };
+VertexClass PatternVertex : APatternVertex
+  { type : String };
+
+VertexClass ArgumentVertex : APatternVertex;
+
+abstract EdgeClass APatternEdge
+  from APatternVertex (0,*) role src
+  to APatternVertex (0,*) role dst
+  { name : String };
+
+EdgeClass PatternEdge : APatternEdge
+  from APatternVertex (0,*)
+  to APatternVertex (0,*)
+  { type : String };
+
+EdgeClass ArgumentEdge : APatternEdge
+  from APatternVertex (0,*)
+  to APatternVertex (0,*);
 
 VertexClass Text
   { text : String };

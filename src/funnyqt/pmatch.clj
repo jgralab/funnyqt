@@ -34,26 +34,32 @@
 (def ^:private pattern-schema
   (tg/load-schema "resources/pattern-schema.tg"))
 
-(defn- pattern-to-pattern-graph [pattern]
-  (let [pg (tg/create-graph pattern-schema)
+(defn- pattern-to-pattern-graph [argvec pattern]
+  (let [argset (into #{} argvec)
+        pg (tg/create-graph pattern-schema)
         get-by-name (fn [n]
                       (first (filter #(= (name n) (tg/value % :name))
-                                     (concat (tgq/vseq pg 'PatternVertex)
-                                             (tgq/eseq pg 'PatternEdge)))))
-        check-uniqe (fn [n t]
-                      (when (and t (get-by-name n))
-                        (errorf "A pattern element with name %s is already declared!" n)))
+                                     (concat (tgq/vseq pg 'APatternVertex)
+                                             (tgq/eseq pg 'APatternEdge)))))
+        check-unique (fn [n t]
+                       (when (and n t (get-by-name n))
+                         (errorf "A pattern element with name %s is already declared!" n))
+                       (when (and t (argset n))
+                         (errorf "The pattern declares %s although that's an argument already!" n)))
         get-or-make-v (fn [n t]
-                        (if-let [v (get-by-name n)]
+                        (if-let [v (and n (get-by-name n))]
                           v
-                          (let [v (tg/create-vertex! pg 'PatternVertex)]
+                          (let [v (tg/create-vertex! pg (if (argset n)
+                                                          'ArgumentVertex
+                                                          'PatternVertex))]
                             (when n (tg/set-value! v :name (name n)))
-                            (when t (tg/set-value! v :type (name t))))))]
+                            (when t (argset n) (tg/set-value! v :type (name t)))
+                            v)))]
     (loop [pattern pattern, lv nil]
       (when (seq pattern)
         (let [sym (first pattern)
               [n t] (name-and-type sym)]
-          (check-uniqe n t)
+          (check-unique n t)
           (cond
            (or (#{:when :let :while} sym)
                (normal-binding-form? sym (fnext pattern))) (let [v (tg/create-vertex! pg 'Text)]
@@ -63,11 +69,11 @@
                                                              (recur (nnext pattern) lv))
            (edge-sym? sym) (let [nsym (second pattern)
                                  [nvn nvt] (name-and-type nsym)
-                                 _ (check-uniqe nvn nvt)
+                                 _ (check-unique nvn nvt)
                                  nv (get-or-make-v nvn nvt)]
                              (let [e (if (= :out (edge-dir sym))
-                                       (tg/create-edge! pg 'PatternEdge lv nv)
-                                       (tg/create-edge! pg 'PatternEdge nv lv))]
+                                       (tg/create-edge! pg (if (argset n) 'ArgumentEdge 'PatternEdge) lv nv)
+                                       (tg/create-edge! pg (if (argset n) 'ArgumentEdge 'PatternEdge) nv lv))]
                                (when n (tg/set-value! e :name (name n)))
                                (when t (tg/set-value! e :type (name t))))
                              (recur (nnext pattern) nv))
