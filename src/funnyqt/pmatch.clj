@@ -56,7 +56,7 @@
                             (when n (tg/set-value! v :name (name n)))
                             (when t (argset n) (tg/set-value! v :type (name t)))
                             v)))]
-    (loop [pattern pattern, lv nil]
+    (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
         (let [sym (first pattern)
               [n t] (name-and-type sym)]
@@ -72,8 +72,7 @@
                (tg/set-value! v :form
                               (str "[" (pr-str sym) " "
                                    (pr-str (fnext pattern)) "]"))
-               (when lv
-                 (tg/create-edge! pg 'Precedes lv v))
+               (tg/create-edge! pg 'Precedes lv v)
                (recur (nnext pattern) v)))
            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? sym) (let [nsym (second pattern)
@@ -88,62 +87,82 @@
                              (recur (nnext pattern) nv))
            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            :vertex (let [v (get-or-make-v n t)]
+                     (when (= 1 (tgq/vcount pg 'APatternVertex))
+                       (tg/create-edge! pg 'HasFirstPatternVertex (the (tgq/vseq pg 'Anchor)) v))
                      (recur (rest pattern) v))))))
     pg))
 
-(defn pattern-graph-to-comprehension-tg [argvec pg]
+;; TODO:
+;;
+;; - There must not be symbols for anonymous elements, else we get too many
+;;   matches.
+;;   + probably do it with path expressions
+;;   + variants:
+;;     - [a:A -:B-> :C -:D-> e:E]
+;;     - [a:A -b:B-> :C -:D-> e:E]
+;;     - [a:A -:B-> :C -:D-> :E]
+;;     - [a:A -b:B-> :C -:D-> :E]
+;;     - [:A -:B-> :C -:D-> e:E]
+;;     - [:A -b:B-> :C -:D-> e:E]
+;;     - [:A -:B-> :C -:D-> :E]
+;;     - [:A -b:B-> :C -:D-> :E]
+;;
+;; - also allow consecutive anons: x:X -:Y-> :Z -:A-> b:B
+(defn pattern-graph-to-comprehension-tg [argvec pg resultform]
   (let [gsym (first argvec)
-        anons (atom {})
-        name #(if-let [n (tg/value % :name)]
-                (symbol n)
-                (if-let [n (@anons %)]
-                  n
-                  (do
-                    (swap! anons assoc % (gensym))
-                    (@anons %))))
-        add-non-anons (fn [rf done & elems]
-                        (if-let [es (seq (map name (remove #(or (keyword? %) (done %) (@anons %)) elems)))]
-                          (apply conj rf es)
-                          rf))
+        name #(when-let [n (tg/value % :name)]
+                (symbol n))
+        anon? (complement name)
         type (fn [elem] (when-let [t (tg/value elem :type)]
                          `'~(symbol t)))
-        enqueue-incs (fn [cur queue done]
+        enqueue-incs (fn [cur stack done]
                        (if-let [incs (seq (remove done (tgq/iseq cur)))]
-                         (apply conj (pop queue) incs)
-                         (pop queue)))]
-    (loop [queue (conj clojure.lang.PersistentQueue/EMPTY
-                       (tg/first-vertex pg (tg/type-matcher pg 'APatternVertex)))
+                         (into stack (reverse incs))
+                         stack))
+        conj-rf (fn [rf & elems]
+                  (if-let [es (seq (remove nil? elems))]
+                    (into rf es)
+                    rf))]
+    (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
            bf []
            rf []]
-      (if (seq queue)
-        (let [cur (peek queue)]
-          (println (describe cur) ", done? " (done cur))
+      (if (seq stack)
+        (let [cur (peek stack)]
           (if (done cur)
-            (recur (pop queue) done bf rf)
+            (recur (pop stack) done bf rf)
             (case (qname cur)
-              PatternVertex (recur (enqueue-incs cur queue done)
+              Anchor (recur (enqueue-incs cur (pop stack) done)
+                            (conj done cur)
+                            bf rf)
+              HasFirstPatternVertex (recur (conj (pop stack) (tg/that cur))
+                                           (conj done cur)
+                                           bf rf)
+              PatternVertex (recur (enqueue-incs cur (pop stack) done)
                                    (conj done cur)
-                                   (apply conj bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))])
-                                   (add-non-anons rf done cur))
-              ArgumentVertex (recur (enqueue-incs cur queue done)
+                                   (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))])
+                                   (conj rf (name cur)))
+              ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
                                     (conj done cur)
                                     bf
-                                    (add-non-anons rf cur))
-              PatternEdge (let [trg (tg/that cur)]
-                            (recur (pop queue)
-                                   (conj done (tg/inverse-edge cur) trg)
-                                   (apply conj bf `~(name cur) `(tgq/iseq ~(name (tg/this cur)) ~(type cur))
-                                          (if (done trg)
-                                            [:when `(= ~(name trg) (tg/that ~(name cur)))]
-                                            (concat
-                                             [:let `[~(name trg) (tg/that ~(name cur))]]
-                                             (when-let [t (type trg)]
-                                               `[:when (has-type? ~(name trg) ~(type trg))]))))
-                                   (add-non-anons rf done cur trg)))
+                                    (conj-rf rf (name cur)))
+              PatternEdge (if (anon? cur)
+                            (errorf "Anon thingies not yet implemented!")
+                            (let [trg (tg/that cur)]
+                              (recur (enqueue-incs trg (pop stack) done)
+                                     (conj done (tg/inverse-edge cur) trg)
+                                     (apply conj bf `~(name cur) `(tgq/iseq ~(name (tg/this cur)) ~(type cur)
+                                                                            ~(if (tg/normal-edge? cur) :out :in))
+                                            (if (done trg)
+                                              [:when `(= ~(name trg) (tg/that ~(name cur)))]
+                                              (concat
+                                               [:let `[~(name trg) (tg/that ~(name cur))]]
+                                               (when-let [t (type trg)]
+                                                 `[:when (has-type? ~(name trg) ~(type trg))]))))
+                                     (conj-rf rf (name cur) (name trg)))))
               ArgumentEdge (let [src (tg/this cur)
                                  trg (tg/that cur)]
-                             (recur (pop queue)
+                             (recur (enqueue-incs trg (pop stack) done)
                                     (conj done cur (tg/inverse-edge cur) trg)
                                     (apply conj bf :when `(= ~(name src) (tg/this ~(name cur)))
                                            (if (done trg)
@@ -152,15 +171,15 @@
                                               [:let `[~(name trg) (tg/that ~(name cur))]]
                                               (when-let [t (type trg)]
                                                 `[:when (has-type? ~(name trg) ~(type trg))]))))
-                                    (add-non-anons rf done cur trg)))
+                                    (conj-rf rf (name cur) (name trg))))
               Precedes (let [cob (tg/that cur)
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                              forms (mapcat #(read-string (tg/value % :form)) allcobs)]
-                         (recur (pop queue)
+                         (recur (pop stack)
                                 (conj done cur)
-                                (apply conj bf forms)
-                                (apply add-non-anons rf done (map first (partition 2 forms))))))))
-        [bf rf]))))
+                                (into bf forms)
+                                (apply conj-rf rf (map first (partition 2 forms))))))))
+        `(q/for* ~bf ~(or resultform rf))))))
 
 (defn- shortcut-let-vector [lv]
   (mapcat (fn [[s v]]

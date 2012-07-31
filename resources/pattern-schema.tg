@@ -26,9 +26,15 @@ EdgeClass ArgumentEdge : APatternEdge
   from APatternVertex (0,*)
   to APatternVertex (0,*);
 
-EdgeClass Precedes
-  from AVertex (0,1)
-  to ConstraintOrBinding (0,1);
+VertexClass Anchor : AVertex;
 
 VertexClass ConstraintOrBinding : AVertex
   { form : String };
+
+EdgeClass Precedes
+  from AVertex (1,1)
+  to ConstraintOrBinding (0,1);
+
+EdgeClass HasFirstPatternVertex
+  from Anchor (0,1)
+  to APatternVertex (1,1);
