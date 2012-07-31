@@ -61,12 +61,18 @@
               [n t] (name-and-type sym)]
           (check-unique n t)
           (cond
+           ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (or (#{:when :let :while} sym)
-               (normal-binding-form? sym (fnext pattern))) (let [v (tg/create-vertex! pg 'Text)]
-                                                             (tg/set-value! v :text
-                                                                            (str (pr-str sym) " "
-                                                                                 (pr-str (fnext pattern))))
-                                                             (recur (nnext pattern) lv))
+               (normal-binding-form? sym (fnext pattern)))
+           (do
+             (check-unique n 'SomeType)
+             (when (check-unique n 'SomeType))
+             (let [v (tg/create-vertex! pg 'Text)]
+               (tg/set-value! v :text
+                              (str (pr-str sym) " "
+                                   (pr-str (fnext pattern))))
+               (recur (nnext pattern) lv)))
+           ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? sym) (let [nsym (second pattern)
                                  [nvn nvt] (name-and-type nsym)
                                  _ (check-unique nvn nvt)
@@ -77,6 +83,7 @@
                                (when n (tg/set-value! e :name (name n)))
                                (when t (tg/set-value! e :type (name t))))
                              (recur (nnext pattern) nv))
+           ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            :vertex (let [v (get-or-make-v n t)]
                      (recur (rest pattern) v))))))
     pg))
