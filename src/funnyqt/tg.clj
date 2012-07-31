@@ -494,6 +494,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
          n
          (recur (.getNextVertex n))))))
 
+(defn prev-vertex
+  "Returns the vertex preceeding `v` in vseq accepted by type matcher `tm`."
+  ([^Vertex v]
+     (prev-vertex v identity))
+  ([^Vertex v tm]
+     (loop [n (.getPrevVertex v)]
+       (if (or (nil? n) (tm n))
+         n
+         (recur (.getPrevVertex n))))))
+
 (defn first-edge
   "Returns the first edge of graph `g` accepted by type matcher `tm`."
   ([^Graph g]
@@ -513,6 +523,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (if (or (nil? n) (tm n))
          n
          (recur (.getNextEdge n))))))
+
+(defn prev-edge
+  "Returns the edge preceeding `e` in eseq accepted by type matcher `tm`."
+  ([^Edge e]
+     (prev-edge e identity))
+  ([^Edge e tm]
+     (loop [n (.getPrevEdge e)]
+       (if (or (nil? n) (tm n))
+         n
+         (recur (.getPrevEdge n))))))
 
 (defn direction-matcher
   "Returns a matcher function that accepts edges of direction `dir`.
@@ -558,6 +578,19 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (if (or (nil? i) (and (dm i) (tm i)))
          i
          (recur (.getNextIncidence i))))))
+
+(defn prev-inc
+  "Returns the incidence preceeding `e` in the current vertex's iseq accepted by
+  type matcher `tm` and direction matcher `dm`."
+  ([^Edge e]
+     (prev-inc e identity identity))
+  ([^Edge e tm]
+     (prev-inc e tm identity))
+  ([^Edge e tm dm]
+     (loop [i (.getPrevIncidence e)]
+       (if (or (nil? i) (and (dm i) (tm i)))
+         i
+         (recur (.getPrevIncidence i))))))
 
 ;;## Value access (including attribute setting)
 
