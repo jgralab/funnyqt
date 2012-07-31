@@ -472,6 +472,13 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [^Edge e]
   (.isNormal e))
 
+(defn inverse-edge
+  "Returns the normal edge of a reversed edge, or the reversed edge of a normal edge."
+  [e]
+  (if (normal-edge? e)
+    (reversed-edge e)
+    (normal-edge e)))
+
 ;;## First, next elements
 
 (defn first-vertex

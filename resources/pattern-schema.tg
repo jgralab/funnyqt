@@ -2,7 +2,9 @@ TGraph 2;
 Schema de.uni_koblenz.jgralab.patternschema.PatternSchema;
 GraphClass PatternGraph;
 
-abstract VertexClass APatternVertex
+abstract VertexClass AVertex;
+
+abstract VertexClass APatternVertex : AVertex
   { name : String };
 
 VertexClass PatternVertex : APatternVertex
@@ -24,5 +26,9 @@ EdgeClass ArgumentEdge : APatternEdge
   from APatternVertex (0,*)
   to APatternVertex (0,*);
 
-VertexClass Text
-  { text : String };
+EdgeClass Precedes
+  from AVertex (0,1)
+  to ConstraintOrBinding (0,1);
+
+VertexClass ConstraintOrBinding : AVertex
+  { form : String };
