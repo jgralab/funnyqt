@@ -151,7 +151,9 @@ can compute that like so:
 (defprotocol VSeq
   "Protocol for types supporting vseq."
   (vseq-internal [this tm]
-        "Returns a lazy seq of the graphs vertices restricted by type matcher `tm`."))
+    "Returns a lazy seq of the graphs vertices restricted by type matcher `tm`.")
+  (rvseq-internal [this tm]
+    "Returns a lazy reversed seq of the graphs vertices restricted by type matcher `tm`."))
 
 (extend-protocol VSeq
   Graph
@@ -160,14 +162,25 @@ can compute that like so:
     (lazy-seq
      (let [f (first-vertex g tm)]
        (and f (cons f (vseq-internal f tm))))))
+  (rvseq-internal
+    [g tm]
+    (lazy-seq
+     (let [f (last-vertex g tm)]
+       (and f (cons f (rvseq-internal f tm))))))
   Vertex
   (vseq-internal
     [v tm]
     (lazy-seq
      (let [n (next-vertex v tm)]
-       (and n (cons n (vseq-internal n tm)))))))
+       (and n (cons n (vseq-internal n tm))))))
+  (rvseq-internal
+    [v tm]
+    (lazy-seq
+     (let [n (prev-vertex v tm)]
+       (and n (cons n (rvseq-internal n tm)))))))
 
-(alter-meta! (var vseq-internal) assoc :private true)
+(alter-meta! #'vseq-internal assoc :private true)
+(alter-meta! #'rvseq-internal assoc :private true)
 
 (defn vseq
   "Returns the lazy seq of vertices of `g` restricted by the type spec `ts`.
@@ -178,10 +191,21 @@ can compute that like so:
   ([g ts]
      (vseq-internal g (type-matcher g ts))))
 
+(defn rvseq
+  "Returns the lazy reversed seq of vertices of `g` restricted by the type spec `ts`.
+  `g` may be a graph or a vertex.  In the latter case, returns all vertices
+  preceding `g` in the vertex sequence."
+  ([g]
+     (rvseq-internal g identity))
+  ([g ts]
+     (rvseq-internal g (type-matcher g ts))))
+
 (defprotocol ESeq
   "Protocol for types supporting eseq."
   (eseq-internal [this tm]
-        "Returns a lazy seq of the graph's edges restricted by tm."))
+    "Returns a lazy seq of the graph's edges restricted by tm.")
+  (reseq-internal [this tm]
+    "Returns a lazy reversed seq of the graph's edges restricted by tm."))
 
 (extend-protocol ESeq
   Graph
@@ -190,15 +214,26 @@ can compute that like so:
     (lazy-seq
      (let [f (first-edge g tm)]
        (and f (cons f (eseq-internal f tm))))))
-
+  (reseq-internal
+    [g tm]
+    (lazy-seq
+     (let [f (last-edge g tm)]
+       (and f (cons f (reseq-internal f tm))))))
   Edge
   (eseq-internal
     [e tm]
     (lazy-seq
      (let [n (next-edge e tm)]
-       (and n (cons n (eseq-internal n tm)))))))
+       (and n (cons n (eseq-internal n tm))))))
+  (reseq-internal
+    [e tm]
+    (lazy-seq
+     (let [n (prev-edge e tm)]
+       (and n (cons n (reseq-internal n tm)))))))
 
-(alter-meta! (var eseq-internal) assoc :private true)
+(alter-meta! #'eseq-internal assoc :private true)
+(alter-meta! #'reseq-internal assoc :private true)
+
 
 (defn eseq
   "Returns the lazy seq of edges of `e` restricted by `ts`.
@@ -209,10 +244,21 @@ can compute that like so:
   ([g ts]
      (eseq-internal g (type-matcher g ts))))
 
+(defn reseq
+  "Returns the lazy reversed seq of edges of `e` restricted by `ts`.
+  `g` may be a graph or an edge.  In the latter case, returns all edges
+  preceding `g` in the edge sequence."
+  ([g]
+     (reseq-internal g identity))
+  ([g ts]
+     (reseq-internal g (type-matcher g ts))))
+
 (defprotocol ISeq
   "Protocol for types supporting iseq."
   (iseq-internal [this tm dm]
-    "Returns a lazy seq of incident edges restricted by tm and dm."))
+    "Returns a lazy seq of incident edges restricted by tm and dm.")
+  (riseq-internal [this tm dm]
+    "Returns a lazy reversed seq of incident edges restricted by tm and dm."))
 
 (extend-protocol ISeq
   Vertex
@@ -221,15 +267,25 @@ can compute that like so:
     (lazy-seq
      (let [f (first-inc v tm dm)]
        (and f (cons f (iseq-internal f tm dm))))))
-
+  (riseq-internal
+    [v tm dm]
+    (lazy-seq
+     (let [f (last-inc v tm dm)]
+       (and f (cons f (riseq-internal f tm dm))))))
   Edge
   (iseq-internal
     [e tm dm]
     (lazy-seq
      (let [n (next-inc e tm dm)]
-       (and n (cons n (iseq-internal n tm dm)))))))
+       (and n (cons n (iseq-internal n tm dm))))))
+  (riseq-internal
+    [e tm dm]
+    (lazy-seq
+     (let [n (prev-inc e tm dm)]
+       (and n (cons n (riseq-internal n tm dm)))))))
 
-(alter-meta! (var iseq-internal) assoc :private true)
+(alter-meta! #'iseq-internal assoc :private true)
+(alter-meta! #'riseq-internal assoc :private true)
 
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
@@ -241,6 +297,17 @@ can compute that like so:
      (iseq-internal v (type-matcher v ts) identity))
   ([v ts dir]
      (iseq-internal v (type-matcher v ts) (direction-matcher dir))))
+
+(defn riseq
+  "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `dir`.
+  `v` may be a vertex or an edge.  In the latter case, returns all incidences
+  preceding `v` in the current vertex's incidence sequence."
+  ([v]
+     (riseq-internal v identity identity))
+  ([v ts]
+     (riseq-internal v (type-matcher v ts) identity))
+  ([v ts dir]
+     (riseq-internal v (type-matcher v ts) (direction-matcher dir))))
 
 ;;# Adjancencies
 

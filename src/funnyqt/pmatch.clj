@@ -128,9 +128,7 @@
         type (fn [elem] (when-let [t (tg/value elem :type)]
                          `'~(symbol t)))
         enqueue-incs (fn [cur stack done]
-                       (if-let [incs (seq (remove done (tgq/iseq cur)))]
-                         (into stack (reverse incs))
-                         stack))]
+                       (into stack (remove done (tgq/riseq cur))))]
     (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
            bf []]

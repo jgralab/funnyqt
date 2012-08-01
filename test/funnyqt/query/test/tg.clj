@@ -98,6 +98,10 @@
   (is (= (vseq (rg) ['junctions.Airport 'localities.City])
          (vseq (rg) [:or 'junctions.Airport 'localities.City]))))
 
+(deftest test-tg-seqs-and-rseqs
+  (is (= (vseq (rg)) (reverse (rvseq (rg)))))
+  (is (= (eseq (rg)) (reverse (reseq (rg)))))
+  (is (= (iseq (first-vertex (rg))) (reverse (riseq (first-vertex (rg)))))))
 
 ;;** Traversal Context
 

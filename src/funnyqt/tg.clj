@@ -491,6 +491,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
          v
          (recur (.getNextVertex v))))))
 
+(defn last-vertex
+  "Returns the last vertex of graph `g` accepted by type matcher `tm`."
+  ([^Graph g]
+     (last-vertex g identity))
+  ([^Graph g tm]
+     (loop [v (.getLastVertex g)]
+       (if (or (nil? v) (tm v))
+         v
+         (recur (.getPrevVertex v))))))
+
 (defn next-vertex
   "Returns the vertex following `v` in vseq accepted by type matcher `tm`."
   ([^Vertex v]
@@ -502,7 +512,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
          (recur (.getNextVertex n))))))
 
 (defn prev-vertex
-  "Returns the vertex preceeding `v` in vseq accepted by type matcher `tm`."
+  "Returns the vertex preceding `v` in vseq accepted by type matcher `tm`."
   ([^Vertex v]
      (prev-vertex v identity))
   ([^Vertex v tm]
@@ -521,6 +531,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
          e
          (recur (.getNextEdge e))))))
 
+(defn last-edge
+  "Returns the last edge of graph `g` accepted by type matcher `tm`."
+  ([^Graph g]
+     (last-edge g identity))
+  ([^Graph g tm]
+     (loop [e (.getLastEdge g)]
+       (if (or (nil? e) (tm e))
+         e
+         (recur (.getPrevEdge e))))))
+
 (defn next-edge
   "Returns the edge following `e` in eseq accepted by type matcher `tm`."
   ([^Edge e]
@@ -532,7 +552,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
          (recur (.getNextEdge n))))))
 
 (defn prev-edge
-  "Returns the edge preceeding `e` in eseq accepted by type matcher `tm`."
+  "Returns the edge preceding `e` in eseq accepted by type matcher `tm`."
   ([^Edge e]
      (prev-edge e identity))
   ([^Edge e tm]
@@ -573,6 +593,19 @@ See `tgtree`, `show-graph`, and `print-graph`."
          i
          (recur (.getNextIncidence i))))))
 
+(defn last-inc
+  "Returns the last incidence in iseq of `v` accepted by the type matcher `tm`
+  and direction matcher `dm.'"
+  ([^Vertex v]
+     (last-inc v identity identity))
+  ([^Vertex v tm]
+     (last-inc v tm identity))
+  ([^Vertex v tm dm]
+     (loop [i (.getLastIncidence v)]
+       (if (or (nil? i) (and (dm i) (tm i)))
+         i
+         (recur (.getPrevIncidence i))))))
+
 (defn next-inc
   "Returns the incidence following `e` in the current vertex's iseq accepted by
   type matcher `tm` and direction matcher `dm`."
@@ -587,7 +620,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
          (recur (.getNextIncidence i))))))
 
 (defn prev-inc
-  "Returns the incidence preceeding `e` in the current vertex's iseq accepted by
+  "Returns the incidence preceding `e` in the current vertex's iseq accepted by
   type matcher `tm` and direction matcher `dm`."
   ([^Edge e]
      (prev-inc e identity identity))
