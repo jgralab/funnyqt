@@ -12,15 +12,21 @@
   (:require [clojure.tools.macro :as m]))
 
 
-(defn- name-and-type [sym]
-  (if-let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9]+)?(?::([a-zA-Z_0-9]+))?(?:-|->)?"
-                               (name sym))]
-    [(and s (symbol s)) (and t (symbol t))]
-    (errorf "No valid pattern symbol: %s" sym)))
+(defn- vertex-sym? [sym]
+  (re-matches #"[a-zA-Z0-9_-]*(<[a-zA-Z0-9._!-]*>)?" (name sym)))
 
 (defn- edge-sym? [sym]
-  (or (re-matches #"<-[a-zA-Z:_0-9]*-" (name sym))
-      (re-matches #"-[a-zA-Z:_0-9]*->" (name sym))))
+  (and
+   (re-matches #"<?-[a-zA-Z0-9_-]*(<[a-zA-Z0-9._!-]*>)?->?" (name sym))
+   (or (re-matches #"<-.*-" (name sym))
+       (re-matches #"-.*->" (name sym)))))
+
+(defn- name-and-type [sym]
+  (if (or (vertex-sym? sym) (edge-sym? sym))
+    (let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9_-]+)?(?:<([.a-zA-Z0-9_!-]*)>)?(?:-|->)?"
+                              (name sym))]
+      [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
+    (errorf "No valid pattern symbol: %s" sym)))
 
 (defn- edge-dir [esym]
   (if (edge-sym? esym)
@@ -30,7 +36,11 @@
     (errorf "%s is not edge symbol." esym)))
 
 (defn- normal-binding-form? [sym form]
-  (coll? form))
+  (or
+   ;; handles everything like: :let [a ...], b (gimme ...)
+   (coll? form)
+   ;; handle things like: :when false
+   (#{:when :while} sym)))
 
 (def ^:private pattern-schema
   (tg/load-schema "resources/pattern-schema.tg"))
@@ -86,10 +96,11 @@
                                (when t (tg/set-value! e :type (name t))))
                              (recur (nnext pattern) nv))
            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-           :vertex (let [v (get-or-make-v n t)]
-                     (when (= 1 (tgq/vcount pg 'APatternVertex))
-                       (tg/create-edge! pg 'HasFirstPatternVertex (the (tgq/vseq pg 'Anchor)) v))
-                     (recur (rest pattern) v))))))
+           (vertex-sym? sym) (let [v (get-or-make-v n t)]
+                               (when (= 1 (tgq/vcount pg 'APatternVertex))
+                                 (tg/create-edge! pg 'HasFirstPatternVertex (the (tgq/vseq pg 'Anchor)) v))
+                               (recur (rest pattern) v))
+           :else (errorf "Don't know how to handle pattern symbol: %s" sym)))))
     pg))
 
 ;; TODO:
@@ -98,16 +109,16 @@
 ;;   matches.
 ;;   + probably do it with path expressions
 ;;   + variants:
-;;     - [a:A -:B-> :C -:D-> e:E]
-;;     - [a:A -b:B-> :C -:D-> e:E]
-;;     - [a:A -:B-> :C -:D-> :E]
-;;     - [a:A -b:B-> :C -:D-> :E]
-;;     - [:A -:B-> :C -:D-> e:E]
-;;     - [:A -b:B-> :C -:D-> e:E]
-;;     - [:A -:B-> :C -:D-> :E]
-;;     - [:A -b:B-> :C -:D-> :E]
+;;     - [a<A> -<B>-> <C> -<D>-> e<E>]
+;;     - [a<A> -b<B>-> <C> -<D>-> e<E>]
+;;     - [a<A> -<B>-> <C> -<D>-> <E>]
+;;     - [a<A> -b<B>-> <C> -<D>-> <E>]
+;;     - [<A> -<B>-> <C> -<D>-> e<E>]
+;;     - [<A> -b<B>-> <C> -<D>-> e<E>]
+;;     - [<A> -<B>-> <C> -<D>-> <E>]
+;;     - [<A> -b<B>-> <C> -<D>-> <E>]
 ;;
-;; - also allow consecutive anons: x:X -:Y-> :Z -:A-> b:B
+;; - also allow consecutive anons: x<X> -<Y>-> <Z> -<A>-> b<B>
 (defn pattern-graph-to-comprehension-tg [argvec pg resultform]
   (let [gsym (first argvec)
         name #(when-let [n (tg/value % :name)]
@@ -147,18 +158,20 @@
                                     bf
                                     (conj-rf rf (name cur)))
               PatternEdge (if (anon? cur)
-                            (errorf "Anon thingies not yet implemented!")
+                            (errorf "Anon edges not yet implemented!")
                             (let [trg (tg/that cur)]
                               (recur (enqueue-incs trg (pop stack) done)
                                      (conj done (tg/inverse-edge cur) trg)
-                                     (apply conj bf `~(name cur) `(tgq/iseq ~(name (tg/this cur)) ~(type cur)
-                                                                            ~(if (tg/normal-edge? cur) :out :in))
-                                            (if (done trg)
-                                              [:when `(= ~(name trg) (tg/that ~(name cur)))]
-                                              (concat
-                                               [:let `[~(name trg) (tg/that ~(name cur))]]
-                                               (when-let [t (type trg)]
-                                                 `[:when (has-type? ~(name trg) ~(type trg))]))))
+                                     (apply conj bf `~(name cur)
+                                            `(tgq/iseq ~(name (tg/this cur)) ~(type cur)
+                                                       ~(if (tg/normal-edge? cur) :out :in))
+                                            (cond
+                                             (done trg) [:when `(= ~(name trg) (tg/that ~(name cur)))]
+                                             (anon? trg) (errorf "Anon vertices not yet implemented!")
+                                             :else (concat
+                                                    [:let `[~(name trg) (tg/that ~(name cur))]]
+                                                    (when-let [t (type trg)]
+                                                      `[:when (has-type? ~(name trg) ~(type trg))]))))
                                      (conj-rf rf (name cur) (name trg)))))
               ArgumentEdge (let [src (tg/this cur)
                                  trg (tg/that cur)]
