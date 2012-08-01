@@ -119,7 +119,7 @@
 ;;     - [<A> -b<B>-> <C> -<D>-> <E>]
 ;;
 ;; - also allow consecutive anons: x<X> -<Y>-> <Z> -<A>-> b<B>
-(defn pattern-graph-to-comprehension-tg [argvec pg resultform]
+(defn pattern-graph-to-for*-bindings-tg [argvec pg]
   (let [gsym (first argvec)
         name #(when-let [n (tg/value % :name)]
                 (symbol n))
@@ -129,34 +129,27 @@
         enqueue-incs (fn [cur stack done]
                        (if-let [incs (seq (remove done (tgq/iseq cur)))]
                          (into stack (reverse incs))
-                         stack))
-        conj-rf (fn [rf & elems]
-                  (if-let [es (seq (remove nil? elems))]
-                    (into rf es)
-                    rf))]
+                         stack))]
     (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
-           bf []
-           rf []]
+           bf []]
       (if (seq stack)
         (let [cur (peek stack)]
           (if (done cur)
-            (recur (pop stack) done bf rf)
+            (recur (pop stack) done bf)
             (case (qname cur)
               Anchor (recur (enqueue-incs cur (pop stack) done)
                             (conj done cur)
-                            bf rf)
+                            bf)
               HasFirstPatternVertex (recur (conj (pop stack) (tg/that cur))
                                            (conj done cur)
-                                           bf rf)
+                                           bf)
               PatternVertex (recur (enqueue-incs cur (pop stack) done)
                                    (conj done cur)
-                                   (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))])
-                                   (conj rf (name cur)))
+                                   (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))]))
               ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
                                     (conj done cur)
-                                    bf
-                                    (conj-rf rf (name cur)))
+                                    bf)
               PatternEdge (if (anon? cur)
                             (errorf "Anon edges not yet implemented!")
                             (let [trg (tg/that cur)]
@@ -171,8 +164,7 @@
                                              :else (concat
                                                     [:let `[~(name trg) (tg/that ~(name cur))]]
                                                     (when-let [t (type trg)]
-                                                      `[:when (has-type? ~(name trg) ~(type trg))]))))
-                                     (conj-rf rf (name cur) (name trg)))))
+                                                      `[:when (has-type? ~(name trg) ~(type trg))])))))))
               ArgumentEdge (let [src (tg/this cur)
                                  trg (tg/that cur)]
                              (recur (enqueue-incs trg (pop stack) done)
@@ -183,32 +175,14 @@
                                              (concat
                                               [:let `[~(name trg) (tg/that ~(name cur))]]
                                               (when-let [t (type trg)]
-                                                `[:when (has-type? ~(name trg) ~(type trg))]))))
-                                    (conj-rf rf (name cur) (name trg))))
+                                                `[:when (has-type? ~(name trg) ~(type trg))]))))))
               Precedes (let [cob (tg/that cur)
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                              forms (mapcat #(read-string (tg/value % :form)) allcobs)]
                          (recur (pop stack)
                                 (conj done cur)
-                                (into bf forms)
-                                (apply conj-rf rf (map first (partition 2 forms))))))))
-        `(q/for* ~bf ~(or resultform rf))))))
-
-(defn- shortcut-let-vector [lv]
-  (mapcat (fn [[s v]]
-            [:let [s v] :when s])
-          (partition 2 lv)))
-
-(defn- shortcut-bindings
-  "Converts :let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
-  [bindings]
-  (loop [p bindings, nb []]
-    (if (seq p)
-      (if (= :let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
+                                (into bf forms))))))
+        bf))))
 
 (defn- verify-match-vector
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
@@ -227,28 +201,23 @@
                 (apply str double-syms))
         match))))
 
-(def ^:dynamic *pattern-match-context*
+(def ^:dynamic *pattern-expansion-context*
   nil)
 
 (defn transform-match-vector
-  "Transforms patterns like a:X -:role-> b:Y to `for` syntax.
+  "Transforms patterns like a<X> -<role>-> b<Y> to `for` syntax.
   (Only used internally)"
-  [match args]
-  ;; NOTE: the first element in args must be the graph/model symbol...
-  (verify-match-vector
-   (shortcut-bindings
-    (case *pattern-match-context*
-      ;; TODO: Implement me!
-      :tgraph (errorf "Not yet implemented.")
-      :emf    (errorf "Not yet implemented.")
-      match))
-   args))
+  [pattern args]
+  ;; TODO: Handle emf demepnding on *pattern-expansion-context*
+  (if (=))
+  (pattern-graph-to-for*-bindings-tg
+   args (pattern-to-pattern-graph args pattern)))
 
-(defn- convert-spec [[a m]]
-  (let [tm (transform-match-vector m a)]
+(defn- convert-spec [[a p r]]
+  (let [bf (transform-match-vector p a)]
     `(~a
-      (for ~tm
-        ~(bindings-to-arglist tm)))))
+      (for ~bf
+        ~(or r (bindings-to-arglist bf))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
@@ -269,8 +238,8 @@
     [[a b c] (abc g), ...]
 
   in the rules."
-  {:arglists '([name doc-string? attr-map? [args] [match]]
-                 [name doc-string? attr-map? ([args] [match])+])}
+  {:arglists '([name doc-string? attr-map? [args] [match] result-spec?]
+                 [name doc-string? attr-map? ([args] [match] result-spec?)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     `(defn ~name ~(meta name)
