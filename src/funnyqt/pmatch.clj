@@ -204,14 +204,15 @@
 (def ^:dynamic *pattern-expansion-context*
   nil)
 
-(defn transform-match-vector
+(defn- transform-match-vector
   "Transforms patterns like a<X> -<role>-> b<Y> to `for` syntax.
   (Only used internally)"
   [pattern args]
   ;; TODO: Handle emf demepnding on *pattern-expansion-context*
-  (if (=))
-  (pattern-graph-to-for*-bindings-tg
-   args (pattern-to-pattern-graph args pattern)))
+  (if (= *pattern-expansion-context* :emf)
+    (errorf "Pattern compilation currently not supported for EMF!")
+    (pattern-graph-to-for*-bindings-tg
+     args (pattern-to-pattern-graph args pattern))))
 
 (defn- convert-spec [[a p r]]
   (let [bf (transform-match-vector p a)]
