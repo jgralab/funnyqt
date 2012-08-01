@@ -21,14 +21,14 @@
   *on-matched-rule-fn* nil)
 
 (defn- convert-spec
-  "spec is ([args] [match] & body) or ([args] & body)."
+  "spec is ([args] [pattern] & body) or ([args] & body)."
   [debug spec]
-  (let [args  (first spec)
+  (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
-            match (transform-match-vector match args)
+            match (transform-pattern-vector match args)
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args

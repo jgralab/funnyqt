@@ -24,3 +24,4 @@
   (is (= 3 (count (families-with-fathers fg))))
   (is (= 3 (count (families-with-fathers fg (constantly true)))))
   (is (= 2 (count (families-with-fathers fg #(= "Smith" (value % :lastName)))))))
+
