@@ -1,4 +1,8 @@
-(ns funnyqt.test.mutual-exclusion-emf
+(ns
+    ;; TODO: Change to :emf (but it doesn't really matter since no "real"
+    ;; patterns are used anyway.
+    ^{:pattern-expansion-context :tg}
+  funnyqt.test.mutual-exclusion-emf
   (:use funnyqt.emf)
   (:use funnyqt.protocols)
   (:use funnyqt.query)

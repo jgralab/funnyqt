@@ -1,4 +1,5 @@
-(ns funnyqt.test.constant-folding-tg
+(ns ^{:pattern-expansion-context :tg}
+  funnyqt.test.constant-folding-tg
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.tg)

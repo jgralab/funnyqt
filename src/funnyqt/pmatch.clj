@@ -219,6 +219,13 @@
         pattern))))
 
 (def ^:dynamic *pattern-expansion-context*
+  "Defines the expansion context of a pattern, i.e., if a pattern expands into
+  a query on a TGraph or an EMF model.  The possible values are :tg or :emf.
+
+  Usually, you won't bind this variable directly (using `binding`) but instead
+  you specify the expansion context for a given pattern using the `arg-map` of
+  a `defpattern` form, or you declare the expansion context for a complete
+  namespace using `:pattern-expansion-context` metadata for the namespace."
   nil)
 
 (defn transform-pattern-vector
@@ -226,13 +233,15 @@
   supported by `for*`.  (Only for internal use.)"
   [pattern args]
   ;; TODO: Handle emf depending on *pattern-expansion-context*
-  (if (= *pattern-expansion-context* :emf)
-    (errorf "Pattern compilation currently not supported for EMF!")
-    (verify-pattern-vector
-     (shortcut-bindings
-      (pattern-graph-to-for*-bindings-tg
-       args (pattern-to-pattern-graph args pattern)))
-     args)))
+  (case *pattern-expansion-context*
+    :emf (errorf "Pattern compilation currently not supported for EMF!")
+    :tg  (verify-pattern-vector
+          (shortcut-bindings
+           (pattern-graph-to-for*-bindings-tg
+            args (pattern-to-pattern-graph args pattern)))
+          args)
+    (errorf "The pattern expansion context is not set.\n%s"
+            "See `*pattern-expansion-context*` in the pmatch namespace.")))
 
 (defn- convert-spec [[a p r]]
   (let [bf (transform-pattern-vector p a)]
@@ -258,13 +267,26 @@
 
     [[a b c] (abc g), ...]
 
-  in the rules."
+  in the rules.
+
+  The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
+  models, is controlled by the option `:pattern-expansion-context` with
+  possible values `:tg` or `:emf` has to be specified in the `attr-map` given
+  to `defpattern`.  Instead of using that option for every rule, you can also
+  set `:pattern-expansion-context` metadata to the namespace defining patterns,
+  in which case that expansion context is used.  Finally, it is also possible
+  to bind `*pattern-expansion-context*` to `:tg` or `:emf` otherwise.  Note
+  that this binding has to be available at compile-time."
+
   {:arglists '([name doc-string? attr-map? [args] [pattern] result-spec?]
                  [name doc-string? attr-map? ([args] [pattern] result-spec?)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
-    `(defn ~name ~(meta name)
-      ~@(if (seq? (first more))
-          (map convert-spec more)
-          (convert-spec more)))))
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
+      `(defn ~name ~(meta name)
+         ~@(if (seq? (first more))
+             (doall (map convert-spec more))
+             (convert-spec more))))))
 

@@ -1,4 +1,5 @@
-(ns funnyqt.in-place.test.tg
+(ns ^{:pattern-expansion-context :tg}
+  funnyqt.in-place.test.tg
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.tg)

@@ -46,10 +46,13 @@
 (defmacro defrule-internal
   [debug name more]
   (let [[name more] (m/name-with-attributes name more)]
-    `(defn ~name ~(meta name)
-       ~@(if (seq? (first more))
-           (map (partial convert-spec debug) more)
-           (convert-spec debug more)))))
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
+      `(defn ~name ~(meta name)
+         ~@(if (seq? (first more))
+             (doall (map (partial convert-spec debug) more))
+             (convert-spec debug more))))))
 
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',

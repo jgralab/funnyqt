@@ -1,4 +1,5 @@
-(ns funnyqt.test.sierpinski-tg
+(ns ^{:pattern-expansion-context :tg}
+  funnyqt.test.sierpinski-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)

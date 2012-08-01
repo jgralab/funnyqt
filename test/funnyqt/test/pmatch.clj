@@ -7,13 +7,16 @@
 
 (def fg (load-graph "test/input/familygraph.tg"))
 
-(defpattern families-with-fathers-simple [g]
+(defpattern families-with-fathers-simple
+  {:pattern-expansion-context :tg}
+  [g]
   [f<Family> -hf<HasFather>-> m<Member>])
 
 (deftest test-families-with-fathers-simple
   (is (= 3 (count (families-with-fathers-simple fg)))))
 
 (defpattern families-with-fathers
+  {:pattern-expansion-context :tg}
   ([g]
      [f<Family> -hf<HasFather>-> m<Member>])
   ([g famconst]
