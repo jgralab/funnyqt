@@ -125,6 +125,18 @@
         name #(when-let [n (tg/value % :name)]
                 (symbol n))
         anon? (complement name)
+        anon-vec (fn [startv done]
+                   (loop [cur startv, done done, vec [startv]]
+                     (if (anon? cur)
+                       (cond
+                        (tg/edge? cur)   (recur (tg/that cur)
+                                                (conj done cur (tg/inverse-edge cur))
+                                                (conj vec cur))
+                        (tg/vertex? cur) (recur (the (remove done (tgq/iseq cur)))
+                                                (conj done cur)
+                                                (conj vec cur))
+                        :else (errorf "Unexpected %s." cur))
+                       (conj vec cur))))
         type (fn [elem] (when-let [t (tg/value elem :type)]
                          `'~(symbol t)))
         enqueue-incs (fn [cur stack done]
@@ -150,7 +162,10 @@
                                     (conj done cur)
                                     bf)
               PatternEdge (if (anon? cur)
-                            (errorf "Anon edges not yet implemented!")
+                            (do
+                              (println "anon-vec:" (anon-vec cur done))
+                              ;; TODO: Implement me!
+                              (errorf "Anon edges not yet implemented!"))
                             (let [trg (tg/that cur)]
                               (recur (enqueue-incs trg (pop stack) done)
                                      (conj done (tg/inverse-edge cur) trg)

@@ -407,6 +407,23 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [^GraphElement ge]
   (.getGraph ge))
 
+;;## General type predicates
+
+(defn graph?
+  "Returns logical true if `g` is a Graph."
+  [g]
+  (instance? Graph g))
+
+(defn vertex?
+  "Returns logical true if `v` is a Vertex."
+  [v]
+  (instance? Vertex v))
+
+(defn edge?
+  "Returns logical true if `e` is an Edge."
+  [e]
+  (instance? Edge e))
+
 ;;## Access by ID
 
 (defprotocol IDOps
