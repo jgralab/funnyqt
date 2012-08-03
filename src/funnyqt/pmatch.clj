@@ -97,19 +97,26 @@
          (vertex-sym? (first pattern)) (let [sym (first pattern)
                                              [n t] (name-and-type sym)
                                              v (get-or-make-v n t)]
-                                         (when (= 0 (tgq/ecount pg 'HasFirstPatternVertex))
-                                           (tg/create-edge! pg 'HasFirstPatternVertex
+                                         (when (= 0 (tgq/ecount pg 'HasStartPatternVertex))
+                                           (tg/create-edge! pg 'HasStartPatternVertex
                                                             (the (tgq/vseq pg 'Anchor)) v))
                                          (recur (rest pattern) v))
          :else (errorf "Don't know how to handle pattern part: %s" (first pattern)))))
+    ;; Anchor disconnected components at the anchor.
+    (let [vset (funnyqt.utils/to-oset (tgq/vseq pg))
+          a (the (tgq/vseq pg 'Anchor))]
+      (loop [disc (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))]
+        (when (seq disc)
+          (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
+          (recur (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))))))
     ;; Finally, do a small optimization: If there's an ArgumentVertex but the
-    ;; HasFirstPatternVertex edge doesn't point to it, then make it so!
+    ;; HasStartPatternVertex edge doesn't point to it, then make it so!
     ;;
     ;; TODO: This changes the result order cause the binding vector is
     ;; different.  Maybe we should build the correct result vector here and
     ;; return it instead of determining it from the final bindings form...
     #_(when-let [argv (first (tgq/vseq pg 'ArgumentVertex))]
-        (let [hfpv (the (tgq/eseq pg 'HasFirstPatternVertex))]
+        (let [hfpv (the (tgq/eseq pg 'HasStartPatternVertex))]
           (when (has-type? (tg/omega hfpv) '!ArgumentVertex)
             (tg/set-omega! hfpv argv))))
     pg))
@@ -185,7 +192,7 @@
               Anchor (recur (enqueue-incs cur (pop stack) done)
                             (conj-done done cur)
                             bf)
-              HasFirstPatternVertex (recur (conj (pop stack) (tg/that cur))
+              HasStartPatternVertex (recur (conj (pop stack) (tg/that cur))
                                            (conj-done done cur)
                                            bf)
               PatternVertex (recur (enqueue-incs cur (pop stack) done)

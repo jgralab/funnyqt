@@ -32,4 +32,10 @@
 (defpattern given-fam-with-all-members
   {:pattern-expansion-context :tg}
   [g fam]
-  [mem<Member> <-- fam])
+  [fam --> mem<Member>])
+
+(deftest test-given-fam-with-all-members
+  (let [fsmith (vertex fg 12)
+        r (given-fam-with-all-members fg fsmith)]
+    (is (= 4 (count r)))
+    (is (forall? #(= fsmith (first %)) r))))

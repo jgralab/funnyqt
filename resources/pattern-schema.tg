@@ -35,6 +35,6 @@ EdgeClass Precedes
   from AVertex (1,1)
   to ConstraintOrBinding (0,1);
 
-EdgeClass HasFirstPatternVertex
+EdgeClass HasStartPatternVertex
   from Anchor (0,1)
   to APatternVertex (1,1);

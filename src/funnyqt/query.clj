@@ -27,7 +27,8 @@
 
 ;;# Quantified Expressions
 
-(def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."}
+(def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."
+       :arglists '([pred coll])}
   forall? every?)
 
 (defn exists?
