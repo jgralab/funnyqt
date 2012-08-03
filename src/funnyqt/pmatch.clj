@@ -14,18 +14,18 @@
 
 (defn- vertex-sym? [sym]
   (and (symbol? sym)
-       (re-matches #"[a-zA-Z0-9_-]*(<[a-zA-Z0-9._!-]*>)?" (name sym))))
+       (re-matches #"[a-zA-Z0-9_]*(<[a-zA-Z0-9._!]*>)?" (name sym))))
 
 (defn- edge-sym? [sym]
   (and
    (symbol? sym)
-   (re-matches #"<?-[a-zA-Z0-9_-]*(<[a-zA-Z0-9._!-]*>)?->?" (name sym))
+   (re-matches #"<?-[a-zA-Z0-9_]*(<[a-zA-Z0-9._!]*>)?->?" (name sym))
    (or (re-matches #"<-.*-" (name sym))
        (re-matches #"-.*->" (name sym)))))
 
 (defn- name-and-type [sym]
   (if (or (vertex-sym? sym) (edge-sym? sym))
-    (let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9_-]+)?(?:<([.a-zA-Z0-9_!-]*)>)?(?:-|->)?"
+    (let [[_ s t] (re-matches #"(?:<-|-)?([a-zA-Z0-9_]+)?(?:<([.a-zA-Z0-9_!]*)>)?(?:-|->)?"
                               (name sym))]
       [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
     (errorf "No valid pattern symbol: %s" sym)))
@@ -126,7 +126,7 @@
                 (symbol n))
         anon? (complement name)
         anon-vec (fn [startv done]
-                   (loop [cur startv, done done, vec [startv]]
+                   (loop [cur startv, done done, vec []]
                      (if (anon? cur)
                        (cond
                         (tg/edge? cur)   (recur (tg/that cur)
@@ -139,8 +139,21 @@
                        (conj vec cur))))
         type (fn [elem] (when-let [t (tg/value elem :type)]
                          `'~(symbol t)))
+        anon-vec-to-rpd (fn [av]
+                          `[q/p-seq ~@(map (fn [el]
+                                             (if (tg/vertex? el)
+                                               [`q/p-restr (type el)]
+                                               [(if (tg/normal-edge? el)
+                                                  `tgq/--> `tgq/<--)
+                                                (type el)]))
+                                          av)])
         enqueue-incs (fn [cur stack done]
-                       (into stack (remove done (tgq/riseq cur))))]
+                       (into stack (remove done (tgq/riseq cur))))
+        conj-done (fn [done & elems]
+                    (into done (mapcat #(if (tg/edge? %)
+                                          (vector % (tg/inverse-edge %))
+                                          (vector %))
+                                       elems)))]
     (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -150,25 +163,32 @@
             (recur (pop stack) done bf)
             (case (qname cur)
               Anchor (recur (enqueue-incs cur (pop stack) done)
-                            (conj done cur)
+                            (conj-done done cur)
                             bf)
               HasFirstPatternVertex (recur (conj (pop stack) (tg/that cur))
-                                           (conj done cur)
+                                           (conj-done done cur)
                                            bf)
               PatternVertex (recur (enqueue-incs cur (pop stack) done)
-                                   (conj done cur)
+                                   (conj-done done cur)
                                    (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))]))
               ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
-                                    (conj done cur)
+                                    (conj-done done cur)
                                     bf)
               PatternEdge (if (anon? cur)
-                            (do
-                              (println "anon-vec:" (anon-vec cur done))
-                              ;; TODO: Implement me!
-                              (errorf "Anon edges not yet implemented!"))
+                            (let [av (anon-vec cur done)
+                                  target-node (last av)
+                                  done (apply conj-done done av)]
+                              ;;(println av)
+                              (if (anon? target-node)
+                                (errorf "Bang!")
+                                (recur (enqueue-incs target-node (pop stack) done)
+                                       done
+                                       (conj bf (name target-node)
+                                             `(tgq/reachables ~(name (tg/this cur))
+                                                              ~(anon-vec-to-rpd av))))))
                             (let [trg (tg/that cur)]
                               (recur (enqueue-incs trg (pop stack) done)
-                                     (conj done (tg/inverse-edge cur) trg)
+                                     (conj-done done cur trg)
                                      (apply conj bf `~(name cur)
                                             `(tgq/iseq ~(name (tg/this cur)) ~(type cur)
                                                        ~(if (tg/normal-edge? cur) :out :in))
@@ -182,7 +202,7 @@
               ArgumentEdge (let [src (tg/this cur)
                                  trg (tg/that cur)]
                              (recur (enqueue-incs trg (pop stack) done)
-                                    (conj done cur (tg/inverse-edge cur) trg)
+                                    (conj-done done cur trg)
                                     (apply conj bf :when `(= ~(name src) (tg/this ~(name cur)))
                                            (if (done trg)
                                              [:when `(= ~(name trg) (tg/that ~(name cur)))]
@@ -194,7 +214,7 @@
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                              forms (mapcat #(read-string (tg/value % :form)) allcobs)]
                          (recur (pop stack)
-                                (conj done cur)
+                                (conj-done done cur)
                                 (into bf forms))))))
         bf))))
 
