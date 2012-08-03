@@ -160,7 +160,26 @@
                                                     (type el)]]))
                                           av)])
         enqueue-incs (fn [cur stack done]
-                       (into stack (remove done (tgq/riseq cur))))]
+                       (into stack (remove done (tgq/riseq cur))))
+        build-rpe (fn [startsym av done]
+                    (let [target-node (last av)]
+                      (cond
+                       (anon? target-node)
+                       [:when `(seq (tgq/reachables
+                                     ~startsym
+                                     ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       (or (done target-node) (has-type? target-node 'ArgumentVertex))
+                       [:when
+                        `(q/member?  ~(name target-node)
+                                     (tgq/reachables
+                                      ~startsym
+                                      ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       :normal-v
+                       [(name target-node)
+                        `(tgq/reachables ~startsym
+                                         ~(anon-vec-to-rpd av))])))]
     (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -184,41 +203,22 @@
               PatternEdge (if (anon? cur)
                             (let [av (anon-vec cur done)
                                   target-node (last av)
-                                  done (apply conj-done done av)]
+                                  done (conj-done done cur)]
                               ;;(println av)
-                              (cond
-                               (anon? target-node)
-                               (recur (enqueue-incs target-node (pop stack) done)
-                                      done
-                                      (conj bf :when
-                                            `(seq (tgq/reachables
-                                                   ~(name (tg/this cur))
-                                                   ~(anon-vec-to-rpd av)))))
-                               ;;;;;;;;;;;;;;;
-                               (done target-node)
-                               (recur (enqueue-incs target-node (pop stack) done)
-                                      done
-                                      (conj bf :when
-                                            `(q/member?  ~(name target-node)
-                                                         (tgq/reachables
-                                                          ~(name (tg/this cur))
-                                                          ~(anon-vec-to-rpd av)))))
-                               ;;;;;;;;;;;;;;;
-                               :normal-v
-                               (recur (enqueue-incs target-node (pop stack) done)
-                                      done
-                                      (conj bf (name target-node)
-                                            `(tgq/reachables ~(name (tg/this cur))
-                                                             ~(anon-vec-to-rpd av))))))
-                            (let [trg (tg/that cur)]
+                              (recur (enqueue-incs target-node (pop stack) done)
+                                     (apply conj-done done av)
+                                     (into bf (build-rpe (name (tg/this cur)) av done))))
+                            (let [trg (tg/that cur)
+                                  done (conj-done done cur)]
                               (recur (enqueue-incs trg (pop stack) done)
-                                     (conj-done done cur trg)
+                                     (conj-done done trg)
                                      (apply conj bf `~(name cur)
                                             `(tgq/iseq ~(name (tg/this cur)) ~(type cur)
                                                        ~(if (tg/normal-edge? cur) :out :in))
                                             (cond
                                              (done trg) [:when `(= ~(name trg) (tg/that ~(name cur)))]
-                                             (anon? trg) (errorf "Anon vertices not yet implemented!")
+                                             (anon? trg) (build-rpe `(tg/that ~(name cur))
+                                                                    (anon-vec trg done) done)
                                              :else (concat
                                                     [:let `[~(name trg) (tg/that ~(name cur))]]
                                                     (when-let [t (type trg)]
