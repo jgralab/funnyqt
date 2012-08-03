@@ -125,35 +125,42 @@
         name #(when-let [n (tg/value % :name)]
                 (symbol n))
         anon? (complement name)
-        anon-vec (fn [startv done]
-                   (loop [cur startv, done done, vec []]
-                     (if (anon? cur)
-                       (cond
-                        (tg/edge? cur)   (recur (tg/that cur)
-                                                (conj done cur (tg/inverse-edge cur))
-                                                (conj vec cur))
-                        (tg/vertex? cur) (recur (the (remove done (tgq/iseq cur)))
-                                                (conj done cur)
-                                                (conj vec cur))
-                        :else (errorf "Unexpected %s." cur))
-                       (conj vec cur))))
-        type (fn [elem] (when-let [t (tg/value elem :type)]
-                         `'~(symbol t)))
-        anon-vec-to-rpd (fn [av]
-                          `[q/p-seq ~@(map (fn [el]
-                                             (if (tg/vertex? el)
-                                               [`q/p-restr (type el)]
-                                               [(if (tg/normal-edge? el)
-                                                  `tgq/--> `tgq/<--)
-                                                (type el)]))
-                                          av)])
-        enqueue-incs (fn [cur stack done]
-                       (into stack (remove done (tgq/riseq cur))))
         conj-done (fn [done & elems]
                     (into done (mapcat #(if (tg/edge? %)
                                           (vector % (tg/inverse-edge %))
                                           (vector %))
-                                       elems)))]
+                                       elems)))
+        anon-vec (fn [startv done]
+                   (loop [cur startv, done done, vec []]
+                     (if (and cur (anon? cur))
+                       (cond
+                        (tg/edge? cur)   (recur (tg/that cur)
+                                                (conj-done done cur)
+                                                (conj vec cur))
+                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur))]
+                                                  (if (> (count ns) 1)
+                                                    (errorf "Must not happen!")
+                                                    (first ns)))
+                                                (conj-done done cur)
+                                                (conj vec cur))
+                        :else (errorf "Unexpected %s." cur))
+                       (if cur
+                         (conj vec cur)
+                         vec))))
+        type (fn [elem] (when-let [t (tg/value elem :type)]
+                         `'~(symbol t)))
+        anon-vec-to-rpd (fn [av]
+                          `[q/p-seq ~@(mapcat (fn [el]
+                                                (if (tg/vertex? el)
+                                                  (if (has-type? el 'ArgumentVertex)
+                                                    []
+                                                    [[`q/p-restr (type el)]])
+                                                  [[(if (tg/normal-edge? el)
+                                                      `tgq/--> `tgq/<--)
+                                                    (type el)]]))
+                                          av)])
+        enqueue-incs (fn [cur stack done]
+                       (into stack (remove done (tgq/riseq cur))))]
     (loop [stack [(the (tgq/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -179,13 +186,30 @@
                                   target-node (last av)
                                   done (apply conj-done done av)]
                               ;;(println av)
-                              (if (anon? target-node)
-                                (errorf "Bang!")
-                                (recur (enqueue-incs target-node (pop stack) done)
-                                       done
-                                       (conj bf (name target-node)
-                                             `(tgq/reachables ~(name (tg/this cur))
-                                                              ~(anon-vec-to-rpd av))))))
+                              (cond
+                               (anon? target-node)
+                               (recur (enqueue-incs target-node (pop stack) done)
+                                      done
+                                      (conj bf :when
+                                            `(seq (tgq/reachables
+                                                   ~(name (tg/this cur))
+                                                   ~(anon-vec-to-rpd av)))))
+                               ;;;;;;;;;;;;;;;
+                               (done target-node)
+                               (recur (enqueue-incs target-node (pop stack) done)
+                                      done
+                                      (conj bf :when
+                                            `(q/member?  ~(name target-node)
+                                                         (tgq/reachables
+                                                          ~(name (tg/this cur))
+                                                          ~(anon-vec-to-rpd av)))))
+                               ;;;;;;;;;;;;;;;
+                               :normal-v
+                               (recur (enqueue-incs target-node (pop stack) done)
+                                      done
+                                      (conj bf (name target-node)
+                                            `(tgq/reachables ~(name (tg/this cur))
+                                                             ~(anon-vec-to-rpd av))))))
                             (let [trg (tg/that cur)]
                               (recur (enqueue-incs trg (pop stack) done)
                                      (conj-done done cur trg)
