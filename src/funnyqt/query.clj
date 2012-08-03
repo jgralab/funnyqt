@@ -8,16 +8,22 @@
 ;;# Comprehensions
 
 (defmacro for*
-  "Exactly like `clojure.core/for`, but allows :let as first binding form,
-  too."
+  "Exactly like `clojure.core/for`, but allows :let and :when as first binding form,
+  and it allows for empty `seq-exprs', too."
   [seq-exprs body-expr]
   (let [[bind exp] seq-exprs]
-    (if (= bind :let)
-      `(let ~exp
-         (for ~(vec (rest (rest seq-exprs)))
-           ~body-expr))
-      `(for ~seq-exprs
-         ~body-expr))))
+    (condp = bind
+      :let `(let ~exp
+              (for* ~(vec (rest (rest seq-exprs)))
+                ~body-expr))
+      :when `(when ~exp
+               (for* ~(vec (rest (rest seq-exprs)))
+                ~body-expr))
+      ;; default
+      (if (seq seq-exprs)
+        `(for ~seq-exprs
+           ~body-expr)
+        (sequence nil)))))
 
 ;;# Quantified Expressions
 

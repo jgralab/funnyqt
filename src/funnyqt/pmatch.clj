@@ -97,29 +97,23 @@
          (vertex-sym? (first pattern)) (let [sym (first pattern)
                                              [n t] (name-and-type sym)
                                              v (get-or-make-v n t)]
-                                         (when (= 1 (tgq/vcount pg 'APatternVertex))
+                                         (when (= 0 (tgq/ecount pg 'HasFirstPatternVertex))
                                            (tg/create-edge! pg 'HasFirstPatternVertex
                                                             (the (tgq/vseq pg 'Anchor)) v))
                                          (recur (rest pattern) v))
          :else (errorf "Don't know how to handle pattern part: %s" (first pattern)))))
+    ;; Finally, do a small optimization: If there's an ArgumentVertex but the
+    ;; HasFirstPatternVertex edge doesn't point to it, then make it so!
+    ;;
+    ;; TODO: This changes the result order cause the binding vector is
+    ;; different.  Maybe we should build the correct result vector here and
+    ;; return it instead of determining it from the final bindings form...
+    #_(when-let [argv (first (tgq/vseq pg 'ArgumentVertex))]
+        (let [hfpv (the (tgq/eseq pg 'HasFirstPatternVertex))]
+          (when (has-type? (tg/omega hfpv) '!ArgumentVertex)
+            (tg/set-omega! hfpv argv))))
     pg))
 
-;; TODO:
-;;
-;; - There must not be symbols for anonymous elements, else we get too many
-;;   matches.
-;;   + probably do it with path expressions
-;;   + variants:
-;;     - [a<A> -<B>-> <C> -<D>-> e<E>]
-;;     - [a<A> -b<B>-> <C> -<D>-> e<E>]
-;;     - [a<A> -<B>-> <C> -<D>-> <E>]
-;;     - [a<A> -b<B>-> <C> -<D>-> <E>]
-;;     - [<A> -<B>-> <C> -<D>-> e<E>]
-;;     - [<A> -b<B>-> <C> -<D>-> e<E>]
-;;     - [<A> -<B>-> <C> -<D>-> <E>]
-;;     - [<A> -b<B>-> <C> -<D>-> <E>]
-;;
-;; - also allow consecutive anons: x<X> -<Y>-> <Z> -<A>-> b<B>
 (defn pattern-graph-to-for*-bindings-tg [argvec pg]
   (let [gsym (first argvec)
         name #(when-let [n (tg/value % :name)]
@@ -199,7 +193,7 @@
                                    (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))]))
               ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
                                     (conj-done done cur)
-                                    bf)
+                                    (if (done cur) bf (into bf `[:let [~(name cur) ~(name cur)]])))
               PatternEdge (if (anon? cur)
                             (let [av (anon-vec cur done)
                                   target-node (last av)
@@ -263,17 +257,13 @@
   Throws an exception if they overlap, else returns `match`."
   [pattern args]
   (let [blist (bindings-to-arglist pattern)]
-    (if (seq (clojure.set/intersection
-              (set blist)
-              (set args)))
-      (errorf "Arglist and pattern vector overlap!")
-      (if-let [double-syms (seq (mapcat (fn [[sym freq]]
-                                          (when (> freq 1)
-                                            (str "- " sym " is declared " freq " times\n")))
-                                        (frequencies blist)))]
-        (errorf "These symbols are declared multiple times:\n%s"
-                (apply str double-syms))
-        pattern))))
+    (if-let [double-syms (seq (mapcat (fn [[sym freq]]
+                                        (when (> freq 1)
+                                          (str "- " sym " is declared " freq " times\n")))
+                                      (frequencies blist)))]
+      (errorf "These symbols are declared multiple times:\n%s"
+              (apply str double-syms))
+      pattern)))
 
 (def ^:dynamic *pattern-expansion-context*
   "Defines the expansion context of a pattern, i.e., if a pattern expands into
@@ -292,18 +282,17 @@
   ;; TODO: Handle emf depending on *pattern-expansion-context*
   (case *pattern-expansion-context*
     :emf (errorf "Pattern compilation currently not supported for EMF!")
-    :tg  (verify-pattern-vector
-          (shortcut-bindings
-           (pattern-graph-to-for*-bindings-tg
-            args (pattern-to-pattern-graph args pattern)))
-          args)
+    :tg (shortcut-bindings
+         (pattern-graph-to-for*-bindings-tg
+          args (pattern-to-pattern-graph args pattern)))
     (errorf "The pattern expansion context is not set.\n%s"
             "See `*pattern-expansion-context*` in the pmatch namespace.")))
 
 (defn- convert-spec [[a p r]]
   (let [bf (transform-pattern-vector p a)]
+    (verify-pattern-vector bf a)
     `(~a
-      (for ~bf
+      (for* ~bf
         ~(or r (bindings-to-arglist bf))))))
 
 (defmacro defpattern

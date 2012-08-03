@@ -2,6 +2,7 @@
   (:use funnyqt.pmatch)
   (:use funnyqt.protocols)
   (:use funnyqt.tg)
+  (:use funnyqt.query)
   (:use funnyqt.query.tg)
   (:use clojure.test))
 
@@ -28,3 +29,7 @@
   (is (= 3 (count (families-with-fathers fg (constantly true)))))
   (is (= 2 (count (families-with-fathers fg #(= "Smith" (value % :lastName)))))))
 
+(defpattern given-fam-with-all-members
+  {:pattern-expansion-context :tg}
+  [g fam]
+  [mem<Member> <-- fam])
