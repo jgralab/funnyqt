@@ -377,8 +377,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
                     (apply op t-matchers))
                   ;; Empty collection given: (), [], that's also ok
                   identity)
-   :else (RuntimeException.
-          (format "Don't know how to create a type matcher for %s" ts))))
+   :else (errorf "Don't know how to create a type matcher for %s" ts)))
 
 (extend-protocol InstanceOf
   Graph

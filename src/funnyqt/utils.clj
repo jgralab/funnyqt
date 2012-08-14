@@ -53,13 +53,13 @@
   "Returns true, iff `n` is possibly a element qualified name.
   Qualified names are denoted as symbols."
   [n]
-  (and (symbol? n) (re-matches #"(?:(?:\w|[.])+\.)?[A-Z]\w+" (name n))))
+  (and (symbol? n) (re-matches #"!?(?:(?:\w|[.])+\.)?[A-Z]\w*!?" (name n))))
 
 (defn prop-name?
   "Returns true, iff `n` is possibly a property name.
   Property names (attributes, roles, references) are denoted as keywords."
   [n]
-  (and (keyword? n) (re-matches #"[a-z]\w+" (name n))))
+  (and (keyword? n) (re-matches #"[a-z]\w*" (name n))))
 
 (defn type-spec?
   "Returns true, iff `n` is possibly a type specification.

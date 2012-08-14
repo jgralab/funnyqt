@@ -355,8 +355,7 @@
                       (apply some-fn (map eref-matcher rs))
                       ;; Empty collection given: (), [], that's also ok
                       identity)
-   :else (RuntimeException.
-          (format "Don't know how to create a reference matcher for %s" rs))))
+   :else (errorf "Don't know how to create a reference matcher for %s" rs)))
 
 (defprotocol EReferences
   (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
