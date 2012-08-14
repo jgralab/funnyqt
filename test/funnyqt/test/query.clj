@@ -39,8 +39,8 @@
   (is (== 1 (the [1])))
   (is (== 1 (the #{1})))
   (is (= [1 2] (the {1 2})))
-  (is (thrown-with-msg? RuntimeException #"zero" (the [])))
-  (is (thrown-with-msg? RuntimeException #"more than" (the [1 2]))))
+  (is (thrown-with-msg? Exception #"zero" (the [])))
+  (is (thrown-with-msg? Exception #"more than" (the [1 2]))))
 
 (deftest test-pred-seq
   (is (= [[nil 1] [1 2] [2 3] [3 4]]

@@ -28,7 +28,7 @@
                   (eget (eget % :mother) :familyMother))
               (eallobjects family-model 'Family)))
   ;; Multivalued refs should throw
-  (is (thrown? RuntimeException (adj (first (econtents family-model)) :members))))
+  (is (thrown? Exception (adj (first (econtents family-model)) :members))))
 
 (defn get-member
   [first-name]
