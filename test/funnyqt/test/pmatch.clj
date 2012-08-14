@@ -44,6 +44,22 @@
     (is (= 4 (count r)))
     (is (forall? #(= fsmith (first %)) r))))
 
+(deftest test-letpattern-tg
+  (letpattern [(families-with-fathers-simple [g]
+                 [f<Family> -hf<HasFather>-> m<Member>])
+               (families-with-fathers
+                 ([g]
+                    [f<Family> -hf<HasFather>-> m<Member>])
+                 ([g famconst]
+                    [f<Family> -hf<HasFather>-> m<Member>
+                     :when (famconst f)]
+                    [f hf m]))]
+    {:pattern-expansion-context :tg}
+    (is (= 3 (count (families-with-fathers-simple fg))))
+    (is (= 3 (count (families-with-fathers fg))))
+    (is (= 3 (count (families-with-fathers fg (constantly true)))))
+    (is (= 2 (count (families-with-fathers fg #(= "Smith" (tg/value % :lastName))))))))
+
 ;;# EMF
 
 (emf/load-metamodel "test/input/Families.ecore")
@@ -82,4 +98,20 @@
         r (given-fam-with-all-members-emf fg fsmith)]
     (is (= 4 (count r)))
     (is (forall? #(= fsmith (first %)) r))))
+
+(deftest test-letpattern-emf
+  (letpattern [(families-with-fathers-simple [g]
+                 [f<Family> -<father>-> m<Member>])
+               (families-with-fathers
+                 ([g]
+                    [f<Family> -<father>-> m<Member>])
+                 ([g famconst]
+                    [f<Family> -<father>-> m<Member>
+                     :when (famconst f)]
+                    [f m]))]
+    {:pattern-expansion-context :emf}
+    (is (= 3 (count (families-with-fathers-simple fm))))
+    (is (= 3 (count (families-with-fathers fm))))
+    (is (= 3 (count (families-with-fathers fm (constantly true)))))
+    (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
 

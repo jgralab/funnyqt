@@ -379,9 +379,10 @@
   a query on a TGraph or an EMF model.  The possible values are :tg or :emf.
 
   Usually, you won't bind this variable directly (using `binding`) but instead
-  you specify the expansion context for a given pattern using the `arg-map` of
-  a `defpattern` form, or you declare the expansion context for a complete
-  namespace using `:pattern-expansion-context` metadata for the namespace."
+  you specify the expansion context for a given pattern using the `attr-map` of
+  a `defpattern` or `letpattern` form, or you declare the expansion context for
+  a complete namespace using `:pattern-expansion-context` metadata for the
+  namespace."
   nil)
 
 (defn transform-pattern-vector
@@ -397,12 +398,12 @@
        (errorf "The pattern expansion context is not set.\n%s"
                "See `*pattern-expansion-context*` in the pmatch namespace.")))))
 
-(defn- convert-spec [[a p r]]
-  (let [bf (transform-pattern-vector p a)]
-    (verify-pattern-vector bf a)
-    `(~a
+(defn- convert-spec [[args pattern resultform]]
+  (let [bf (transform-pattern-vector pattern args)]
+    (verify-pattern-vector bf args)
+    `(~args
       (for* ~bf
-        ~(or r (bindings-to-arglist bf))))))
+        ~(or resultform (bindings-to-arglist bf))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
@@ -426,12 +427,12 @@
 
   The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
   models, is controlled by the option `:pattern-expansion-context` with
-  possible values `:tg` or `:emf` has to be specified in the `attr-map` given
-  to `defpattern`.  Instead of using that option for every rule, you can also
-  set `:pattern-expansion-context` metadata to the namespace defining patterns,
-  in which case that expansion context is used.  Finally, it is also possible
-  to bind `*pattern-expansion-context*` to `:tg` or `:emf` otherwise.  Note
-  that this binding has to be available at compile-time."
+  possible values `:tg` or `:emf` which can be specified in the `attr-map`
+  given to `defpattern`.  Instead of using that option for every rule, you can
+  also set `:pattern-expansion-context` metadata to the namespace defining
+  patterns, in which case that expansion context is used.  Finally, it is also
+  possible to bind `*pattern-expansion-context*` to `:tg` or `:emf` otherwise.
+  Note that this binding has to be available at compile-time."
 
   {:arglists '([name doc-string? attr-map? [args] [pattern] result-spec?]
                  [name doc-string? attr-map? ([args] [pattern] result-spec?)+])}
@@ -444,4 +445,29 @@
          ~@(if (seq? (first more))
              (doall (map convert-spec more))
              (convert-spec more))))))
+
+(defmacro letpattern
+  "Establishes local patterns just like `letfn` establishes local functions.
+  Every pattern in the `patterns` vector is specified as:
+
+    (pattern-name [args] [pattern-spec] result-form)
+
+  The result form is optional.
+
+  Following the patterns vector, an `attr-map` may be given for specifying the
+  `*pattern-expansion-context*` in case it's not bound otherwise (see that
+  var's documentation and `defpattern`)."
+
+  {:arglists '([[patterns] attr-map? & body])} [patterns attr-map & body]
+  (when-not (vector? patterns)
+    (errorf "No patterns vector in letpattern!"))
+  (let [body (if (map? attr-map) body (cons attr-map body))]
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
+                                              *pattern-expansion-context*)]
+      `(letfn [~@(map (fn [[n & more]]
+                        `(~n ~@(if (vector? (first more))
+                                 (convert-spec more)
+                                 (doall (map convert-spec more)))))
+                   patterns)]
+         ~@body))))
 
