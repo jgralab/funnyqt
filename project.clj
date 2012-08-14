@@ -16,7 +16,7 @@
                  [org.clojure/core.logic "0.7.5"]
                  [ordered "1.3.0"]
                  [org.clojure/tools.macro "0.1.1"]
-                 [emf-xsd-sdk "2.7.1"]]
+                 [emf-xsd-sdk "2.8.0"]]
   :dev-dependencies [[hiccup "0.3.7"]]
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
