@@ -7,7 +7,8 @@
   (:require [funnyqt.tg :as tg]
             [funnyqt.query :as q]
             [funnyqt.query.tg :as tgq]
-            [funnyqt.emf :as emf])
+            [funnyqt.emf :as emf]
+            [funnyqt.query.emf :as emfq])
   (:require clojure.set)
   (:require [clojure.tools.macro :as m]))
 
@@ -243,6 +244,107 @@
                                 (into bf forms))))))
         bf))))
 
+(defn pattern-graph-to-for*-bindings-emf [argvec pg]
+  (let [gsym (first argvec)
+        name #(when-let [n (tg/value % :name)]
+                (symbol n))
+        anon? (complement name)
+        conj-done (fn [done & elems]
+                    (into done (mapcat #(if (tg/edge? %)
+                                          (vector % (tg/inverse-edge %))
+                                          (vector %))
+                                       elems)))
+        anon-vec (fn [startv done]
+                   (loop [cur startv, done done, vec []]
+                     (if (and cur (anon? cur))
+                       (cond
+                        (tg/edge? cur)   (recur (tg/that cur)
+                                                (conj-done done cur)
+                                                (conj vec cur))
+                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur))]
+                                                  (if (> (count ns) 1)
+                                                    (errorf "Must not happen!")
+                                                    (first ns)))
+                                                (conj-done done cur)
+                                                (conj vec cur))
+                        :else (errorf "Unexpected %s." cur))
+                       (if cur
+                         (conj vec cur)
+                         vec))))
+        type (fn [elem] (when-let [t (tg/value elem :type)]
+                         `'~(symbol t)))
+        anon-vec-to-rpd (fn [av]
+                          `[q/p-seq ~@(mapcat (fn [el]
+                                                (if (tg/vertex? el)
+                                                  (if (has-type? el 'ArgumentVertex)
+                                                    []
+                                                    [[`q/p-restr (type el)]])
+                                                  [[(if (tg/normal-edge? el)
+                                                      `emfq/-->
+                                                      (errorf "Backward edges unsupported!"))
+                                                    (keyword (second (type el)))]]))
+                                          av)])
+        enqueue-incs (fn [cur stack done]
+                       (into stack (remove done (tgq/riseq cur))))
+        build-rpe (fn [startsym av done]
+                    (let [target-node (last av)]
+                      (cond
+                       (anon? target-node)
+                       [:when `(seq (emfq/reachables
+                                     ~startsym
+                                     ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       (or (done target-node) (has-type? target-node 'ArgumentVertex))
+                       [:when
+                        `(q/member?  ~(name target-node)
+                                     (emfq/reachables
+                                      ~startsym
+                                      ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       :normal-v
+                       [(name target-node)
+                        `(emfq/reachables ~startsym ~(anon-vec-to-rpd av))])))]
+    ;; Check there are only anonymous edges.
+    (when-not (every? anon? (tgq/eseq pg 'APatternEdge))
+      (errorf "Edges mustn't be named for EMF: %s"
+              (vec (map describe (remove anon? (tgq/eseq pg 'APatternEdge))))))
+    (loop [stack [(the (tgq/vseq pg 'Anchor))]
+           done #{}
+           bf []]
+      (if (seq stack)
+        (let [cur (peek stack)]
+          (if (done cur)
+            (recur (pop stack) done bf)
+            (case (qname cur)
+              Anchor (recur (enqueue-incs cur (pop stack) done)
+                            (conj-done done cur)
+                            bf)
+              HasStartPatternVertex (recur (conj (pop stack) (tg/that cur))
+                                           (conj-done done cur)
+                                           bf)
+              PatternVertex (recur (enqueue-incs cur (pop stack) done)
+                                   (conj-done done cur)
+                                   (into bf `[~(name cur) (emf/eallobjects ~gsym ~(type cur))]))
+              ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
+                                    (conj-done done cur)
+                                    (if (done cur) bf (into bf `[:let [~(name cur) ~(name cur)]])))
+              PatternEdge (if (anon? cur)
+                            (let [av (anon-vec cur done)
+                                  target-node (last av)
+                                  done (conj-done done cur)]
+                              (recur (enqueue-incs target-node (pop stack) done)
+                                     (apply conj-done done cur av)
+                                     (into bf (build-rpe (name (tg/this cur)) av done))))
+                            (errorf "Edges mustn't be named for EMF: %s" (describe cur)))
+              ArgumentEdge (errorf "There mustn't be argument edges for EMF: %s" (describe cur))
+              Precedes (let [cob (tg/that cur)
+                             allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
+                             forms (mapcat #(read-string (tg/value % :form)) allcobs)]
+                         (recur (pop stack)
+                                (conj-done done cur)
+                                (into bf forms))))))
+        bf))))
+
 (defn- shortcut-let-vector [lv]
   (mapcat (fn [[s v]]
             [:let [s v] :when s])
@@ -287,13 +389,13 @@
   supported by `for*`.  (Only for internal use.)"
   [pattern args]
   ;; TODO: Handle emf depending on *pattern-expansion-context*
-  (case *pattern-expansion-context*
-    :emf (errorf "Pattern compilation currently not supported for EMF!")
-    :tg (shortcut-bindings
-         (pattern-graph-to-for*-bindings-tg
-          args (pattern-to-pattern-graph args pattern)))
-    (errorf "The pattern expansion context is not set.\n%s"
-            "See `*pattern-expansion-context*` in the pmatch namespace.")))
+  (let [pgraph (pattern-to-pattern-graph args pattern)]
+    (shortcut-bindings
+     (case *pattern-expansion-context*
+       :emf (pattern-graph-to-for*-bindings-emf args pgraph)
+       :tg  (pattern-graph-to-for*-bindings-tg args pgraph)
+       (errorf "The pattern expansion context is not set.\n%s"
+               "See `*pattern-expansion-context*` in the pmatch namespace.")))))
 
 (defn- convert-spec [[a p r]]
   (let [bf (transform-pattern-vector p a)]
