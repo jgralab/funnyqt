@@ -439,8 +439,8 @@
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*
+                                              (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
              (doall (map convert-spec more))
@@ -463,7 +463,8 @@
     (errorf "No patterns vector in letpattern!"))
   (let [body (if (map? attr-map) body (cons attr-map body))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*
+                                              (:pattern-expansion-context (meta *ns*)))]
       `(letfn [~@(map (fn [[n & more]]
                         `(~n ~@(if (vector? (first more))
                                  (convert-spec more)
