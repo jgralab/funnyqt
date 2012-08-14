@@ -531,7 +531,7 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (qname? p) (to-oset (mapcat #(adjs* % p) (to-oset v)))
+   (prop-name? p) (to-oset (mapcat #(adjs* % p) (to-oset v)))
    :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg

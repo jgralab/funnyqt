@@ -345,16 +345,16 @@
     (fn [r] ...)  => simply use that"
   [rs]
   (cond
-   (nil? rs)    identity
-   (fn? rs)     rs
-   (qname? rs)  (let [n (name rs)]
-                  (fn [^EReference ref]
-                    (= n (.getName ref))))
+   (nil? rs)        identity
+   (fn? rs)         rs
+   (prop-name? rs)  (let [n (name rs)]
+                      (fn [^EReference ref]
+                        (= n (.getName ref))))
    (instance? EReference rs) (fn [r] (= rs r))
-   (coll? rs)  (if (seq rs)
-                 (apply some-fn (map eref-matcher rs))
-                  ;; Empty collection given: (), [], that's also ok
-                  identity)
+   (coll? rs)       (if (seq rs)
+                      (apply some-fn (map eref-matcher rs))
+                      ;; Empty collection given: (), [], that's also ok
+                      identity)
    :else (RuntimeException.
           (format "Don't know how to create a reference matcher for %s" rs))))
 

@@ -130,7 +130,7 @@
    ;; funs with params: [---> :foo], [p-alt :foo :bar]
    (coll? p) (to-oset (apply (first p) obj (rest p)))
    ;; EReference names
-   (qname? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
+   (prop-name? p) (to-oset (mapcat #(erefs % p) (to-oset obj)))
    :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-emf

@@ -51,19 +51,26 @@
 
 (defn qname?
   "Returns true, iff `n` is possibly a element qualified name.
-  Only checks, if `n` is a symbol, a keyword, or a string."
+  Qualified names are denoted as symbols."
   [n]
-  (or (symbol? n) (keyword? n) (string? n)))
+  (and (symbol? n) (re-matches #"(?:(?:\w|[.])+\.)?[A-Z]\w+" (name n))))
+
+(defn prop-name?
+  "Returns true, iff `n` is possibly a property name.
+  Property names (attributes, roles, references) are denoted as keywords."
+  [n]
+  (and (keyword? n) (re-matches #"[a-z]\w+" (name n))))
 
 (defn type-spec?
   "Returns true, iff `n` is possibly a type specification.
   Examples for valid type specs:
-    pkg.Foo, :Bar!, \"bla.Bla\", [Foo Bar !Baz], [:and !Foo !Bar]"
+    pkg.Foo, Bar!, bla.Bla, [Foo Bar !Baz], [:and !Foo !Bar]"
   [n]
   (or (qname? n)
       (and (vector? n)
            (let [x (first n)]
-             (or (qname? x) (= x :and) (= x :or) (= x :xor) (= x :nor) (= x :nand))))))
+             (or (qname? x)
+                 (#{:and :or :xor :nor :nand} x))))))
 
 (defn type-with-modifiers
   "Given a type name with modifiers (Foo, !Foo, Foo!, !Foo!), returns a tuple
