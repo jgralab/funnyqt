@@ -345,9 +345,9 @@ See `tgtree`, `show-graph`, and `print-graph`."
         exact (v 2)
         type  (attributed-element-class g qname)]
     (cond
-     (and (not neg) (not exact)) (fn [^AttributedElement x] (.isInstanceOf x type))
+     (and (not neg) (not exact)) (fn [x] (is-instance? x type))
      (and (not neg) exact)       (fn [x] (identical? type (attributed-element-class x)))
-     (and neg       (not exact)) (fn [^AttributedElement x] (not (.isInstanceOf x type)))
+     (and neg       (not exact)) (fn [x] (not (is-instance? x type)))
      :default                    (fn [x] (not (identical? type (attributed-element-class x)))))))
 
 (defn type-matcher

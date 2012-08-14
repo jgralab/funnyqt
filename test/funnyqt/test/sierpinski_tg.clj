@@ -21,9 +21,8 @@
 
 (defrule triangulate
   "triangulate one trinangle"
-  [g lv b rv] [l (iseq lv 'L :in)
-               :let [tv (alpha l)]
-               r (iseq rv 'R :in)]
+  [g lv b rv] [lv <-l<L>- tv
+               rv <-r<R>- tv]
   (let [nl (create-vertex! g 'V)
         nr (create-vertex! g 'V)
         nb (create-vertex! g 'V)]
@@ -48,11 +47,9 @@
   "triangulate all recursively"
   ([g] [tv (filter #(empty? (iseq % 'B)) (vseq g))]
      (triangulate-recursively g tv))
-  ([g tv] [l (iseq tv 'L :out)
-           :let [lv (omega l)]
-           r (iseq tv 'R :out)
-           :let [rv (omega r)]
-           b (iseq lv 'B :out)]
+  ([g tv] [tv -l<L>-> lv
+           tv -r<R>-> rv
+           lv -b<B>-> rv]
      (let [nlv (create-vertex! g 'V)
            nrv (create-vertex! g 'V)
            nbv (create-vertex! g 'V)]
@@ -74,11 +71,9 @@
   "triangulate all recursively"
   ([g] [tv (filter #(empty? (iseq % 'B)) (vseq g))]
      (triangulate-trampolined g tv))
-  ([g tv] [l (iseq tv 'L :out)
-           :let [lv (omega l)]
-           r (iseq tv 'R :out)
-           :let [rv (omega r)]
-           b (iseq lv 'B :out)]
+  ([g tv] [tv -l<L>-> lv
+           tv -r<R>-> rv
+           lv -b<B>-> rv]
      (let [nlv (create-vertex! g 'V)
            nrv (create-vertex! g 'V)
            nbv (create-vertex! g 'V)]

@@ -149,8 +149,10 @@
                        (if cur
                          (conj vec cur)
                          vec))))
-        type (fn [elem] (when-let [t (tg/value elem :type)]
-                         `'~(symbol t)))
+        type (fn [elem]
+               (when (has-type? elem '[PatternVertex PatternEdge])
+                 (when-let [t (tg/value elem :type)]
+                   `'~(symbol t))))
         anon-vec-to-rpd (fn [av]
                           `[q/p-seq ~@(mapcat (fn [el]
                                                 (if (tg/vertex? el)
