@@ -103,6 +103,7 @@
   (is (= (eseq (rg)) (reverse (reseq (rg)))))
   (is (= (iseq (first-vertex (rg))) (reverse (riseq (first-vertex (rg)))))))
 
+
 ;;** Traversal Context
 
 (deftest test-vsubgraph-tc
