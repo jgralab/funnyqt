@@ -264,8 +264,8 @@ Have fun!"
 ;;# Main
 
 (defn create-graph-relations-ns
-  "Populates the namespace corresponding to schema `s` qname with relations
-  expressing the schema."
+  "Populates the namespace `nssym` (a symbol) with relations reflecting the
+  schema of graph `g`."
   [^Graph g nssym]
   (let [s ^Schema (core/schema g)
         atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
