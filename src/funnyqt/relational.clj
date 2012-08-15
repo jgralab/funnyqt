@@ -60,5 +60,7 @@
   is ground, then the conda improves the performance."
   [[& vars] & clauses]
   `(conda
-    [(all ~@(map (fn [v] `(nonlvaro ~v)) vars)) (printlno "all ground") (conda ~@clauses)]
-    [succeed (printlno "not all ground") (conde ~@clauses)]))
+    [(all ~@(map (fn [v] `(nonlvaro ~v)) vars))
+     (conda ~@clauses)]
+    [succeed
+     (conde ~@clauses)]))

@@ -423,6 +423,18 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [e]
   (instance? Edge e))
 
+;;## Containment
+
+(defn contains-vertex?
+  "Returns true if graph `g` contains vertex `v`."
+  [^Graph g ^Vertex v]
+  (.containsVertex g v))
+
+(defn contains-edge?
+  "Returns true if graph `g` contains edge `e`."
+  [^Graph g ^Edge e]
+  (.containsEdge g e))
+
 ;;## Access by ID
 
 (defprotocol IDOps

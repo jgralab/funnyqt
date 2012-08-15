@@ -17,8 +17,7 @@ can use its general graph loading function.
 
 Then, we load the GReQL test graph and bind it to a var `g`.
 
-    user> (def g (core/load-graph
-                  \"/home/horn/Repos/uni/funtg/test/greqltestgraph.tg\"))
+    user> (def g (core/load-graph \"test/input/greqltestgraph.tg\"))
 
 We import the relational namespace.
 
@@ -38,15 +37,14 @@ succeeds if `x` can be unified with a vertex of exact type Foo.  Additionally,
 of exact type Foo or a subtype thereof.  Furthermore, there are +!Foo and
 +!Foo!, which succeed for vertices not of (exact) type Foo.
 
-For an edge class Bar, there is the relation (+Bar! e a o) which succeeds, if
+For an edge class Bar, there is the relation (+Bar! e a o) which succeeds if
 `e` can be unified with an edge of exact type Bar, and `a` and `o` can be
 unified with the start and end vertex of `e`.  Similarly to vertex classes,
 relations +Bar, +!Bar, and +!Bar! are also created with the same signature.
 
 For any attribute name baz, a relation (+baz el val) is generated, which
-succeeds, if the attributed element `el` is an instance of an attributed
-element class that has such an attribute defined, asd its value is set to
-`val`.
+succeeds if the attributed element `el` is an instance of an attributed element
+class that has such an attribute defined, and its value is set to `val`.
 
 To use our new relations, we change into the roadmap namespace.
 
@@ -70,7 +68,8 @@ no answer at all, and
 
 returns all possible answers.
 
-Now, lets ask what's the capital of the Village Kammerforst.
+Now, let's ask what's the capital of the County the Village Kammerforst is
+located in.
 
     user> (run* [q]
             (fresh [kammerforst county e1 e2]
@@ -88,7 +87,7 @@ there has to be a ContainsLocality edge `e1' starting at some `county` and
 leading to `kammerforst`.  `county` has to be the capital of `q`, which is
 exactly what we wanted to ask.  Because `kammerforst` and `county` occur
 multiple times, they are subject to unification.  Likewise, our question `q` is
-unified with the end vertex of the edge `e2'.
+unified with the end vertex of the edge `e2`.
 
 Now let's try to pose a question about what capitals reign which localities,
 e.g., what are the localities contained in the county of some capital, for all
@@ -153,24 +152,7 @@ We can pose our question now using this new relation and get the same answer.
               (+name ?loc ?lname)
               (== q [?cname ?lname])))
 
-Now, let's do something a bit more interesting.  When are two junctions `j1`
-and `j2` connected?  Either they are directly connected (j1 -> j2, or j2 ->
-j1), or they are connected with something in between.  So we need some
-disjunction here, and that's exactly what `core.logic/conde` is for.  `conde`
-succeeds if any of its clauses succeeds, each a conjunction given as a list.
-
-    (defn connectedo
-      [j1 j2]
-      (with-fresh
-        (conde
-         ;; A direct connection, either from j1->j2
-         ((+Connection _ j1 j2))
-         ;; or the other way round...
-         ((+Connection _ j2 j1))
-         ;; or an indirect connection, i.e, there's another crossroad in the
-         ;; middle.
-         ((connectedo j1 ?middle)
-          (connectedo ?middle j2)))))"
+Have fun!"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
   (:use [funnyqt.relational])
@@ -205,8 +187,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
   (let [v (gensym "v")]
     (for [na (class->rel-symbols vc)]
       `(defn ~(:unique-name (meta na))
-         [~v]
          {:doc ~(format "A relation where `%s` is a %s vertex." v na)}
+         [~v]
          (fn [a#]
            (let [v# (walk a# ~v)]
              (if (fresh? v#)
@@ -214,7 +196,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                 (->> (map #(unify a# ~v %)
                           (query/vseq ~'+graph+ '~na))
                      (remove not)))
-               (if (and (.containsVertex ~'+graph+ v#)
+               (if (and (core/contains-vertex? ~'+graph+ v#)
                         (genprots/has-type? v# '~na))
                  a#
                  (fail a#)))))))))
@@ -227,9 +209,9 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
         om (gensym "omega")]
     (for [na (class->rel-symbols ec)]
       `(defn ~(:unique-name (meta na))
-         [~e ~al ~om]
          {:doc ~(format "A relation where `%s' is a %s edge from `%s' to `%s'."
                         e na al om)}
+         [~e ~al ~om]
          (fn [a#]
            (let [e#  (walk a# ~e)
                  al# (walk a# ~al)
@@ -259,15 +241,15 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq
                 :else `(fn [graph# ts#] (apply concat ((juxt funnyqt.query.tg/vseq
-                                                             funnyqt.query.tg/eseq)
-                                                       graph# ts#))))
+                                                            funnyqt.query.tg/eseq)
+                                                      graph# ts#))))
         elem   (gensym "elem")
         val    (gensym "val")]
     `(defn ~(symbol (str "+" (name attr)))
-       [~elem ~val]
        {:doc ~(format
                "A relation where `%s' has value `%s' for its %s attribute."
                elem val attr)}
+       [~elem ~val]
        (fn [a#]
          (let [elem# (walk a# ~elem)]
            (cond
@@ -308,7 +290,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                          (->> (map #(unify a# v# %)
                                    (query/vseq ~'+graph+))
                               (remove not)))
-                        (if (.containsVertex ~'+graph+ gv#)
+                        (if (core/contains-vertex? ~'+graph+ gv#)
                           a#
                           (fail a#))))))
 
@@ -348,8 +330,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                             (ground? gat#)) (or (unify a# [ae# at# val#]
                                                        [gae# gat# (core/value gae# gat#)]))
                             (ground? gae#) (to-stream
-                                            (->> (for [attr# (seq (.getAttributeList
-                                                                   (core/attributed-element-class gae#)))
+                                            (->> (for [^Attribute attr# (seq (.getAttributeList ^AttributedElementClass
+                                                                              (core/attributed-element-class gae#)))
                                                        :let [an# (keyword (.getName attr#))]]
                                                    (unify a# [ae# at# val#]
                                                           [gae# an# (core/value gae# an#)]))
@@ -357,8 +339,8 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                        :else (to-stream
                               (->> (for [elem# (concat (query/vseq ~'+graph+)
                                                        (query/eseq ~'+graph+))
-                                         attr# (seq (.getAttributeList
-                                                     (core/attributed-element-class elem#)))
+                                         ^Attribute attr# (seq (.getAttributeList ^AttributedElementClass
+                                                                (core/attributed-element-class elem#)))
                                          :let [an# (keyword (.getName attr#))]]
                                      (unify a# [ae# at# val#]
                                             [elem# an# (core/value elem# an#)]))
@@ -368,7 +350,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ~@(doall
                    (mapcat (fn [^VertexClass vc]
-                             (doseq [a (map #(keyword (.getName %))
+                             (doseq [a (map #(keyword (.getName ^Attribute %))
                                             (seq (.getOwnAttributeList vc)))]
                                (swap! atts
                                       #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
@@ -377,7 +359,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
                            (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
                 ~@(doall
                    (mapcat (fn [^EdgeClass ec]
-                             (doseq [a (map #(keyword (.getName %))
+                             (doseq [a (map #(keyword (.getName ^Attribute %))
                                             (seq (.getOwnAttributeList ec)))]
                                (swap! atts
                                       #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
@@ -461,7 +443,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
     Streets, AirRoutes)."
     [j1 j2]
     (with-fresh
-      (condx [j1 j2]
+      (conde
        ;; A direct street connection, either from j1->j2
        [(+Way _ j1 j2)]
        ;; or the other way round...
@@ -483,7 +465,7 @@ succeeds if any of its clauses succeeds, each a conjunction given as a list.
     (+Locality l1)
     (+Locality l2)
     (with-fresh
-      (condx [l1 l2]
+      (conde
        ;; Airports can be connected by AirRoutes directly, everything else is
        ;; connected by streets connecting crossroads that are contained in
        ;; localities.
