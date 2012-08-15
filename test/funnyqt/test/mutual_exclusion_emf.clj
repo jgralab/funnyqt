@@ -48,7 +48,7 @@
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
   [sys] [r (econtents sys 'Resource)
-         :let [t (eget r :taker)]]
+         :when-let [t (eget r :taker)]]
   (delete! r))
 
 (defrule pass-rule
@@ -72,7 +72,7 @@
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
   ([sys] [r (econtents sys 'Resource)
-          :let [p (eget r :taker)]
+          :when-let [p (eget r :taker)]
           :when (member? p (eget r :requester))]
      (take-rule sys r p))
   ([sys r p]
@@ -84,8 +84,8 @@
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
-  ([sys] [r  (econtents sys 'Resource)
-          :let [p (eget r :holder)]]
+  ([sys] [r (econtents sys 'Resource)
+          :when-let [p (eget r :holder)]]
      (release-rule sys r p))
   ([sys r p]
      (when (empty? (eget p :requested))
@@ -97,7 +97,7 @@
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
   ([sys] [r (econtents sys 'Resource)
-          :let [p1 (eget r :releaser)]]
+          :when-let [p1 (eget r :releaser)]]
      (give-rule sys r p1))
   ([sys r p1]
      (let [p2 (eget p1 :next)]
@@ -110,19 +110,19 @@
   creates a blocked edge."
   [sys] [r   (econtents sys 'Resource)
          p1  (eget r :requester)
-         :let [p2 (eget r :holder)]]
+         :when-let [p2 (eget r :holder)]]
   (eadd! r :blocked p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
   ([sys] [r1  (econtents sys 'Resource)
           p2  (eget r1 :requester)
-          :let [p1 (eget r1 :holder)]
+          :when-let [p1 (eget r1 :holder)]
           r2  (eget p1 :blocked_by)
           :when (not= r1 r2)]
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1] [p2  (eget r1 :requester)
-             :let [p1 (eget r1 :holder)]
+             :when-let [p1 (eget r1 :holder)]
              r2  (eget p1 :blocked_by)
              :when (not= r1 r2)]
      (waiting-rule sys r1 r2 p1 p2))
@@ -141,7 +141,7 @@
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
   [sys] [r (econtents sys 'Resource)
-         :let [p (eget r :holder)]
+         :when-let [p (eget r :holder)]
          :when (member? p (eget r :blocked))]
   (eunset! r :holder)
   (eremove! r :blocked p)
@@ -189,8 +189,8 @@
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [sys] [r1 (econtents sys 'Resource)
-         :let [p1 (eget r1 :holder)
-               p2 (eget p1 :prev)]
+         :when-let [p1 (eget r1 :holder)
+                    p2 (eget p1 :prev)]
          r2 (eget p2 :held)
          :when (not (member? r2 (eget p1 :requested)))]
   (eadd! p1 :requested r2))
@@ -199,7 +199,7 @@
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
   ([sys] [r2 (econtents sys 'Resource)
-          :let [p2 (eget r2 :holder)]
+          :when-let [p2 (eget r2 :holder)]
           r1 (eget p2 :held)
           p1 (eget r1 :requester)]
        (release-star-rule sys r2 p2))

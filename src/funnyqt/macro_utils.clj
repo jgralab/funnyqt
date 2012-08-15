@@ -12,13 +12,14 @@
     (if (seq p)
       (cond
        ;; Handle :let [x y, z a]
-       (= :let (first p)) (recur (rest (rest p))
-                                 (vec (concat l
-                                              (loop [ls (first (rest p)) bs []]
-                                                (if (seq ls)
-                                                  (recur (rest (rest ls))
-                                                         (conj bs (first ls)))
-                                                  bs)))))
+       (or (= :let (first p))
+           (= :when-let (first p))) (recur (rest (rest p))
+                                           (vec (concat l
+                                                        (loop [ls (first (rest p)) bs []]
+                                                          (if (seq ls)
+                                                            (recur (rest (rest ls))
+                                                                   (conj bs (first ls)))
+                                                            bs)))))
        ;; Ignore :when (exp ...)
        (keyword? (first p)) (recur (rest (rest p)) l)
        ;; A vector destructuring form

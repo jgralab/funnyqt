@@ -66,7 +66,7 @@
       (when (seq pattern)
         (cond
          ;; Constraints and non-pattern binding forms ;;
-         (or (#{:when :let :while} (first pattern))
+         (or (#{:when :let :when-let :while} (first pattern))
              (coll? (fnext pattern)))
          (do
            (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
@@ -146,9 +146,10 @@
                                                 (conj-done done cur)
                                                 (conj vec cur))
                         :else (errorf "Unexpected %s." cur))
-                       (if cur
+                       (if (and (not (anon? cur))
+                                (tg/vertex? cur))
                          (conj vec cur)
-                         vec))))
+                         (errorf "Anonymous path sequences must be anchored at a named vertex.")))))
         type (fn [elem]
                (when (has-type? elem '[PatternVertex PatternEdge])
                  (when-let [t (tg/value elem :type)]
@@ -156,7 +157,8 @@
         anon-vec-to-rpd (fn [av]
                           `[q/p-seq ~@(mapcat (fn [el]
                                                 (if (tg/vertex? el)
-                                                  (if (has-type? el 'ArgumentVertex)
+                                                  (if (or (has-type? el 'ArgumentVertex)
+                                                          (not (type el)))
                                                     []
                                                     [[`q/p-restr (type el)]])
                                                   [[(if (tg/normal-edge? el)
@@ -166,6 +168,7 @@
         enqueue-incs (fn [cur stack done]
                        (into stack (remove done (tgq/riseq cur))))
         build-rpe (fn [startsym av done]
+                    ;;(println "build-rpe:" startsym av done)
                     (let [target-node (last av)]
                       (cond
                        (anon? target-node)
@@ -173,8 +176,17 @@
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
                        ;;;;;;;;;;;;;;;
-                       (or (done target-node) (has-type? target-node 'ArgumentVertex))
+                       (done target-node)
                        [:when
+                        `(q/member?  ~(name target-node)
+                                     (tgq/reachables
+                                      ~startsym
+                                      ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       ;; Not already done ArgumentVertex, so declare it!
+                       (has-type? target-node 'ArgumentVertex)
+                       [:when-let `[~(name target-node) ~(name target-node)]
+                        :when
                         `(q/member?  ~(name target-node)
                                      (tgq/reachables
                                       ~startsym
@@ -203,7 +215,7 @@
                                    (into bf `[~(name cur) (tgq/vseq ~gsym ~(type cur))]))
               ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
                                     (conj-done done cur)
-                                    (if (done cur) bf (into bf `[:let [~(name cur) ~(name cur)]])))
+                                    (if (done cur) bf (into bf `[:when-let [~(name cur) ~(name cur)]])))
               PatternEdge (if (anon? cur)
                             (let [av (anon-vec cur done)
                                   target-node (last av)
@@ -223,6 +235,11 @@
                                              (done trg) [:when `(= ~(name trg) (tg/that ~(name cur)))]
                                              (anon? trg) (build-rpe `(tg/that ~(name cur))
                                                                     (anon-vec trg done) done)
+                                             ;;;;;;;
+                                             (has-type? trg 'ArgumentVertex)
+                                             [:when-let [(name trg) (name trg)]
+                                              :when `(= ~(name trg) (tg/that ~(name cur)))]
+                                             ;;;;;;;
                                              :else (concat
                                                     [:let `[~(name trg) (tg/that ~(name cur))]]
                                                     (when-let [t (type trg)]
@@ -232,12 +249,17 @@
                              (recur (enqueue-incs trg (pop stack) done)
                                     (conj-done done cur trg)
                                     (apply conj bf :when `(= ~(name src) (tg/this ~(name cur)))
-                                           (if (done trg)
-                                             [:when `(= ~(name trg) (tg/that ~(name cur)))]
-                                             (concat
-                                              [:let `[~(name trg) (tg/that ~(name cur))]]
-                                              (when-let [t (type trg)]
-                                                `[:when (has-type? ~(name trg) ~(type trg))]))))))
+                                           (cond
+                                            (done trg) [:when `(= ~(name trg) (tg/that ~(name cur)))]
+                                            ;;;;;;;
+                                            (has-type? trg 'ArgumentVertex)
+                                            [:when-let [(name trg) (name trg)]
+                                             :when `(= ~(name trg) (tg/that ~(name cur)))]
+                                            ;;;;;;;
+                                            :else (concat
+                                                   [:let `[~(name trg) (tg/that ~(name cur))]]
+                                                   (when-let [t (type trg)]
+                                                     `[:when (has-type? ~(name trg) ~(type trg))]))))))
               Precedes (let [cob (tg/that cur)
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                              forms (mapcat #(read-string (tg/value % :form)) allcobs)]
@@ -278,7 +300,8 @@
         anon-vec-to-rpd (fn [av]
                           `[q/p-seq ~@(mapcat (fn [el]
                                                 (if (tg/vertex? el)
-                                                  (if (has-type? el 'ArgumentVertex)
+                                                  (if (or (has-type? el 'ArgumentVertex)
+                                                          (not (type el)))
                                                     []
                                                     [[`q/p-restr (type el)]])
                                                   [[(if (tg/normal-edge? el)
@@ -296,8 +319,17 @@
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
                        ;;;;;;;;;;;;;;;
-                       (or (done target-node) (has-type? target-node 'ArgumentVertex))
+                       (done target-node)
                        [:when
+                        `(q/member?  ~(name target-node)
+                                     (emfq/reachables
+                                      ~startsym
+                                      ~(anon-vec-to-rpd av)))]
+                       ;;;;;;;;;;;;;;;
+                       ;; Not already done ArgumentVertex, so declare it!
+                       (has-type? target-node 'ArgumentVertex)
+                       [:when-let `[~(name target-node) ~(name target-node)]
+                        :when
                         `(q/member?  ~(name target-node)
                                      (emfq/reachables
                                       ~startsym
@@ -329,7 +361,7 @@
                                    (into bf `[~(name cur) (emf/eallobjects ~gsym ~(type cur))]))
               ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
                                     (conj-done done cur)
-                                    (if (done cur) bf (into bf `[:let [~(name cur) ~(name cur)]])))
+                                    (if (done cur) bf (into bf `[:when-let [~(name cur) ~(name cur)]])))
               PatternEdge (if (anon? cur)
                             (let [av (anon-vec cur done)
                                   target-node (last av)
@@ -347,21 +379,6 @@
                                 (into bf forms))))))
         bf))))
 
-(defn- shortcut-let-vector [lv]
-  (mapcat (fn [[s v]]
-            [:let [s v] :when s])
-          (partition 2 lv)))
-
-(defn- shortcut-bindings
-  "Converts :let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
-  [bindings]
-  (loop [p bindings, nb []]
-    (if (seq p)
-      (if (= :let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
 
 (defn- verify-pattern-vector
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
@@ -393,12 +410,11 @@
   [pattern args]
   ;; TODO: Handle emf depending on *pattern-expansion-context*
   (let [pgraph (pattern-to-pattern-graph args pattern)]
-    (shortcut-bindings
-     (case *pattern-expansion-context*
-       :emf (pattern-graph-to-for*-bindings-emf args pgraph)
-       :tg  (pattern-graph-to-for*-bindings-tg args pgraph)
-       (errorf "The pattern expansion context is not set.\n%s"
-               "See `*pattern-expansion-context*` in the pmatch namespace.")))))
+    (case *pattern-expansion-context*
+      :emf (pattern-graph-to-for*-bindings-emf args pgraph)
+      :tg  (pattern-graph-to-for*-bindings-tg args pgraph)
+      (errorf "The pattern expansion context is not set.\n%s"
+              "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
 (defn- convert-spec [[args pattern resultform]]
   (let [bf (transform-pattern-vector pattern args)]
@@ -412,20 +428,59 @@
   an `args` vector, and a `pattern` vector.  When invoked, it returns a lazy seq
   of all matches of `pattern`.
 
-  Usually, you use this to specify a pattern that occurs in the patterns of
-  many rules.  So instead of writing a pattern vector like
+  `pattern` is a vector of symbols for nodes and edges.
 
-    [a (vseq g), b (iseq a) :let [c (that b)], ...]
+    v<V>:            A node of type V identified as v
+    v<V> -e<E>-> v:  An edge of type E starting and ending at node v of type V
 
-  in several rules, you do
+  Both the identifier (v and e above) and the type enclosed in angle brackets
+  are optional.  So this is a valid pattern, too.
 
-    (defpattern abc [g] [a (vseq g), b (iseq a) :let [c (that b)]])
+    [v --> <V> -<E>-> <> --> x<X>]: An arbitrary node that is connected to an
+                                    X-node x via some arbitrary forward edge
+                                    leading to some V-node from which an E-edge
+                                    leads some arbitrary other node from which
+                                    another arbitrary edge leads to x.
 
-  and then
+  Such sequences of anonymous paths, i.e., edges and nodes without identifier,
+  must be anchored at named nodes like above (v and x).
 
-    [[a b c] (abc g), ...]
+  Patterns may also include the arguments given to the defpattern, in which
+  case those are assumed to be bound to one single node or edge, depending on
+  their usage in the pattern, e.g., arg must be a node and -arg-> must be an
+  edge.
 
-  in the rules.
+  Patters may further include arbitrary constraints that must hold for a valid
+  match using the following syntax:
+
+    [v --> w
+     :when (pred1? v)
+     :when (not (pred2? w))]
+
+  Moreover, a pattern may bind further variables using :let and :when-let.
+
+    [v --> w
+     :let [a (foo v), b (bar v)]
+     :when-let [c (baz w)]]
+
+  Hereby, the variables bound by :let (a and b) are taken as is whereas the
+  variables bound by :when-let must be logically true in order to match.
+
+  Finally, patterns may also include usual comprehension binding forms, i.e.,
+  pairs of variables and expressions.
+
+    [v --> w
+     u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]
+
+  The result of a pattern is a lazy sequence of matchen.  Each match is either
+  defined by `result-spec` if that's given, or it defaults to a vector of
+  matched elements in the order of declaration.  For example, the pattern
+
+    (defpattern foo [a d]
+      [a -e<E>-> b<B> <-f<F>- c<C>
+       b <-- d])
+
+  results in a lazy seq of [a e b f c d] vectors.
 
   The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
   models, is controlled by the option `:pattern-expansion-context` with

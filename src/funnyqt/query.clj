@@ -7,11 +7,33 @@
 
 ;;# Comprehensions
 
+(defn- shortcut-when-let-vector [lv]
+  (mapcat (fn [[s v]]
+            [:let [s v] :when s])
+          (partition 2 lv)))
+
+(defn- shortcut-when-let-bindings
+  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  [bindings]
+  (loop [p bindings, nb []]
+    (if (seq p)
+      (if (= :when-let (first p))
+        (recur (rest (rest p))
+               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
+        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
+      (vec nb))))
+
 (defmacro for*
-  "Exactly like `clojure.core/for`, but allows :let and :when as first binding form,
-  and it allows for empty `seq-exprs', too."
+  "Exactly like `clojure.core/for`, but allows :let and :when as first binding
+  form, has additional support for a :when-let modifier combining :let
+  and :when, and it allows for empty `seq-exprs', too.
+
+  Semantics of :when-let:
+
+    :when-let [x (xs), y (ys)] => :let [x (xs)] :when x :let [y (ys)] :when y"
   [seq-exprs body-expr]
-  (let [[bind exp] seq-exprs]
+  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
+        [bind exp] seq-exprs]
     (condp = bind
       :let `(let ~exp
               (for* ~(vec (rest (rest seq-exprs)))
