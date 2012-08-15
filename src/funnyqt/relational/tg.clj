@@ -235,7 +235,8 @@ Have fun!"
 
 (defn- create-attr-relation
   "Creates relations for the given attribute."
-  [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having such an attr
+  [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having
+                ;; such an attr
   (let [ts     (mapv #(genprots/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
@@ -255,11 +256,11 @@ Have fun!"
            (cond
             (ground? elem#)  (or (unify a# ~val (core/value elem# ~attr))
                                  (fail a#))
-            :else               (to-stream
-                                 (->> (for [e# (~seqf ~'+graph+ '~ts)
-                                            :let [v# (core/value e# ~attr)]]
-                                        (unify a# [~elem ~val] [e# v#]))
-                                      (remove not)))))))))
+            :else            (to-stream
+                              (->> (for [e# (~seqf ~'+graph+ '~ts)
+                                         :let [v# (core/value e# ~attr)]]
+                                     (unify a# [~elem ~val] [e# v#]))
+                                   (remove not)))))))))
 
 ;;# Main
 
@@ -517,8 +518,6 @@ Have fun!"
   (run* [q]
     (with-fresh
       (+ClassDefinition ?c)
-      (fulfillso ?c #(re-matches #"de\.uni_koblenz\.jgralab\..*"
-                                 (core/value % :fullyQualifiedName)))
       (subclasso ?c ?super)
       (+fullyQualifiedName ?c ?cname)
       (+fullyQualifiedName ?super ?sname)

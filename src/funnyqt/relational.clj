@@ -37,21 +37,15 @@
   [x]
   (not (lvar? x)))
 
-(defn printlno
+(defn echo
+  "Non-relational: If `s` is ground, prints its value.  Else prints the lvar."
   [s]
-  (println s)
-  succeed)
-
-(defn fulfillso
-  "Succeeds if `x` fulfills `pred`.
-  Non-relational: both parameters have to be ground."
-  [x pred]
   (fn [a]
-    (let [e (walk a x)
-          p (walk a pred)]
-      (if (or (fresh? e) (fresh? p))
-        (error "Element and predicate must be ground.")
-        (if (p e) a (fail a))))))
+    (let [ws (walk a s)]
+      (if (ground? ws)
+        (println ws)
+        (println s)))
+    (succeed a)))
 
 (defmacro condx
   "Expands into a `conda` checking if all `vars` are ground.
@@ -64,3 +58,4 @@
      (conda ~@clauses)]
     [succeed
      (conde ~@clauses)]))
+
