@@ -104,7 +104,7 @@
                                          (recur (rest pattern) v))
          :else (errorf "Don't know how to handle pattern part: %s" (first pattern)))))
     ;; Anchor disconnected components at the anchor.
-    (let [vset (funnyqt.utils/to-oset (tgq/vseq pg))
+    (let [vset (funnyqt.utils/oset (tgq/vseq pg))
           a (the (tgq/vseq pg 'Anchor))]
       (loop [disc (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))]
         (when (seq disc)

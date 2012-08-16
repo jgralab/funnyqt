@@ -1,6 +1,6 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:use [funnyqt.utils :only [error errorf to-oset into-oset]]
+  (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal]])
   (:require clojure.set))
@@ -273,7 +273,7 @@
   [v & p]
   (if (seq p)
     (recur (*p-apply* v (first p)) (rest p))
-    (to-oset v)))
+    (oset v)))
 
 (defn p-opt
   "Path option starting at `v` and maybe traversing `p`.
@@ -287,17 +287,17 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varags seq of the alternative path descriptions."
   [v & p]
-  (to-oset (mapcat #(*p-apply* v %) p)))
+  (oset (mapcat #(*p-apply* v %) p)))
 
 (defn p-*
   "Path iteration starting at `v` and traversing `p` zero or many times.
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   ([v p]
-     (p-* v p (to-oset v)))
+     (p-* v p (oset v)))
   ([v p ret]
      (let [n (clojure.set/difference
-              (to-oset (*p-apply* v p))
+              (oset (*p-apply* v p))
               ret)]
        (if (seq n)
          (recur n p (into-oset ret n))
@@ -328,7 +328,7 @@
   ([v n p]
      {:pre [(>= n 0)]}
      (if (zero? n)
-       (to-oset v)
+       (oset v)
        (recur (*p-apply* v p) (dec n) p))))
 
 (defn p-restr

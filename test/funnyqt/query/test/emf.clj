@@ -11,7 +11,7 @@
 
 (deftest test-basic
   (let [fm (the (econtents family-model))]
-    (are [x y n] (let [ox (to-oset x)]
+    (are [x y n] (let [ox (oset x)]
                    (and (= ox y) (== n (count ox))))
          (erefs fm) (reachables fm -->) 16
          (ecrossrefs fm) (reachables fm --->) 0

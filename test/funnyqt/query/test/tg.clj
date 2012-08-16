@@ -238,7 +238,7 @@
 	 (reachables (vertex (jg) 12) [p-exp 3 -->])))
   (is (= (reachables (vertex (jg) 12) -->)
 	 (reachables (vertex (jg) 12) [p-exp 1 -->])))
-  (is (= (to-oset (vertex (jg) 12))
+  (is (= (oset (vertex (jg) 12))
 	 (reachables (vertex (jg) 12) [p-exp 0 -->])))
   (is (= (reachables (vertex (jg) 12) [p-seq --> --> --> [p-opt -->] [p-opt -->] [p-opt -->]])
          (reachables (vertex (jg) 12) [p-exp 3 6 -->])))

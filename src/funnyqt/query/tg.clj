@@ -531,7 +531,7 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (prop-name? p) (to-oset (mapcat #(adjs* % p) (to-oset v)))
+   (prop-name? p) (oset (mapcat #(adjs* % p) (oset v)))
    :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
@@ -540,8 +540,8 @@ can compute that like so:
   ([vs ts]
      (p-restr-tg vs ts identity))
   ([vs ts pred]
-     (let [vs (to-oset vs)]
-       (to-oset
+     (let [vs (oset vs)]
+       (oset
         (if (seq vs)
           (let [tm (type-matcher (first vs) ts)]
             (filter (every-pred tm pred)
@@ -561,7 +561,7 @@ can compute that like so:
   "Returns the vertices reachable from `v` via incidences with direction `dir`
   and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
   [v dir this-aks that-aks ts pred]
-  (let [vs (to-oset v)]
+  (let [vs (oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
                            (or pred identity)
@@ -573,7 +573,7 @@ can compute that like so:
                              identity))
             tm (type-matcher (first vs) ts)
             dm (direction-matcher dir)]
-        (to-oset
+        (oset
          (mapcat (fn [sv]
                    (map that
                         (filter complete-pred

@@ -7,33 +7,33 @@
 ;;# Conversion to OrderedSet
 
 (defprotocol OrderedSetConvertible
-  (to-oset [this]
+  (oset [this]
     "Converts this into an ordered set."))
 
 (extend-protocol OrderedSetConvertible
   ordered.set.OrderedSet
-  (to-oset [this]
+  (oset [this]
     this)
 
   java.util.Collection
-  (to-oset [this]
+  (oset [this]
     (into (ordered-set) this))
 
   Object
-  (to-oset [this]
+  (oset [this]
     (ordered-set this))
 
   nil
-  (to-oset [this] (ordered-set)))
+  (oset [this] (ordered-set)))
 
 (defn into-oset
   "Returns an ordered-set of all given arguments.  Collection args are
   converted into ordered-sets and united.  (into-oset nil) => #{}."
   ([to from]
-     (into (to-oset to)
+     (into (oset to)
            (if (coll? from)
              from
-             (to-oset from))))
+             (oset from))))
   ([to from & froms]
      (reduce into (into-oset to from) froms)))
 
