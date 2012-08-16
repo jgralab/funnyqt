@@ -38,7 +38,8 @@
   (not (lvar? x)))
 
 (defn echo
-  "Non-relational: If `s` is ground, prints its value.  Else prints the lvar."
+  "If `s` is ground, prints its value.  Else prints the lvar.
+  Always succeeds."
   [s]
   (fn [a]
     (let [ws (walk a s)]
@@ -48,14 +49,20 @@
     (succeed a)))
 
 (defmacro condx
-  "Expands into a `conda` checking if all `vars` are ground.
+  "Expands into a `conda` checking if all vars used in the questions are ground.
   If so, then use a (conda ~@clauses), else use (conde ~@clauses).
-  Thus, condx can be used as a generator just like conde, but if everything
-  is ground, then the conda improves the performance."
-  [[& vars] & clauses]
-  `(conda
-    [(all ~@(map (fn [v] `(nonlvaro ~v)) vars))
-     (conda ~@clauses)]
-    [succeed
-     (conde ~@clauses)]))
+  Thus, `condx` can be used as a generator just like `conde`, but if everything
+  is ground, then the use of `conda` improves the performance."
+  [& clauses]
+  (let [vars (mapcat (fn [c]
+                       (let [f (first c)]
+                         (if (list? f)
+                           (rest f)
+                           [])))
+                     clauses)]
+    `(conda
+      [(all ~@(map (fn [v] `(nonlvaro ~v)) vars))
+       (conda ~@clauses)]
+      [succeed
+       (conde ~@clauses)])))
 
