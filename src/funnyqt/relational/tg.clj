@@ -28,7 +28,7 @@ argument is the graph, and the second argument is a new namespace name.  That
 will be created, and all relations (including an implicit reference to the
 graph) are defined in it.
 
-    user> (create-graph-relations-ns g 'roadmap)
+    user> (create-schema-relations-ns g 'roadmap)
 
 This procedure creates 4 relations per attributed element class of the schema
 of our graph.  For any vertex class Foo, there's a relation (+Foo! x) which
@@ -264,11 +264,13 @@ Have fun!"
 
 ;;# Main
 
-(defn create-graph-relations-ns
+(defn create-schema-relations-ns
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
-  schema of graph `g`."
-  [^Graph g nssym]
-  (let [s ^Schema (core/schema g)
+  schema of `schema-or-graph`."
+  [schema-or-graph nssym]
+  (let [s ^Schema (if (core/graph? schema-or-graph)
+                    (core/schema schema-or-graph)
+                    schema-or-graph)
         atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
         old-ns *ns*
         code `(do
@@ -375,7 +377,8 @@ Have fun!"
     (eval code)
     (in-ns (ns-name old-ns))
     ;; Set the graph in the new namespace
-    (alter-var-root (ns-resolve nssym '+graph+) (fn [_] g))
+    (when (core/graph? schema-or-graph)
+      (alter-var-root (ns-resolve nssym '+graph+) (fn [_] schema-or-graph)))
     nssym))
 
 ;;# How to use...
@@ -385,7 +388,7 @@ Have fun!"
   (require '[funnyqt.tg :as core])
   (def g (core/load-graph "/home/horn/Repos/uni/funtg/test/greqltestgraph.tg"))
   (use 'funnyqt.tg.funrl)
-  (create-graph-relations-ns g 'roadmap)
+  (create-schema-relations-ns g 'roadmap)
   (in-ns 'roadmap)
 
   ;; All Capitals of the County in which the Village Kammerforst is located in.
@@ -492,7 +495,7 @@ Have fun!"
   (require '[funnyqt.query.tg :as query])
   (require '[funnyqt.tg :as core])
   (def g (core/load-graph "/home/horn/Repos/uni/funtg-pub/funql-whitepaper/jgralab.tg.gz"))
-  (create-graph-relations-ns g 'jgralab)
+  (create-schema-relations-ns g 'jgralab)
 
   ;; VSeq vs relation
   (time (dorun (run* [q] (+ClassDefinition q))))
