@@ -7,6 +7,7 @@
   (:use ordered.map)
   (:require clojure.java.shell)
   (:import
+   [org.eclipse.emf.ecore.xmi XMLResource]
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
@@ -54,7 +55,10 @@
   Returns as seq of (usually one) root EPackages.
   All EPackages are registered recursively."
   [f]
-  (let [uri (URI/createFileURI f)
+  (let [f (if (instance? java.io.File f)
+            (.getPath ^java.io.File f)
+            f)
+        uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
     (doto (EcoreModel. res)
       load-and-register)))
@@ -184,8 +188,7 @@
 (deftype EMFModel [^Resource resource]
   EMFModelBasics
   (init-model [this]
-    (.load resource ;(.getDefaultLoadOptions resource)
-           nil))
+    (.load resource (.getDefaultLoadOptions ^XMLResource resource)))
   (add-eobject! [this eo]
     (doto (.getContents resource)
       (.add eo))
@@ -223,7 +226,10 @@
   "Loads an EMF model from the XMI file `f`.
   Returns a seq of the models top-level elements."
   [f]
-  (let [uri (URI/createFileURI f)
+  (let [f (if (instance? java.io.File f)
+            (.getPath ^java.io.File f)
+            f)
+        uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
     (doto (EMFModel. res)
       init-model)))
