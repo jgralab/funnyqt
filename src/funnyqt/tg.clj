@@ -423,6 +423,17 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [e]
   (instance? Edge e))
 
+(defn graph-element?
+  "Returns logical true if `ge` is a GraphElement."
+  [ge]
+  (instance? GraphElement ge))
+
+(defn attributed-element?
+  "Returns logical true if `ae` is an AttributedElement."
+  [ae]
+  (instance? AttributedElement ae))
+
+
 ;;## Containment
 
 (defn contains-vertex?

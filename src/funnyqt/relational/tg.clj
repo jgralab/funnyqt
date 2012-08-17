@@ -255,13 +255,16 @@ Have fun!"
        (fn [a#]
          (let [elem# (walk a# ~elem)]
            (cond
-            (ground? elem#)  (or (unify a# ~val (core/value elem# ~attr))
-                                 (fail a#))
-            :else            (to-stream
-                              (->> (for [e# (~seqf ~'+graph+ '~ts)
-                                         :let [v# (core/value e# ~attr)]]
-                                     (unify a# [~elem ~val] [e# v#]))
-                                   (remove not)))))))))
+            (and (ground? elem#)
+                 (core/attributed-element? elem#))
+            (or (unify a# ~val (core/value elem# ~attr))
+                (fail a#))
+
+            :else (to-stream
+                   (->> (for [e# (~seqf ~'+graph+ '~ts)
+                              :let [v# (core/value e# ~attr)]]
+                          (unify a# [~elem ~val] [e# v#]))
+                        (remove not)))))))))
 
 ;;# Main
 
@@ -307,8 +310,9 @@ Have fun!"
                           galpha# (walk a# alpha#)
                           gomega# (walk a# omega#)]
                       (cond
-                       (ground? ge#) (unify a# [alpha# omega#]
-                                            [(core/alpha ge#) (core/omega ge#)])
+                       (ground? ge#) (or (unify a# [alpha# omega#]
+                                                [(core/alpha ge#) (core/omega ge#)])
+                                         (fail a#))
                        (ground? galpha#) (to-stream
                                           (->> (map #(unify a# [e# omega#] [% (core/omega %)])
                                                     (query/iseq galpha# nil :out))
@@ -332,19 +336,28 @@ Have fun!"
                           gval# (walk a# val#)]
                       (cond
                        (and (ground? gae#)
-                            (ground? gat#)) (or (unify a# [ae# at# val#]
-                                                       [gae# gat# (core/value gae# gat#)]))
-                            (ground? gae#) (to-stream
-                                            (->> (for [^Attribute attr# (seq (.getAttributeList ^AttributedElementClass
-                                                                              (core/attributed-element-class gae#)))
-                                                       :let [an# (keyword (.getName attr#))]]
-                                                   (unify a# [ae# at# val#]
-                                                          [gae# an# (core/value gae# an#)]))
-                                                 (remove not)))
+                            (ground? gat#)
+                            (core/attributed-element? gae#)
+                            (or (keyword? gat#) (string? gat#) (symbol? gat#)))
+                       (or (unify a# [ae# at# val#] [gae# gat# (core/value gae# gat#)])
+                           (fail a#))
+
+                       (and (ground? gae#)
+                            (core/vertex? gae#))
+                       (to-stream
+                        (->> (for [^Attribute attr# (seq (.getAttributeList
+                                                          ^AttributedElementClass
+                                                          (core/attributed-element-class gae#)))
+                                   :let [an# (keyword (.getName attr#))]]
+                               (unify a# [ae# at# val#]
+                                      [gae# an# (core/value gae# an#)]))
+                             (remove not)))
+
                        :else (to-stream
                               (->> (for [elem# (concat (query/vseq ~'+graph+)
                                                        (query/eseq ~'+graph+))
-                                         ^Attribute attr# (seq (.getAttributeList ^AttributedElementClass
+                                         ^Attribute attr# (seq (.getAttributeList
+                                                                ^AttributedElementClass
                                                                 (core/attributed-element-class elem#)))
                                          :let [an# (keyword (.getName attr#))]]
                                      (unify a# [ae# at# val#]
