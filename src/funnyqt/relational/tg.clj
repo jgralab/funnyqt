@@ -218,16 +218,25 @@ Have fun!"
                  al# (walk a# ~al)
                  om# (walk a# ~om)]
              (cond
-              (ground? e#) (unify a# [~al ~om]
-                                  [(core/alpha e#) (core/omega e#)])
-              (ground? al#) (to-stream
-                             (->> (map #(unify a# [~e ~om] [% (core/omega %)])
-                                       (query/iseq al# '~na :out))
-                                  (remove not)))
-              (ground? om#) (to-stream
-                             (->> (map #(unify a# [~e ~al] [% (core/alpha %)])
-                                       (query/iseq om# '~na :in))
-                                  (remove not)))
+              (and (ground? e#)
+                   (core/edge? e#))
+              (unify a# [~al ~om]
+                     [(core/alpha e#) (core/omega e#)])
+
+              (and (ground? al#)
+                   (core/vertex? al#))
+              (to-stream
+               (->> (map #(unify a# [~e ~om] [% (core/omega %)])
+                         (query/iseq al# '~na :out))
+                    (remove not)))
+
+              (and (ground? om#)
+                   (core/vertex? om#))
+              (to-stream
+               (->> (map #(unify a# [~e ~al] [% (core/alpha %)])
+                         (query/iseq om# '~na :in))
+                    (remove not)))
+
               :else (to-stream
                      (->> (for [edge# (query/eseq ~'+graph+ '~na)]
                             (unify a# [~e ~al ~om]
@@ -310,17 +319,26 @@ Have fun!"
                           galpha# (walk a# alpha#)
                           gomega# (walk a# omega#)]
                       (cond
-                       (ground? ge#) (or (unify a# [alpha# omega#]
-                                                [(core/alpha ge#) (core/omega ge#)])
-                                         (fail a#))
-                       (ground? galpha#) (to-stream
-                                          (->> (map #(unify a# [e# omega#] [% (core/omega %)])
-                                                    (query/iseq galpha# nil :out))
-                                               (remove not)))
-                       (ground? gomega#) (to-stream
-                                          (->> (map #(unify a# [e# alpha#] [% (core/alpha %)])
-                                                    (query/iseq gomega# nil :in))
-                                               (remove not)))
+                       (and (ground? ge#)
+                            (core/edge? ge#))
+                       (or (unify a# [alpha# omega#]
+                                  [(core/alpha ge#) (core/omega ge#)])
+                           (fail a#))
+
+                       (and (ground? galpha#)
+                            (core/vertex? galpha#))
+                       (to-stream
+                        (->> (map #(unify a# [e# omega#] [% (core/omega %)])
+                                  (query/iseq galpha# nil :out))
+                             (remove not)))
+
+                       (and (ground? gomega#)
+                            (core/vertex? gomega#))
+                       (to-stream
+                        (->> (map #(unify a# [e# alpha#] [% (core/alpha %)])
+                                  (query/iseq gomega# nil :in))
+                             (remove not)))
+
                        :else (to-stream
                               (->> (for [edge# (query/eseq ~'+graph+)]
                                      (unify a# [e# alpha# omega#]
