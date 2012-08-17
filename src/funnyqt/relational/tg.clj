@@ -196,7 +196,8 @@ Have fun!"
                 (->> (map #(unify a# ~v %)
                           (query/vseq ~'+graph+ '~na))
                      (remove not)))
-               (if (and (core/contains-vertex? ~'+graph+ v#)
+               (if (and (core/vertex? v#)
+                        (core/contains-vertex? ~'+graph+ v#)
                         (genprots/has-type? v# '~na))
                  a#
                  (fail a#)))))))))
@@ -293,7 +294,8 @@ Have fun!"
                          (->> (map #(unify a# v# %)
                                    (query/vseq ~'+graph+))
                               (remove not)))
-                        (if (core/contains-vertex? ~'+graph+ gv#)
+                        (if (and (core/vertex? v#)
+                                 (core/contains-vertex? ~'+graph+ gv#))
                           a#
                           (fail a#))))))
 
@@ -352,13 +354,14 @@ Have fun!"
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ~@(doall
-                   (mapcat (fn [^VertexClass vc]
-                             (doseq [a (map #(keyword (.getName ^Attribute %))
-                                            (seq (.getOwnAttributeList vc)))]
-                               (swap! atts
-                                      #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
-                                      a))
-                             `(~@(create-vc-relations vc)))
+                   (mapcat
+                    (fn [^VertexClass vc]
+                      (doseq [a (map #(keyword (.getName ^Attribute %))
+                                     (seq (.getOwnAttributeList vc)))]
+                        (swap! atts
+                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
+                               a))
+                      `(~@(create-vc-relations vc)))
                            (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
                 ~@(doall
                    (mapcat (fn [^EdgeClass ec]
