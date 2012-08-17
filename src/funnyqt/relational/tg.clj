@@ -220,8 +220,8 @@ Have fun!"
              (cond
               (and (ground? e#)
                    (core/edge? e#))
-              (unify a# [~al ~om]
-                     [(core/alpha e#) (core/omega e#)])
+              (or (unify a# [~al ~om] [(core/alpha e#) (core/omega e#)])
+                  (fail a#))
 
               (and (ground? al#)
                    (core/vertex? al#))
@@ -321,8 +321,7 @@ Have fun!"
                       (cond
                        (and (ground? ge#)
                             (core/edge? ge#))
-                       (or (unify a# [alpha# omega#]
-                                  [(core/alpha ge#) (core/omega ge#)])
+                       (or (unify a# [alpha# omega#] [(core/alpha ge#) (core/omega ge#)])
                            (fail a#))
 
                        (and (ground? galpha#)
@@ -367,8 +366,7 @@ Have fun!"
                                                           ^AttributedElementClass
                                                           (core/attributed-element-class gae#)))
                                    :let [an# (keyword (.getName attr#))]]
-                               (unify a# [ae# at# val#]
-                                      [gae# an# (core/value gae# an#)]))
+                               (unify a# [ae# at# val#] [gae# an# (core/value gae# an#)]))
                              (remove not)))
 
                        :else (to-stream
@@ -378,8 +376,7 @@ Have fun!"
                                                                 ^AttributedElementClass
                                                                 (core/attributed-element-class elem#)))
                                          :let [an# (keyword (.getName attr#))]]
-                                     (unify a# [ae# at# val#]
-                                            [elem# an# (core/value elem# an#)]))
+                                     (unify a# [ae# at# val#] [elem# an# (core/value elem# an#)]))
                                    (remove not)))))))
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
@@ -395,13 +392,14 @@ Have fun!"
                       `(~@(create-vc-relations vc)))
                            (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
                 ~@(doall
-                   (mapcat (fn [^EdgeClass ec]
-                             (doseq [a (map #(keyword (.getName ^Attribute %))
-                                            (seq (.getOwnAttributeList ec)))]
-                               (swap! atts
-                                      #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
-                                      a))
-                             `(~@(create-ec-relations ec)))
+                   (mapcat
+                    (fn [^EdgeClass ec]
+                      (doseq [a (map #(keyword (.getName ^Attribute %))
+                                     (seq (.getOwnAttributeList ec)))]
+                        (swap! atts
+                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
+                               a))
+                      `(~@(create-ec-relations ec)))
                            (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
                 ;;~(clojure.pprint/pprint @atts)
                 ~@(doall
