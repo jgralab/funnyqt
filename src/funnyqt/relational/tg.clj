@@ -251,9 +251,10 @@ Have fun!"
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq
-                :else `(fn [graph# ts#] (apply concat ((juxt funnyqt.query.tg/vseq
-                                                            funnyqt.query.tg/eseq)
-                                                      graph# ts#))))
+                :else `(fn [graph# ts#]
+                         (apply concat ((juxt funnyqt.query.tg/vseq
+                                              funnyqt.query.tg/eseq)
+                                        graph# ts#))))
         elem   (gensym "elem")
         val    (gensym "val")]
     `(defn ~(symbol (str "+" (name attr)))
@@ -306,7 +307,7 @@ Have fun!"
                          (->> (map #(unify a# v# %)
                                    (query/vseq ~'+graph+))
                               (remove not)))
-                        (if (and (core/vertex? v#)
+                        (if (and (core/vertex? gv#)
                                  (core/contains-vertex? ~'+graph+ gv#))
                           a#
                           (fail a#))))))
@@ -390,7 +391,7 @@ Have fun!"
                                #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
                                a))
                       `(~@(create-vc-relations vc)))
-                           (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
+                    (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
                 ~@(doall
                    (mapcat
                     (fn [^EdgeClass ec]
@@ -400,7 +401,7 @@ Have fun!"
                                #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
                                a))
                       `(~@(create-ec-relations ec)))
-                           (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
+                    (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
                 ;;~(clojure.pprint/pprint @atts)
                 ~@(doall
                    (for [^Attribute a @atts]

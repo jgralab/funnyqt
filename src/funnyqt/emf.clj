@@ -155,6 +155,13 @@
 
 ;;# Model
 
+;;# Simple type predicates
+
+(defn eobject?
+  "Returns true if eo is an EObject."
+  [eo]
+  (instance? EObject eo))
+
 ;;## Qualified Names
 
 (extend-protocol QualifiedName
