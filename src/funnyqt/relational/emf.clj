@@ -108,7 +108,7 @@
 (defn create-epackage-relations-ns
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
   EClasses in EPackage `epkg` (and subpackages)."
-  [epkg nssym]
+  [^EPackage epkg nssym]
   (let [atts (atom {}) ;; map from attribute names to set of eclasses that have it
         refs (atom {}) ;; map from reference names to set of eclasses that have it
         old-ns *ns*

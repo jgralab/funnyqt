@@ -282,7 +282,7 @@ Have fun!"
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
   schema of `schema-or-graph`."
   [schema-or-graph nssym]
-  (let [s ^Schema (if (core/graph? schema-or-graph)
+  (let [^Schema s (if (core/graph? schema-or-graph)
                     (core/schema schema-or-graph)
                     schema-or-graph)
         atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
