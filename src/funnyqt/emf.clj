@@ -91,8 +91,8 @@
            tops (seq (filter
                       (fn [^EPackage p]
                         (= (.getName p) f))
-                      (mapcat #(epackages (.getEPackage epackage-registry %))
-                              (or *ns-uris* (keys epackage-registry)))))]
+                      (map #(.getEPackage epackage-registry %)
+                           (or *ns-uris* (keys epackage-registry)))))]
        (when-not tops
          (errorf "No such root package %s." f))
        (when (nnext tops)

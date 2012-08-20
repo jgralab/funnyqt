@@ -91,6 +91,13 @@
   [& body]
   `(swap! *deferred-actions* conj (fn [] ~@body)))
 
+(defn apply-deferred
+  "Applies all deferred actions right now."
+  []
+  (doseq [da @*deferred-actions*]
+    (da))
+  (swap! *deferred-actions* constantly nil))
+
 ;;# Resolving
 
 (defn resolve-in
