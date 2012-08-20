@@ -76,11 +76,11 @@
   "The lazy seq (pkg subpkg...).
   If no package is given, the lazy seq of all registered packages is returned."
   ([]
-     (mapcat #(epackages (.getEPackage epackage-registry %))
-             (or *ns-uris* (keys epackage-registry))))
+     (let [tops (map #(.getEPackage epackage-registry %)
+                     (or *ns-uris* (keys epackage-registry)))]
+       (concat tops (mapcat epackages tops))))
   ([^EPackage pkg]
-     (when pkg
-       (cons pkg (map epackages (.getESubpackages pkg))))))
+     (mapcat epackages (.getESubpackages pkg))))
 
 (defn epackage
   "Returns the EPackage with the given qualified name."
@@ -174,7 +174,7 @@
   (qname [this]
     (loop [p (.getESuperPackage this), n (.getName this)]
       (if p
-        (recur (.getESuperPackage p) (str (.getName this) "." n))
+        (recur (.getESuperPackage p) (str (.getName p) "." n))
         (symbol n))))
 
   EObject
