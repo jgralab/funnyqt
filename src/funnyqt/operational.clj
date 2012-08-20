@@ -96,7 +96,7 @@
   []
   (doseq [da @*deferred-actions*]
     (da))
-  (swap! *deferred-actions* constantly nil))
+  (swap! *deferred-actions* (constantly nil)))
 
 ;;# Resolving
 
