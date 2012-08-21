@@ -1,7 +1,8 @@
 (ns funnyqt.relational
   "Generic relations"
   (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic]))
+  (:use clojure.core.logic
+        funnyqt.relational.util))
 
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
