@@ -31,14 +31,12 @@
       ;; Empty URI or already registered -> skip it
       (when (and (seq uri)
                  (nil? (.get epackage-registry uri)))
-        (.put epackage-registry (.getNsURI p) p)))
-    (let [subs (.getESubpackages p)]
-      (when (seq subs)
-        (register-epackages subs)))))
+        (.put epackage-registry (.getNsURI p) p)))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."
   (load-and-register [this])
+  (metamodel-epackages [this])
   ;; TODO: Implement me.
   (save [this file]))
 
@@ -48,7 +46,9 @@
     (.load resource  ;(.getDefaultLoadOptions resource)
            nil)
     (doto (seq (.getContents resource))
-      register-epackages)))
+      register-epackages))
+  (metamodel-epackages [this]
+    (seq (.getContents resource))))
 
 (defn load-metamodel
   "Loads the Ecore metamodel from the ecore file `f`.
@@ -66,8 +66,8 @@
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
   "Restricts the EClassifier lookup in the dynamic scope of `body` to those
-  contained in EPackages registered with the given URIs at the EPackage
-  registry."
+  contained in top-level EPackages registered with the given URIs at the
+  EPackage registry and subpackages thereof."
   [uris & body]
   `(binding [*ns-uris* ~uris]
      ~@body))
@@ -80,7 +80,8 @@
                      (or *ns-uris* (keys epackage-registry)))]
        (concat tops (mapcat epackages tops))))
   ([^EPackage pkg]
-     (mapcat epackages (.getESubpackages pkg))))
+     (let [subs (.getESubpackages pkg)]
+       (concat subs (mapcat epackages subs)))))
 
 (defn epackage
   "Returns the EPackage with the given qualified name."

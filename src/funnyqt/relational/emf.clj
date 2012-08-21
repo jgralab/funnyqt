@@ -105,10 +105,10 @@
 
 ;;# Main
 
-(defn create-epackage-relations-ns
+(defn create-ecore-metamodel-relations-ns
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
-  EClasses in EPackage `epkg` (and subpackages)."
-  [^EPackage epkg nssym]
+  EClasses in the EPackages of EcoreModel `ecore-model`."
+  [ecore-model nssym]
   (let [atts (atom {}) ;; map from attribute names to set of eclasses that have it
         refs (atom {}) ;; map from reference names to set of eclasses that have it
         old-ns *ns*
@@ -173,6 +173,7 @@
                 ~@(doall
                    (mapcat
                     (fn [^EClass ecl]
+                      (println ecl)
                       (doseq [a (map #(keyword (.getName ^EAttribute %))
                                      (seq (.getEAttributes ecl)))]
                         (swap! atts
@@ -184,7 +185,8 @@
                                #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
                                r))
                       `(~@(create-eclass-relations ecl)))
-                    (core/with-ns-uris [(.getNsURI epkg)]
+                    (core/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                             (core/metamodel-epackages ecore-model))
                       (core/eclassifiers))))
                 ;;~(clojure.pprint/pprint @atts)
                 ~@(doall
