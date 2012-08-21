@@ -1,12 +1,12 @@
 (ns funnyqt.relational.emf
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:use [funnyqt.relational])
+  (:use [funnyqt.relational.util])
   (:require [funnyqt.emf :as core])
   (:require [funnyqt.protocols :as genprots])
   (:import
-   (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject EClass
-                          EPackage)))
+   (org.eclipse.emf.ecore
+    EStructuralFeature EAttribute EReference EObject EClass EPackage)))
 
 ;;# Utilities
 

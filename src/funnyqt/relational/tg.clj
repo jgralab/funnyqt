@@ -155,11 +155,10 @@ We can pose our question now using this new relation and get the same answer.
 Have fun!"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:use [funnyqt.relational])
+  (:use [funnyqt.relational.util])
   (:require [funnyqt.tg :as core])
   (:require [funnyqt.protocols :as genprots])
   (:require [funnyqt.query.tg :as query])
-  ;; (:require [funnyqt.query.tg :as q])
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain

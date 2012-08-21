@@ -1,11 +1,7 @@
 (ns funnyqt.relational
   "Generic relations"
   (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic])
-  (:use [funnyqt.utils :only [error]])
-  (:require [funnyqt.tg :as core])
-  (:require [funnyqt.query.tg :as funql])
-  (:import (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)))
+  (:use [clojure.core.logic]))
 
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
@@ -20,18 +16,6 @@
         qsyms (vec (distinct (filter qmark-symbol? (flatten fs))))]
     `(fresh ~qsyms
        ~@fs)))
-
-(defn fresh?
-  "Returns true, if `x` is fresh.
-  `x` must have been `walk`ed before!"
-  [x]
-  (lvar? x))
-
-(defn ground?
-  "Returns true, if `x` is ground.
-  `x` must have been `walk`ed before!"
-  [x]
-  (not (lvar? x)))
 
 (defn echo
   "If `s` is ground, prints its value.  Else prints the lvar.
