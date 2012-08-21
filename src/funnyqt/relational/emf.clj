@@ -45,7 +45,8 @@
                  a#
                  (fail a#)))))))))
 
-(defn- eget-as-seq
+(defn eget-as-seq
+  "Only for internal use."
   [^EObject eo ^EStructuralFeature sf]
   (if (.isMany sf)
     (core/eget eo sf)
@@ -119,6 +120,11 @@
                   (:use [funnyqt.relational]))
                 ;; The model of this namespace, to be set later on.
                 (def ~'+model+ nil)
+                ;; A setter for it
+                (defn ~'set-model [m#]
+                  (alter-var-root (ns-resolve *ns* ~'+model+)
+                                  (constantly m#)))
+
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Generic relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -167,35 +173,35 @@
                                          :let [an# (keyword (.getName attr#))]]
                                      (unify a# [ae# at# val#] [elem# an# (core/eget elem# an#)]))
                                    (remove not)))))))
+
+                ;; TODO: implement referenceo
+
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                ~@(doall
-                   (mapcat
-                    (fn [^EClass ecl]
-                      (println ecl)
-                      (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                     (seq (.getEAttributes ecl)))]
-                        (swap! atts
-                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
-                               a))
-                      (doseq [r (map #(keyword (.getName ^EReference %))
-                                     (seq (.getEReferences ecl)))]
-                        (swap! refs
-                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
-                               r))
-                      `(~@(create-eclass-relations ecl)))
-                    (core/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                             (core/metamodel-epackages ecore-model))
-                      (core/eclassifiers))))
-                ;;~(clojure.pprint/pprint @atts)
-                ~@(doall
-                   (for [^EAttribute a @atts]
-                     `(~@(create-eattribute-relation a))))
-                ~@(doall
-                   (for [^EReference r @refs]
-                     `(~@(create-ereference-relation r)))))]
-    ;; (clojure.pprint/pprint code)
+                ~@(core/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                           (core/metamodel-epackages ecore-model))
+                    (doall
+                     (concat
+                      (mapcat
+                       (fn [^EClass ecl]
+                         (doseq [a (map #(keyword (.getName ^EAttribute %))
+                                        (seq (.getEAttributes ecl)))]
+                           (swap! atts
+                                  #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
+                                  a))
+                         (doseq [r (map #(keyword (.getName ^EReference %))
+                                        (seq (.getEReferences ecl)))]
+                           (swap! refs
+                                  #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
+                                  r))
+                         (create-eclass-relations ecl))
+                       (core/eclassifiers))
+                      (for [^EAttribute a @atts]
+                        (create-eattribute-relation a))
+                      (for [^EReference r @refs]
+                        (create-ereference-relation r))))))]
+    ;;(clojure.pprint/pprint code)
     (eval code)
     (in-ns (ns-name old-ns))
     nssym))

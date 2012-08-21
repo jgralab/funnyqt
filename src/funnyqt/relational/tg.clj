@@ -294,6 +294,10 @@ Have fun!"
                   (:use [funnyqt.relational]))
                 ;; The graph of this namespace, to be set later on.
                 (def ~'+graph+ nil)
+                (defn ~'set-model [m#]
+                  (alter-var-root (ns-resolve *ns* ~'+graph+)
+                                  (constantly m#)))
+
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Generic relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;
