@@ -31,7 +31,10 @@
       ;; Empty URI or already registered -> skip it
       (when (and (seq uri)
                  (nil? (.get epackage-registry uri)))
-        (.put epackage-registry (.getNsURI p) p)))))
+        (.put epackage-registry (.getNsURI p) p)))
+    (let [subs (.getESubpackages p)]
+      (when (seq subs)
+        (register-epackages subs)))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."
@@ -76,12 +79,8 @@
   "The lazy seq (pkg subpkg...).
   If no package is given, the lazy seq of all registered packages is returned."
   ([]
-     (let [tops (map #(.getEPackage epackage-registry %)
-                     (or *ns-uris* (keys epackage-registry)))]
-       (concat tops (mapcat epackages tops))))
-  ([^EPackage pkg]
-     (let [subs (.getESubpackages pkg)]
-       (concat subs (mapcat epackages subs)))))
+     (map #(.getEPackage epackage-registry %)
+          (or *ns-uris* (keys epackage-registry)))))
 
 (defn epackage
   "Returns the EPackage with the given qualified name."
