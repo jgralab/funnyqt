@@ -43,6 +43,16 @@
   ;; TODO: Implement me.
   (save [this file]))
 
+(defn- epks-and-subpgks
+  ([pkgs]
+     (epks-and-subpgks pkgs []))
+  ([pkgs rv]
+     (if (seq pkgs)
+       (recur (mapcat (fn [^EPackage p] (seq (.getESubpackages p)))
+                      pkgs)
+              (into rv pkgs))
+       rv)))
+
 (deftype EcoreModel [^Resource resource]
   EcoreModelBasics
   (load-and-register [this]
@@ -51,7 +61,7 @@
     (doto (seq (.getContents resource))
       register-epackages))
   (metamodel-epackages [this]
-    (seq (.getContents resource))))
+    (epks-and-subpgks (seq (.getContents resource)))))
 
 (defn load-metamodel
   "Loads the Ecore metamodel from the ecore file `f`.
@@ -558,6 +568,8 @@
   Number
   (emf2clj [this] this)
   String
+  (emf2clj [this] this)
+  Boolean
   (emf2clj [this] this)
   nil
   (emf2clj [_] nil))
