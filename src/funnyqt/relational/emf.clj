@@ -46,11 +46,13 @@
                  (fail a#)))))))))
 
 (defn eget-as-seq
-  "Only for internal use."
-  [^EObject eo ^EStructuralFeature sf]
-  (if (.isMany sf)
-    (core/eget eo sf)
-    (list (core/eget eo sf))))
+  "Only for internal use.  eref is a keyword naming the reference."
+  [^EObject eo eref]
+  (let [^EClass ecl (.eClass eo)
+        ^EStructuralFeature sf (.getEStructuralFeature ecl (name eref))]
+    (if (.isMany sf)
+      (core/eget eo sf)
+      (list (core/eget eo sf)))))
 
 (defn- create-ereference-relation
   "Creates relations for the given EReference."
@@ -122,8 +124,7 @@
                 (def ~'+model+ nil)
                 ;; A setter for it
                 (defn ~'set-model [m#]
-                  (alter-var-root (ns-resolve *ns* ~'+model+)
-                                  (constantly m#)))
+                  (alter-var-root (var ~'+model+) (constantly m#)))
 
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Generic relations ;;
@@ -143,64 +144,98 @@
                           (fail a#))))))
 
                 (defn ~'valueo
-                  "A relation where `ae` has value `val` for its `at` attribute."
-                  [ae# at# val#]
+                  "A relation where `eo` has value `val` for its `at` attribute."
+                  [eo# at# val#]
                   (fn [a#]
-                    (let [gae#  (walk a# ae#)
+                    (let [geo#  (walk a# eo#)
                           gat#  (walk a# at#)
                           gval# (walk a# val#)]
                       (cond
-                       (and (ground? gae#)
+                       (and (ground? geo#)
                             (ground? gat#)
-                            (core/eobject? gae#)
+                            (core/eobject? geo#)
                             (or (keyword? gat#) (string? gat#) (symbol? gat#)))
-                       (or (unify a# [ae# at# val#] [gae# gat# (core/eget gae# gat#)])
+                       (or (unify a# [eo# at# val#] [geo# gat# (core/eget geo# gat#)])
                            (fail a#))
 
-                       (and (ground? gae#)
-                            (core/eobject? gae#))
+                       (and (ground? geo#)
+                            (core/eobject? geo#))
                        (to-stream
                         (->> (for [^EAttribute attr# (seq (.getEAllAttributes
-                                                          ^EClass (.eClass gae#)))
+                                                           ^EClass (.eClass ^EObject geo#)))
                                    :let [an# (keyword (.getName attr#))]]
-                               (unify a# [ae# at# val#] [gae# an# (core/eget gae# an#)]))
+                               (unify a# [eo# at# val#] [geo# an# (core/eget geo# an#)]))
                              (remove not)))
 
                        :else (to-stream
-                              (->> (for [elem# (core/eallobjects ~'+model+)
+                              (->> (for [^EObject elem# (core/eallobjects ~'+model+)
                                          ^EAttribute attr# (seq (.getEAllAttributes
                                                                  ^EClass (.eClass elem#)))
                                          :let [an# (keyword (.getName attr#))]]
-                                     (unify a# [ae# at# val#] [elem# an# (core/eget elem# an#)]))
+                                     (unify a# [eo# at# val#] [elem# an# (core/eget elem# an#)]))
                                    (remove not)))))))
 
-                ;; TODO: implement referenceo
+                (defn ~'referenceo
+                  "A relation where `eo` references `reo` with its `at` reference."
+                  [eo# ref# reo#]
+                  (fn [a#]
+                    (let [geo#  (walk a# eo#)
+                          gref# (walk a# ref#)
+                          greo# (walk a# reo#)]
+                      (cond
+                       (and (ground? geo#)
+                            (ground? gref#)
+                            (core/eobject? geo#)
+                            (or (keyword? gref#) (string? gref#) (symbol? gref#)))
+                       (to-stream
+                        (->> (for [refed# (eget-as-seq geo# gref#)]
+                               (unify a# [eo# ref# reo#] [geo# gref# refed#]))
+                             (remove not)))
+
+                       (and (ground? geo#)
+                            (core/eobject? geo#))
+                       (to-stream
+                        (->> (for [^EReference reference# (seq (.getEAllReferences
+                                                                ^EClass (.eClass ^EObject geo#)))
+                                   :let [rn# (keyword (.getName reference#))]
+                                   refed# (eget-as-seq geo# rn#)]
+                               (unify a# [eo# ref# reo#] [geo# rn# refed#]))
+                             (remove not)))
+
+                       :else (to-stream
+                              (->> (for [^EObject elem# (core/eallobjects ~'+model+)
+                                         ^EReference reference# (seq (.getEAllReferences
+                                                                      ^EClass (.eClass elem#)))
+                                         :let [rn# (keyword (.getName reference#))]
+                                         refed# (eget-as-seq elem# rn#)]
+                                     (unify a# [eo# ref# reo#] [elem# rn# refed#]))
+                                   (remove not)))))))
 
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ~@(core/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                            (core/metamodel-epackages ecore-model))
-                    (doall
-                     (concat
+                    (concat
+                     (doall
                       (mapcat
                        (fn [^EClass ecl]
                          (doseq [a (map #(keyword (.getName ^EAttribute %))
                                         (seq (.getEAttributes ecl)))]
                            (swap! atts
-                                  #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
+                                  #(update-in %1 [%2] conj ecl)
                                   a))
                          (doseq [r (map #(keyword (.getName ^EReference %))
                                         (seq (.getEReferences ecl)))]
                            (swap! refs
-                                  #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ecl}))
+                                  #(update-in %1 [%2] conj ecl)
                                   r))
                          (create-eclass-relations ecl))
-                       (core/eclassifiers))
-                      (for [^EAttribute a @atts]
-                        (create-eattribute-relation a))
-                      (for [^EReference r @refs]
-                        (create-ereference-relation r))))))]
+                       (core/eclassifiers)))
+                     (for [^EAttribute a @atts]
+                       (create-eattribute-relation a))
+                     (for [^EReference r @refs]
+                       (create-ereference-relation r)))))]
     ;;(clojure.pprint/pprint code)
     (eval code)
     (in-ns (ns-name old-ns))

@@ -295,8 +295,7 @@ Have fun!"
                 ;; The graph of this namespace, to be set later on.
                 (def ~'+graph+ nil)
                 (defn ~'set-model [m#]
-                  (alter-var-root (ns-resolve *ns* ~'+graph+)
-                                  (constantly m#)))
+                  (alter-var-root (var ~'+graph+) (constantly m#)))
 
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Generic relations ;;
@@ -386,30 +385,29 @@ Have fun!"
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                ~@(doall
-                   (mapcat
-                    (fn [^VertexClass vc]
-                      (doseq [a (map #(keyword (.getName ^Attribute %))
-                                     (seq (.getOwnAttributeList vc)))]
-                        (swap! atts
-                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{vc}))
-                               a))
-                      `(~@(create-vc-relations vc)))
-                    (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
-                ~@(doall
-                   (mapcat
-                    (fn [^EdgeClass ec]
-                      (doseq [a (map #(keyword (.getName ^Attribute %))
-                                     (seq (.getOwnAttributeList ec)))]
-                        (swap! atts
-                               #(assoc %1 %2 (clojure.set/union (get %1 %2) #{ec}))
-                               a))
-                      `(~@(create-ec-relations ec)))
-                    (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
-                ;;~(clojure.pprint/pprint @atts)
-                ~@(doall
+                ~@(concat
+                   (doall
+                    (mapcat
+                     (fn [^VertexClass vc]
+                       (doseq [a (map #(keyword (.getName ^Attribute %))
+                                      (seq (.getOwnAttributeList vc)))]
+                         (swap! atts
+                                #(update-in %1 [%2] conj vc)
+                                a))
+                       (create-vc-relations vc))
+                     (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
+                   (doall
+                    (mapcat
+                     (fn [^EdgeClass ec]
+                       (doseq [a (map #(keyword (.getName ^Attribute %))
+                                      (seq (.getOwnAttributeList ec)))]
+                         (swap! atts
+                                #(update-in %1 [%2] conj ec)
+                                a))
+                       (create-ec-relations ec))
+                     (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
                    (for [^Attribute a @atts]
-                     `(~@(create-attr-relation a)))))]
+                     (create-attr-relation a))))]
     ;; (clojure.pprint/pprint code)
     (eval code)
     (in-ns (ns-name old-ns))
