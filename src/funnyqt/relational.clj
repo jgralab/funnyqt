@@ -66,3 +66,41 @@
       [succeed
        (conde ~@clauses)])))
 
+(defn- str-splits [s]
+  (loop [idx 0, r []]
+    (if (<= idx (count s))
+      (recur (inc idx)
+             (conj r [(subs s 0 idx) (subs s idx)]))
+      r)))
+
+(defn stro
+  [x y xy]
+  (fn [a]
+    (let [wx  (walk a x)
+          wy  (walk a y)
+          wxy (walk a xy)]
+      (cond
+       (and (ground? wx) (ground? wy) (ground? wxy))
+       (if (= (str wx wy) wxy) (succeed a) (fail a))
+
+       (and (ground? wx) (ground? wy))
+       (or (unify a [x y xy] [wx wy (str wx wy)])
+           (fail a))
+
+       (and (ground? wx) (ground? wxy) (.startsWith wxy wx))
+       (or (unify a [x y xy] [wx (subs wxy (count wx)) wxy])
+           (fail a))
+
+       (and (ground? wy) (ground? wxy) (.endsWith wxy wy))
+       (or (unify a [x y xy] [(subs wxy 0 (count wy)) wy wxy])
+           (fail a))
+
+       (ground? wxy)
+       (to-stream
+        (->> (map (fn [[s1 s2]]
+                    (unify a [x y xy] [s1 s2 wxy]))
+                  (str-splits wxy))
+             (remove not)))
+
+       ;; TODO: we should not fail here...
+       :else (fail a)))))
