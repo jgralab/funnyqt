@@ -14,7 +14,7 @@
        ~@goals)))
 
 (defmacro run-on-model
-  "Like `clojure.core.logic/run*` but bind *model* to `model` beforehand."
+  "Like `clojure.core.logic/run` but bind *model* to `model` beforehand."
   [model n [q] & goals]
   `(binding [*model* ~model]
      (run ~n [~q]
