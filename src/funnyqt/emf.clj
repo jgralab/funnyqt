@@ -27,7 +27,7 @@
   (doseq [^EPackage p pkgs]
     (when-let [uri (.getNsURI p)]
       (when (and (seq uri)
-                 (not (.getEPackage EPackage$Registry/INSTANCE uri)))
+                 (not (.containsKey EPackage$Registry/INSTANCE uri)))
         (.put EPackage$Registry/INSTANCE uri p)))))
 
 (defprotocol EcoreModelBasics
