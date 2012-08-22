@@ -1,12 +1,14 @@
 (ns funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
   (:use funnyqt.protocols)
+  (:use funnyqt.emf-protocols)
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use ordered.set)
   (:use ordered.map)
   (:require clojure.java.shell)
   (:import
+   [funnyqt.emf_protocols EMFModel]
    [org.eclipse.emf.ecore.xmi XMLResource]
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
@@ -20,67 +22,21 @@
 
 ;;# Metamodel
 
-(defmacro with-system-class-loader [& body]
-  `(let [^Thread curt# (Thread/currentThread)
-         curcl# (.getContextClassLoader curt#)
-         syscl# (ClassLoader/getSystemClassLoader)]
-     (if (= curcl# syscl#)
-       ~@body
-       (do
-         (.setContextClassLoader curt# syscl#)
-         (try
-           ~@body
-           (finally (.setContextClassLoader curt# curcl#)))))))
-
-(defn- register-epackages
-  "Registeres the given packages at the EPackage$Registry by their nsURI.
-  Skips packages that are already registered."
-  [pkgs]
-  (with-system-class-loader
-    (doseq [^EPackage p pkgs]
-      (when-let [uri (.getNsURI p)]
-        (when (and (seq uri)
-                   (not (.containsKey EPackage$Registry/INSTANCE uri)))
-          (.put EPackage$Registry/INSTANCE uri p))))))
-
-(defprotocol EcoreModelBasics
-  "A protocol for basid EcoreModel operations."
-  (load-and-register [this])
-  (metamodel-epackages [this])
-  ;; TODO: Implement me.
-  (save [this file]))
-
-(defn- epks-and-subpgks
-  ([pkgs]
-     (epks-and-subpgks pkgs []))
-  ([pkgs rv]
-     (if (seq pkgs)
-       (recur (mapcat (fn [^EPackage p] (seq (.getESubpackages p)))
-                      pkgs)
-              (into rv pkgs))
-       rv)))
-
-(deftype EcoreModel [^Resource resource]
-  EcoreModelBasics
-  (load-and-register [this]
-    (.load resource  ;(.getDefaultLoadOptions resource)
-           nil)
-    (register-epackages (metamodel-epackages this)))
-  (metamodel-epackages [this]
-    (epks-and-subpgks (seq (.getContents resource)))))
-
 (defn load-metamodel
-  "Loads the Ecore metamodel from the ecore file `f`.
-  Returns as seq of (usually one) root EPackages.
-  All EPackages are registered recursively."
+  "Loads the EcoreModel from the ecore file `f`.
+  All EPackages are registered."
   [f]
   (let [f (if (instance? java.io.File f)
             (.getPath ^java.io.File f)
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (EcoreModel. res)
-      load-and-register)))
+    (doto (->EcoreModel res)
+      load-and-register-internal)))
+
+(def save-metamodel save-metamodel-internal)
+
+(def metamodel-epackages metamodel-epackages-internal)
 
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
@@ -155,6 +111,11 @@
 
 ;;# Model
 
+(def add-eobject! add-eobject!-internal)
+(def add-eobjects! add-eobjects!-internal)
+(def clone-model clone-model-internal)
+(def save-model save-model-internal)
+
 ;;# Simple type predicates
 
 (defn eobject?
@@ -181,53 +142,12 @@
   (qname [o]
     (qname (.eClass o))))
 
-;;## EMF Model def
-
-(defprotocol EMFModelBasics
-  "A protocol for basid EMFModel operations."
-  (init-model [this])
-  ;; TODO: Maybe varags are supported in newer clojure versions?
-  (add-eobject! [this eo])
-  (add-eobjects! [this eos])
-  (clone-model [this])
-  (save-model [this] [this file]))
-
-(deftype EMFModel [^Resource resource]
-  EMFModelBasics
-  (init-model [this]
-    (.load resource (.getDefaultLoadOptions ^XMLResource resource)))
-  (add-eobject! [this eo]
-    (doto (.getContents resource)
-      (.add eo))
-    eo)
-  (add-eobjects! [this eos]
-    (doto (.getContents resource)
-      (.addAll eos))
-    eos)
-  (clone-model [this]
-    (let [nres (ResourceImpl.)
-          nconts (.getContents nres)]
-      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
-        (.add nconts o))
-      (EMFModel. nres)))
-  (save-model [this]
-    (if (.getURI resource)
-      (.save resource nil)
-      (error (str "You tried to save a non-file-Resource!\n"
-                  "Use (save-model m \"foo.xmi\") instead."))))
-  (save-model [this file]
-    (let [uri (URI/createFileURI file)
-          nres (XMIResourceImpl. uri)
-          nconts (.getContents nres)]
-      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
-        (.add nconts o))
-      (println "Saving model to" (.toFileString uri))
-      (.save nres nil))))
+;;## EMF Model
 
 (defn new-model
   "Creates and returns a new, empty EMFModel."
   []
-  (EMFModel. (ResourceImpl.)))
+  (->EMFModel (ResourceImpl.)))
 
 (defn load-model
   "Loads an EMF model from the XMI file `f`.
@@ -238,8 +158,8 @@
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (EMFModel. res)
-      init-model)))
+    (doto (->EMFModel res)
+      init-model-internal)))
 
 ;;## Traversal stuff
 
@@ -290,26 +210,13 @@
   (has-type? [obj spec]
     ((eclass-matcher spec) obj)))
 
-(defprotocol EContents
-  (eallcontents-internal [this tm]
-    "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the eclass-matcher `tm`.")
-  (econtents-internal [this tm]
-    "Returns a seq of all directly contained EObjects whose type matches the
-  eclass-matcher `tm`.")
-  (econtainer [this]
-    "Returns the EObject containing this.")
-  (eallobjects [this] [this ts]
-    "Returns a seq of all objects matching the type specification `ts` (see
-  `eclass-matcher`) that are contained in this EMFModel."))
-
 (extend-protocol EContents
   EObject
   (econtents-internal [this tm]
     (filter tm (seq (.eContents this))))
   (eallcontents-internal [this tm]
     (filter tm (iterator-seq (.eAllContents this))))
-  (econtainer [this]
+  (econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
@@ -317,11 +224,8 @@
     (filter tm (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this tm]
     (filter tm (iterator-seq (.getAllContents ^Resource (.resource this)))))
-  (eallobjects
-    ([this]
-       (eallcontents-internal this identity))
-    ([this ts]
-       (eallcontents-internal this (eclass-matcher ts))))
+  (eallobjects-internal [this ts]
+    (eallcontents-internal this (eclass-matcher ts)))
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
@@ -343,6 +247,13 @@
      (econtents-internal x identity))
   ([x ts]
      (econtents-internal x (eclass-matcher ts))))
+
+(defn eallobjects
+  "Returns a seq of all objects in `m` that match the type spec `ts`."
+  ([m] (eallobjects-internal m identity))
+  ([m ts] (eallobjects-internal m (eclass-matcher ts))))
+
+(def econtainer econtainer-internal)
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
@@ -369,31 +280,6 @@
                       ;; Empty collection given: (), [], that's also ok
                       identity)
    :else (errorf "Don't know how to create a reference matcher for %s" rs)))
-
-(defprotocol EReferences
-  (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
-    "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
-  May be restricted by reference matchers and eclass matchers on source and
-  target.  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
-  `econtents-internal`.")
-  (ecrossrefs-internal [this rm]
-    "Returns a seq of cross-referenced EObjects accepted by reference-matcher
-  `rm`.  Cross-referenced objects are those that are referenced by a
-  non-containment relationship.")
-  (erefs-internal [this rm]
-    "Returns a seq of referenced EObjects accepted by reference-matcher `rm`.
-  In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (inv-ecrossrefs-internal [this rm container]
-    "Returns a seq of EObjects that cross-reference `this` with a ref matching
-  `rm`.  Cross-referenced objects are those that are referenced by a
-  non-containment relationship.  If `container` is nil, check only opposites of
-  this object's ref, else do a search over the contents of `container`, which
-  may be an EMFModel or a collection of EObjects.")
-  (inv-erefs-internal [this rm container]
-    "Returns a seq of EObjects that reference `this` with a ref matching `rm`.
-  If `container` is nil, check only opposites of this object's ref, else do a
-  search over the contents of `container`, which may be an EMFModel or a
-  collection of EObjects."))
 
 (defn- eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
@@ -534,35 +420,25 @@
   ([eo rs container]
      (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
-(defprotocol EmfToClj
-  (emf2clj [this]
-    "Converts an EMF thingy to a clojure thingy.
-
-  EMF Type     | Clojure Type
-  -------------+-------------
-  UniqueEList  | ordered-set
-  EMap         | ordered-map
-  EList        | vector
-
-  All other objects are kept as-is."))
-
 (extend-protocol EmfToClj
   UniqueEList
-  (emf2clj [this] (into (ordered-set) (seq this)))
+  (emf2clj-internal [this] (into (ordered-set) (seq this)))
   EMap
-  (emf2clj [this] (into (ordered-map) (seq this)))
+  (emf2clj-internal [this] (into (ordered-map) (seq this)))
   EList
-  (emf2clj [this] (into (vector) this))
+  (emf2clj-internal [this] (into (vector) this))
   EObject
-  (emf2clj [this] this)
+  (emf2clj-internal [this] this)
   Number
-  (emf2clj [this] this)
+  (emf2clj-internal [this] this)
   String
-  (emf2clj [this] this)
+  (emf2clj-internal [this] this)
   Boolean
-  (emf2clj [this] this)
+  (emf2clj-internal [this] this)
   nil
-  (emf2clj [_] nil))
+  (emf2clj-internal [_] nil))
+
+(def emf2clj emf2clj-internal)
 
 (defn eget-raw
   "Returns the value of `eo`s structural feature `sf`.
@@ -584,7 +460,7 @@
   The value is converted to some clojure type (see EmfToClj protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
-  (emf2clj (eget-raw eo sf)))
+  (emf2clj-internal (eget-raw eo sf)))
 
 (defn eset!
   "Sets `eo`s structural feature `sf` to `value` and returns `eo`.

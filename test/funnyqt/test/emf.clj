@@ -1,10 +1,10 @@
 (ns funnyqt.test.emf
-  (:use [funnyqt.emf])
-  (:use [funnyqt.query])
-  (:use [funnyqt.protocols])
-  (:use [ordered.set])
-  (:use [ordered.map])
-  (:use [clojure.test])
+  (:use funnyqt.emf)
+  (:use funnyqt.query)
+  (:use funnyqt.protocols)
+  (:use ordered.set)
+  (:use ordered.map)
+  (:use clojure.test)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI EList]
@@ -12,7 +12,7 @@
 
 (deftest test-load-metamodel
   (let [mm (load-metamodel "test/input/Families.ecore")]
-    (is (instance? funnyqt.emf.EcoreModel mm))
+    (is (instance? funnyqt.emf_protocols.EcoreModel mm))
     ;; Restricting to our custom one by its nsURI...
     (with-ns-uris ["http://families/1.0"]
       (is (== 1 (count (epackages)))))))
