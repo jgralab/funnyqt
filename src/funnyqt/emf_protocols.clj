@@ -2,7 +2,6 @@
   "EMF specific protocols and types"
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
-  (:use funnyqt.query)
   (:use ordered.set)
   (:use ordered.map)
   (:require clojure.java.shell)

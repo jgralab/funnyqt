@@ -1,10 +1,12 @@
 (ns funnyqt.relational.emf
   (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic])
-  (:use [funnyqt.relational.util])
-  (:require [funnyqt.protocols :as genprots])
-  (:require [funnyqt.emf :as core])
-  (:require [funnyqt.query :as query])
+  (:use clojure.core.logic
+        funnyqt.relational.util
+        [funnyqt.relational :only [*model*]])
+  (:require [funnyqt.protocols :as genprots]
+            [funnyqt.emf :as core]
+            [funnyqt.query :as query]
+            funnyqt.query.emf)
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
@@ -39,7 +41,7 @@
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (core/eallobjects ~'+model+ '~na))
+                          (core/eallobjects *model* '~na))
                      (remove not)))
                (if (and (core/eobject? v#)
                         (genprots/has-type? v# '~na))
@@ -68,7 +70,7 @@
                   (remove not)))
 
             :else (to-stream
-                   (->> (for [e# (core/eallobjects ~'+model+ '~ts)
+                   (->> (for [e# (core/eallobjects *model* '~ts)
                               v# (query/adjs* e# ~eref)]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
@@ -94,10 +96,90 @@
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (core/eallobjects ~'+model+ '~ts)
+                   (->> (for [e# (core/eallobjects *model* '~ts)
                               :let [v# (core/eget e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
+
+(defn eobjecto
+  "A relation where `eo` is an EObject."
+  [eo]
+  (fn [a]
+    (let [geo (walk a eo)]
+      (if (ground? geo)
+        (if (core/eobject? geo) (succeed a) (fail a))
+        (to-stream
+         (->> (map #(unify a eo %)
+                   (core/eallobjects *model*))
+              (remove not)))))))
+
+(defn valueo
+  "A relation where `eo` has value `val` for its `at` attribute."
+  [eo at val]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gat  (walk a at)
+          gval (walk a val)]
+      (cond
+       (and (ground? geo)
+            (ground? gat)
+            (core/eobject? geo)
+            (or (keyword? gat) (string? gat) (symbol? gat)))
+       (or (unify a [eo at val] [geo gat (core/eget geo gat)])
+           (fail a))
+
+       (and (ground? geo)
+            (core/eobject? geo))
+       (to-stream
+        (->> (for [^EAttribute attr (seq (.getEAllAttributes
+                                           ^EClass (.eClass ^EObject geo)))
+                   :let [an (keyword (.getName attr))]]
+               (unify a [eo at val] [geo an (core/eget geo an)]))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [^EObject elem (core/eallobjects *model*)
+                         ^EAttribute attr (seq (.getEAllAttributes
+                                                 ^EClass (.eClass elem)))
+                         :let [an (keyword (.getName attr))]]
+                     (unify a [eo at val] [elem an (core/eget elem an)]))
+                   (remove not)))))))
+
+(defn referenceo
+  "A relation where `eo` references `reo` with its `ref` reference."
+  [eo ref reo]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gref (walk a ref)
+          greo (walk a reo)]
+      (cond
+       (and (ground? geo)
+            (ground? gref)
+            (core/eobject? geo)
+            (or (keyword? gref) (string? gref) (symbol? gref)))
+       (to-stream
+        (->> (for [refed (query/adjs* geo gref)]
+               (unify a [eo ref reo] [geo gref refed]))
+             (remove not)))
+
+       (and (ground? geo)
+            (core/eobject? geo))
+       (to-stream
+        (->> (for [^EReference reference (seq (.getEAllReferences
+                                                ^EClass (.eClass ^EObject geo)))
+                   :let [rn (keyword (.getName reference))]
+                   refed (query/adjs* geo rn)]
+               (unify a [eo ref reo] [geo rn refed]))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [^EObject elem (core/eallobjects *model*)
+                         ^EReference reference (seq (.getEAllReferences
+                                                      ^EClass (.eClass elem)))
+                         :let [rn (keyword (.getName reference))]
+                         refed (query/adjs* elem rn)]
+                     (unify a [eo ref reo] [elem rn refed]))
+                   (remove not)))))))
 
 ;;# Main
 
@@ -111,99 +193,9 @@
         code `(do
                 (ns ~nssym
                   (:refer-clojure :exclude [~'==])
-                  (:use [clojure.core.logic])
-                  (:use [funnyqt.relational]))
-                ;; The model of this namespace, to be set later on.
-                (def ~'+model+ nil)
-                ;; A setter for it
-                (defn ~'set-model [m#]
-                  (alter-var-root (var ~'+model+) (constantly m#)))
-
-                ;;;;;;;;;;;;;;;;;;;;;;;
-                ;; Generic relations ;;
-                ;;;;;;;;;;;;;;;;;;;;;;;
-                (defn ~'eobjecto
-                  "A relation where `eo` is an EObject."
-                  [~'eo]
-                  (fn [a#]
-                    (let [geo# (walk a# ~'eo)]
-                      (if (fresh? geo#)
-                        (to-stream
-                         (->> (map #(unify a# ~'eo %)
-                                   (core/eallobjects ~'+model+))
-                              (remove not)))
-                        (if (core/eobject? geo#)
-                          a#
-                          (fail a#))))))
-
-                (defn ~'valueo
-                  "A relation where `eo` has value `val` for its `at` attribute."
-                  [~'eo ~'at ~'val]
-                  (fn [a#]
-                    (let [geo#  (walk a# ~'eo)
-                          gat#  (walk a# ~'at)
-                          gval# (walk a# ~'val)]
-                      (cond
-                       (and (ground? geo#)
-                            (ground? gat#)
-                            (core/eobject? geo#)
-                            (or (keyword? gat#) (string? gat#) (symbol? gat#)))
-                       (or (unify a# [~'eo ~'at ~'val] [geo# gat# (core/eget geo# gat#)])
-                           (fail a#))
-
-                       (and (ground? geo#)
-                            (core/eobject? geo#))
-                       (to-stream
-                        (->> (for [^EAttribute attr# (seq (.getEAllAttributes
-                                                           ^EClass (.eClass ^EObject geo#)))
-                                   :let [an# (keyword (.getName attr#))]]
-                               (unify a# [~'eo ~'at ~'val] [geo# an# (core/eget geo# an#)]))
-                             (remove not)))
-
-                       :else (to-stream
-                              (->> (for [^EObject elem# (core/eallobjects ~'+model+)
-                                         ^EAttribute attr# (seq (.getEAllAttributes
-                                                                 ^EClass (.eClass elem#)))
-                                         :let [an# (keyword (.getName attr#))]]
-                                     (unify a# [~'eo ~'at ~'val] [elem# an# (core/eget elem# an#)]))
-                                   (remove not)))))))
-
-                (defn ~'referenceo
-                  "A relation where `eo` references `reo` with its `ref` reference."
-                  [~'eo ~'ref ~'reo]
-                  (fn [a#]
-                    (let [geo#  (walk a# ~'eo)
-                          gref# (walk a# ~'ref)
-                          greo# (walk a# ~'reo)]
-                      (cond
-                       (and (ground? geo#)
-                            (ground? gref#)
-                            (core/eobject? geo#)
-                            (or (keyword? gref#) (string? gref#) (symbol? gref#)))
-                       (to-stream
-                        (->> (for [refed# (query/adjs* geo# gref#)]
-                               (unify a# [~'eo ~'ref ~'reo] [geo# gref# refed#]))
-                             (remove not)))
-
-                       (and (ground? geo#)
-                            (core/eobject? geo#))
-                       (to-stream
-                        (->> (for [^EReference reference# (seq (.getEAllReferences
-                                                                ^EClass (.eClass ^EObject geo#)))
-                                   :let [rn# (keyword (.getName reference#))]
-                                   refed# (query/adjs* geo# rn#)]
-                               (unify a# [~'eo ~'ref ~'reo] [geo# rn# refed#]))
-                             (remove not)))
-
-                       :else (to-stream
-                              (->> (for [^EObject elem# (core/eallobjects ~'+model+)
-                                         ^EReference reference# (seq (.getEAllReferences
-                                                                      ^EClass (.eClass elem#)))
-                                         :let [rn# (keyword (.getName reference#))]
-                                         refed# (query/adjs* elem# rn#)]
-                                     (unify a# [~'eo ~'ref ~'reo] [elem# rn# refed#]))
-                                   (remove not)))))))
-
+                  (:use clojure.core.logic)
+                  (:use funnyqt.relational
+                        funnyqt.relational.emf))
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -233,4 +225,3 @@
     (eval code)
     (in-ns (ns-name old-ns))
     nssym))
-

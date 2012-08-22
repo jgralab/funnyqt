@@ -4,6 +4,22 @@
   (:use clojure.core.logic
         funnyqt.relational.util))
 
+(def ^:dynamic *model*)
+
+(defmacro run*-on-model
+  "Like `clojure.core.logic/run*` but bind *model* to `model` beforehand."
+  [model [q] & goals]
+  `(binding [*model* ~model]
+     (run* [~q]
+       ~@goals)))
+
+(defmacro run-on-model
+  "Like `clojure.core.logic/run*` but bind *model* to `model` beforehand."
+  [model n [q] & goals]
+  `(binding [*model* ~model]
+     (run ~n [~q]
+       ~@goals)))
+
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
   In addition, all occurences of `_' are replaced with fresh lvars, one per
