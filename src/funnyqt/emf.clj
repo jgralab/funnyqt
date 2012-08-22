@@ -13,23 +13,19 @@
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore.resource Resource ResourceSet]
    [org.eclipse.emf.ecore.resource.impl ResourceImpl]
-   [org.eclipse.emf.ecore EcorePackage EPackage EObject EModelElement EClassifier EClass
+   [org.eclipse.emf.ecore
+    EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
     EStructuralFeature]))
 
 ;;# Metamodel
 
-(def ^org.eclipse.emf.ecore.EPackage$Registry
-  epackage-registry org.eclipse.emf.ecore.EPackage$Registry/INSTANCE)
-
 (defn- register-epackages
-  "Registeres the given packages at the EPackage$Registry by their nsURI.
-  Skips already registered packages."
+  "Registeres the given packages at the EPackage$Registry by their nsURI."
   [pkgs]
   (doseq [^EPackage p pkgs]
     (when-let [uri (.getNsURI p)]
-      (.put epackage-registry uri p))
-    (register-epackages (.getESubpackages p))))
+      (.put EPackage$Registry/INSTANCE uri p))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."
@@ -53,8 +49,7 @@
   (load-and-register [this]
     (.load resource  ;(.getDefaultLoadOptions resource)
            nil)
-    (doto (seq (.getContents resource))
-      register-epackages))
+    (register-epackages (metamodel-epackages this)))
   (metamodel-epackages [this]
     (epks-and-subpgks (seq (.getContents resource)))))
 
@@ -84,8 +79,8 @@
   "The lazy seq (pkg subpkg...).
   If no package is given, the lazy seq of all registered packages is returned."
   ([]
-     (map #(.getEPackage epackage-registry %)
-          (or *ns-uris* (keys epackage-registry)))))
+     (map #(.getEPackage EPackage$Registry/INSTANCE %)
+          (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
 
 (defn epackage
   "Returns the EPackage with the given qualified name."
@@ -96,8 +91,8 @@
            tops (seq (filter
                       (fn [^EPackage p]
                         (= (.getName p) f))
-                      (map #(.getEPackage epackage-registry %)
-                           (or *ns-uris* (keys epackage-registry)))))]
+                      (map #(.getEPackage EPackage$Registry/INSTANCE %)
+                           (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))]
        (when-not tops
          (errorf "No such root package %s." f))
        (when (nnext tops)
