@@ -1,4 +1,4 @@
-(defproject funnyqt "0.2.6"
+(defproject funnyqt "0.3.0"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -12,7 +12,7 @@
   ;;  {"sonatype" {:url "http://oss.sonatype.org/content/repositories/snapshots"
   ;;             :snapshots true}}
   :dependencies [[org.clojure/clojure "1.4.0"]
-                 [de.uni-koblenz.ist/jgralab "6.3.1"]
+                 [de.uni-koblenz.ist/jgralab "6.5.2"]
                  [org.clojure/core.logic "0.8-alpha2"]
                  [ordered "1.3.2"]
                  [org.clojure/tools.macro "0.1.1"]

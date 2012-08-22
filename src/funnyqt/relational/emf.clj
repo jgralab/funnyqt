@@ -183,7 +183,7 @@
 
 ;;# Main
 
-(defn create-ecore-metamodel-relations-ns
+(defn create-ecore-model-relations-ns
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
   EClasses in the EPackages of EcoreModel `ecore-model`."
   [ecore-model nssym]
