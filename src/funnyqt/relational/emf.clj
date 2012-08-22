@@ -29,7 +29,7 @@
 (defn- create-eclass-relations
   "Creates relations for the given eclass."
   [ecls]
-  (let [v (gensym "eo")]
+  (let [v 'eo]
     (for [na (class->rel-symbols ecls)]
       `(defn ~(:unique-name (meta na))
          {:doc ~(format "A relation where `%s` is an %s EObject." v na)}
@@ -50,20 +50,21 @@
   "Creates relations for the given EReference."
   [[eref ecls]]
   (let [ts     (mapv #(genprots/qname %) ecls) ;; a type spec
-        elem   (gensym "elem")
-        val    (gensym "val")]
-    `(defn ~(symbol (str "+-" (name eref)))
+        elem   'eo
+        val    'refed-eo]
+    `(defn ~(symbol (str "+->" (name eref)))
        {:doc ~(format
-               "A relation where `%s' includes `%s' in its %s reference."
+               "A relation where `%s` includes `%s` in its %s reference."
                elem val eref)}
        [~elem ~val]
        (fn [a#]
-         (let [elem# (walk a# ~elem)]
+         (let [gelem# (walk a# ~elem)]
            (cond
-            (and (ground? elem#)
-                 (core/eobject? elem#))
+            (and (ground? gelem#)
+                 (core/eobject? gelem#))
             (to-stream
-             (->> (map (unify a# ~val ( elem# ~eref)))
+             (->> (map #(unify a# [~elem ~val] [gelem# %])
+                       (query/adjs* gelem# ~eref))
                   (remove not)))
 
             :else (to-stream
@@ -77,8 +78,8 @@
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
   (let [ts     (mapv #(genprots/qname %) ecls) ;; a type spec
-        elem   (gensym "elem")
-        val    (gensym "val")]
+        elem   'eo
+        val    'val]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
                "A relation where `%s' has value `%s' for its %s attribute."
@@ -123,12 +124,12 @@
                 ;;;;;;;;;;;;;;;;;;;;;;;
                 (defn ~'eobjecto
                   "A relation where `eo` is an EObject."
-                  [eo#]
+                  [~'eo]
                   (fn [a#]
-                    (let [geo# (walk a# eo#)]
+                    (let [geo# (walk a# ~'eo)]
                       (if (fresh? geo#)
                         (to-stream
-                         (->> (map #(unify a# eo# %)
+                         (->> (map #(unify a# ~'eo %)
                                    (core/eallobjects ~'+model+))
                               (remove not)))
                         (if (core/eobject? geo#)
@@ -137,17 +138,17 @@
 
                 (defn ~'valueo
                   "A relation where `eo` has value `val` for its `at` attribute."
-                  [eo# at# val#]
+                  [~'eo ~'at ~'val]
                   (fn [a#]
-                    (let [geo#  (walk a# eo#)
-                          gat#  (walk a# at#)
-                          gval# (walk a# val#)]
+                    (let [geo#  (walk a# ~'eo)
+                          gat#  (walk a# ~'at)
+                          gval# (walk a# ~'val)]
                       (cond
                        (and (ground? geo#)
                             (ground? gat#)
                             (core/eobject? geo#)
                             (or (keyword? gat#) (string? gat#) (symbol? gat#)))
-                       (or (unify a# [eo# at# val#] [geo# gat# (core/eget geo# gat#)])
+                       (or (unify a# [~'eo ~'at ~'val] [geo# gat# (core/eget geo# gat#)])
                            (fail a#))
 
                        (and (ground? geo#)
@@ -156,7 +157,7 @@
                         (->> (for [^EAttribute attr# (seq (.getEAllAttributes
                                                            ^EClass (.eClass ^EObject geo#)))
                                    :let [an# (keyword (.getName attr#))]]
-                               (unify a# [eo# at# val#] [geo# an# (core/eget geo# an#)]))
+                               (unify a# [~'eo ~'at ~'val] [geo# an# (core/eget geo# an#)]))
                              (remove not)))
 
                        :else (to-stream
@@ -164,16 +165,16 @@
                                          ^EAttribute attr# (seq (.getEAllAttributes
                                                                  ^EClass (.eClass elem#)))
                                          :let [an# (keyword (.getName attr#))]]
-                                     (unify a# [eo# at# val#] [elem# an# (core/eget elem# an#)]))
+                                     (unify a# [~'eo ~'at ~'val] [elem# an# (core/eget elem# an#)]))
                                    (remove not)))))))
 
                 (defn ~'referenceo
-                  "A relation where `eo` references `reo` with its `at` reference."
-                  [eo# ref# reo#]
+                  "A relation where `eo` references `reo` with its `ref` reference."
+                  [~'eo ~'ref ~'reo]
                   (fn [a#]
-                    (let [geo#  (walk a# eo#)
-                          gref# (walk a# ref#)
-                          greo# (walk a# reo#)]
+                    (let [geo#  (walk a# ~'eo)
+                          gref# (walk a# ~'ref)
+                          greo# (walk a# ~'reo)]
                       (cond
                        (and (ground? geo#)
                             (ground? gref#)
@@ -181,7 +182,7 @@
                             (or (keyword? gref#) (string? gref#) (symbol? gref#)))
                        (to-stream
                         (->> (for [refed# (query/adjs* geo# gref#)]
-                               (unify a# [eo# ref# reo#] [geo# gref# refed#]))
+                               (unify a# [~'eo ~'ref ~'reo] [geo# gref# refed#]))
                              (remove not)))
 
                        (and (ground? geo#)
@@ -191,7 +192,7 @@
                                                                 ^EClass (.eClass ^EObject geo#)))
                                    :let [rn# (keyword (.getName reference#))]
                                    refed# (query/adjs* geo# rn#)]
-                               (unify a# [eo# ref# reo#] [geo# rn# refed#]))
+                               (unify a# [~'eo ~'ref ~'reo] [geo# rn# refed#]))
                              (remove not)))
 
                        :else (to-stream
@@ -200,7 +201,7 @@
                                                                       ^EClass (.eClass elem#)))
                                          :let [rn# (keyword (.getName reference#))]
                                          refed# (query/adjs* elem# rn#)]
-                                     (unify a# [eo# ref# reo#] [elem# rn# refed#]))
+                                     (unify a# [~'eo ~'ref ~'reo] [elem# rn# refed#]))
                                    (remove not)))))))
 
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

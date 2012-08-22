@@ -3,7 +3,11 @@
   (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal]])
-  (:require clojure.set))
+  (:require clojure.set)
+  ;; Make sure that stuff like adjs-internal is extended upon vertices and
+  ;; eobjects.
+  (:require funnyqt.query.emf
+            funnyqt.query.tg))
 
 ;;# Comprehensions
 

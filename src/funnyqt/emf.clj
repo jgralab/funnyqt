@@ -58,7 +58,9 @@
 (defn epackage
   "Returns the EPackage with the given qualified name."
   ([qn]
-     (let [tops (seq (filter (fn [^EPackage p] (= (.getName p) (name qn)))
+     (let [qn (symbol qn)
+           tops (seq (filter (fn [^EPackage p]
+                               (= (qname p) qn))
                              (epackages)))]
        (when-not tops
          (errorf "No such package %s." qn))
