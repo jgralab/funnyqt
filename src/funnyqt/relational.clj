@@ -68,11 +68,13 @@
        (or (unify a [x y xy] [wx wy (str wx wy)])
            (fail a))
 
-       (and (ground? wx) (ground? wxy) (.startsWith wxy wx))
+       (and (ground? wx) (ground? wxy) (string? wxy)
+            (.startsWith ^String wxy wx))
        (or (unify a [x y xy] [wx (subs wxy (count wx)) wxy])
            (fail a))
 
-       (and (ground? wy) (ground? wxy) (.endsWith wxy wy))
+       (and (ground? wy) (ground? wxy) (string? wxy)
+            (.endsWith ^String wxy wy))
        (or (unify a [x y xy] [(subs wxy 0 (count wy)) wy wxy])
            (fail a))
 

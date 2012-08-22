@@ -28,13 +28,8 @@
   [pkgs]
   (doseq [^EPackage p pkgs]
     (when-let [uri (.getNsURI p)]
-      ;; Empty URI or already registered -> skip it
-      (when (and (seq uri)
-                 (nil? (.get epackage-registry uri)))
-        (.put epackage-registry (.getNsURI p) p)))
-    (let [subs (.getESubpackages p)]
-      (when (seq subs)
-        (register-epackages subs)))))
+      (.put epackage-registry uri p))
+    (register-epackages (.getESubpackages p))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."

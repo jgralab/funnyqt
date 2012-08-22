@@ -3,6 +3,7 @@
   (:use [clojure.core.logic])
   (:use [funnyqt.relational.util])
   (:require [funnyqt.emf :as core])
+  (:require [funnyqt.query :as query])
   (:require [funnyqt.protocols :as genprots])
   (:import
    (org.eclipse.emf.ecore
@@ -45,15 +46,6 @@
                  a#
                  (fail a#)))))))))
 
-(defn eget-as-seq
-  "Only for internal use.  eref is a keyword naming the reference."
-  [^EObject eo eref]
-  (let [^EClass ecl (.eClass eo)
-        ^EStructuralFeature sf (.getEStructuralFeature ecl (name eref))]
-    (if (.isMany sf)
-      (core/eget eo sf)
-      (list (core/eget eo sf)))))
-
 (defn- create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
@@ -71,12 +63,12 @@
             (and (ground? elem#)
                  (core/eobject? elem#))
             (to-stream
-             (->> (map (unify a# ~val (eget-as-seq elem# ~eref)))
+             (->> (map (unify a# ~val ( elem# ~eref)))
                   (remove not)))
 
             :else (to-stream
                    (->> (for [e# (core/eallobjects ~'+model+ '~ts)
-                              v# (eget-as-seq e# ~eref)]
+                              v# (query/adjs* e# ~eref)]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
@@ -188,7 +180,7 @@
                             (core/eobject? geo#)
                             (or (keyword? gref#) (string? gref#) (symbol? gref#)))
                        (to-stream
-                        (->> (for [refed# (eget-as-seq geo# gref#)]
+                        (->> (for [refed# (query/adjs* geo# gref#)]
                                (unify a# [eo# ref# reo#] [geo# gref# refed#]))
                              (remove not)))
 
@@ -198,7 +190,7 @@
                         (->> (for [^EReference reference# (seq (.getEAllReferences
                                                                 ^EClass (.eClass ^EObject geo#)))
                                    :let [rn# (keyword (.getName reference#))]
-                                   refed# (eget-as-seq geo# rn#)]
+                                   refed# (query/adjs* geo# rn#)]
                                (unify a# [eo# ref# reo#] [geo# rn# refed#]))
                              (remove not)))
 
@@ -207,7 +199,7 @@
                                          ^EReference reference# (seq (.getEAllReferences
                                                                       ^EClass (.eClass elem#)))
                                          :let [rn# (keyword (.getName reference#))]
-                                         refed# (eget-as-seq elem# rn#)]
+                                         refed# (query/adjs* elem# rn#)]
                                      (unify a# [eo# ref# reo#] [elem# rn# refed#]))
                                    (remove not)))))))
 
