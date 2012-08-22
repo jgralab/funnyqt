@@ -20,15 +20,28 @@
 
 ;;# Metamodel
 
+(defmacro with-system-class-loader [& body]
+  `(let [^Thread curt# (Thread/currentThread)
+         curcl# (.getContextClassLoader curt#)
+         syscl# (ClassLoader/getSystemClassLoader)]
+     (if (= curcl# syscl#)
+       ~@body
+       (do
+         (.setContextClassLoader curt# syscl#)
+         (try
+           ~@body
+           (finally (.setContextClassLoader curt# curcl#)))))))
+
 (defn- register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
   [pkgs]
-  (doseq [^EPackage p pkgs]
-    (when-let [uri (.getNsURI p)]
-      (when (and (seq uri)
-                 (not (.containsKey EPackage$Registry/INSTANCE uri)))
-        (.put EPackage$Registry/INSTANCE uri p)))))
+  (with-system-class-loader
+    (doseq [^EPackage p pkgs]
+      (when-let [uri (.getNsURI p)]
+        (when (and (seq uri)
+                   (not (.containsKey EPackage$Registry/INSTANCE uri)))
+          (.put EPackage$Registry/INSTANCE uri p))))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."
@@ -82,37 +95,21 @@
   "The lazy seq (pkg subpkg...).
   If no package is given, the lazy seq of all registered packages is returned."
   ([]
-     (map #(.getEPackage EPackage$Registry/INSTANCE %)
-          (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
+     (with-system-class-loader
+       (map #(.getEPackage EPackage$Registry/INSTANCE %)
+            (or *ns-uris* (keys EPackage$Registry/INSTANCE))))))
 
 (defn epackage
   "Returns the EPackage with the given qualified name."
   ([qn]
-     (let [ps (clojure.string/split (name qn) #"\.")
-           f (first ps)
-           r (rest ps)
-           tops (seq (filter
-                      (fn [^EPackage p]
-                        (= (.getName p) f))
-                      (map #(.getEPackage EPackage$Registry/INSTANCE %)
-                           (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))]
+     (let [tops (seq (filter (fn [^EPackage p] (= (.getName p) (name qn)))
+                             (epackages)))]
        (when-not tops
-         (errorf "No such root package %s." f))
+         (errorf "No such package %s." qn))
        (when (nnext tops)
-         (errorf "Multiple root packages named %s: %s\n%s" f tops
+         (errorf "Multiple  packages named %s: %s\n%s" qn tops
                  "Restrict the search space using `with-ns-uris`."))
-       (if (seq r)
-         (apply epackage (first tops) r)
-         (first tops))))
-  ([^EPackage ep & subqns]
-     (if (seq subqns)
-       (let [f (first subqns)
-             subps (filter (fn [^EPackage p] (= (.getName p) f))
-                           (.getESubpackages ep))]
-         (if (seq subps)
-           (recur (the subps) (rest subqns))
-           (errorf "No such subpackage %s in %s." f (print-str ep))))
-       ep)))
+       (first tops))))
 
 (extend-protocol Abstractness
   EClass
