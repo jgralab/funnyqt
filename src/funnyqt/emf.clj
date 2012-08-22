@@ -1,8 +1,8 @@
 (ns funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
+  (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use funnyqt.query)
-  (:use funnyqt.protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:require clojure.java.shell)
@@ -21,11 +21,14 @@
 ;;# Metamodel
 
 (defn- register-epackages
-  "Registeres the given packages at the EPackage$Registry by their nsURI."
+  "Registeres the given packages at the EPackage$Registry by their nsURI.
+  Skips packages that are already registered."
   [pkgs]
   (doseq [^EPackage p pkgs]
     (when-let [uri (.getNsURI p)]
-      (.put EPackage$Registry/INSTANCE uri p))))
+      (when (and (seq uri)
+                 (not (.getEPackage EPackage$Registry/INSTANCE uri)))
+        (.put EPackage$Registry/INSTANCE uri p)))))
 
 (defprotocol EcoreModelBasics
   "A protocol for basid EcoreModel operations."

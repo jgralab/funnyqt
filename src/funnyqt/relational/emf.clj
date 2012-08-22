@@ -2,9 +2,9 @@
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
   (:use [funnyqt.relational.util])
+  (:require [funnyqt.protocols :as genprots])
   (:require [funnyqt.emf :as core])
   (:require [funnyqt.query :as query])
-  (:require [funnyqt.protocols :as genprots])
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
