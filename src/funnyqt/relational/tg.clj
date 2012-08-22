@@ -155,7 +155,8 @@ We can pose our question now using this new relation and get the same answer.
 Have fun!"
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:use [funnyqt.relational.util])
+  (:use funnyqt.relational.util
+        [funnyqt.relational :only [*model*]])
   (:require [funnyqt.tg :as core])
   (:require [funnyqt.protocols :as genprots])
   (:require [funnyqt.query.tg :as query])
@@ -183,7 +184,7 @@ Have fun!"
 (defn- create-vc-relations
   "Creates relations for the given vertex class."
   [vc]
-  (let [v (gensym "v")]
+  (let [v 'v]
     (for [na (class->rel-symbols vc)]
       `(defn ~(:unique-name (meta na))
          {:doc ~(format "A relation where `%s` is a %s vertex." v na)}
@@ -193,10 +194,10 @@ Have fun!"
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (query/vseq ~'+graph+ '~na))
+                          (query/vseq *model* '~na))
                      (remove not)))
                (if (and (core/vertex? v#)
-                        (core/contains-vertex? ~'+graph+ v#)
+                        (core/contains-vertex? *model* v#)
                         (genprots/has-type? v# '~na))
                  a#
                  (fail a#)))))))))
@@ -204,9 +205,9 @@ Have fun!"
 (defn- create-ec-relations
   "Creates relations for the given edge class."
   [ec]
-  (let [e  (gensym "e")
-        al (gensym "alpha")
-        om (gensym "omega")]
+  (let [e  'e
+        al 'alpha
+        om 'omega]
     (for [na (class->rel-symbols ec)]
       `(defn ~(:unique-name (meta na))
          {:doc ~(format "A relation where `%s' is a %s edge from `%s' to `%s'."
@@ -237,7 +238,7 @@ Have fun!"
                     (remove not)))
 
               :else (to-stream
-                     (->> (for [edge# (query/eseq ~'+graph+ '~na)]
+                     (->> (for [edge# (query/eseq *model* '~na)]
                             (unify a# [~e ~al ~om]
                                    [edge# (core/alpha edge#) (core/omega edge#)]))
                           (remove not))))))))))
@@ -245,7 +246,7 @@ Have fun!"
 (defn- create-attr-relation
   "Creates relations for the given attribute."
   [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having
-                ;; such an attr
+  ;; such an attr
   (let [ts     (mapv #(genprots/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
@@ -254,8 +255,8 @@ Have fun!"
                          (apply concat ((juxt funnyqt.query.tg/vseq
                                               funnyqt.query.tg/eseq)
                                         graph# ts#))))
-        elem   (gensym "elem")
-        val    (gensym "val")]
+        elem   'ae
+        val    'val]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
                "A relation where `%s' has value `%s' for its %s attribute."
@@ -270,117 +271,110 @@ Have fun!"
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (~seqf ~'+graph+ '~ts)
+                   (->> (for [e# (~seqf *model* '~ts)
                               :let [v# (core/value e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
 ;;# Main
 
+(defn vertexo
+  "A relation where `v` is a vertex."
+  [v]
+  (fn [a]
+    (let [gv (walk a v)]
+      (if (fresh? gv)
+        (to-stream
+         (->> (map #(unify a v %)
+                   (query/vseq *model*))
+              (remove not)))
+        (if (and (core/vertex? gv)
+                 (core/contains-vertex? *model* gv))
+          a
+          (fail a))))))
+
+(defn edgeo
+  "A relation where `e` is an edge from `alpha` to `omega`."
+  [e alpha omega]
+  (fn [a]
+    (let [ge     (walk a e)
+          galpha (walk a alpha)
+          gomega (walk a omega)]
+      (cond
+       (and (ground? ge)
+            (core/edge? ge))
+       (or (unify a [alpha omega] [(core/alpha ge) (core/omega ge)])
+           (fail a))
+
+       (and (ground? galpha)
+            (core/vertex? galpha))
+       (to-stream
+        (->> (map #(unify a [e omega] [% (core/omega %)])
+                  (query/iseq galpha nil :out))
+             (remove not)))
+
+       (and (ground? gomega)
+            (core/vertex? gomega))
+       (to-stream
+        (->> (map #(unify a [e alpha] [% (core/alpha %)])
+                  (query/iseq gomega nil :in))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [edge (query/eseq *model*)]
+                     (unify a [e alpha omega]
+                            [edge (core/alpha edge) (core/omega edge)]))
+                   (remove not)))))))
+
+(defn valueo
+  "A relation where `ae` has value `val` for its `at` attribute."
+  [ae at val]
+  (fn [a]
+    (let [gae  (walk a ae)
+          gat  (walk a at)
+          gval (walk a val)]
+      (cond
+       (and (ground? gae)
+            (ground? gat)
+            (core/attributed-element? gae)
+            (or (keyword? gat) (string? gat) (symbol? gat)))
+       (or (unify a [ae at val] [gae gat (core/value gae gat)])
+           (fail a))
+
+       (and (ground? gae)
+            (core/vertex? gae))
+       (to-stream
+        (->> (for [^Attribute attr (seq (.getAttributeList
+                                         ^AttributedElementClass
+                                         (core/attributed-element-class gae)))
+                   :let [an (keyword (.getName attr))]]
+               (unify a [ae at val] [gae an (core/value gae an)]))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [elem (concat (query/vseq *model*)
+                                      (query/eseq *model*))
+                         ^Attribute attr (seq (.getAttributeList
+                                               ^AttributedElementClass
+                                               (core/attributed-element-class elem)))
+                         :let [an (keyword (.getName attr))]]
+                     (unify a [ae at val] [elem an (core/value elem an)]))
+                   (remove not)))))))
+
+
 (defn create-schema-relations-ns
   "Populates the namespace `nssym` (a symbol) with relations reflecting the
-  schema of `schema-or-graph`."
-  [schema-or-graph nssym]
-  (let [^Schema s (if (core/graph? schema-or-graph)
-                    (core/schema schema-or-graph)
-                    schema-or-graph)
-        atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
+  schema of `schema`."
+  [^Schema schema nssym]
+  (let [atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
         old-ns *ns*
         code `(do
                 (ns ~nssym
                   (:refer-clojure :exclude [~'==])
                   (:use [clojure.core.logic])
-                  (:use [funnyqt.relational]))
-                ;; The graph of this namespace, to be set later on.
-                (def ~'+graph+ nil)
-                (defn ~'set-model [m#]
-                  (alter-var-root (var ~'+graph+) (constantly m#)))
+                  (:use funnyqt.relational
+                        funnyqt.relational.tg))
 
-                ;;;;;;;;;;;;;;;;;;;;;;;
-                ;; Generic relations ;;
-                ;;;;;;;;;;;;;;;;;;;;;;;
-                (defn ~'vertexo
-                  "A relation where `v` is a vertex."
-                  [v#]
-                  (fn [a#]
-                    (let [gv# (walk a# v#)]
-                      (if (fresh? gv#)
-                        (to-stream
-                         (->> (map #(unify a# v# %)
-                                   (query/vseq ~'+graph+))
-                              (remove not)))
-                        (if (and (core/vertex? gv#)
-                                 (core/contains-vertex? ~'+graph+ gv#))
-                          a#
-                          (fail a#))))))
-
-                (defn ~'edgeo
-                  "A relation where `e` is an edge from `alpha` to `omega`."
-                  [e# alpha# omega#]
-                  (fn [a#]
-                    (let [ge#     (walk a# e#)
-                          galpha# (walk a# alpha#)
-                          gomega# (walk a# omega#)]
-                      (cond
-                       (and (ground? ge#)
-                            (core/edge? ge#))
-                       (or (unify a# [alpha# omega#] [(core/alpha ge#) (core/omega ge#)])
-                           (fail a#))
-
-                       (and (ground? galpha#)
-                            (core/vertex? galpha#))
-                       (to-stream
-                        (->> (map #(unify a# [e# omega#] [% (core/omega %)])
-                                  (query/iseq galpha# nil :out))
-                             (remove not)))
-
-                       (and (ground? gomega#)
-                            (core/vertex? gomega#))
-                       (to-stream
-                        (->> (map #(unify a# [e# alpha#] [% (core/alpha %)])
-                                  (query/iseq gomega# nil :in))
-                             (remove not)))
-
-                       :else (to-stream
-                              (->> (for [edge# (query/eseq ~'+graph+)]
-                                     (unify a# [e# alpha# omega#]
-                                            [edge# (core/alpha edge#) (core/omega edge#)]))
-                                   (remove not)))))))
-
-                (defn ~'valueo
-                  "A relation where `ae` has value `val` for its `at` attribute."
-                  [ae# at# val#]
-                  (fn [a#]
-                    (let [gae#  (walk a# ae#)
-                          gat#  (walk a# at#)
-                          gval# (walk a# val#)]
-                      (cond
-                       (and (ground? gae#)
-                            (ground? gat#)
-                            (core/attributed-element? gae#)
-                            (or (keyword? gat#) (string? gat#) (symbol? gat#)))
-                       (or (unify a# [ae# at# val#] [gae# gat# (core/value gae# gat#)])
-                           (fail a#))
-
-                       (and (ground? gae#)
-                            (core/vertex? gae#))
-                       (to-stream
-                        (->> (for [^Attribute attr# (seq (.getAttributeList
-                                                          ^AttributedElementClass
-                                                          (core/attributed-element-class gae#)))
-                                   :let [an# (keyword (.getName attr#))]]
-                               (unify a# [ae# at# val#] [gae# an# (core/value gae# an#)]))
-                             (remove not)))
-
-                       :else (to-stream
-                              (->> (for [elem# (concat (query/vseq ~'+graph+)
-                                                       (query/eseq ~'+graph+))
-                                         ^Attribute attr# (seq (.getAttributeList
-                                                                ^AttributedElementClass
-                                                                (core/attributed-element-class elem#)))
-                                         :let [an# (keyword (.getName attr#))]]
-                                     (unify a# [ae# at# val#] [elem# an# (core/value elem# an#)]))
-                                   (remove not)))))))
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;; Schema specific relations ;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -394,7 +388,7 @@ Have fun!"
                                 #(update-in %1 [%2] conj vc)
                                 a))
                        (create-vc-relations vc))
-                     (reverse (seq (-> s .getGraphClass .getVertexClasses)))))
+                     (seq (-> schema .getGraphClass .getVertexClasses))))
                    (doall
                     (mapcat
                      (fn [^EdgeClass ec]
@@ -404,15 +398,12 @@ Have fun!"
                                 #(update-in %1 [%2] conj ec)
                                 a))
                        (create-ec-relations ec))
-                     (reverse (seq (-> s .getGraphClass .getEdgeClasses)))))
+                     (seq (-> schema .getGraphClass .getEdgeClasses))))
                    (for [^Attribute a @atts]
                      (create-attr-relation a))))]
     ;; (clojure.pprint/pprint code)
     (eval code)
     (in-ns (ns-name old-ns))
-    ;; Set the graph in the new namespace
-    (when (core/graph? schema-or-graph)
-      (alter-var-root (ns-resolve nssym '+graph+) (fn [_] schema-or-graph)))
     nssym))
 
 ;;# How to use...
@@ -534,7 +525,7 @@ Have fun!"
   ;; VSeq vs relation
   (time (dorun (run* [q] (+ClassDefinition q))))
   ; "Elapsed time: 66.21493 msecs"
-  (time (dorun (query/vseq +graph+ 'ClassDefinition)))
+  (time (dorun (query/vseq *model* 'ClassDefinition)))
   ; "Elapsed time: 36.796144 msecs"
 
   (defn direct-subclasso
