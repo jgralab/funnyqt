@@ -3,9 +3,9 @@
   (:use clojure.core.logic
         funnyqt.relational.util
         [funnyqt.relational :only [*model*]])
-  (:require [funnyqt.protocols :as genprots]
-            [funnyqt.emf :as core]
-            [funnyqt.query :as query]
+  (:require funnyqt.protocols
+            funnyqt.emf
+            funnyqt.query
             funnyqt.query.emf)
   (:import
    (org.eclipse.emf.ecore
@@ -19,10 +19,10 @@
   (fn [a]
     (let [geo (walk a eo)]
       (if (ground? geo)
-        (if (core/eobject? geo) (succeed a) (fail a))
+        (if (funnyqt.emf/eobject? geo) (succeed a) (fail a))
         (to-stream
          (->> (map #(unify a eo %)
-                   (core/eallobjects *model*))
+                   (funnyqt.emf/eallobjects *model*))
               (remove not)))))))
 
 (defn valueo
@@ -35,26 +35,26 @@
       (cond
        (and (ground? geo)
             (ground? gat))
-       (or (and (core/eobject? geo) (keyword? gat)
-                (unify a val (core/eget geo gat)))
+       (or (and (funnyqt.emf/eobject? geo) (keyword? gat)
+                (unify a val (funnyqt.emf/eget geo gat)))
            (fail a))
 
        (ground? geo)
-       (if (core/eobject? geo)
+       (if (funnyqt.emf/eobject? geo)
          (to-stream
           (->> (for [^EAttribute attr (seq (.getEAllAttributes
                                             ^EClass (.eClass ^EObject geo)))
                      :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (core/eget geo an)]))
+                 (unify a [at val] [an (funnyqt.emf/eget geo an)]))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (core/eallobjects *model*)
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects *model*)
                          ^EAttribute attr (seq (.getEAllAttributes
                                                  ^EClass (.eClass elem)))
                          :let [an (keyword (.getName attr))]]
-                     (unify a [eo at val] [elem an (core/eget elem an)]))
+                     (unify a [eo at val] [elem an (funnyqt.emf/eget elem an)]))
                    (remove not)))))))
 
 (defn referenceo
@@ -66,38 +66,38 @@
           greo (walk a reo)]
       (cond
        (and (ground? geo) (ground? gref))
-       (if (and (core/eobject? geo) (keyword? gref))
+       (if (and (funnyqt.emf/eobject? geo) (keyword? gref))
          (to-stream
-          (->> (for [refed (query/adjs* geo gref)]
+          (->> (for [refed (funnyqt.query/adjs* geo gref)]
                  (unify a [reo] [refed]))
                (remove not)))
          (fail a))
 
        (ground? geo)
-       (if (core/eobject? geo)
+       (if (funnyqt.emf/eobject? geo)
          (to-stream
           (->> (for [^EReference reference (seq (.getEAllReferences
                                                  ^EClass (.eClass ^EObject geo)))
                      :let [rn (keyword (.getName reference))]
-                     refed (query/adjs* geo rn)]
+                     refed (funnyqt.query/adjs* geo rn)]
                  (unify a [ref reo] [rn refed]))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (core/eallobjects *model*)
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects *model*)
                          ^EReference reference (seq (.getEAllReferences
                                                       ^EClass (.eClass elem)))
                          :let [rn (keyword (.getName reference))]
-                         refed (query/adjs* elem rn)]
+                         refed (funnyqt.query/adjs* elem rn)]
                      (unify a [eo ref reo] [elem rn refed]))
                    (remove not)))))))
 
 (defn- class->rel-symbols
   "Returns a relation symbol for the eclass `c`."
   [^EClass c]
-  (let [dup (core/eclassifier (symbol (.getName c)))
-        fqn (genprots/qname c)
+  (let [dup (funnyqt.emf/eclassifier (symbol (.getName c)))
+        fqn (funnyqt.protocols/qname c)
         n (if (= dup c)
             (.getName c)
             fqn)]
@@ -121,17 +121,17 @@
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (core/eallobjects *model* '~na))
+                          (funnyqt.emf/eallobjects *model* '~na))
                      (remove not)))
-               (if (and (core/eobject? v#)
-                        (genprots/has-type? v# '~na))
+               (if (and (funnyqt.emf/eobject? v#)
+                        (funnyqt.protocols/has-type? v# '~na))
                  (succeed a#)
                  (fail a#)))))))))
 
 (defn- create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
-  (let [ts     (mapv #(genprots/qname %) ecls) ;; a type spec
+  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls) ;; a type spec
         elem   'eo
         val    'refed-eo]
     `(defn ~(symbol (str "+->" (name eref)))
@@ -143,16 +143,16 @@
          (let [gelem# (walk a# ~elem)]
            (cond
             (ground? gelem#)
-            (if (core/eobject? gelem#)
+            (if (funnyqt.emf/eobject? gelem#)
               (to-stream
                (->> (map #(unify a# ~val %)
-                         (query/adjs* gelem# ~eref))
+                         (funnyqt.query/adjs* gelem# ~eref))
                     (remove not)))
               (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (core/eallobjects *model* '~ts)
-                              v# (query/adjs* e# ~eref)]
+                   (->> (for [e# (funnyqt.emf/eallobjects *model* '~ts)
+                              v# (funnyqt.query/adjs* e# ~eref)]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
@@ -160,7 +160,7 @@
   "Creates relations for the given EAttribute."
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
-  (let [ts     (mapv #(genprots/qname %) ecls) ;; a type spec
+  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls) ;; a type spec
         elem   'eo
         val    'val]
     `(defn ~(symbol (str "+" (name attr)))
@@ -172,58 +172,53 @@
          (let [elem# (walk a# ~elem)]
            (cond
             (ground? elem#)
-            (or (and (core/eobject? elem#)
-                     (unify a# ~val (core/eget elem# ~attr)))
+            (or (and (funnyqt.emf/eobject? elem#)
+                     (unify a# ~val (funnyqt.emf/eget elem# ~attr)))
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (core/eallobjects *model* '~ts)
-                              :let [v# (core/eget e# ~attr)]]
+                   (->> (for [e# (funnyqt.emf/eallobjects *model* '~ts)
+                              :let [v# (funnyqt.emf/eget e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
 
 ;;# Main
 
-(defn create-ecore-model-relations-ns
-  "Populates the namespace `nssym` (a symbol) with relations reflecting the
-  EClasses in the EPackages of EcoreModel `ecore-model`."
-  [ecore-model nssym]
-  (let [atts (atom {}) ;; map from attribute names to set of eclasses that have it
+(defmacro generate-ecore-model-relations
+  "Generates metamodel-specific relations in the namespace denoted by `nssym`.
+  If `nssym` is nil (or not given), generate them in the current namespace.
+  `ecore-file` is the ecore file containing the metamodel."
+  [ecore-file nssym]
+  (let [ecore-model (funnyqt.emf/load-metamodel ecore-file)
+        atts (atom {}) ;; map from attribute names to set of eclasses that have it
         refs (atom {}) ;; map from reference names to set of eclasses that have it
-        old-ns *ns*
-        code `(do
-                (ns ~nssym
-                  (:refer-clojure :exclude [~'==])
-                  (:use clojure.core.logic)
-                  (:use funnyqt.relational
-                        funnyqt.relational.emf))
-                ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                ;; Schema specific relations ;;
-                ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                ~@(core/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                           (core/metamodel-epackages ecore-model))
-                    (concat
-                     (doall
-                      (mapcat
-                       (fn [^EClass ecl]
-                         (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                        (seq (.getEAttributes ecl)))]
-                           (swap! atts
-                                  #(update-in %1 [%2] conj ecl)
-                                  a))
-                         (doseq [r (map #(keyword (.getName ^EReference %))
-                                        (seq (.getEReferences ecl)))]
-                           (swap! refs
-                                  #(update-in %1 [%2] conj ecl)
-                                  r))
-                         (create-eclass-relations ecl))
-                       (core/eclassifiers)))
-                     (for [^EAttribute a @atts]
-                       (create-eattribute-relation a))
-                     (for [^EReference r @refs]
-                       (create-ereference-relation r)))))]
-    ;;(clojure.pprint/pprint code)
-    (eval code)
-    (in-ns (ns-name old-ns))
-    nssym))
+        old-ns *ns*]
+    `(do
+       ~(when nssym
+          `(ns ~nssym
+             (:refer-clojure :exclude [~'==])))
+       ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                         (funnyqt.emf/metamodel-epackages ecore-model))
+           (concat
+            (doall
+             (mapcat
+              (fn [^EClass ecl]
+                (doseq [a (map #(keyword (.getName ^EAttribute %))
+                               (seq (.getEAttributes ecl)))]
+                  (swap! atts
+                         #(update-in %1 [%2] conj ecl)
+                         a))
+                (doseq [r (map #(keyword (.getName ^EReference %))
+                               (seq (.getEReferences ecl)))]
+                  (swap! refs
+                         #(update-in %1 [%2] conj ecl)
+                         r))
+                (create-eclass-relations ecl))
+              (funnyqt.emf/eclassifiers)))
+            (for [^EAttribute a @atts]
+              (create-eattribute-relation a))
+            (for [^EReference r @refs]
+              (create-ereference-relation r))))
+       (in-ns '~(ns-name old-ns)))))
+

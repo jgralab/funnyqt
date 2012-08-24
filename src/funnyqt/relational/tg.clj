@@ -432,36 +432,35 @@ Have fun!"
            atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
            ;; TODO: Implement me!!
            refs (atom {}) ;; map from role names to set of attributed element classes that have it
-           old-ns *ns*
-           c `(do
-                ~(when nssym
-                   `(ns ~nssym
-                      (:refer-clojure :exclude [~'==])))
-                ~@(concat
-                   (doall
-                    (mapcat
-                     (fn [^VertexClass vc]
-                       (doseq [a (map #(keyword (.getName ^Attribute %))
-                                      (seq (.getOwnAttributeList vc)))]
-                         (swap! atts
-                                #(update-in %1 [%2] conj vc)
-                                a))
-                       (create-vc-relations vc))
-                     (seq (-> schema .getGraphClass .getVertexClasses))))
-                   (doall
-                    (mapcat
-                     (fn [^EdgeClass ec]
-                       (doseq [a (map #(keyword (.getName ^Attribute %))
-                                      (seq (.getOwnAttributeList ec)))]
-                         (swap! atts
-                                #(update-in %1 [%2] conj ec)
-                                a))
-                       (create-ec-relations ec))
-                     (seq (-> schema .getGraphClass .getEdgeClasses))))
-                   (for [^Attribute a @atts]
-                     (create-attr-relation a)))
-                (in-ns '~(ns-name old-ns)))]
-       c)))
+           old-ns *ns*]
+       `(do
+          ~(when nssym
+             `(ns ~nssym
+                (:refer-clojure :exclude [~'==])))
+          ~@(concat
+             (doall
+              (mapcat
+               (fn [^VertexClass vc]
+                 (doseq [a (map #(keyword (.getName ^Attribute %))
+                                (seq (.getOwnAttributeList vc)))]
+                   (swap! atts
+                          #(update-in %1 [%2] conj vc)
+                          a))
+                 (create-vc-relations vc))
+               (seq (-> schema .getGraphClass .getVertexClasses))))
+             (doall
+              (mapcat
+               (fn [^EdgeClass ec]
+                 (doseq [a (map #(keyword (.getName ^Attribute %))
+                                (seq (.getOwnAttributeList ec)))]
+                   (swap! atts
+                          #(update-in %1 [%2] conj ec)
+                          a))
+                 (create-ec-relations ec))
+               (seq (-> schema .getGraphClass .getEdgeClasses))))
+             (for [^Attribute a @atts]
+               (create-attr-relation a)))
+          (in-ns '~(ns-name old-ns))))))
 
 ;;# How to use...
 
