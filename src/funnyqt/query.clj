@@ -3,7 +3,8 @@
   (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal]])
-  (:require clojure.set))
+  (:require clojure.set
+            [clojure.core.reducers :as r]))
 
 ;;# Comprehensions
 
@@ -296,9 +297,8 @@
   ([v p]
      (p-* v p (oset v)))
   ([v p ret]
-     (let [n (clojure.set/difference
-              (oset (*p-apply* v p))
-              ret)]
+     (let [n (into (ordered.set/ordered-set)
+                   (r/remove ret (oset (*p-apply* v p))))]
        (if (seq n)
          (recur n p (into-oset ret n))
          ret))))
