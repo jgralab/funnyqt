@@ -13,6 +13,99 @@
 
 ;;# Utilities
 
+(defn eobjecto
+  "A relation where `eo` is an EObject of type `t`.
+  If provided, the type has to be qualified."
+  ([eo]
+     (eobjecto eo (lvar)))
+  ([eo t]
+     (fn [a]
+       (let [geo (walk a eo)
+             gt  (walk a t)]
+         (cond
+          (and (ground? geo) (ground? gt))
+          (if (and (core/eobject? geo)
+                   (genprots/has-type? geo gt))
+            (succeed a)
+            (fail a))
+
+          (ground? geo)
+          (or (unify a [eo t] [geo (genprots/qname geo)])
+              (fail a))
+
+          :else (to-stream
+                 (->> (map #(unify a [eo t] [% (genprots/qname %)])
+                           (core/eallobjects *model* (when (ground? gt) gt)))
+                      (remove not))))))))
+
+(defn valueo
+  "A relation where `eo` has value `val` for its `at` attribute."
+  [eo at val]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gat  (walk a at)
+          gval (walk a val)]
+      (cond
+       (and (ground? geo)
+            (ground? gat)
+            (core/eobject? geo)
+            (or (keyword? gat) (string? gat) (symbol? gat)))
+       (or (unify a [eo at val] [geo gat (core/eget geo gat)])
+           (fail a))
+
+       (and (ground? geo)
+            (core/eobject? geo))
+       (to-stream
+        (->> (for [^EAttribute attr (seq (.getEAllAttributes
+                                           ^EClass (.eClass ^EObject geo)))
+                   :let [an (keyword (.getName attr))]]
+               (unify a [eo at val] [geo an (core/eget geo an)]))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [^EObject elem (core/eallobjects *model*)
+                         ^EAttribute attr (seq (.getEAllAttributes
+                                                 ^EClass (.eClass elem)))
+                         :let [an (keyword (.getName attr))]]
+                     (unify a [eo at val] [elem an (core/eget elem an)]))
+                   (remove not)))))))
+
+(defn referenceo
+  "A relation where `eo` references `reo` with its `ref` reference."
+  [eo ref reo]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gref (walk a ref)
+          greo (walk a reo)]
+      (cond
+       (and (ground? geo)
+            (ground? gref)
+            (core/eobject? geo)
+            (or (keyword? gref) (string? gref) (symbol? gref)))
+       (to-stream
+        (->> (for [refed (query/adjs* geo gref)]
+               (unify a [eo ref reo] [geo gref refed]))
+             (remove not)))
+
+       (and (ground? geo)
+            (core/eobject? geo))
+       (to-stream
+        (->> (for [^EReference reference (seq (.getEAllReferences
+                                                ^EClass (.eClass ^EObject geo)))
+                   :let [rn (keyword (.getName reference))]
+                   refed (query/adjs* geo rn)]
+               (unify a [eo ref reo] [geo rn refed]))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [^EObject elem (core/eallobjects *model*)
+                         ^EReference reference (seq (.getEAllReferences
+                                                      ^EClass (.eClass elem)))
+                         :let [rn (keyword (.getName reference))]
+                         refed (query/adjs* elem rn)]
+                     (unify a [eo ref reo] [elem rn refed]))
+                   (remove not)))))))
+
 (defn- class->rel-symbols
   "Returns a relation symbol for the eclass `c`."
   [^EClass c]
@@ -27,6 +120,11 @@
                (symbol (str "+" (clojure.string/replace
                                  s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
+
+(defn ensure-fqn [un]
+  (if (.contains ^String (name un) ".")
+    un
+    (genprots/qname (core/eclassifier un))))
 
 (defn- create-eclass-relations
   "Creates relations for the given eclass."
@@ -101,85 +199,6 @@
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
-(defn eobjecto
-  "A relation where `eo` is an EObject."
-  [eo]
-  (fn [a]
-    (let [geo (walk a eo)]
-      (if (ground? geo)
-        (if (core/eobject? geo) (succeed a) (fail a))
-        (to-stream
-         (->> (map #(unify a eo %)
-                   (core/eallobjects *model*))
-              (remove not)))))))
-
-(defn valueo
-  "A relation where `eo` has value `val` for its `at` attribute."
-  [eo at val]
-  (fn [a]
-    (let [geo  (walk a eo)
-          gat  (walk a at)
-          gval (walk a val)]
-      (cond
-       (and (ground? geo)
-            (ground? gat)
-            (core/eobject? geo)
-            (or (keyword? gat) (string? gat) (symbol? gat)))
-       (or (unify a [eo at val] [geo gat (core/eget geo gat)])
-           (fail a))
-
-       (and (ground? geo)
-            (core/eobject? geo))
-       (to-stream
-        (->> (for [^EAttribute attr (seq (.getEAllAttributes
-                                           ^EClass (.eClass ^EObject geo)))
-                   :let [an (keyword (.getName attr))]]
-               (unify a [eo at val] [geo an (core/eget geo an)]))
-             (remove not)))
-
-       :else (to-stream
-              (->> (for [^EObject elem (core/eallobjects *model*)
-                         ^EAttribute attr (seq (.getEAllAttributes
-                                                 ^EClass (.eClass elem)))
-                         :let [an (keyword (.getName attr))]]
-                     (unify a [eo at val] [elem an (core/eget elem an)]))
-                   (remove not)))))))
-
-(defn referenceo
-  "A relation where `eo` references `reo` with its `ref` reference."
-  [eo ref reo]
-  (fn [a]
-    (let [geo  (walk a eo)
-          gref (walk a ref)
-          greo (walk a reo)]
-      (cond
-       (and (ground? geo)
-            (ground? gref)
-            (core/eobject? geo)
-            (or (keyword? gref) (string? gref) (symbol? gref)))
-       (to-stream
-        (->> (for [refed (query/adjs* geo gref)]
-               (unify a [eo ref reo] [geo gref refed]))
-             (remove not)))
-
-       (and (ground? geo)
-            (core/eobject? geo))
-       (to-stream
-        (->> (for [^EReference reference (seq (.getEAllReferences
-                                                ^EClass (.eClass ^EObject geo)))
-                   :let [rn (keyword (.getName reference))]
-                   refed (query/adjs* geo rn)]
-               (unify a [eo ref reo] [geo rn refed]))
-             (remove not)))
-
-       :else (to-stream
-              (->> (for [^EObject elem (core/eallobjects *model*)
-                         ^EReference reference (seq (.getEAllReferences
-                                                      ^EClass (.eClass elem)))
-                         :let [rn (keyword (.getName reference))]
-                         refed (query/adjs* elem rn)]
-                     (unify a [eo ref reo] [elem rn refed]))
-                   (remove not)))))))
 
 ;;# Main
 
