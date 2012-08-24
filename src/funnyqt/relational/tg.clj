@@ -157,15 +157,16 @@ Have fun!"
   (:use clojure.core.logic
         funnyqt.relational.util
         [funnyqt.relational :only [*model*]])
-  (:require [funnyqt.tg :as core]
+  (:require [funnyqt.tg        :as core]
             [funnyqt.protocols :as genprots]
-            [funnyqt.query.tg :as query])
+            [funnyqt.query.tg  :as qtg]
+            [funnyqt.query     :as query])
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
                                   AttributedElementClass NamedElement
                                   GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)))
+                                  GraphElementClass IncidenceClass)))
 
 (defn vertexo
   "A relation where `v` is a vertex."
@@ -175,7 +176,7 @@ Have fun!"
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %)
-                   (query/vseq *model*))
+                   (qtg/vseq *model*))
               (remove not)))
         (if (and (core/vertex? gv)
                  (core/contains-vertex? *model* gv))
@@ -199,7 +200,7 @@ Have fun!"
        (if (core/vertex? galpha)
          (to-stream
           (->> (map #(unify a [e omega] [% (core/omega %)])
-                    (query/iseq galpha nil :out))
+                    (qtg/iseq galpha nil :out))
                (remove not)))
          (fail a))
 
@@ -207,12 +208,12 @@ Have fun!"
        (if (core/vertex? gomega)
          (to-stream
           (->> (map #(unify a [e alpha] [% (core/alpha %)])
-                    (query/iseq gomega nil :in))
+                    (qtg/iseq gomega nil :in))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [edge (query/eseq *model*)]
+              (->> (for [edge (qtg/eseq *model*)]
                      (unify a [e alpha omega]
                             [edge (core/alpha edge) (core/omega edge)]))
                    (remove not)))))))
@@ -244,13 +245,69 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [elem (concat (query/vseq *model*)
-                                      (query/eseq *model*))
+              (->> (for [elem (concat (qtg/vseq *model*)
+                                      (qtg/eseq *model*))
                          ^Attribute attr (seq (.getAttributeList
                                                ^AttributedElementClass
                                                (core/attributed-element-class elem)))
                          :let [an (keyword (.getName attr))]]
                      (unify a [ae at val] [elem an (core/value elem an)]))
+                   (remove not)))))))
+
+(defn- edge-class-roles [^EdgeClass ec from-or-to]
+  (remove empty? (.getAllRoles ^IncidenceClass
+                               (if (= :to from-or-to)
+                                 (.getTo ec)
+                                 (.getFrom ec)))))
+
+(defn adjo
+  "A relation where `rv` is in the `role` role of `v`."
+  [v role rv]
+  (fn [a]
+    (let [gv    (walk a v)
+          grole (walk a role)
+          grv   (walk a rv)]
+      (cond
+       (and (ground? gv) (ground? grole))
+       (if (and (core/vertex? gv) (keyword? grole))
+         (to-stream
+          (->> (for [refed (query/adjs* gv grole)]
+                 (unify a [rv] [refed]))
+               (remove not)))
+         (fail a))
+
+       (ground? gv)
+       (if (core/vertex? gv)
+         (to-stream
+          (->> (for [e (qtg/iseq gv)
+                     rn (edge-class-roles (core/attributed-element-class e)
+                                          (if (core/normal-edge? e) :to :from))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [role rv] [rn (core/that e)]))
+               (remove not)))
+         (fail a))
+
+       (ground? grv)
+       (if (core/vertex? grv)
+         (to-stream
+          (->> (for [e (qtg/iseq grv)
+                     rn (edge-class-roles (core/attributed-element-class e)
+                                          (if (core/normal-edge? e) :from :to))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [v role] [(core/that e) rn]))
+               (remove not)))
+         (fail a))
+
+       :else (to-stream
+              (->> (for [s (qtg/vseq *model*)
+                         e (qtg/iseq s)
+                         rn (edge-class-roles (core/attributed-element-class e)
+                                              (if (core/normal-edge? e) :to :from))
+                         :when rn
+                         :let [rn (keyword rn)]]
+                     (unify a [v role rv] [(core/this e) rn (core/that e)]))
                    (remove not)))))))
 
 
@@ -281,7 +338,7 @@ Have fun!"
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (query/vseq *model* '~na))
+                          (qtg/vseq *model* '~na))
                      (remove not)))
                (if (and (core/vertex? v#)
                         (core/contains-vertex? *model* v#)
@@ -314,7 +371,7 @@ Have fun!"
               (if (core/vertex? al#)
                 (to-stream
                  (->> (map #(unify a# [~e ~om] [% (core/omega %)])
-                           (query/iseq al# '~na :out))
+                           (qtg/iseq al# '~na :out))
                       (remove not)))
                 (fail a#))
 
@@ -322,12 +379,12 @@ Have fun!"
               (if (core/vertex? om#)
                 (to-stream
                  (->> (map #(unify a# [~e ~al] [% (core/alpha %)])
-                           (query/iseq om# '~na :in))
+                           (qtg/iseq om# '~na :in))
                       (remove not)))
                 (fail a#))
 
               :else (to-stream
-                     (->> (for [edge# (query/eseq *model* '~na)]
+                     (->> (for [edge# (qtg/eseq *model* '~na)]
                             (unify a# [~e ~al ~om]
                                    [edge# (core/alpha edge#) (core/omega edge#)]))
                           (remove not))))))))))
@@ -371,6 +428,8 @@ Have fun!"
   schema of `schema`."
   [^Schema schema nssym]
   (let [atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
+        ;; TODO: Implement me!!
+        refs (atom {}) ;; map from role names to set of attributed element classes that have it
         old-ns *ns*
         code `(do
                 (ns ~nssym
@@ -529,7 +588,7 @@ Have fun!"
   ;; VSeq vs relation
   (time (dorun (run* [q] (+ClassDefinition q))))
   ; "Elapsed time: 66.21493 msecs"
-  (time (dorun (query/vseq *model* 'ClassDefinition)))
+  (time (dorun (qtg/vseq *model* 'ClassDefinition)))
   ; "Elapsed time: 36.796144 msecs"
 
   (defn direct-subclasso
