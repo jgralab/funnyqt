@@ -28,7 +28,7 @@ argument is the graph, and the second argument is a new namespace name.  That
 will be created, and all relations (including an implicit reference to the
 graph) are defined in it.
 
-    user> (create-schema-relations-ns g 'roadmap)
+    user> (generate-schema-relations g 'roadmap)
 
 This procedure creates 4 relations per attributed element class of the schema
 of our graph.  For any vertex class Foo, there's a relation (+Foo! x) which
@@ -157,10 +157,10 @@ Have fun!"
   (:use clojure.core.logic
         funnyqt.relational.util
         [funnyqt.relational :only [*model*]])
-  (:require [funnyqt.tg        :as core]
-            [funnyqt.protocols :as genprots]
-            [funnyqt.query.tg  :as qtg]
-            [funnyqt.query     :as query])
+  (:require funnyqt.tg
+            funnyqt.protocols
+            funnyqt.query.tg
+            funnyqt.query)
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
@@ -176,10 +176,10 @@ Have fun!"
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %)
-                   (qtg/vseq *model*))
+                   (funnyqt.query.tg/vseq *model*))
               (remove not)))
-        (if (and (core/vertex? gv)
-                 (core/contains-vertex? *model* gv))
+        (if (and (funnyqt.tg/vertex? gv)
+                 (funnyqt.tg/contains-vertex? *model* gv))
           (succeed a)
           (fail a))))))
 
@@ -192,30 +192,30 @@ Have fun!"
           gomega (walk a omega)]
       (cond
        (ground? ge)
-       (or (and (core/edge? ge)
-                (unify a [alpha omega] [(core/alpha ge) (core/omega ge)]))
+       (or (and (funnyqt.tg/edge? ge)
+                (unify a [alpha omega] [(funnyqt.tg/alpha ge) (funnyqt.tg/omega ge)]))
            (fail a))
 
        (ground? galpha)
-       (if (core/vertex? galpha)
+       (if (funnyqt.tg/vertex? galpha)
          (to-stream
-          (->> (map #(unify a [e omega] [% (core/omega %)])
-                    (qtg/iseq galpha nil :out))
+          (->> (map #(unify a [e omega] [% (funnyqt.tg/omega %)])
+                    (funnyqt.query.tg/iseq galpha nil :out))
                (remove not)))
          (fail a))
 
        (ground? gomega)
-       (if (core/vertex? gomega)
+       (if (funnyqt.tg/vertex? gomega)
          (to-stream
-          (->> (map #(unify a [e alpha] [% (core/alpha %)])
-                    (qtg/iseq gomega nil :in))
+          (->> (map #(unify a [e alpha] [% (funnyqt.tg/alpha %)])
+                    (funnyqt.query.tg/iseq gomega nil :in))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [edge (qtg/eseq *model*)]
+              (->> (for [edge (funnyqt.query.tg/eseq *model*)]
                      (unify a [e alpha omega]
-                            [edge (core/alpha edge) (core/omega edge)]))
+                            [edge (funnyqt.tg/alpha edge) (funnyqt.tg/omega edge)]))
                    (remove not)))))))
 
 (defn valueo
@@ -228,30 +228,30 @@ Have fun!"
       (cond
        (and (ground? gae)
             (ground? gat))
-       (or (and (core/attributed-element? gae)
+       (or (and (funnyqt.tg/attributed-element? gae)
                 (keyword? gat)
-                (unify a val (core/value gae gat)))
+                (unify a val (funnyqt.tg/value gae gat)))
            (fail a))
 
        (ground? gae)
-       (if (core/vertex? gae)
+       (if (funnyqt.tg/vertex? gae)
          (to-stream
           (->> (for [^Attribute attr (seq (.getAttributeList
                                            ^AttributedElementClass
-                                           (core/attributed-element-class gae)))
+                                           (funnyqt.tg/attributed-element-class gae)))
                      :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (core/value gae an)]))
+                 (unify a [at val] [an (funnyqt.tg/value gae an)]))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [elem (concat (qtg/vseq *model*)
-                                      (qtg/eseq *model*))
+              (->> (for [elem (concat (funnyqt.query.tg/vseq *model*)
+                                      (funnyqt.query.tg/eseq *model*))
                          ^Attribute attr (seq (.getAttributeList
                                                ^AttributedElementClass
-                                               (core/attributed-element-class elem)))
+                                               (funnyqt.tg/attributed-element-class elem)))
                          :let [an (keyword (.getName attr))]]
-                     (unify a [ae at val] [elem an (core/value elem an)]))
+                     (unify a [ae at val] [elem an (funnyqt.tg/value elem an)]))
                    (remove not)))))))
 
 (defn- edge-class-roles [^EdgeClass ec from-or-to]
@@ -269,45 +269,45 @@ Have fun!"
           grv   (walk a rv)]
       (cond
        (and (ground? gv) (ground? grole))
-       (if (and (core/vertex? gv) (keyword? grole))
+       (if (and (funnyqt.tg/vertex? gv) (keyword? grole))
          (to-stream
-          (->> (for [refed (query/adjs* gv grole)]
+          (->> (for [refed (funnyqt.query/adjs* gv grole)]
                  (unify a [rv] [refed]))
                (remove not)))
          (fail a))
 
        (ground? gv)
-       (if (core/vertex? gv)
+       (if (funnyqt.tg/vertex? gv)
          (to-stream
-          (->> (for [e (qtg/iseq gv)
-                     rn (edge-class-roles (core/attributed-element-class e)
-                                          (if (core/normal-edge? e) :to :from))
+          (->> (for [e (funnyqt.query.tg/iseq gv)
+                     rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
+                                          (if (funnyqt.tg/normal-edge? e) :to :from))
                      :when rn
                      :let [rn (keyword rn)]]
-                 (unify a [role rv] [rn (core/that e)]))
+                 (unify a [role rv] [rn (funnyqt.tg/that e)]))
                (remove not)))
          (fail a))
 
        (ground? grv)
-       (if (core/vertex? grv)
+       (if (funnyqt.tg/vertex? grv)
          (to-stream
-          (->> (for [e (qtg/iseq grv)
-                     rn (edge-class-roles (core/attributed-element-class e)
-                                          (if (core/normal-edge? e) :from :to))
+          (->> (for [e (funnyqt.query.tg/iseq grv)
+                     rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
+                                          (if (funnyqt.tg/normal-edge? e) :from :to))
                      :when rn
                      :let [rn (keyword rn)]]
-                 (unify a [v role] [(core/that e) rn]))
+                 (unify a [v role] [(funnyqt.tg/that e) rn]))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [s (qtg/vseq *model*)
-                         e (qtg/iseq s)
-                         rn (edge-class-roles (core/attributed-element-class e)
-                                              (if (core/normal-edge? e) :to :from))
+              (->> (for [s (funnyqt.query.tg/vseq *model*)
+                         e (funnyqt.query.tg/iseq s)
+                         rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
+                                              (if (funnyqt.tg/normal-edge? e) :to :from))
                          :when rn
                          :let [rn (keyword rn)]]
-                     (unify a [v role rv] [(core/this e) rn (core/that e)]))
+                     (unify a [v role rv] [(funnyqt.tg/this e) rn (funnyqt.tg/that e)]))
                    (remove not)))))))
 
 
@@ -338,11 +338,11 @@ Have fun!"
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (qtg/vseq *model* '~na))
+                          (funnyqt.query.tg/vseq *model* '~na))
                      (remove not)))
-               (if (and (core/vertex? v#)
-                        (core/contains-vertex? *model* v#)
-                        (genprots/has-type? v# '~na))
+               (if (and (funnyqt.tg/vertex? v#)
+                        (funnyqt.tg/contains-vertex? *model* v#)
+                        (funnyqt.protocols/has-type? v# '~na))
                  (succeed a#)
                  (fail a#)))))))))
 
@@ -363,37 +363,37 @@ Have fun!"
                  om# (walk a# ~om)]
              (cond
               (ground? e#)
-              (or (and (core/edge? e#)
-                       (unify a# [~al ~om] [(core/alpha e#) (core/omega e#)]))
+              (or (and (funnyqt.tg/edge? e#)
+                       (unify a# [~al ~om] [(funnyqt.tg/alpha e#) (funnyqt.tg/omega e#)]))
                   (fail a#))
 
               (ground? al#)
-              (if (core/vertex? al#)
+              (if (funnyqt.tg/vertex? al#)
                 (to-stream
-                 (->> (map #(unify a# [~e ~om] [% (core/omega %)])
-                           (qtg/iseq al# '~na :out))
+                 (->> (map #(unify a# [~e ~om] [% (funnyqt.tg/omega %)])
+                           (funnyqt.query.tg/iseq al# '~na :out))
                       (remove not)))
                 (fail a#))
 
               (ground? om#)
-              (if (core/vertex? om#)
+              (if (funnyqt.tg/vertex? om#)
                 (to-stream
-                 (->> (map #(unify a# [~e ~al] [% (core/alpha %)])
-                           (qtg/iseq om# '~na :in))
+                 (->> (map #(unify a# [~e ~al] [% (funnyqt.tg/alpha %)])
+                           (funnyqt.query.tg/iseq om# '~na :in))
                       (remove not)))
                 (fail a#))
 
               :else (to-stream
-                     (->> (for [edge# (qtg/eseq *model* '~na)]
+                     (->> (for [edge# (funnyqt.query.tg/eseq *model* '~na)]
                             (unify a# [~e ~al ~om]
-                                   [edge# (core/alpha edge#) (core/omega edge#)]))
+                                   [edge# (funnyqt.tg/alpha edge#) (funnyqt.tg/omega edge#)]))
                           (remove not))))))))))
 
 (defn- create-attr-relation
   "Creates relations for the given attribute."
   [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having
   ;; such an attr
-  (let [ts     (mapv #(genprots/qname %) aecs) ;; a type spec
+  (let [ts     (mapv #(funnyqt.protocols/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq
@@ -412,35 +412,31 @@ Have fun!"
          (let [elem# (walk a# ~elem)]
            (cond
             (ground? elem#)
-            (or (and (core/attributed-element? elem#)
-                     (unify a# ~val (core/value elem# ~attr)))
+            (or (and (funnyqt.tg/attributed-element? elem#)
+                     (unify a# ~val (funnyqt.tg/value elem# ~attr)))
                 (fail a#))
 
             :else (to-stream
                    (->> (for [e# (~seqf *model* '~ts)
-                              :let [v# (core/value e# ~attr)]]
+                              :let [v# (funnyqt.tg/value e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
-
-(defn create-schema-relations-ns
-  "Populates the namespace `nssym` (a symbol) with relations reflecting the
-  schema of `schema`."
-  [^Schema schema nssym]
-  (let [atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
-        ;; TODO: Implement me!!
-        refs (atom {}) ;; map from role names to set of attributed element classes that have it
-        old-ns *ns*
-        code `(do
-                (ns ~nssym
-                  (:refer-clojure :exclude [~'==])
-                  (:use [clojure.core.logic])
-                  (:use funnyqt.relational
-                        funnyqt.relational.tg))
-
-                ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                ;; Schema specific relations ;;
-                ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmacro generate-schema-relations
+  "Generates schema-specific relations in the namespace denoted by `nssym`.
+  If `nssym` is nil (or not given), generate them in the current namespace.
+  `schema-file` is the TG file with the schema."
+  ([schema-file] `(generate-schema-relations ~schema-file nil))
+  ([schema-file nssym]
+     (let [^Schema schema (funnyqt.tg/load-schema schema-file)
+           atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
+           ;; TODO: Implement me!!
+           refs (atom {}) ;; map from role names to set of attributed element classes that have it
+           old-ns *ns*
+           c `(do
+                ~(when nssym
+                   `(ns ~nssym
+                      (:refer-clojure :exclude [~'==])))
                 ~@(concat
                    (doall
                     (mapcat
@@ -463,20 +459,18 @@ Have fun!"
                        (create-ec-relations ec))
                      (seq (-> schema .getGraphClass .getEdgeClasses))))
                    (for [^Attribute a @atts]
-                     (create-attr-relation a))))]
-    ;; (clojure.pprint/pprint code)
-    (eval code)
-    (in-ns (ns-name old-ns))
-    nssym))
+                     (create-attr-relation a)))
+                (in-ns '~(ns-name old-ns)))]
+       c)))
 
 ;;# How to use...
 
 (comment
   ;; SETUP
   (require '[funnyqt.tg :as core])
-  (def g (core/load-graph "/home/horn/Repos/uni/funtg/test/greqltestgraph.tg"))
+  (def g (funnyqt.tg/load-graph "/home/horn/Repos/uni/funtg/test/greqltestgraph.tg"))
   (use 'funnyqt.tg.funrl)
-  (create-schema-relations-ns g 'roadmap)
+  (generate-schema-relations g 'roadmap)
   (in-ns 'roadmap)
 
   ;; All Capitals of the County in which the Village Kammerforst is located in.
@@ -582,13 +576,13 @@ Have fun!"
   ;; Some tests with a java graph
   (require '[funnyqt.query.tg :as query])
   (require '[funnyqt.tg :as core])
-  (def g (core/load-graph "/home/horn/Repos/uni/funtg-pub/funql-whitepaper/jgralab.tg.gz"))
-  (create-schema-relations-ns g 'jgralab)
+  (def g (funnyqt.tg/load-graph "/home/horn/Repos/uni/funtg-pub/funql-whitepaper/jgralab.tg.gz"))
+  (generate-schema-relations g 'jgralab)
 
   ;; VSeq vs relation
   (time (dorun (run* [q] (+ClassDefinition q))))
   ; "Elapsed time: 66.21493 msecs"
-  (time (dorun (qtg/vseq *model* 'ClassDefinition)))
+  (time (dorun (funnyqt.query.tg/vseq *model* 'ClassDefinition)))
   ; "Elapsed time: 36.796144 msecs"
 
   (defn direct-subclasso
