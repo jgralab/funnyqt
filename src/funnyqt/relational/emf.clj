@@ -36,7 +36,7 @@
        (and (ground? geo)
             (ground? gat))
        (or (and (core/eobject? geo) (keyword? gat)
-                (unify a [eo at val] [geo gat (core/eget geo gat)]))
+                (unify a val (core/eget geo gat)))
            (fail a))
 
        (ground? geo)
@@ -45,7 +45,7 @@
           (->> (for [^EAttribute attr (seq (.getEAllAttributes
                                             ^EClass (.eClass ^EObject geo)))
                      :let [an (keyword (.getName attr))]]
-                 (unify a [eo at val] [geo an (core/eget geo an)]))
+                 (unify a [at val] [an (core/eget geo an)]))
                (remove not)))
          (fail a))
 
@@ -69,7 +69,7 @@
        (if (and (core/eobject? geo) (keyword? gref))
          (to-stream
           (->> (for [refed (query/adjs* geo gref)]
-                 (unify a [eo ref reo] [geo gref refed]))
+                 (unify a [reo] [refed]))
                (remove not)))
          (fail a))
 
@@ -80,7 +80,7 @@
                                                  ^EClass (.eClass ^EObject geo)))
                      :let [rn (keyword (.getName reference))]
                      refed (query/adjs* geo rn)]
-                 (unify a [eo ref reo] [geo rn refed]))
+                 (unify a [ref reo] [rn refed]))
                (remove not)))
          (fail a))
 
@@ -145,7 +145,7 @@
             (ground? gelem#)
             (if (core/eobject? gelem#)
               (to-stream
-               (->> (map #(unify a# [~elem ~val] [gelem# %])
+               (->> (map #(unify a# ~val %)
                          (query/adjs* gelem# ~eref))
                     (remove not)))
               (fail a#))
