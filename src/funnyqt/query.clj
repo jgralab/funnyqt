@@ -3,8 +3,7 @@
   (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal]])
-  (:require clojure.set
-            [clojure.core.reducers :as r]))
+  (:require [clojure.core.reducers :as r]))
 
 ;;# Comprehensions
 
