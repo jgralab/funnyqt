@@ -109,7 +109,8 @@ can compute that like so:
   (:use funnyqt.utils)
   (:use ordered.set)
   (:use funnyqt.query)
-  (:require clojure.string)
+  (:require clojure.string
+            [clojure.core.reducers :as r])
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
    (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
@@ -573,11 +574,12 @@ can compute that like so:
                              identity))
             tm (type-matcher (first vs) ts)
             dm (direction-matcher dir)]
-        (oset
-         (mapcat (fn [sv]
-                   (map that
-                        (filter complete-pred
-                                (iseq-internal sv tm dm))))
+        (into
+         (ordered-set)
+         (r/mapcat (fn [sv]
+                   (r/map that
+                          (r/filter complete-pred
+                                    (iseq-internal sv tm dm))))
                  vs)))
       (ordered-set))))
 
