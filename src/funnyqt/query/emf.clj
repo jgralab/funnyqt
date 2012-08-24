@@ -64,9 +64,9 @@
   specification `ts` (see `eclass-matcher` for details).  `obj` may also be a
   collection of EObjects."
   ([obj]
-     (mapcat econtents (oset obj)))
+     (oset (mapcat econtents (oset obj))))
   ([obj ts]
-     (mapcat #(econtents % ts) (oset obj))))
+     (oset (mapcat #(econtents % ts) (oset obj)))))
 
 (defn --->
   "Returns the EObjects cross-referenced by `obj` where the references may be
@@ -74,9 +74,9 @@
   details).  `obj` may also be a collection of EObjects.  In EMF,
   cross-referenced means referenced by a non-containment EReference."
   ([obj]
-     (mapcat ecrossrefs (oset obj)))
+     (oset (mapcat ecrossrefs (oset obj))))
   ([obj rs]
-     (mapcat #(ecrossrefs % rs) (oset obj))))
+     (oset (mapcat #(ecrossrefs % rs) (oset obj)))))
 
 (defn -->
   "Returns the EObjects referenced by `obj` where the references may be
@@ -84,17 +84,17 @@
   details).  `obj` may also be a collection of EObjects.  In contrast to
   `--->`, this function includes both cross-references and containments."
   ([obj]
-     (mapcat erefs (oset obj)))
+     (oset (mapcat erefs (oset obj))))
   ([obj rs]
-     (mapcat #(erefs % rs) (oset obj))))
+     (oset (mapcat #(erefs % rs) (oset obj)))))
 
 (defn --<>
   "Returns a seq containing `obj`s container.  If there's none,
   returns the empty set."
   [obj]
-  (mapcat #(when-let [c (econtainer %)]
-             [c])
-          (oset obj)))
+  (oset (mapcat #(when-let [c (econtainer %)]
+                   [c])
+                (oset obj))))
 
 (defn <---
   "Returns all EObjects cross-referencing `obj` with a reference matching the
@@ -103,11 +103,11 @@
   of the objects in `obj` is returned.  In EMF, cross-referenced means
   referenced by a non-containment EReference."
   ([obj]
-     (mapcat inv-ecrossrefs (oset obj)))
+     (oset (mapcat inv-ecrossrefs (oset obj))))
   ([obj rs]
-     (mapcat #(inv-ecrossrefs % rs) (oset obj)))
+     (oset (mapcat #(inv-ecrossrefs % rs) (oset obj))))
   ([obj rs container]
-     (mapcat #(inv-ecrossrefs % rs container) (oset obj))))
+     (oset (mapcat #(inv-ecrossrefs % rs container) (oset obj)))))
 
 (defn <--
   "Returns all EObjects referencing `obj` with a reference matching the
@@ -116,19 +116,19 @@
   objects in `obj` is returned.  In contrast to `<---', this function includes
   both cross-references and containments."
   ([obj]
-     (mapcat inv-erefs (oset obj)))
+     (oset (mapcat inv-erefs (oset obj))))
   ([obj rs]
-     (mapcat #(inv-erefs % rs) (oset obj)))
+     (oset (mapcat #(inv-erefs % rs) (oset obj))))
   ([obj rs container]
-     (mapcat #(inv-erefs % rs container) (oset obj))))
+     (oset (mapcat #(inv-erefs % rs container) (oset obj)))))
 
 (defn- p-apply-emf
   [obj p]
   (cond
    ;; funs: --->
-   (fn? p) (oset (p obj))
+   (fn? p) (p obj)
    ;; funs with params: [---> :foo], [p-alt :foo :bar]
-   (coll? p) (oset (apply (first p) obj (rest p)))
+   (coll? p) (apply (first p) obj (rest p))
    ;; EReference names
    (prop-name? p) (oset (mapcat #(erefs % p) (oset obj)))
    :else (errorf "Don't know how to apply %s." p)))
