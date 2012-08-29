@@ -230,6 +230,8 @@ Have fun!"
             (ground? gat))
        (or (and (funnyqt.tg/attributed-element? gae)
                 (keyword? gat)
+                (.getAttribute ^AttributedElementClass (funnyqt.tg/attributed-element-class gae)
+                               (name gat))
                 (unify a val (funnyqt.tg/value gae gat)))
            (fail a))
 
@@ -413,6 +415,7 @@ Have fun!"
            (cond
             (ground? elem#)
             (or (and (funnyqt.tg/attributed-element? elem#)
+                     (.getAttribute (funnyqt.tg/attributed-element-class elem#) ~(name attr))
                      (unify a# ~val (funnyqt.tg/value elem# ~attr)))
                 (fail a#))
 
@@ -429,7 +432,7 @@ Have fun!"
         sv           'sv
         tv           'tv
         ign          'ign
-        make-one   (fn [[ec dir]]
+        make-one   (fn [[^EdgeClass ec dir]]
                      (let [ec-rel-sym (symbol (str "+" (.getUniqueName ec)))]
                        (if (= dir :omega)
                           `(~ec-rel-sym ~ign ~sv ~tv)
