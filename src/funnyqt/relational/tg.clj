@@ -422,6 +422,22 @@ Have fun!"
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
 
+(defn- create-reference-relation
+  "Creates a relation for the given role name."
+  [^EdgeClass ec rn dir]
+  (let [ec-rel-sym   (symbol (str "+" (.getUniqueName ec)))
+        role-rel-sym (symbol (str "+->" rn))
+        sv           'sv
+        tv           'tv
+        ign          'ign]
+    `(defn ~role-rel-sym
+       ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
+       [~sv ~tv]
+       (fresh [~ign]
+         ~(if (= dir :omega)
+            `(~ec-rel-sym ~ign ~sv ~tv)
+            `(~ec-rel-sym ~ign ~tv ~sv))))))
+
 (defmacro generate-schema-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
   If `nssym` is nil (or not given), generate them in the current namespace.
@@ -430,8 +446,7 @@ Have fun!"
   ([schema-file nssym]
      (let [^Schema schema (funnyqt.tg/load-schema schema-file)
            atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
-           ;; TODO: Implement me!!
-           refs (atom {}) ;; map from role names to set of attributed element classes that have it
+           refs (atom []) ;; map from role names to set of edge classes that have it
            old-ns *ns*]
        `(do
           ~(when nssym
@@ -456,10 +471,21 @@ Have fun!"
                    (swap! atts
                           #(update-in %1 [%2] conj ec)
                           a))
+                 (when-let [from-rn (-> ec .getFrom .getRolename)]
+                   ;; Skip empty role names!
+                   (when (seq from-rn)
+                     (swap! refs conj [ec from-rn :alpha])))
+                 (when-let [to-rn (-> ec .getTo .getRolename)]
+                   (when (seq to-rn)
+                     (swap! refs conj [ec to-rn :omega])))
                  (create-ec-relations ec))
                (seq (-> schema .getGraphClass .getEdgeClasses))))
-             (for [^Attribute a @atts]
-               (create-attr-relation a)))
+             (doall
+              (for [^Attribute a @atts]
+                (create-attr-relation a)))
+             (doall
+              (for [[ec role dir] @refs]
+                (create-reference-relation ec role dir))))
           (in-ns '~(ns-name old-ns))))))
 
 ;;# How to use...
