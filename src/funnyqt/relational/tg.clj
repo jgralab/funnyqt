@@ -424,19 +424,26 @@ Have fun!"
 
 (defn- create-reference-relation
   "Creates a relation for the given role name."
-  [^EdgeClass ec rn dir]
-  (let [ec-rel-sym   (symbol (str "+" (.getUniqueName ec)))
-        role-rel-sym (symbol (str "+->" rn))
+  [rn owners]
+  (let [role-rel-sym (symbol (str "+->" rn))
         sv           'sv
         tv           'tv
-        ign          'ign]
+        ign          'ign
+        make-one   (fn [[ec dir]]
+                     (let [ec-rel-sym (symbol (str "+" (.getUniqueName ec)))]
+                       (if (= dir :omega)
+                          `(~ec-rel-sym ~ign ~sv ~tv)
+                          `(~ec-rel-sym ~ign ~tv ~sv))))
+        make (fn [tups]
+               (if (> (count tups) 1)
+                 `(conde
+                   ~@(mapv (fn [t] [(make-one t)]) tups))
+                 (make-one (first tups))))]
     `(defn ~role-rel-sym
        ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
        [~sv ~tv]
        (fresh [~ign]
-         ~(if (= dir :omega)
-            `(~ec-rel-sym ~ign ~sv ~tv)
-            `(~ec-rel-sym ~ign ~tv ~sv))))))
+         ~(make owners)))))
 
 (defmacro generate-schema-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
@@ -446,7 +453,7 @@ Have fun!"
   ([schema-file nssym]
      (let [^Schema schema (funnyqt.tg/load-schema schema-file)
            atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
-           refs (atom []) ;; map from role names to set of edge classes that have it
+           refs (atom {}) ;; map from role names to set of [edgeclass dir] tuples  that have it
            old-ns *ns*]
        `(do
           ~(when nssym
@@ -456,8 +463,8 @@ Have fun!"
              (doall
               (mapcat
                (fn [^VertexClass vc]
-                 (doseq [a (map #(keyword (.getName ^Attribute %))
-                                (seq (.getOwnAttributeList vc)))]
+                 (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                                 (seq (.getOwnAttributeList vc)))]
                    (swap! atts
                           #(update-in %1 [%2] conj vc)
                           a))
@@ -466,26 +473,30 @@ Have fun!"
              (doall
               (mapcat
                (fn [^EdgeClass ec]
-                 (doseq [a (map #(keyword (.getName ^Attribute %))
-                                (seq (.getOwnAttributeList ec)))]
+                 (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                                 (seq (.getOwnAttributeList ec)))]
                    (swap! atts
                           #(update-in %1 [%2] conj ec)
                           a))
                  (when-let [from-rn (-> ec .getFrom .getRolename)]
                    ;; Skip empty role names!
                    (when (seq from-rn)
-                     (swap! refs conj [ec from-rn :alpha])))
+                     (swap! refs
+                            #(update-in %1 [%2] conj [ec :alpha])
+                            from-rn)))
                  (when-let [to-rn (-> ec .getTo .getRolename)]
                    (when (seq to-rn)
-                     (swap! refs conj [ec to-rn :omega])))
+                     (swap! refs
+                            #(update-in %1 [%2] conj [ec :omega])
+                            to-rn)))
                  (create-ec-relations ec))
                (seq (-> schema .getGraphClass .getEdgeClasses))))
              (doall
               (for [^Attribute a @atts]
                 (create-attr-relation a)))
              (doall
-              (for [[ec role dir] @refs]
-                (create-reference-relation ec role dir))))
+              (for [[role owners] @refs]
+                (create-reference-relation role owners))))
           (in-ns '~(ns-name old-ns))))))
 
 ;;# How to use...
