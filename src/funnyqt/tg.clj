@@ -401,50 +401,55 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;# Graph Access
 
-(defn graph
+(definline graph
   "Returns the graph containing the graph element `ge`."
-  [^GraphElement ge]
-  (.getGraph ge))
+  [ge]
+  (let [tagged-ge (vary-meta ge assoc :tag `GraphElement)]
+    `(.getGraph ~tagged-ge)))
 
 ;;## General type predicates
 
-(defn graph?
+(definline graph?
   "Returns logical true if `g` is a Graph."
   [g]
-  (instance? Graph g))
+  `(instance? Graph ~g))
 
-(defn vertex?
+(definline vertex?
   "Returns logical true if `v` is a Vertex."
   [v]
-  (instance? Vertex v))
+  `(instance? Vertex ~v))
 
-(defn edge?
+(definline edge?
   "Returns logical true if `e` is an Edge."
   [e]
-  (instance? Edge e))
+  `(instance? Edge ~e))
 
-(defn graph-element?
+(definline graph-element?
   "Returns logical true if `ge` is a GraphElement."
   [ge]
-  (instance? GraphElement ge))
+  `(instance? GraphElement ~ge))
 
-(defn attributed-element?
+(definline attributed-element?
   "Returns logical true if `ae` is an AttributedElement."
   [ae]
-  (instance? AttributedElement ae))
+  `(instance? AttributedElement ~ae))
 
 
 ;;## Containment
 
-(defn contains-vertex?
+(definline contains-vertex?
   "Returns true if graph `g` contains vertex `v`."
-  [^Graph g ^Vertex v]
-  (.containsVertex g v))
+  [g v]
+  (let [tagged-g (vary-meta g assoc :tag `Graph)
+        tagged-v (vary-meta v assoc :tag `Vertex)]
+    `(.containsVertex ~tagged-g ~tagged-v)))
 
 (defn contains-edge?
   "Returns true if graph `g` contains edge `e`."
-  [^Graph g ^Edge e]
-  (.containsEdge g e))
+  [g e]
+  (let [tagged-g (vary-meta g assoc :tag `Graph)
+        tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.containsEdge ~tagged-g ~tagged-e)))
 
 ;;## Access by ID
 
@@ -896,6 +901,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (doseq [av adjvs]
     (add-adj! v role av)))
 
+
 ;;## Deletions
 
 (extend-protocol Deletable
@@ -969,6 +975,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Printing `read`-able
 
+;; TODO: That should be converted to using reader literals if possible...
 (def ^{:dynamic true :private true}
   *serialization-bindings* nil)
 
