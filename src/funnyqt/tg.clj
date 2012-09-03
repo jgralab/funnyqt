@@ -476,40 +476,47 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Edge functions
 
-(defn alpha
+(definline alpha
   "Returns the start vertex of edge `e`."
-  [^Edge e]
-  (.getAlpha e))
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getAlpha ~tagged-e)))
 
-(defn omega
+(definline omega
   "Returns the end vertex of edge `e`."
-  [^Edge e]
-  (.getOmega e))
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getOmega ~tagged-e)))
 
-(defn this
-  "Returns `e`s this vertex."
-  [^Edge e]
-  (.getThis e))
+(definline this
+  "Returns `e`s this-vertex."
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getThis ~tagged-e)))
 
-(defn that
-  "Returns `e`s that vertex."
-  [^Edge e]
-  (.getThat e))
+(definline that
+  "Returns `e`s that-vertex."
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getThat ~tagged-e)))
 
-(defn normal-edge
+(definline normal-edge
   "Returns `e`s normal (forward-oriented) edge."
-  [^Edge e]
-  (.getNormalEdge e))
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getNormalEdge ~tagged-e)))
 
-(defn reversed-edge
+(definline reversed-edge
   "Returns `e`s reversed (backward-oriented) edge."
-  [^Edge e]
-  (.getReversedEdge e))
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.getReversedEdge ~tagged-e)))
 
-(defn normal-edge?
+(definline normal-edge?
   "Returns true, iff `e` is normal (forward-oriented)."
-  [^Edge e]
-  (.isNormal e))
+  [e]
+  (let [tagged-e (vary-meta e assoc :tag `Edge)]
+    `(.isNormal ~tagged-e)))
 
 (defn inverse-edge
   "Returns the normal edge of a reversed edge, or the reversed edge of a normal edge."
