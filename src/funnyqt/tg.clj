@@ -287,6 +287,32 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (domain-vector-qname qn)
     (name qn)))
 
+;; TODO: We need to think about this.  Unlimited caching definitively isn't the
+;; right thing, and it'll become wrong when metatransforms rename/delete/create
+;; classes (can be disabled, see *allow-class-access-by-simple-name* below).
+;; Or maybe access by simple name should be moved into jgralab itself...
+(def ^:private aec-simple-name-map
+  (memoize
+   (fn [^Schema s]
+     (let [m (atom {})
+           gc (.getGraphClass s)]
+       (doseq [^GraphElementClass
+               gec (concat (.getVertexClasses gc)
+                           (.getEdgeClasses gc))]
+         (swap! m update-in [(.getSimpleName gec)] conj gec))
+       (apply hash-map (mapcat (fn [[k v]]
+                                 (if (> (count v) 1)
+                                   []
+                                   [k (first v)]))
+                               @m))))))
+
+(def ^:dynamic *allow-class-access-by-simple-name*
+  "If locical true, graph element classes may be retrieved by their simple
+  names if they are unique.  That is, if there's only a vertex class `foo.Bar`,
+  then `(vseq g 'Bar)` will work just fine.  If there are classes `foo.Bar` and
+  `baz.Bar`, then you need to use the qualified name anyway."
+  true)
+
 (extend-protocol Resolving
   AttributedElement
   (attributed-element-class
@@ -294,6 +320,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
        (.getAttributedElementClass this))
     ([this qname]
        (or (-> this .getSchema (.getAttributedElementClass (name qname)))
+           (and *allow-class-access-by-simple-name*
+                ((aec-simple-name-map (.getSchema this)) (name qname)))
            (errorf "No such attributed element class %s" (name qname)))))
   (domain [elem qname]
     (or (.getDomain (.getSchema elem) (domain-qname qname))
@@ -310,7 +338,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
     ([this]
        this)
     ([this qname]
-       (-> this .getSchema (.getAttributedElementClass (name qname)))))
+       (or (-> this .getSchema (.getAttributedElementClass (name qname)))
+           (and *allow-class-access-by-simple-name*
+                ((aec-simple-name-map (.getSchema this)) (name qname)))
+           (errorf "No such attributed element class %s" (name qname)))))
   (domain [aec qname]
     (or (.getDomain (.getSchema aec) (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
@@ -322,7 +353,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
     ([this]
        (error "A schema is no attributed element class!"))
     ([this qname]
-       (.getAttributedElementClass this (name qname))))
+       (or (.getAttributedElementClass this (name qname))
+           (and *allow-class-access-by-simple-name*
+                ((aec-simple-name-map this) (name qname)))
+           (errorf "No such attributed element class %s" (name qname)))))
   (domain [s qname]
     (or (.getDomain s (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
