@@ -168,6 +168,42 @@ Have fun!"
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
+(defn typeo
+  "A relation where vertex or edge `e` has the type `t`, a graph element class
+  name."
+  [e t]
+  (fn [a]
+    (let [ge (walk a e)
+          gt (walk a t)]
+      (cond
+       (and (ground? ge) (ground? gt))
+       (if (and (funnyqt.tg/attributed-element? ge)
+                (symbol? gt)
+                (funnyqt.protocols/has-type? ge gt))
+         (succeed a)
+         (fail a))
+
+       (ground? ge)
+       (or (and (funnyqt.tg/attributed-element? ge)
+                (unify a t (funnyqt.protocols/qname ge)))
+           (fail a))
+
+       (ground? gt)
+       (let [aec (funnyqt.tg/attributed-element-class *model* gt)
+             sfn (if (funnyqt.tg/vertex-class? aec)
+                   funnyqt.query.tg/vseq
+                   funnyqt.query.tg/eseq)]
+         (to-stream
+          (->> (map #(unify a e %)
+                    (sfn *model* gt))
+               (remove not))))
+
+       :else (to-stream
+              (->> (for [elem (concat (funnyqt.query.tg/vseq *model*)
+                                      (funnyqt.query.tg/eseq *model*))]
+                     (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
+                   (remove not)))))))
+
 (defn vertexo
   "A relation where `v` is a vertex."
   [v]

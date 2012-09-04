@@ -13,6 +13,36 @@
 
 ;;# Utilities
 
+(defn typeo
+  "A relation where the EObject `e` has the type `t`, an EClass name."
+  [e t]
+  (fn [a]
+    (let [ge (walk a e)
+          gt (walk a t)]
+      (cond
+       (and (ground? ge) (ground? gt))
+       (if (and (funnyqt.emf/eobject? ge)
+                (symbol? gt)
+                (funnyqt.protocols/has-type? ge gt))
+         (succeed a)
+         (fail a))
+
+       (ground? ge)
+       (or (and (funnyqt.emf/eobject? ge)
+                (unify a t (funnyqt.protocols/qname ge)))
+           (fail a))
+
+       (ground? gt)
+       (to-stream
+        (->> (map #(unify a e %)
+                  (funnyqt.emf/eallobjects *model* gt))
+             (remove not)))
+
+       :else (to-stream
+              (->> (for [elem (funnyqt.emf/eallobjects *model*)]
+                     (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
+                   (remove not)))))))
+
 (defn eobjecto
   "A relation where `eo` is an EObject."
   [eo]

@@ -468,6 +468,32 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [ae]
   `(instance? AttributedElement ~ae))
 
+(definline graph-class?
+  "Returns logical true if `g` is a GraphClass."
+  [g]
+  `(instance? GraphClass ~g))
+
+(definline vertex-class?
+  "Returns logical true if `v` is a VertexClass."
+  [v]
+  `(instance? VertexClass ~v))
+
+(definline edge-class?
+  "Returns logical true if `e` is an EdgeClass."
+  [e]
+  `(instance? EdgeClass ~e))
+
+(definline graph-element-class?
+  "Returns logical true if `ge` is a GraphElementClass."
+  [ge]
+  `(instance? GraphElementClass ~ge))
+
+(definline attributed-element-class?
+  "Returns logical true if `ae` is an AttributedElementClass."
+  [ae]
+  `(instance? AttributedElementClass ~ae))
+
+
 
 ;;## Containment
 
