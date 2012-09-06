@@ -87,7 +87,7 @@
                      (unify a [eo at val] [elem an (funnyqt.emf/eget elem an)]))
                    (remove not)))))))
 
-(defn referenceo
+(defn adjo
   "A relation where `eo` references `reo` with its `ref` reference."
   [eo ref reo]
   (fn [a]
