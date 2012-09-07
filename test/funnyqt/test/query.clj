@@ -3,13 +3,6 @@
   (:use [funnyqt.query])
   (:use [clojure.test]))
 
-(deftest test-for*
-  (is (= (for [a [1 2] b [1 2]] (* a b))
-         (for* [a [1 2] b [1 2]] (* a b))))
-  (is (= (for [a [1 2] b [1 2]] (* a b))
-         (for* [:let [x [1 2]], a x, b x]
-               (* a b)))))
-
 (deftest test-forall?
   (is (forall? even? []))
   (is (forall? even? [2 4 10 100 666]))

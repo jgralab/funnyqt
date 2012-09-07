@@ -15,52 +15,41 @@
 
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
-  [g] [p1 (vseq g 'Process)
-       n  (iseq p1 'Next :out)
-       :let [p2 (omega n)]]
+  [g] [p1<Process> -n<Next>-> p2]
   (let [p (create-vertex! g 'Process)]
     (set-omega! n p)
     (create-edge! g 'Next p p2)))
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
-  [g] [p1 (vseq g 'Process)
-       n1 (iseq p1 'Next :out)
-       :let [p (omega n1)]
-       n2 (iseq p 'Next :out)
-       :let [p2 (omega n2)]]
+  [g] [p1<Process> -n1<Next>-> p -n2<Next>-> p2]
   (set-omega! n1 p2)
   (delete! p))
 
 (defrule mount-rule
   "Matches a process and creates and assigns a resource to it."
-  [g] [p (vseq g 'Process)]
+  [g] [p<Process>]
   (create-edge! g 'Token (create-vertex! g 'Resource) p))
 
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
-  [g] [r (vseq g 'Resource)
-       t (iseq r 'Token :out)
-       :let [p (omega r)]]
+  [g] [r<Resource> -t<Token>-> p]
   (delete! r))
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
-  [g] [r (vseq g 'Resource)
-       t (iseq r 'Token :out)
-       :let [p1 (omega t)]
+  [g] [r<Resource> -t<Token>-> p1
        :when (empty? (filter #(= (omega %) r)
                              (iseq p1 'Request :out)))
-       n (iseq p1 'Next :out)
-       :let [p2 (omega n)]]
+       p1 -n<Next>-> p2]
   (set-omega! t p2))
 
 (defrule request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
-  [g] [p (vseq g 'Process)
+  [g] [p<Process>
        :when (empty? (iseq p 'Request :out))
-       r (vseq g 'Resource)
+       r<Resource>
        :when (empty? (filter #(= (omega %) p)
                              (iseq r 'HeldBy :out)))]
   (create-edge! g 'Request p r))
@@ -68,14 +57,9 @@
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
-  ([g] [r  (vseq g 'Resource)
-        t  (iseq r 'Token :out)
-        :let [p (omega t)]
-        rq (iseq r 'Request :in)
-        :when (= p (alpha rq))]
+  ([g] [p -rq<Request>-> r -t<Token>-> p]
      (take-rule g r t p rq))
-  ([g r t p] [rq (iseq r 'Request :in)
-              :when (= p (alpha rq))]
+  ([g r t p] [p -rq<Request>-> r]
      (take-rule g r t p rq))
   ([g r t p rq]
      (delete! [t rq])
@@ -85,9 +69,8 @@
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
   releases that resource."
-  ([g] [r  (vseq g 'Resource)
-        hb (iseq r 'HeldBy :out)
-        :let [p (omega hb)]]
+  ([g] [r<Resource> -hb<HeldBy>-> p
+        :when (empty? (iseq p 'Request :out))]
      (release-rule g r hb p))
   ([g r hb p]
      (when (empty? (iseq p 'Request :out))
@@ -97,14 +80,9 @@
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
-  ([g] [p1  (vseq g 'Process)
-        rel (iseq p1 'Release :in)
-        :let [r (alpha rel)]
-        n (iseq p1 'Next :out)
-        :let [p2 (omega n)]]
+  ([g] [r<Resource> -rel<Release>-> p1 -n<Next>-> p2]
      (give-rule g r rel p1 n p2))
-  ([g r rel p1] [n (iseq p1 'Next :out)
-                 :let [p2 (omega n)]]
+  ([g r rel p1] [p1 -n<Next>-> p2]
      (give-rule g r rel p1 n p2))
   ([g r rel p1 n p2]
      (delete! rel)
@@ -113,28 +91,17 @@
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
-  [g] [r   (vseq g 'Resource)
-       req (iseq r 'Request :in)
-       :let [p1 (alpha req)]
-       hb  (iseq r 'HeldBy :out)
-       :let [p2 (omega hb)]]
+  [g] [p1<Process> -req<Request>-> r -hb<HeldBy>-> p2]
   (create-edge! g 'Blocked r p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
-  ([g] [hb (eseq g 'HeldBy)
-        :let [r1 (alpha hb)
-              p1 (omega hb)]
-        b (iseq p1 'Blocked :in)
-        :let [r2 (alpha b)]
-        p2 (adjs r1 :requester)]
+  ([g] [p2<Process> -req<Request>-> r1 -hb<HeldBy>->
+        p1 <-b<Blocked>- r2
+        :when (not= r1 r2)]
      (waiting-rule g r1 b p2))
-  ([g r1] [req (iseq r1 'Request :in)
-           :let [p2 (alpha req)]
-           hb  (iseq r1 'HeldBy :out)
-           :let [p1 (omega hb)]
-           b   (iseq p1 'Blocked :in)
-           :let [r2 (alpha b)]
+  ([g r1] [r1 <-req<Request>- p2
+           r1 -hb<HeldBy>-> p1 <-b<Blocked>- r2
            :when (not= r1 r2)]
      (waiting-rule g r1 b p2))
   ([g r1 b p2]
@@ -144,18 +111,13 @@
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
-  [g] [p (vseq g 'Process)
-       :when (empty? (iseq p 'HeldBy :in))
-       b (iseq p 'Blocked :in)]
+  [g] [r<Resource> -b<Blocked>-> p
+       :when (empty? (iseq p 'HeldBy :in))]
   (delete! b))
 
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
-  [g] [r  (vseq g 'Resource)
-       hb (iseq r 'HeldBy :out)
-       :let [p (omega hb)]
-       b  (iseq r 'Blocked :out)
-       :when (= p (omega b))]
+  [g] [r<Resource> -hb<HeldBy>-> p <-b<Blocked>- r]
   (delete! [hb b])
   (create-edge! g 'Release r p))
 
@@ -194,36 +156,17 @@
 (defrule request-star-rule
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
-  [g] [r1 (vseq g 'Resource)
-       h1 (iseq r1 'HeldBy :out)
-       :let [p1 (omega h1)]
-       n  (iseq p1 'Next :in)
-       :let [p2 (alpha n)]
-       h2 (iseq p2 'HeldBy :in)
-       :let [r2 (alpha h2)]
-       :when (not= r1 r2)
-       :when (empty? (filter #(= p1 (alpha %))
-                             (iseq r2 'Request :in)))]
+  [g] [r1<Resource> -h1<HeldBy>-> p1 <-<Next>- p2 <-h2<HeldBy>- r2
+       :when (empty? (filter #(= r2 (omega %))
+                             (iseq p2 'Request :out)))]
   (create-edge! g 'Request p1 r2))
-
-(defpattern release-star-pattern
-  "Given a resource and a process, matches another process and resource where
-    the resource is held by the given process and another process requests it."
-  [g r2 p2] [h1 (iseq p2 'HeldBy :in)
-             :let [r1 (alpha h1)]
-             rq (iseq r1 'Request :in)
-             :let [p1 (alpha rq)]
-             :when (and (not= r1 r2) (not= p1 p2))])
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([g] [p2 (vseq g 'Process)
-        h2 (iseq p2 'HeldBy :in)
-        :let [r2 (alpha h2)]
-        [h1 r1 rq p1] (release-star-pattern g r2 p2)]
+  ([g] [p1<Process> -rq<Request>-> r1 -h1<HeldBy>-> p2 <-h2<HeldBy>- r2]
      (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-  ([g r2 h2 p2] [[h1 r1 rq p1] (release-star-pattern g r2 p2)]
+  ([g r2 h2 p2] [p2 <-h1- r1 <-rq<Request>- p1]
      (release-star-rule g r2 h2 p2 h1 r1 rq p1))
   ([g r2 h2 p2 h1 r1 rq p1]
      (delete! h1)
@@ -294,10 +237,10 @@
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
-  (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
+  ;; vc and ec are the expected values
+  (doseq [[n r vc ec] [[4 100 8 23]
+                       [1000 1 2000 3001]]]
     (let [g1 (g-lts n)
-          vc (* 2 n)
-          ec (ecount g1)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
       (print "  without parameter passing:\t")

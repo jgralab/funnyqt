@@ -1,7 +1,4 @@
-(ns
-    ;; TODO: Change to :emf (but it doesn't really matter since no "real"
-    ;; patterns are used anyway.
-    ^{:pattern-expansion-context :tg}
+(ns ^{:pattern-expansion-context :emf}
   funnyqt.test.mutual-exclusion-emf
   (:use funnyqt.emf)
   (:use funnyqt.protocols)
@@ -19,8 +16,7 @@
 
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
-  [sys] [p1 (econtents sys 'Process)
-         :let [p2 (eget p1 :next)]]
+  [sys] [p1<Process> -<next>-> p2]
   (let [p (ecreate! 'Process)]
     (eset! p :name (str "np" @counter))
     (swap! counter inc)
@@ -30,15 +26,13 @@
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
-  [sys] [p1 (econtents sys 'Process)
-         :let [p2 (eget p1 :next)
-               p3 (eget p2 :next)]]
-  (delete! p2)
-  (eset! p1 :next p3))
+  [sys] [p1<Process> -<next>-> p -<next>-> p2]
+  (delete! p)
+  (eset! p1 :next p2))
 
 (defrule mount-rule
   "Matches a process and creates and assigns a resource to it."
-  [sys] [p (econtents sys 'Process)]
+  [sys] [p<Process>]
   (let [r (ecreate! 'Resource)]
     (eset! r :name (str "nr" @counter))
     (swap! counter inc)
@@ -47,33 +41,29 @@
 
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
-  [sys] [r (econtents sys 'Resource)
-         :when-let [t (eget r :taker)]]
+  [sys] [r<Resource> -<taker>-> p]
   (delete! r))
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
-  [sys] [r  (econtents sys 'Resource)
-         p1 (eget r :taker)
+  [sys] [r<Resource> -<taker>-> p1
          :when (not (member? r (eget p1 :requested)))
-         p2 (eget p1 :next)]
+         p1 -<next>-> p2]
   (eset! r :taker p2))
 
 (defrule request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
-  [sys] [p (econtents sys 'Process)
+  [sys] [p<Process>
          :when (empty? (eget p :requested))
-         r (econtents sys 'Resource)
+         r<Resource>
          :when (not= p (eget r :holder))]
   (eadd! p :requested r))
 
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
-  ([sys] [r (econtents sys 'Resource)
-          :when-let [p (eget r :taker)]
-          :when (member? p (eget r :requester))]
+  ([sys] [p -<requested>-> r -<taker>-> p]
      (take-rule sys r p))
   ([sys r p]
      (eunset! r :taker)
@@ -84,8 +74,7 @@
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
-  ([sys] [r (econtents sys 'Resource)
-          :when-let [p (eget r :holder)]]
+  ([sys] [r<Resource> -<holder>-> p]
      (release-rule sys r p))
   ([sys r p]
      (when (empty? (eget p :requested))
@@ -96,8 +85,7 @@
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
-  ([sys] [r (econtents sys 'Resource)
-          :when-let [p1 (eget r :releaser)]]
+  ([sys] [r<Resource> -<releaser>-> p1 -<next>-> p2]
      (give-rule sys r p1))
   ([sys r p1]
      (let [p2 (eget p1 :next)]
@@ -108,22 +96,16 @@
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
-  [sys] [r   (econtents sys 'Resource)
-         p1  (eget r :requester)
-         :when-let [p2 (eget r :holder)]]
+  [sys] [p1<Process> -<requested>-> r -<holder>-> p2]
   (eadd! r :blocked p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
-  ([sys] [r1  (econtents sys 'Resource)
-          p2  (eget r1 :requester)
-          :when-let [p1 (eget r1 :holder)]
-          r2  (eget p1 :blocked_by)
+  ([sys] [p2<Process> -<requested>-> r1 -<held>-> p1 -<blocked_by>-> r2
           :when (not= r1 r2)]
      (waiting-rule sys r1 r2 p1 p2))
-  ([sys r1] [p2  (eget r1 :requester)
-             :when-let [p1 (eget r1 :holder)]
-             r2  (eget p1 :blocked_by)
+  ([sys r1] [r1 -<requester>-> p2
+             r1 -<held>-> p1 -<blocked_by>-> r2
              :when (not= r1 r2)]
      (waiting-rule sys r1 r2 p1 p2))
   ([sys r1 r2 p1 p2]
@@ -133,16 +115,13 @@
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
-  [sys] [r (econtents sys 'Resource)
-         p (eget r :blocked)
+  [sys] [r<Resource> -<blocked>-> p
          :when (empty? (eget p :held))]
   (eremove! r :blocked p))
 
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
-  [sys] [r (econtents sys 'Resource)
-         :when-let [p (eget r :holder)]
-         :when (member? p (eget r :blocked))]
+  [sys] [r<Resource> -<held>-> p <-<blocked>- r]
   (eunset! r :holder)
   (eremove! r :blocked p)
   (eset! r :releaser p))
@@ -188,23 +167,16 @@
 (defrule request-star-rule
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
-  [sys] [r1 (econtents sys 'Resource)
-         :when-let [p1 (eget r1 :holder)
-                    p2 (eget p1 :prev)]
-         r2 (eget p2 :held)
+  [sys] [r1<Resource> -<holder>-> p1 -<prev>-> p2 -<held>-> r2
          :when (not (member? r2 (eget p1 :requested)))]
   (eadd! p1 :requested r2))
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([sys] [r2 (econtents sys 'Resource)
-          :when-let [p2 (eget r2 :holder)]
-          r1 (eget p2 :held)
-          p1 (eget r1 :requester)]
+  ([sys] [p1<Process> -<requested>-> r1 -<holder>-> p2 -<held>-> r2]
        (release-star-rule sys r2 p2))
-    ([sys r2 p2] [r1 (eget p2 :held)
-                  p1 (eget r1 :requester)]
+    ([sys r2 p2] [p2 -<held>-> r1 -<requester>-> p1]
        (eunset! r1 :holder)
        (eset! r1 :releaser p2)))
 
@@ -276,13 +248,13 @@
       (println "N =" n)
       (print "  without parameter passing:\t")
       (time (apply-mutual-exclusion-sts g1 n false))
-      (is (= (+ 2 n) (count (eallobjects g1))))
+      (is (= (inc n) (count (eallobjects g1))))
       (is (= (inc n) (count (ecrosspairs g1))))
       ;;(print-model g1 ".gtk")
 
       (print "  with parameter passing:\t")
       (time (apply-mutual-exclusion-sts g2 n true))
-      (is (= (+ 2 n) (count (eallobjects g2))))
+      (is (= (inc n) (count (eallobjects g2))))
       (is (= (inc n) (count (ecrosspairs g2))))
       ;;(print-model g2 ".gtk")
       )))
@@ -291,10 +263,9 @@
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
-  (doseq [[n r] [[4, 100] [30, 27] [500, 1]]]
+  (doseq [[n r vc ec] [[4 100 8 23]
+                       [1000 1 2000 3001]]]
     (let [g1 (g-lts n)
-          vc (inc (* 2 n))  ;; inc, because of System root node
-          ec (count (ecrosspairs g1))
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
 

@@ -5,53 +5,6 @@
                                   adj*-internal adjs*-internal]])
   (:require [clojure.core.reducers :as r]))
 
-;;# Comprehensions
-
-(defn- shortcut-when-let-vector [lv]
-  (letfn [(whenify [s]
-            (if (coll? s)
-              (mapcat (fn [v] [:when v]) s)
-              [:when s]))]
-    (mapcat (fn [[s v]]
-              (concat [:let [s v]]
-                      (whenify s)))
-            (partition 2 lv))))
-
-(defn- shortcut-when-let-bindings
-  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
-  [bindings]
-  (loop [p bindings, nb []]
-    (if (seq p)
-      (if (= :when-let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
-
-(defmacro for*
-  "Exactly like `clojure.core/for`, but allows :let and :when as first binding
-  form, has additional support for a :when-let modifier combining :let
-  and :when, and it allows for empty `seq-exprs', too.
-
-  Semantics of :when-let:
-
-    :when-let [x (xs), y (ys)] => :let [x (xs)] :when x :let [y (ys)] :when y"
-  [seq-exprs body-expr]
-  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
-        [bind exp] seq-exprs]
-    (condp = bind
-      :let `(let ~exp
-              (for* ~(vec (rest (rest seq-exprs)))
-                ~body-expr))
-      :when `(when ~exp
-               (for* ~(vec (rest (rest seq-exprs)))
-                ~body-expr))
-      ;; default
-      (if (seq seq-exprs)
-        `(for ~seq-exprs
-           ~body-expr)
-        (sequence nil)))))
-
 ;;# Quantified Expressions
 
 (def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."

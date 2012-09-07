@@ -34,10 +34,9 @@
 (defrule replace-binaryop
   "Replaces a binary operation with constant args with
   a constant of the result."
-  [g] [b     (vseq g 'BinaryOp)
-       :let  [[a1 a2] (vec (--> b 'HasArg))]
-       :when (has-type? a1 'Const)
-       :when (has-type? a2 'Const)]
+  [g] [b<BinaryOp> -<HasArg>-> a1<Const>
+       b -<HasArg>-> a2<Const>
+       :when (not= a1 a2)]
   (let [c (create-vertex! g 'Const)]
     (set-value! c :value (eval-exp b))
     (relink! b c nil :in))

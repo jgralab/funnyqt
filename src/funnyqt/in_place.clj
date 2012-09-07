@@ -1,9 +1,8 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
   (:use [funnyqt.utils :only [errorf pr-identity]])
-  (:use [funnyqt.query :only [the for*]])
+  (:use [funnyqt.query :only [the]])
   (:use [funnyqt.pmatch])
-  (:use funnyqt.macro-utils)
   (:use funnyqt.protocols)
   (:use [funnyqt.query :only [member?]])
   (:require [clojure.tools.macro :as m]))
@@ -32,7 +31,7 @@
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          (when-let [r# (first (for* ~match ~matchsyms))]
+          (when-let [r# (first (pattern-for ~match ~matchsyms))]
             (when (every? (complement nil?) r#)
               ~@(when debug
                   `((when *on-matched-rule-fn*

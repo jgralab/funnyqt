@@ -45,7 +45,7 @@
 
 (defrule triangulate-recursively
   "triangulate all recursively"
-  ([g] [tv (filter #(empty? (iseq % 'B)) (vseq g))]
+  ([g] [:call [tv (filter #(empty? (iseq % 'B)) (vseq g))]]
      (triangulate-recursively g tv))
   ([g tv] [tv -l<L>-> lv
            tv -r<R>-> rv
@@ -69,7 +69,7 @@
 
 (defrule triangulate-trampolined
   "triangulate all recursively"
-  ([g] [tv (filter #(empty? (iseq % 'B)) (vseq g))]
+  ([g] [:call [tv (filter #(empty? (iseq % 'B)) (vseq g))]]
      (triangulate-trampolined g tv))
   ([g tv] [tv -l<L>-> lv
            tv -r<R>-> rv

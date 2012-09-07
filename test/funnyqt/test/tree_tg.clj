@@ -20,13 +20,13 @@
   snoc = cons reversed.  So we do like the tree was a singly linked list and
   always add at the end, which is of course a bad idea.
   Forces a complete iteration."
-  [g] [t (vseq g)
+  [g] [t
        :when (not (seq (iseq t 'HasRight :out)))]
   (create-edge! g 'HasRight t (create-vertex! g 'Tree)))
 
 (defrule snoc-recursively
   "Recursive variant of snoc."
-  ([g n] [t (vseq g)
+  ([g n] [t
           :when (pos? n)
           :when (not (seq (iseq t 'HasRight :out)))]
      (snoc-recursively g n t))

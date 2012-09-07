@@ -1,8 +1,7 @@
 (ns funnyqt.pmatch
   "Pattern Matching."
   (:use [funnyqt.utils :only [errorf pr-identity]])
-  (:use [funnyqt.query :only [the for* member?]])
-  (:use funnyqt.macro-utils)
+  (:use [funnyqt.query :only [the member?]])
   (:use funnyqt.protocols)
   (:require [funnyqt.tg :as tg]
             [funnyqt.query :as q]
@@ -12,6 +11,7 @@
   (:require clojure.set)
   (:require [clojure.tools.macro :as m]))
 
+;;# Pattern to pattern graph
 
 (defn- vertex-sym? [sym]
   (and (symbol? sym)
@@ -66,9 +66,7 @@
       (when (seq pattern)
         (cond
          ;; Constraints and non-pattern binding forms ;;
-         (let [f (first pattern)]
-           (or (#{:when :let :when-let :while} f)
-                (coll? (fnext pattern))))
+         (#{:when :let :when-let :while :call} (first pattern))
          (do
            (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
              (tg/set-value! v :form
@@ -123,6 +121,55 @@
             (tg/set-omega! hfpv argv))))
     pg))
 
+;;# Pattern comprehension
+
+(defn- shortcut-when-let-vector [lv]
+  (letfn [(whenify [s]
+            (if (coll? s)
+              (mapcat (fn [v] [:when v]) s)
+              [:when s]))]
+    (mapcat (fn [[s v]]
+              (concat [:let [s v]]
+                      (whenify s)))
+            (partition 2 lv))))
+
+(defn- shortcut-when-let-bindings
+  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  [bindings]
+  (loop [p bindings, nb []]
+    (if (seq p)
+      (if (= :when-let (first p))
+        (recur (rest (rest p))
+               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
+        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
+      (vec nb))))
+
+(defn- embed-pattern-calls [bindings]
+  (vec (mapcat (fn [[v e]]
+                 (if (= :call v)
+                   e
+                   [v e]))
+               (partition 2 bindings))))
+
+(defmacro pattern-for
+  [seq-exprs body-expr]
+  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
+        seq-exprs (embed-pattern-calls seq-exprs)
+        [bind exp] seq-exprs]
+    (condp = bind
+      :let `(let ~exp
+              (pattern-for ~(vec (rest (rest seq-exprs)))
+                ~body-expr))
+      :when `(when ~exp
+               (pattern-for ~(vec (rest (rest seq-exprs)))
+                ~body-expr))
+      ;; default
+      (if (seq seq-exprs)
+        `(for ~seq-exprs
+           ~body-expr)
+        (sequence nil)))))
+
+;;# Patter graph to pattern comprehension
 (defn enqueue-incs
   ([cur stack done]
      (enqueue-incs cur stack done false))
@@ -169,7 +216,7 @@
         (conj vec cur)
         vec))))
 
-(defn pattern-graph-to-for*-bindings-tg [argvec pg]
+(defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
         anon-vec-to-rpd (fn [av]
                           `[q/p-seq ~@(mapcat (fn [el]
@@ -283,7 +330,7 @@
                                 (into bf forms))))))
         bf))))
 
-(defn pattern-graph-to-for*-bindings-emf [argvec pg]
+(defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
   (let [gsym (first argvec)
         anon-vec-to-rpd (fn [av]
                           `[q/p-seq ~@(mapcat (fn [el]
@@ -366,6 +413,38 @@
                                 (into bf forms))))))
         bf))))
 
+(defn bindings-to-arglist
+  "Rips out the symbols declared in `bindings`.
+  `bindings` is a binding vector with the syntax of `for`."
+  [bindings]
+  (loop [p bindings l []]
+    (if (seq p)
+      (cond
+       ;; Handle :let [x y, [u v] z]
+       (or (= :let (first p))
+           (= :when-let (first p))
+           (= :call (first p)))
+       (recur (rest (rest p))
+              (vec (concat l
+                           (loop [ls (first (rest p)) bs []]
+                             (if (seq ls)
+                               (recur (rest (rest ls))
+                                      (let [v (first ls)]
+                                        (if (coll? v)
+                                          (into bs v)
+                                          (conj bs v))))
+                               bs)))))
+       ;; Ignore :when (exp ...)
+       (keyword? (first p)) (recur (rest (rest p)) l)
+       ;; A vector destructuring form
+       (vector? (first p)) (recur (rest (rest p)) (vec (concat l (first p))))
+       ;; Anothen destructuring form
+       (coll? (first p))
+       (errorf "Only vector destructuring is permitted outside :let, got: %s"
+               (first p))
+       ;; That's a normal binding
+       :default (recur (rest (rest p)) (conj l (first p))))
+      (vec l))))
 
 (defn- verify-pattern-vector
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
@@ -393,12 +472,12 @@
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
-  {:emf pattern-graph-to-for*-bindings-emf
-   :tg  pattern-graph-to-for*-bindings-tg})
+  {:emf pattern-graph-to-pattern-for-bindings-emf
+   :tg  pattern-graph-to-pattern-for-bindings-tg})
 
 (defn transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
-  supported by `for*`.  (Only for internal use.)"
+  supported by `pattern-for`.  (Only for internal use.)"
   [pattern args]
   (let [pgraph (pattern-to-pattern-graph args pattern)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
@@ -411,7 +490,7 @@
   (let [bf (transform-pattern-vector pattern args)]
     (verify-pattern-vector bf args)
     `(~args
-      (for* ~bf
+      (pattern-for ~bf
         ~(or resultform (bindings-to-arglist bf))))))
 
 (defmacro defpattern

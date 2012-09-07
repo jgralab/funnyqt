@@ -1,7 +1,6 @@
 (ns funnyqt.operational
   "Stuff for writing QVT Operational Mappings like transformations."
   (:use [funnyqt.utils :only [error errorf]])
-  (:use funnyqt.macro-utils)
   (:use [funnyqt.query :only [the]])
   (:require [clojure.tools.macro :as m]))
 
