@@ -219,36 +219,37 @@
   "Generates metamodel-specific relations in the namespace denoted by `nssym`.
   If `nssym` is nil (or not given), generate them in the current namespace.
   `ecore-file` is the ecore file containing the metamodel."
-  [ecore-file nssym]
-  (let [ecore-model (funnyqt.emf/load-metamodel ecore-file)
-        atts (atom {}) ;; map from attribute names to set of eclasses that have it
-        refs (atom {}) ;; map from reference names to set of eclasses that have it
-        old-ns *ns*]
-    `(do
-       ~(when nssym
-          `(ns ~nssym
-             (:refer-clojure :exclude [~'==])))
-       ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                         (funnyqt.emf/metamodel-epackages ecore-model))
-           (concat
-            (doall
-             (mapcat
-              (fn [^EClass ecl]
-                (doseq [a (map #(keyword (.getName ^EAttribute %))
-                               (seq (.getEAttributes ecl)))]
-                  (swap! atts
-                         #(update-in %1 [%2] conj ecl)
-                         a))
-                (doseq [r (map #(keyword (.getName ^EReference %))
-                               (seq (.getEReferences ecl)))]
-                  (swap! refs
-                         #(update-in %1 [%2] conj ecl)
-                         r))
-                (create-eclass-relations ecl))
-              (funnyqt.emf/eclassifiers)))
-            (for [^EAttribute a @atts]
-              (create-eattribute-relation a))
-            (for [^EReference r @refs]
-              (create-ereference-relation r))))
-       (in-ns '~(ns-name old-ns)))))
+  ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
+  ([ecore-file nssym]
+     (let [ecore-model (funnyqt.emf/load-metamodel ecore-file)
+           atts (atom {}) ;; map from attribute names to set of eclasses that have it
+           refs (atom {}) ;; map from reference names to set of eclasses that have it
+           old-ns *ns*]
+       `(do
+          ~(when nssym
+             `(ns ~nssym
+                (:refer-clojure :exclude [~'==])))
+          ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                            (funnyqt.emf/metamodel-epackages ecore-model))
+              (concat
+               (doall
+                (mapcat
+                 (fn [^EClass ecl]
+                   (doseq [a (map #(keyword (.getName ^EAttribute %))
+                                  (seq (.getEAttributes ecl)))]
+                     (swap! atts
+                            #(update-in %1 [%2] conj ecl)
+                            a))
+                   (doseq [r (map #(keyword (.getName ^EReference %))
+                                  (seq (.getEReferences ecl)))]
+                     (swap! refs
+                            #(update-in %1 [%2] conj ecl)
+                            r))
+                   (create-eclass-relations ecl))
+                 (funnyqt.emf/eclassifiers)))
+               (for [^EAttribute a @atts]
+                 (create-eattribute-relation a))
+               (for [^EReference r @refs]
+                 (create-ereference-relation r))))
+          (in-ns '~(ns-name old-ns))))))
 
