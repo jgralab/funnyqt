@@ -39,7 +39,7 @@
     (errorf "%s is not edge symbol." esym)))
 
 (def ^:private pattern-schema
-  (tg/load-schema "resources/pattern-schema.tg"))
+  (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
 (defn- pattern-to-pattern-graph [argvec pattern]
   (let [argset (into #{} argvec)
