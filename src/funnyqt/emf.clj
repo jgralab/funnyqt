@@ -489,22 +489,37 @@
     (errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eadd!
-  "Adds each value in `values` to `eo`s list of attribute/reference values
+  "Adds `value` and `more` values to `eo`s list of attribute/reference values
   denoted by `sf` and returns `eo`.  Throws an exception, if there's no
-  EStructuralFeature `sf`."
-  [^EObject eo sf & values]
-  (let [^EList l (eget-raw eo sf)]
-    (.addAll l values)
-    eo))
+  EStructuralFeature `sf`.
+
+  In the arity-2 version, adds `obj` to `model` and returns `model`."
+  ([eo sf value & more]
+     (let [^EList l (eget-raw eo sf)]
+       (.add l value)
+       (when (seq more)
+         (.addAll l more))
+       eo))
+  ([^EMFModel model obj]
+     (.add (.getContents ^Resource (.resource model))
+           obj)))
 
 (defn eremove!
-  "Removes each value in `values` from `eo`s list of attribute/reference values
-  denoted by `sf` and returns `eo`.  Throws an exception, if there's no
-  EStructuralFeature `sf`."
-  [^EObject eo sf & values]
-  (let [^EList l (eget-raw eo sf)]
-    (.removeAll l values)
-    eo))
+  "Removes `value` and `more` values from `eo`s list of attribute/reference
+  values denoted by `sf` and returns `eo`.  Throws an exception, if there's no
+  EStructuralFeature `sf`.
+
+  In the arity-2 version, removes `obj` from `model` and returns `model`.
+  Note that it won't delete `obj` or remove references to it."
+  ([eo sf value & more]
+     (let [^EList l (eget-raw eo sf)]
+       (.remove l value)
+       (when (seq more)
+         (.removeAll l more))
+       eo))
+  ([^EMFModel model obj]
+     (.remove (.getContents ^Resource (.resource model))
+              obj)))
 
 ;;## Edges, i.e., src/trg tuples
 

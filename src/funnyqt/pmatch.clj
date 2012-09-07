@@ -67,14 +67,14 @@
         (cond
          ;; Constraints and non-pattern binding forms ;;
          (#{:when :let :when-let :while :call} (first pattern))
-         (do
-           (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
-             (tg/set-value! v :form
-                            (str "[" (when-not (= :call (first pattern))
-                                       (str (pr-str (first pattern))  " "))
-                                 (pr-str (fnext pattern)) "]"))
-             (tg/create-edge! pg 'Precedes lv v)
-             (recur (nnext pattern) v)))
+         (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
+           (tg/set-value! v :form
+                          (if (= :call (first pattern))
+                            (str (pr-str (fnext pattern)) "]")
+                            (str "[" (str (pr-str (first pattern))  " ")
+                                 (pr-str (fnext pattern)) "]")))
+           (tg/create-edge! pg 'Precedes lv v)
+           (recur (nnext pattern) v))
          ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (edge-sym? (first pattern)) (let [sym (first pattern)
                                            [n t] (name-and-type sym)
@@ -528,11 +528,12 @@
   Hereby, the variables bound by :let (a and b) are taken as is whereas the
   variables bound by :when-let must be logically true in order to match.
 
-  Finally, patterns may also include usual comprehension binding forms, i.e.,
-  pairs of variables and expressions.
+  Finally, patterns may also include calls to other patterns and usual
+  comprehension binding forms using :call, i.e., pairs of variables and
+  expressions.
 
     [v --> w
-     u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]
+     :call [u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]]
 
   The result of a pattern is a lazy sequence of matchen.  Each match is either
   defined by `result-spec` if that's given, or it defaults to a vector of

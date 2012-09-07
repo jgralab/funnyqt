@@ -39,8 +39,8 @@
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
   [g] [r<Resource> -t<Token>-> p1
-       :when (empty? (filter #(= (omega %) r)
-                             (iseq p1 'Request :out)))
+       :when (empty? (filter #(= (that %) r)
+                             (iseq p1 'Request)))
        p1 -n<Next>-> p2]
   (set-omega! t p2))
 
@@ -48,10 +48,10 @@
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
   [g] [p<Process>
-       :when (empty? (iseq p 'Request :out))
+       :when (empty? (iseq p 'Request))
        r<Resource>
-       :when (empty? (filter #(= (omega %) p)
-                             (iseq r 'HeldBy :out)))]
+       :when (empty? (filter #(= (that %) p)
+                             (iseq r 'HeldBy)))]
   (create-edge! g 'Request p r))
 
 (defrule take-rule
@@ -70,10 +70,10 @@
   "Matches a resource holding a resource and not requesting more resources, and
   releases that resource."
   ([g] [r<Resource> -hb<HeldBy>-> p
-        :when (empty? (iseq p 'Request :out))]
+        :when (empty? (iseq p 'Request))]
      (release-rule g r hb p))
   ([g r hb p]
-     (when (empty? (iseq p 'Request :out))
+     (when (empty? (iseq p 'Request))
        (delete! hb)
        [r (create-edge! g 'Release r p) p])))
 
@@ -112,7 +112,7 @@
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
   [g] [r<Resource> -b<Blocked>-> p
-       :when (empty? (iseq p 'HeldBy :in))]
+       :when (empty? (iseq p 'HeldBy))]
   (delete! b))
 
 (defrule unlock-rule
@@ -158,7 +158,7 @@
   makes the successor request its predecessor's resource."
   [g] [r1<Resource> -h1<HeldBy>-> p1 <-<Next>- p2 <-h2<HeldBy>- r2
        :when (empty? (filter #(= r2 (omega %))
-                             (iseq p2 'Request :out)))]
+                             (iseq p2 'Request)))]
   (create-edge! g 'Request p1 r2))
 
 (defrule release-star-rule
@@ -218,7 +218,7 @@
   (println)
   (println "Mutual Exclusion STS")
   (println "====================")
-  (doseq [n [5, 100, 1000]]
+  (doseq [n [5, 100, 500]]
     (let [g1 (g-sts)
           g2 (g-sts)]
       (println "N =" n)
@@ -238,12 +238,13 @@
   (println "====================")
   ;; vc and ec are the expected values
   (doseq [[n r vc ec] [[4 100 8 23]
-                       [1000 1 2000 3001]]]
+                       #_[1000 1 2000 3001]]]
     (let [g1 (g-lts n)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
+      #_(show-graph g1)
       (is (= vc (vcount g1)))
       (is (= ec (ecount g1)))
 
