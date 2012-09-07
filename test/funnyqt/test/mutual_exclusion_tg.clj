@@ -172,7 +172,6 @@
      (delete! h1)
      (create-edge! g 'Release r1 p2)))
 
-
 (deftransformation apply-mutual-exclusion-lts
   [g n param-pass]
   (dotimes [_ n]

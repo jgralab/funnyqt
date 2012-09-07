@@ -70,7 +70,8 @@
          (do
            (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
              (tg/set-value! v :form
-                            (str "[" (pr-str (first pattern)) " "
+                            (str "[" (when-not (= :call (first pattern))
+                                       (str (pr-str (first pattern))  " "))
                                  (pr-str (fnext pattern)) "]"))
              (tg/create-edge! pg 'Precedes lv v)
              (recur (nnext pattern) v)))
@@ -144,17 +145,9 @@
         (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
       (vec nb))))
 
-(defn- embed-pattern-calls [bindings]
-  (vec (mapcat (fn [[v e]]
-                 (if (= :call v)
-                   e
-                   [v e]))
-               (partition 2 bindings))))
-
 (defmacro pattern-for
   [seq-exprs body-expr]
   (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
-        seq-exprs (embed-pattern-calls seq-exprs)
         [bind exp] seq-exprs]
     (condp = bind
       :let `(let ~exp
@@ -422,8 +415,7 @@
       (cond
        ;; Handle :let [x y, [u v] z]
        (or (= :let (first p))
-           (= :when-let (first p))
-           (= :call (first p)))
+           (= :when-let (first p)))
        (recur (rest (rest p))
               (vec (concat l
                            (loop [ls (first (rest p)) bs []]
