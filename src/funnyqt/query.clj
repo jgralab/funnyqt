@@ -8,9 +8,14 @@
 ;;# Comprehensions
 
 (defn- shortcut-when-let-vector [lv]
-  (mapcat (fn [[s v]]
-            [:let [s v] :when s])
-          (partition 2 lv)))
+  (letfn [(whenify [s]
+            (if (coll? s)
+              (mapcat (fn [v] [:when v]) s)
+              [:when s]))]
+    (mapcat (fn [[s v]]
+              (concat [:let [s v]]
+                      (whenify s)))
+            (partition 2 lv))))
 
 (defn- shortcut-when-let-bindings
   "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."

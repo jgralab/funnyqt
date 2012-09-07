@@ -41,7 +41,7 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn- pattern-to-pattern-graph [argvec pattern]
+(defn pattern-to-pattern-graph [argvec pattern]
   (let [argset (into #{} argvec)
         pg (tg/create-graph pattern-schema)
         get-by-name (fn [n]
@@ -67,7 +67,10 @@
         (cond
          ;; Constraints and non-pattern binding forms ;;
          (or (#{:when :let :when-let :while} (first pattern))
-             (coll? (fnext pattern)))
+             (and
+              (coll? (fnext pattern))
+              (not (vertex-sym? (first pattern)))
+              (not (edge-sym? (first pattern)))))
          (do
            (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
              (tg/set-value! v :form
@@ -139,17 +142,16 @@
                         (tg/edge? cur)   (recur (tg/that cur)
                                                 (conj-done done cur)
                                                 (conj vec cur))
-                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur))]
+                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur ['PatternEdge]))]
                                                   (if (> (count ns) 1)
                                                     (errorf "Must not happen!")
                                                     (first ns)))
                                                 (conj-done done cur)
                                                 (conj vec cur))
                         :else (errorf "Unexpected %s." cur))
-                       (if (and (not (anon? cur))
-                                (tg/vertex? cur))
+                       (if cur
                          (conj vec cur)
-                         (errorf "Anonymous path sequences must be anchored at a named vertex.")))))
+                         vec))))
         type (fn [elem]
                (when (has-type? elem '[PatternVertex PatternEdge])
                  (when-let [t (tg/value elem :type)]
@@ -280,12 +282,13 @@
                                        elems)))
         anon-vec (fn [startv done]
                    (loop [cur startv, done done, vec []]
+                     #_(println cur)
                      (if (and cur (anon? cur))
                        (cond
                         (tg/edge? cur)   (recur (tg/that cur)
                                                 (conj-done done cur)
                                                 (conj vec cur))
-                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur))]
+                        (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur ['PatternEdge]))]
                                                   (if (> (count ns) 1)
                                                     (errorf "Must not happen!")
                                                     (first ns)))
@@ -306,11 +309,12 @@
                                                     [[`q/p-restr (type el)]])
                                                   [[(if (tg/normal-edge? el)
                                                       `emfq/-->
-                                                      (errorf "Backward edges unsupported!"))
+                                                      (errorf "Backward edges unsupported! %s"
+                                                              el))
                                                     (keyword (second (type el)))]]))
                                           av)])
         enqueue-incs (fn [cur stack done]
-                       (into stack (remove done (tgq/riseq cur))))
+                       (into stack (remove done (tgq/riseq cur nil :out))))
         build-rpe (fn [startsym av done]
                     (let [target-node (last av)]
                       (cond
@@ -404,15 +408,19 @@
   namespace."
   nil)
 
+(def pattern-graph-transform-function-map
+  "A map from techspace to pattern graph transformers."
+  {:emf pattern-graph-to-for*-bindings-emf
+   :tg  pattern-graph-to-for*-bindings-tg})
+
 (defn transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
   supported by `for*`.  (Only for internal use.)"
   [pattern args]
-  ;; TODO: Handle emf depending on *pattern-expansion-context*
-  (let [pgraph (pattern-to-pattern-graph args pattern)]
-    (case *pattern-expansion-context*
-      :emf (pattern-graph-to-for*-bindings-emf args pgraph)
-      :tg  (pattern-graph-to-for*-bindings-tg args pgraph)
+  (let [pgraph (pattern-to-pattern-graph args pattern)
+        transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
+    (if transform-fn
+      (transform-fn args pgraph)
       (errorf "The pattern expansion context is not set.\n%s"
               "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
