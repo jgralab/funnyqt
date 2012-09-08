@@ -171,11 +171,7 @@
   ([cur stack done]
      (enqueue-incs cur stack done false))
   ([cur stack done only-out]
-     (into stack (remove (fn [i]
-                           (or (done i)
-                               (and (has-type? i 'Precedes)
-                                    (let [prev-i (tg/prev-edge i)]
-                                      (and prev-i (not (done prev-i)))))))
+     (into stack (remove done
                          (tgq/riseq cur nil (when only-out :out))))))
 
 (defn- conj-done [done & elems]
@@ -344,9 +340,10 @@
                                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes (let [cob (tg/that cur)
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                             forms (mapcat #(read-string (tg/value % :form)) allcobs)]
+                             forms (mapcat #(read-string (tg/value % :form)) allcobs)
+                             allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
                          (recur (pop stack)
-                                (apply conj-done done cur allcobs)
+                                (apply conj-done done cur (concat allcobs allprecs))
                                 (into bf forms))))))
         (validate-bf bf done pg)))))
 
@@ -444,9 +441,10 @@
               ArgumentEdge (errorf "There mustn't be argument edges for EMF: %s" (describe cur))
               Precedes (let [cob (tg/that cur)
                              allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                             forms (mapcat #(read-string (tg/value % :form)) allcobs)]
+                             forms (mapcat #(read-string (tg/value % :form)) allcobs)
+                             allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
                          (recur (pop stack)
-                                (apply conj-done done cur allcobs)
+                                (apply conj-done done cur (concat allcobs allprecs))
                                 (into bf forms))))))
         (validate-bf bf done pg)))))
 
