@@ -44,18 +44,14 @@
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
-  [model] [r<Resource> -<taker>-> p1
-         :when (not (member? r (eget p1 :requested)))
-         p1 -<next>-> p2]
+  [model] [r<Resource> -<taker>-> p1 -!<requested>-> r
+           p1 -<next>-> p2]
   (eset! r :taker p2))
 
 (defrule request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
-  [model] [p<Process>
-         :when (empty? (eget p :requested))
-         r<Resource>
-         :when (not= p (eget r :holder))]
+  [model] [r<Resource> -!<holder>-> p<Process> -!<requested>-> <>]
   (eadd! p :requested r))
 
 (defrule take-rule

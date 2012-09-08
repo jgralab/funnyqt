@@ -14,17 +14,22 @@ VertexClass ArgumentVertex : APatternVertex;
 
 abstract EdgeClass APatternEdge
   from APatternVertex (0,*) role src
-  to APatternVertex (0,*) role dst
-  { name : String };
+  to APatternVertex (0,*) role dst;
 
 EdgeClass PatternEdge : APatternEdge
+  from APatternVertex (0,*)
+  to APatternVertex (0,*)
+  { name : String, type : String };
+
+EdgeClass NegPatternEdge : APatternEdge
   from APatternVertex (0,*)
   to APatternVertex (0,*)
   { type : String };
 
 EdgeClass ArgumentEdge : APatternEdge
   from APatternVertex (0,*)
-  to APatternVertex (0,*);
+  to APatternVertex (0,*)
+  { name : String };
 
 VertexClass Anchor : AVertex;
 

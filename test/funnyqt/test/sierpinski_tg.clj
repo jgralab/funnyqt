@@ -8,9 +8,9 @@
 
 (defn sierpinski-init
   "Returns a sierpienki triangle."
-  [vc ec variant]
-  (let [g (create-graph (load-schema "test/input/sierpinski-schema.tg" variant)
-                        "Sierpinski" variant)
+  [vc ec]
+  (let [g (create-graph (load-schema "test/input/sierpinski-schema.tg" :standard)
+                        "Sierpinski" :standard)
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)
         r (create-vertex! g 'V)]
@@ -108,20 +108,19 @@
 (deftest sierpinski
   (println "Sierpinski Triangles")
   (println "====================")
-  (doseq [variant [:generic :standard]]
-    (doseq [n (range 8 12)]
-      (let [correct-vc (int (* 3/2 (inc (Math/pow 3 n))))
-            correct-ec (int (Math/pow 3 (inc n)))]
-        (System/gc)
-        (println (format "No. of generations: %s (%s vertices, %s edges)"
-                         n correct-vc correct-ec))
-        (run (sierpinski-init correct-vc correct-ec variant)
-            #(triangulate-sequential %)
-          "SEQUEN" n correct-vc correct-ec)
-        (run (sierpinski-init correct-vc correct-ec variant)
-            #(triangulate-recursively %)
-          "RECURS" n correct-vc correct-ec)
-        (run (sierpinski-init correct-vc correct-ec variant)
-            #(trampoline (triangulate-trampolined %))
-          "TRAMPO" n correct-vc correct-ec)))))
+  (doseq [n (range 8 12)]
+    (let [correct-vc (int (* 3/2 (inc (Math/pow 3 n))))
+          correct-ec (int (Math/pow 3 (inc n)))]
+      (System/gc)
+      (println (format "No. of generations: %s (%s vertices, %s edges)"
+                       n correct-vc correct-ec))
+      (run (sierpinski-init correct-vc correct-ec)
+          #(triangulate-sequential %)
+        "SEQUEN" n correct-vc correct-ec)
+      (run (sierpinski-init correct-vc correct-ec)
+          #(triangulate-recursively %)
+        "RECURS" n correct-vc correct-ec)
+      (run (sierpinski-init correct-vc correct-ec)
+          #(trampoline (triangulate-trampolined %))
+        "TRAMPO" n correct-vc correct-ec))))
 

@@ -47,11 +47,7 @@
 (defrule request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
-  [g] [p<Process>
-       :when (empty? (iseq p 'Request))
-       r<Resource>
-       :when (empty? (filter #(= (that %) p)
-                             (iseq r 'HeldBy)))]
+  [g] [r<Resource> -!<HeldBy>-> p<Process> -!<Request>-> <>]
   (create-edge! g 'Request p r))
 
 (defrule take-rule
@@ -69,8 +65,7 @@
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
   releases that resource."
-  ([g] [r<Resource> -hb<HeldBy>-> p
-        :when (empty? (iseq p 'Request))]
+  ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>]
      (release-rule g r hb p))
   ([g r hb p]
      (when (empty? (iseq p 'Request))
