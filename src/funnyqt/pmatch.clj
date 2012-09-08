@@ -167,7 +167,7 @@
 
 ;;# Patter graph to pattern comprehension
 
-(defn enqueue-incs
+(defn- enqueue-incs
   ([cur stack done]
      (enqueue-incs cur stack done false))
   ([cur stack done only-out]
@@ -197,7 +197,7 @@
     (when-let [t (tg/value elem :type)]
       `'~(symbol t))))
 
-(defn anon-vec [startv done]
+(defn- anon-vec [startv done]
   (loop [cur startv, done done, vec []]
     (if (and cur (anon? cur))
       (cond
@@ -349,9 +349,6 @@
                                 (apply conj-done done cur allcobs)
                                 (into bf forms))))))
         (validate-bf bf done pg)))))
-
-#_(tg/show-graph (pattern-to-pattern-graph '[model] '[p<Process> -!<requested>-> <>
-                                                      r<Resource> -!<holder>-> p]))
 
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
   (let [gsym (first argvec)
@@ -565,6 +562,14 @@
     [v --> w
      :when (pred1? v)
      :when (not (pred2? w))]
+
+  Patterns may contain negative edges indicated by edge symbols with name !.
+  Those must not exist for a match to succeed.  For example, the following
+  declares that there must be a Foo edge from v to w, but w has no outgoing
+  edges at all, and v and w must not be connected with a forward Bar edge.
+
+    [v -<Foo>-> w -!-> <>
+     v -!<Bar>-> w]
 
   Moreover, a pattern may bind further variables using :let and :when-let.
 
