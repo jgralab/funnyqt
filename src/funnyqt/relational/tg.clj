@@ -378,10 +378,10 @@ Have fun!"
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (funnyqt.query.tg/vseq (get-*model*) '~na))
+                          (funnyqt.query.tg/vseq ~'*model* '~na))
                      (remove not)))
                (if (and (funnyqt.tg/vertex? v#)
-                        (funnyqt.tg/contains-vertex? (get-*model*) v#)
+                        (funnyqt.tg/contains-vertex? ~'*model* v#)
                         (funnyqt.protocols/has-type? v# '~na))
                  (succeed a#)
                  (fail a#)))))))))
@@ -424,7 +424,7 @@ Have fun!"
                 (fail a#))
 
               :else (to-stream
-                     (->> (for [edge# (funnyqt.query.tg/eseq (get-*model*) '~na)]
+                     (->> (for [edge# (funnyqt.query.tg/eseq ~'*model* '~na)]
                             (unify a# [~e ~al ~om]
                                    [edge# (funnyqt.tg/alpha edge#) (funnyqt.tg/omega edge#)]))
                           (remove not))))))))))
@@ -458,7 +458,7 @@ Have fun!"
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (~seqf (get-*model*) '~ts)
+                   (->> (for [e# (~seqf ~'*model* '~ts)
                               :let [v# (funnyqt.tg/value e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))

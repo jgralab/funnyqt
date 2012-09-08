@@ -151,7 +151,7 @@
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (funnyqt.emf/eallobjects (get-*model*) '~na))
+                          (funnyqt.emf/eallobjects ~'*model* '~na))
                      (remove not)))
                (if (and (funnyqt.emf/eobject? v#)
                         (funnyqt.protocols/has-type? v# '~na))
@@ -181,7 +181,7 @@
               (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects (get-*model*) '~ts)
+                   (->> (for [e# (funnyqt.emf/eallobjects ~'*model* '~ts)
                               v# (funnyqt.query/adjs* e# ~eref)]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
@@ -207,7 +207,7 @@
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects (get-*model*) '~ts)
+                   (->> (for [e# (funnyqt.emf/eallobjects ~'*model* '~ts)
                               :let [v# (funnyqt.emf/eget e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
