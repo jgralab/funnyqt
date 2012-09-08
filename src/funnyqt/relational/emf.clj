@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
         funnyqt.relational.util
-        [funnyqt.relational :only [*model*]])
+        [funnyqt.relational :only [get-*model*]])
   (:require funnyqt.protocols
             funnyqt.emf
             funnyqt.query
@@ -35,11 +35,11 @@
        (ground? gt)
        (to-stream
         (->> (map #(unify a e %)
-                  (funnyqt.emf/eallobjects *model* gt))
+                  (funnyqt.emf/eallobjects (get-*model*) gt))
              (remove not)))
 
        :else (to-stream
-              (->> (for [elem (funnyqt.emf/eallobjects *model*)]
+              (->> (for [elem (funnyqt.emf/eallobjects (get-*model*))]
                      (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                    (remove not)))))))
 
@@ -52,7 +52,7 @@
         (if (funnyqt.emf/eobject? geo) (succeed a) (fail a))
         (to-stream
          (->> (map #(unify a eo %)
-                   (funnyqt.emf/eallobjects *model*))
+                   (funnyqt.emf/eallobjects (get-*model*)))
               (remove not)))))))
 
 (defn valueo
@@ -80,7 +80,7 @@
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects *model*)
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects (get-*model*))
                          ^EAttribute attr (seq (.getEAllAttributes
                                                  ^EClass (.eClass elem)))
                          :let [an (keyword (.getName attr))]]
@@ -115,7 +115,7 @@
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects *model*)
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects (get-*model*))
                          ^EReference reference (seq (.getEAllReferences
                                                       ^EClass (.eClass elem)))
                          :let [rn (keyword (.getName reference))]
@@ -151,7 +151,7 @@
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (funnyqt.emf/eallobjects *model* '~na))
+                          (funnyqt.emf/eallobjects (get-*model*) '~na))
                      (remove not)))
                (if (and (funnyqt.emf/eobject? v#)
                         (funnyqt.protocols/has-type? v# '~na))
@@ -181,7 +181,7 @@
               (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects *model* '~ts)
+                   (->> (for [e# (funnyqt.emf/eallobjects (get-*model*) '~ts)
                               v# (funnyqt.query/adjs* e# ~eref)]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
@@ -207,7 +207,7 @@
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects *model* '~ts)
+                   (->> (for [e# (funnyqt.emf/eallobjects (get-*model*) '~ts)
                               :let [v# (funnyqt.emf/eget e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
@@ -226,9 +226,14 @@
            refs (atom {}) ;; map from reference names to set of eclasses that have it
            old-ns *ns*]
        `(do
-          ~(when nssym
-             `(ns ~nssym
-                (:refer-clojure :exclude [~'==])))
+          ~@(when nssym
+              `[(ns ~nssym
+                  (:refer-clojure :exclude [~'==]))
+
+                (def ^:dynamic ~'*model*)
+                (.setDynamic (var ~'*model*) true)
+                (alter-meta! (var ~'*model*) assoc :dynamic true)])
+
           ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                             (funnyqt.emf/metamodel-epackages ecore-model))
               (concat

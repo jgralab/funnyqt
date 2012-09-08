@@ -1,6 +1,8 @@
 (ns funnyqt.relational.tg
   "Querying graphs as if they were prolog fact bases.
 
+CAUTION: These docs are a bit outdated!!!
+
 Getting Started
 ===============
 
@@ -156,7 +158,7 @@ Have fun!"
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
         funnyqt.relational.util
-        [funnyqt.relational :only [*model*]])
+        [funnyqt.relational :only [get-*model*]])
   (:require funnyqt.tg
             funnyqt.protocols
             funnyqt.query.tg
@@ -189,18 +191,18 @@ Have fun!"
            (fail a))
 
        (ground? gt)
-       (let [aec (funnyqt.tg/attributed-element-class *model* gt)
+       (let [aec (funnyqt.tg/attributed-element-class (get-*model*) gt)
              sfn (if (funnyqt.tg/vertex-class? aec)
                    funnyqt.query.tg/vseq
                    funnyqt.query.tg/eseq)]
          (to-stream
           (->> (map #(unify a e %)
-                    (sfn *model* gt))
+                    (sfn (get-*model*) gt))
                (remove not))))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.query.tg/vseq *model*)
-                                      (funnyqt.query.tg/eseq *model*))]
+              (->> (for [elem (concat (funnyqt.query.tg/vseq (get-*model*))
+                                      (funnyqt.query.tg/eseq (get-*model*)))]
                      (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                    (remove not)))))))
 
@@ -212,10 +214,10 @@ Have fun!"
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %)
-                   (funnyqt.query.tg/vseq *model*))
+                   (funnyqt.query.tg/vseq (get-*model*)))
               (remove not)))
         (if (and (funnyqt.tg/vertex? gv)
-                 (funnyqt.tg/contains-vertex? *model* gv))
+                 (funnyqt.tg/contains-vertex? (get-*model*) gv))
           (succeed a)
           (fail a))))))
 
@@ -249,7 +251,7 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [edge (funnyqt.query.tg/eseq *model*)]
+              (->> (for [edge (funnyqt.query.tg/eseq (get-*model*))]
                      (unify a [e alpha omega]
                             [edge (funnyqt.tg/alpha edge) (funnyqt.tg/omega edge)]))
                    (remove not)))))))
@@ -283,8 +285,8 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.query.tg/vseq *model*)
-                                      (funnyqt.query.tg/eseq *model*))
+              (->> (for [elem (concat (funnyqt.query.tg/vseq (get-*model*))
+                                      (funnyqt.query.tg/eseq (get-*model*)))
                          ^Attribute attr (seq (.getAttributeList
                                                ^AttributedElementClass
                                                (funnyqt.tg/attributed-element-class elem)))
@@ -339,7 +341,7 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [s (funnyqt.query.tg/vseq *model*)
+              (->> (for [s (funnyqt.query.tg/vseq (get-*model*))
                          e (funnyqt.query.tg/iseq s)
                          rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
                                               (if (funnyqt.tg/normal-edge? e) :to :from))
@@ -376,10 +378,10 @@ Have fun!"
              (if (fresh? v#)
                (to-stream
                 (->> (map #(unify a# ~v %)
-                          (funnyqt.query.tg/vseq *model* '~na))
+                          (funnyqt.query.tg/vseq (get-*model*) '~na))
                      (remove not)))
                (if (and (funnyqt.tg/vertex? v#)
-                        (funnyqt.tg/contains-vertex? *model* v#)
+                        (funnyqt.tg/contains-vertex? (get-*model*) v#)
                         (funnyqt.protocols/has-type? v# '~na))
                  (succeed a#)
                  (fail a#)))))))))
@@ -422,7 +424,7 @@ Have fun!"
                 (fail a#))
 
               :else (to-stream
-                     (->> (for [edge# (funnyqt.query.tg/eseq *model* '~na)]
+                     (->> (for [edge# (funnyqt.query.tg/eseq (get-*model*) '~na)]
                             (unify a# [~e ~al ~om]
                                    [edge# (funnyqt.tg/alpha edge#) (funnyqt.tg/omega edge#)]))
                           (remove not))))))))))
@@ -456,7 +458,7 @@ Have fun!"
                 (fail a#))
 
             :else (to-stream
-                   (->> (for [e# (~seqf *model* '~ts)
+                   (->> (for [e# (~seqf (get-*model*) '~ts)
                               :let [v# (funnyqt.tg/value e# ~attr)]]
                           (unify a# [~elem ~val] [e# v#]))
                         (remove not)))))))))
@@ -495,9 +497,13 @@ Have fun!"
            refs (atom {}) ;; map from role names to set of [edgeclass dir] tuples  that have it
            old-ns *ns*]
        `(do
-          ~(when nssym
-             `(ns ~nssym
-                (:refer-clojure :exclude [~'==])))
+          ~@(when nssym
+              `[(ns ~nssym
+                  (:refer-clojure :exclude [~'==]))
+
+                (def ^:dynamic ~'*model*)
+                (.setDynamic (var ~'*model*) true)
+                (alter-meta! (var ~'*model*) assoc :dynamic true)])
           ~@(concat
              (doall
               (mapcat
@@ -538,148 +544,3 @@ Have fun!"
                 (create-reference-relation role owners))))
           (in-ns '~(ns-name old-ns))))))
 
-;;# How to use...
-
-(comment
-  ;; SETUP
-  (require '[funnyqt.tg :as core])
-  (def g (funnyqt.tg/load-graph "/home/horn/Repos/uni/funtg/test/greqltestgraph.tg"))
-  (use 'funnyqt.tg.funrl)
-  (generate-schema-relations g 'roadmap)
-  (in-ns 'roadmap)
-
-  ;; All Capitals of the County in which the Village Kammerforst is located in.
-  (run* [q]
-    (with-fresh
-      (+Village ?kammerforst)
-      (+name ?kammerforst "Kammerforst")
-      (+ContainsLocality _ ?county ?kammerforst)
-      (+HasCapital _ ?county q)))
-  ;;=> (#<v6: localities.City>)
-
-  ;; All Capitals with their reigned Localities (names as result)
-  (run* [q]
-    (with-fresh
-      (+Locality ?loc)
-      (+ContainsLocality _ ?county ?loc)
-      (+HasCapital _ ?county ?capital)
-      (!= ?capital ?loc)
-      (+name ?capital ?cname)
-      (+name ?loc ?lname)
-      (== q [?cname ?lname])))
-  ;;=> (["Main" "Kammerforst"]
-  ;;    ["Main" "Lautzenhausen"]
-  ;;    ["Main" "Höhr-Grenzhausen"]
-  ;;    ["Main" "Winningen"]
-  ;;    ["Main" "Montabaur"]
-  ;;    ["Main" "Koblenz"]
-  ;;    ["Frankfurt am Main" "Frankfurt-Flughafen"]
-  ;;    ["Main" "Flughafen Frankfurt-Hahn"]
-  ;;    ["Main" "Flugplatz Koblenz-Winningen"])
-
-  ;; We can factor out the is-capital-of relation as a function
-  (defn capitalo
-    "Succeeds, if c is the capital of l."
-    [c l]
-    (with-fresh
-      (+Locality l)
-      (+ContainsLocality _ ?county l)
-      (+HasCapital _ ?county c)
-      (!= c l)))
-
-  ;; Now we can refactor our query
-  (run* [q]
-    (with-fresh
-      (capitalo ?capital ?loc)
-      (+name ?capital ?cname)
-      (+name ?loc ?lname)
-      (== q [?cname ?lname])))
-
-  (defn two-airportso
-    [a1 a2]
-    (+Airport a1) (+Airport a2))
-
-  (defn connectedo
-    "Succeeds, if the junctions j1 and j2 are connected by connections (Ways,
-    Streets, AirRoutes)."
-    [j1 j2]
-    (with-fresh
-      (conde
-       ;; A direct street connection, either from j1->j2
-       [(+Way _ j1 j2)]
-       ;; or the other way round...
-       [(+Way _ j2 j1)]
-       ;; If we have 2 Airports, then check only if there's a direct airroute
-       [(two-airportso j1 j2)
-        (conda
-         [(+AirRoute _ j1 j2)]
-         [(+AirRoute _ j2 j1)])]
-       ;; or an indirect connection, i.e, there's another crossroad in the
-       ;; middle.
-       [(connectedo j1 ?middle) (connectedo ?middle j2)])))
-
-  (defn connected-locso
-    "Succeeds, if the localities l1 and l2 are connected.
-    Localities are connected, if they contain crossroads that are connected by
-    connections (Ways, Streets, AirRoutes)."
-    [l1 l2]
-    (+Locality l1)
-    (+Locality l2)
-    (with-fresh
-      (conde
-       ;; Airports can be connected by AirRoutes directly, everything else is
-       ;; connected by streets connecting crossroads that are contained in
-       ;; localities.
-       [(two-airportso l1 l2) (connectedo l1 l2)]
-       [(+Airport l1) (+ContainsCrossroad _ l2 ?c2) (connectedo ?c2 l1)]
-       [(+Airport l2) (+ContainsCrossroad _ l1 ?c1) (connectedo l2 ?c1)]
-       ;; both are no airports
-       [(+ContainsCrossroad _ l1 ?c1)
-        (+ContainsCrossroad _ l2 ?c2)
-        (connectedo ?c1 ?c2)])))
-
-  ;; What locality is connected with Kammerforst?
-  (run 3 [q]
-    (with-fresh
-      (+Locality ?l1)
-      (+name ?l1 "Kammerforst")
-      (+City ?l2)
-      (!= ?l1 ?l2)
-      (connected-locso ?l1 ?l2)
-      (== q [?l1 ?l2])))
-
-  ;; Some tests with a java graph
-  (require '[funnyqt.query.tg :as query])
-  (require '[funnyqt.tg :as core])
-  (def g (funnyqt.tg/load-graph "/home/horn/Repos/uni/funtg-pub/funql-whitepaper/jgralab.tg.gz"))
-  (generate-schema-relations g 'jgralab)
-
-  ;; VSeq vs relation
-  (time (dorun (run* [q] (+ClassDefinition q))))
-  ; "Elapsed time: 66.21493 msecs"
-  (time (dorun (funnyqt.query.tg/vseq *model* 'ClassDefinition)))
-  ; "Elapsed time: 36.796144 msecs"
-
-  (defn direct-subclasso
-    [sub super]
-    (with-fresh
-      (+IsSuperClassOf _ ?ts sub)
-      (+IsTypeDefinitionOf _ super ?ts)))
-
-  (defn subclasso
-    "A relation where `sub` is a subclass of `super`."
-    [sub super]
-    (conda
-     [(direct-subclasso sub super)]
-     [(with-fresh
-        (subclasso sub ?mid)
-        (subclasso ?mid super))]))
-
-  (run* [q]
-    (with-fresh
-      (+ClassDefinition ?c)
-      (subclasso ?c ?super)
-      (+fullyQualifiedName ?c ?cname)
-      (+fullyQualifiedName ?super ?sname)
-      (== q [?cname ?sname])))
-  )

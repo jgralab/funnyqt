@@ -2,21 +2,66 @@
   "Generic relations"
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
+        [funnyqt.utils :only [errorf]]
         funnyqt.relational.util))
 
-(def ^:dynamic *model*)
+(defn ^:private ensure-*model* [namespace]
+  (when-not (ns-resolve namespace '*model*)
+    (doto (intern namespace ^:dynamic '*m*)
+      (alter-meta! assoc :dynamic true)
+      (.setDynamic true))))
+
+(defn ^:private get-*model*-qname [ns]
+  (symbol (str (ns-name ns) "/*model*")))
+
+(defn get-*model* []
+  (if-let [vr (ns-resolve *ns* '*model*)]
+    (var-get vr)
+    (errorf "No such var %s" (get-*model*-qname *ns*))))
 
 (defmacro run*-on-model
-  "Like `clojure.core.logic/run*` but bind *model* to `model` beforehand."
+  "Like `clojure.core.logic/run*` but bind *model* in the current namespace to
+  `model` beforehand."
   [model [q] & goals]
-  `(binding [*model* ~model]
+  (ensure-*model* *ns*)
+  `(binding [~(get-*model*-qname *ns*) ~model]
      (run* [~q]
        ~@goals)))
 
+(defn ^:private rom-binding-vec [ns-model-map]
+  (vec (mapcat (fn [[ns model]]
+                 [(get-*model*-qname (find-ns ns))
+                  model])
+               ns-model-map)))
+
 (defmacro run-on-model
-  "Like `clojure.core.logic/run` but bind *model* to `model` beforehand."
+  "Like `clojure.core.logic/run` but bind *model* in the current namespace to
+  `model` beforehand."
   [model n [q] & goals]
-  `(binding [*model* ~model]
+  (ensure-*model* *ns*)
+  `(binding [~(get-*model*-qname *ns*) ~model]
+     (run ~n [~q]
+       ~@goals)))
+
+(defmacro run*-on-models
+  "Like `run*-on-model` but bind the *model* vars using the namespace-model
+  bindings provided in `ns-model-map`.  The namespaces are given as symbols or
+  keywords."
+  [ns-model-map [q] & goals]
+  (doseq [ns (keys ns-model-map)]
+    (ensure-*model* ns))
+  `(binding ~(rom-binding-vec ns-model-map)
+     (run* [~q]
+       ~@goals)))
+
+(defmacro run-on-models
+  "Like `run*-on-model` but bind the *model* vars using the namespace-model
+  bindings provided in `ns-model-map`.  The namespaces are given as symbols or
+  keywords."
+  [ns-model-map n [q] & goals]
+  (doseq [ns (keys ns-model-map)]
+    (ensure-*model* ns))
+  `(binding ~(rom-binding-vec ns-model-map)
      (run ~n [~q]
        ~@goals)))
 
