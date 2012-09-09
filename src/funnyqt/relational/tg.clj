@@ -172,7 +172,7 @@ Have fun!"
 
 (defn typeo
   "A relation where vertex or edge `e` has the type `t`, a graph element class
-  name."
+  name.  In fact, `t` may be any type specification (see `type-matcher`)."
   [e t]
   (fn [a]
     (let [ge (walk a e)
@@ -180,7 +180,7 @@ Have fun!"
       (cond
        (and (ground? ge) (ground? gt))
        (if (and (funnyqt.tg/attributed-element? ge)
-                (symbol? gt)
+                (or (coll? gt) (symbol? gt))
                 (funnyqt.protocols/has-type? ge gt))
          (succeed a)
          (fail a))
@@ -191,14 +191,11 @@ Have fun!"
            (fail a))
 
        (ground? gt)
-       (let [aec (funnyqt.tg/attributed-element-class (get-*model*) gt)
-             sfn (if (funnyqt.tg/vertex-class? aec)
-                   funnyqt.query.tg/vseq
-                   funnyqt.query.tg/eseq)]
-         (to-stream
+       (to-stream
           (->> (map #(unify a e %)
-                    (sfn (get-*model*) gt))
-               (remove not))))
+                    (concat (funnyqt.query.tg/vseq (get-*model*) gt)
+                            (funnyqt.query.tg/eseq (get-*model*) gt)))
+               (remove not)))
 
        :else (to-stream
               (->> (for [elem (concat (funnyqt.query.tg/vseq (get-*model*))

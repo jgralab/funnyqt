@@ -14,7 +14,8 @@
 ;;# Utilities
 
 (defn typeo
-  "A relation where the EObject `e` has the type `t`, an EClass name."
+  "A relation where the EObject `e` has the type `t`, an EClass name.
+  In fact, `t` may be any type specification (see `eclass-matcher`)."
   [e t]
   (fn [a]
     (let [ge (walk a e)
@@ -22,7 +23,7 @@
       (cond
        (and (ground? ge) (ground? gt))
        (if (and (funnyqt.emf/eobject? ge)
-                (symbol? gt)
+                (or (coll? gt) (symbol? gt))
                 (funnyqt.protocols/has-type? ge gt))
          (succeed a)
          (fail a))
