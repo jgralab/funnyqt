@@ -365,71 +365,71 @@ Have fun!"
 (defn- create-vc-relations
   "Creates relations for the given vertex class."
   [vc]
-  (let [v 'v]
-    (for [na (class->rel-symbols vc)]
-      `(defn ~(:unique-name (meta na))
-         {:doc ~(format "A relation where `%s` is a %s vertex." v na)}
-         [~v]
-         (fn [a#]
-           (let [v# (walk a# ~v)]
-             (if (fresh? v#)
-               (to-stream
-                (->> (map #(unify a# ~v %)
-                          (funnyqt.query.tg/vseq ~'*model* '~na))
-                     (remove not)))
-               (if (and (funnyqt.tg/vertex? v#)
-                        (funnyqt.tg/contains-vertex? ~'*model* v#)
-                        (funnyqt.protocols/has-type? v# '~na))
-                 (succeed a#)
-                 (fail a#)))))))))
+  (for [na (class->rel-symbols vc)]
+    `(defn ~(:unique-name (meta na))
+       {:doc ~(format "A relation where `v` is a %s vertex." na)}
+       [~'v]
+       (fn [~'a]
+         (let [~'gv (walk ~'a ~'v)]
+           (if (fresh? ~'gv)
+             (to-stream
+              (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
+                        (funnyqt.query.tg/vseq ~'*model* '~na))
+                   (remove not)))
+             (if (and (funnyqt.tg/vertex? ~'gv)
+                      (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
+                      (funnyqt.protocols/has-type? ~'gv '~na))
+               (succeed ~'a)
+               (fail ~'a))))))))
 
 (defn- create-ec-relations
   "Creates relations for the given edge class."
   [ec]
-  (let [e  'e
-        al 'alpha
-        om 'omega]
-    (for [na (class->rel-symbols ec)]
-      `(defn ~(:unique-name (meta na))
-         {:doc ~(format "A relation where `%s' is a %s edge from `%s' to `%s'."
-                        e na al om)}
-         [~e ~al ~om]
-         (fn [a#]
-           (let [e#  (walk a# ~e)
-                 al# (walk a# ~al)
-                 om# (walk a# ~om)]
-             (cond
-              (ground? e#)
-              (or (and (funnyqt.tg/edge? e#)
-                       (unify a# [~al ~om] [(funnyqt.tg/alpha e#) (funnyqt.tg/omega e#)]))
-                  (fail a#))
+  (for [na (class->rel-symbols ec)]
+    `(defn ~(:unique-name (meta na))
+       {:doc ~(format "A relation where `e' is a %s edge from `al' to `om'." na)}
+       [~'e ~'al ~'om]
+       (fn [~'a]
+         (let [~'ge  (walk ~'a ~'e)
+               ~'gal (walk ~'a ~'al)
+               ~'gom (walk ~'a ~'om)]
+           (cond
+            (ground? ~'ge)
+            (or (and (funnyqt.tg/edge? ~'ge)
+                     (unify ~'a [~'al ~'om]
+                            [(funnyqt.tg/alpha ~'ge) (funnyqt.tg/omega ~'ge)]))
+                (fail ~'a))
 
-              (ground? al#)
-              (if (funnyqt.tg/vertex? al#)
-                (to-stream
-                 (->> (map #(unify a# [~e ~om] [% (funnyqt.tg/omega %)])
-                           (funnyqt.query.tg/iseq al# '~na :out))
-                      (remove not)))
-                (fail a#))
+            (ground? ~'gal)
+            (if (funnyqt.tg/vertex? ~'gal)
+              (to-stream
+               (->> (map (fn [~'incidence]
+                           (unify ~'a [~'e ~'om]
+                                  [~'incidence (funnyqt.tg/omega ~'incidence)]))
+                         (funnyqt.query.tg/iseq ~'gal '~na :out))
+                    (remove not)))
+              (fail ~'a))
 
-              (ground? om#)
-              (if (funnyqt.tg/vertex? om#)
-                (to-stream
-                 (->> (map #(unify a# [~e ~al] [% (funnyqt.tg/alpha %)])
-                           (funnyqt.query.tg/iseq om# '~na :in))
-                      (remove not)))
-                (fail a#))
+            (ground? ~'gom)
+            (if (funnyqt.tg/vertex? ~'gom)
+              (to-stream
+               (->> (map (fn [~'incidence]
+                           (unify ~'a [~'e ~'al]
+                                  [~'incidence (funnyqt.tg/alpha ~'incidence)]))
+                         (funnyqt.query.tg/iseq ~'gom '~na :in))
+                    (remove not)))
+              (fail ~'a))
 
-              :else (to-stream
-                     (->> (for [edge# (funnyqt.query.tg/eseq ~'*model* '~na)]
-                            (unify a# [~e ~al ~om]
-                                   [edge# (funnyqt.tg/alpha edge#) (funnyqt.tg/omega edge#)]))
-                          (remove not))))))))))
+            :else (to-stream
+                   (->> (for [~'edge (funnyqt.query.tg/eseq ~'*model* '~na)]
+                          (unify ~'a [~'e ~'al ~'om]
+                                 [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
+                        (remove not)))))))))
 
 (defn- create-attr-relation
   "Creates relations for the given attribute."
-  [[attr aecs]] ;; attr is an attr name symbol, aecs the set of classes having
-  ;; such an attr
+  [[attr aecs]]   ;;; attr is an attr name symbol, aecs the set of classes
+                  ;;; having such an attr
   (let [ts     (mapv #(funnyqt.protocols/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
@@ -437,41 +437,35 @@ Have fun!"
                 :else `(fn [graph# ts#]
                          (apply concat ((juxt funnyqt.query.tg/vseq
                                               funnyqt.query.tg/eseq)
-                                        graph# ts#))))
-        elem   'ae
-        val    'val]
+                                        graph# ts#))))]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
-               "A relation where `%s' has value `%s' for its %s attribute."
-               elem val attr)}
-       [~elem ~val]
-       (fn [a#]
-         (let [elem# (walk a# ~elem)]
+               "A relation where `ae' has value `val' for its %s attribute." attr)}
+       [~'ae ~'val]
+       (fn [~'a]
+         (let [~'gae (walk ~'a ~'ae)]
            (cond
-            (ground? elem#)
-            (or (and (funnyqt.tg/attributed-element? elem#)
-                     (.getAttribute (funnyqt.tg/attributed-element-class elem#) ~(name attr))
-                     (unify a# ~val (funnyqt.tg/value elem# ~attr)))
-                (fail a#))
+            (ground? ~'gae)
+            (or (and (funnyqt.tg/attributed-element? ~'gae)
+                     (.getAttribute (funnyqt.tg/attributed-element-class ~'gae) ~(name attr))
+                     (unify ~'a ~'val (funnyqt.tg/value ~'gae ~attr)))
+                (fail ~'a))
 
             :else (to-stream
-                   (->> (for [e# (~seqf ~'*model* '~ts)
-                              :let [v# (funnyqt.tg/value e# ~attr)]]
-                          (unify a# [~elem ~val] [e# v#]))
+                   (->> (for [~'oae (~seqf ~'*model* '~ts)
+                              :let [~'oval (funnyqt.tg/value ~'oae ~attr)]]
+                          (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
                         (remove not)))))))))
 
 (defn- create-reference-relation
   "Creates a relation for the given role name."
   [rn owners]
   (let [role-rel-sym (symbol (str "+->" rn))
-        sv           'sv
-        tv           'tv
-        ign          'ign
         make-one   (fn [[^EdgeClass ec dir]]
                      (let [ec-rel-sym (symbol (str "+" (.getUniqueName ec)))]
                        (if (= dir :omega)
-                          `(~ec-rel-sym ~ign ~sv ~tv)
-                          `(~ec-rel-sym ~ign ~tv ~sv))))
+                          `(~ec-rel-sym ~'ign ~'sv ~'tv)
+                          `(~ec-rel-sym ~'ign ~'tv ~'sv))))
         make (fn [tups]
                (if (> (count tups) 1)
                  `(conde
@@ -479,8 +473,8 @@ Have fun!"
                  (make-one (first tups))))]
     `(defn ~role-rel-sym
        ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
-       [~sv ~tv]
-       (fresh [~ign]
+       [~'sv ~'tv]
+       (fresh [~'ign]
          ~(make owners)))))
 
 (defmacro generate-schema-relations
