@@ -88,6 +88,7 @@
   [name & more]
   `(defrule-internal false ~name ~more))
 
+;; TODO: Implement this via metadata ^:debug-rule given to rules!
 (defmacro defrule-debug
   "Exactly the same as `defrule`, but expands into a rule that calls
 `*on-matched-rule-fn*', if that's bound."

@@ -11,6 +11,11 @@
   (:require clojure.set)
   (:require [clojure.tools.macro :as m]))
 
+;; TODO: Patterns and rules should support ^:perf-stat metadata which records
+;; the number of nodes of the types occuring in the pattern in the host graph.
+;; Then users can check if their pattern is anchored at the right node, or if
+;; they should reformulate it to speed up things.
+
 ;;# Pattern to pattern graph
 
 (defn- vertex-sym? [sym]
@@ -266,85 +271,93 @@
           (if (done cur)
             (recur (pop stack) done bf)
             (case (qname cur)
-              Anchor (recur (enqueue-incs cur (pop stack) done)
-                            (conj-done done cur)
-                            bf)
-              HasStartPatternVertex (recur (conj (pop stack) (tg/that cur))
-                                           (conj-done done cur)
-                                           bf)
-              PatternVertex (recur (enqueue-incs cur (pop stack) done)
-                                   (conj-done done cur)
-                                   (into bf `[~(get-name cur) (tgq/vseq ~gsym ~(get-type cur))]))
-              ArgumentVertex (recur (enqueue-incs cur (pop stack) done)
-                                    (conj-done done cur)
-                                    (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
-              PatternEdge (if (anon? cur)
-                            (let [av (anon-vec cur done)
-                                  target-node (last av)
-                                  done (conj-done done cur)]
-                              ;;(println av)
-                              (recur (enqueue-incs target-node (pop stack) done)
-                                     (apply conj-done done av)
-                                     (into bf (build-rpe (get-name (tg/this cur)) av done))))
-                            (let [trg (tg/that cur)
-                                  done (conj-done done cur)]
-                              (recur (enqueue-incs trg (pop stack) done)
-                                     (conj-done done trg)
-                                     (apply conj bf `~(get-name cur)
-                                            `(tgq/iseq ~(get-name (tg/this cur)) ~(get-type cur)
-                                                       ~(if (tg/normal-edge? cur) :out :in))
-                                            (cond
-                                             (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                             (anon? trg) (build-rpe `(tg/that ~(get-name cur))
-                                                                    (anon-vec trg done) done)
-                                             ;;;;;;;
-                                             (has-type? trg 'ArgumentVertex)
-                                             [:when-let [(get-name trg) (get-name trg)]
-                                              :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                             ;;;;;;;
-                                             :else (concat
-                                                    [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
-                                                    (when-let [t (get-type trg)]
-                                                      `[:when (has-type? ~(get-name trg) ~(get-type trg))])))))))
-              ArgumentEdge (let [src (tg/this cur)
-                                 trg (tg/that cur)]
-                             (recur (enqueue-incs trg (pop stack) done)
-                                    (conj-done done cur trg)
-                                    (apply conj bf :when `(= ~(get-name src) (tg/this ~(get-name cur)))
-                                           (cond
-                                            (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                            ;;;;;;;
-                                            (has-type? trg 'ArgumentVertex)
-                                            [:when-let [(get-name trg) (get-name trg)]
-                                             :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                            ;;;;;;;
-                                            :else (concat
-                                                   [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
-                                                   (when-let [t (get-type trg)]
-                                                     `[:when (has-type? ~(get-name trg) ~(get-type trg))]))))))
-              NegPatternEdge (let [src (tg/this cur)
-                                   trg (tg/that cur)
-                                   done (conj-done done cur)]
-                               (if (done trg)
-                                 (recur (enqueue-incs trg (pop stack) done)
-                                        (conj-done done trg)
-                                        (into bf `[:when (empty? (filter
-                                                                  #(= ~(get-name trg) (tg/that %))
-                                                                  (tgq/iseq ~(get-name src) ~(get-type cur)
-                                                                            ~(if (tg/normal-edge? cur) :out :in))))]))
-                                 (recur (enqueue-incs trg (pop stack) done)
-                                        (conj-done done trg)
-                                        (into bf `[~@(when-not (anon? trg)
-                                                       `[~(get-name trg) (tgq/vseq ~gsym ~(get-type trg))])
-                                                   :when (empty? (tgq/iseq ~(get-name src) ~(get-type cur)
-                                                                           ~(if (tg/normal-edge? cur) :out :in)))]))))
-              Precedes (let [cob (tg/that cur)
-                             allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                             forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                             allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
-                         (recur (pop stack)
-                                (apply conj-done done cur (concat allcobs allprecs))
-                                (into bf forms))))))
+              Anchor
+              (recur (enqueue-incs cur (pop stack) done)
+                     (conj-done done cur)
+                     bf)
+              HasStartPatternVertex
+              (recur (conj (pop stack) (tg/that cur))
+                     (conj-done done cur)
+                     bf)
+              PatternVertex
+              (recur (enqueue-incs cur (pop stack) done)
+                     (conj-done done cur)
+                     (into bf `[~(get-name cur) (tgq/vseq ~gsym ~(get-type cur))]))
+              ArgumentVertex
+              (recur (enqueue-incs cur (pop stack) done)
+                     (conj-done done cur)
+                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
+              PatternEdge
+              (if (anon? cur)
+                (let [av (anon-vec cur done)
+                      target-node (last av)
+                      done (conj-done done cur)]
+                  ;;(println av)
+                  (recur (enqueue-incs target-node (pop stack) done)
+                         (apply conj-done done av)
+                         (into bf (build-rpe (get-name (tg/this cur)) av done))))
+                (let [trg (tg/that cur)
+                      done (conj-done done cur)]
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (apply conj bf `~(get-name cur)
+                                `(tgq/iseq ~(get-name (tg/this cur)) ~(get-type cur)
+                                           ~(if (tg/normal-edge? cur) :out :in))
+                                (cond
+                                 (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+                                 (anon? trg) (build-rpe `(tg/that ~(get-name cur))
+                                                        (anon-vec trg done) done)
+;;;;;;;
+                                 (has-type? trg 'ArgumentVertex)
+                                 [:when-let [(get-name trg) (get-name trg)]
+                                  :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+;;;;;;;
+                                 :else (concat
+                                        [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
+                                        (when-let [t (get-type trg)]
+                                          `[:when (has-type? ~(get-name trg) ~(get-type trg))])))))))
+              ArgumentEdge
+              (let [src (tg/this cur)
+                    trg (tg/that cur)]
+                (recur (enqueue-incs trg (pop stack) done)
+                       (conj-done done cur trg)
+                       (apply conj bf :when `(= ~(get-name src) (tg/this ~(get-name cur)))
+                              (cond
+                               (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+;;;;;;;
+                               (has-type? trg 'ArgumentVertex)
+                               [:when-let [(get-name trg) (get-name trg)]
+                                :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+;;;;;;;
+                               :else (concat
+                                      [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
+                                      (when-let [t (get-type trg)]
+                                        `[:when (has-type? ~(get-name trg) ~(get-type trg))]))))))
+              NegPatternEdge
+              (let [src (tg/this cur)
+                    trg (tg/that cur)
+                    done (conj-done done cur)]
+                (if (done trg)
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[:when (empty? (filter
+                                                   #(= ~(get-name trg) (tg/that %))
+                                                   (tgq/iseq ~(get-name src) ~(get-type cur)
+                                                             ~(if (tg/normal-edge? cur) :out :in))))]))
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[~@(when-not (anon? trg)
+                                        `[~(get-name trg) (tgq/vseq ~gsym ~(get-type trg))])
+                                    :when (empty? (tgq/iseq ~(get-name src) ~(get-type cur)
+                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
+              Precedes
+              (let [cob (tg/that cur)
+                    allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
+                    forms (mapcat #(read-string (tg/value % :form)) allcobs)
+                    allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
+                (recur (pop stack)
+                       (apply conj-done done cur (concat allcobs allprecs))
+                       (into bf forms))))))
         (validate-bf bf done pg)))))
 
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
@@ -403,49 +416,57 @@
           (if (done cur)
             (recur (pop stack) done bf)
             (case (qname cur)
-              Anchor (recur (enqueue-incs cur (pop stack) done true)
-                            (conj-done done cur)
-                            bf)
-              HasStartPatternVertex (recur (conj (pop stack) (tg/that cur))
-                                           (conj-done done cur)
-                                           bf)
-              PatternVertex (recur (enqueue-incs cur (pop stack) done true)
-                                   (conj-done done cur)
-                                   (into bf `[~(get-name cur) (emf/eallobjects ~gsym ~(get-type cur))]))
-              ArgumentVertex (recur (enqueue-incs cur (pop stack) done true)
-                                    (conj-done done cur)
-                                    (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
-              PatternEdge (if (anon? cur)
-                            (let [av (anon-vec cur done)
-                                  target-node (last av)
-                                  done (conj-done done cur)]
-                              (recur (enqueue-incs target-node (pop stack) (apply conj-done done av) true)
-                                     (apply conj-done done cur av)
-                                     (into bf (build-rpe (get-name (tg/this cur)) av done))))
-                            (errorf "Edges mustn't be named for EMF: %s" (describe cur)))
-              NegPatternEdge (let [src (tg/this cur)
-                                   trg (tg/that cur)
-                                   done (conj-done done cur)]
-                               (if (done trg)
-                                 (recur (enqueue-incs trg (pop stack) done)
-                                        (conj-done done trg)
-                                        (into bf `[:when (not (member? ~(get-name trg)
-                                                                       (q/adjs ~(get-name src)
-                                                                               ~(get-edge-type cur))))]))
-                                 (recur (enqueue-incs trg (pop stack) done)
-                                        (conj-done done trg)
-                                        (into bf `[~@(when-not (anon? trg)
-                                                       `[~(get-name trg) (emf/eallobjects ~gsym ~(get-type trg))])
-                                                   :when (empty? (q/adjs ~(get-name src)
-                                                                         ~(get-edge-type cur)))]))))
-              ArgumentEdge (errorf "There mustn't be argument edges for EMF: %s" (describe cur))
-              Precedes (let [cob (tg/that cur)
-                             allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                             forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                             allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
-                         (recur (pop stack)
-                                (apply conj-done done cur (concat allcobs allprecs))
-                                (into bf forms))))))
+              Anchor
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     bf)
+              HasStartPatternVertex
+              (recur (conj (pop stack) (tg/that cur))
+                     (conj-done done cur)
+                     bf)
+              PatternVertex
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym ~(get-type cur))]))
+              ArgumentVertex
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
+              PatternEdge
+              (if (anon? cur)
+                (let [av (anon-vec cur done)
+                      target-node (last av)
+                      done (conj-done done cur)]
+                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av) true)
+                         (apply conj-done done cur av)
+                         (into bf (build-rpe (get-name (tg/this cur)) av done))))
+                (errorf "Edges mustn't be named for EMF: %s" (describe cur)))
+              NegPatternEdge
+              (let [src (tg/this cur)
+                    trg (tg/that cur)
+                    done (conj-done done cur)]
+                (if (done trg)
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[:when (not (member? ~(get-name trg)
+                                                        (q/adjs ~(get-name src)
+                                                                ~(get-edge-type cur))))]))
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[~@(when-not (anon? trg)
+                                        `[~(get-name trg) (emf/eallobjects ~gsym ~(get-type trg))])
+                                    :when (empty? (q/adjs ~(get-name src)
+                                                          ~(get-edge-type cur)))]))))
+              ArgumentEdge
+              (errorf "There mustn't be argument edges for EMF: %s" (describe cur))
+              Precedes
+              (let [cob (tg/that cur)
+                    allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
+                    forms (mapcat #(read-string (tg/value % :form)) allcobs)
+                    allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
+                (recur (pop stack)
+                       (apply conj-done done cur (concat allcobs allprecs))
+                       (into bf forms))))))
         (validate-bf bf done pg)))))
 
 (defn bindings-to-arglist
