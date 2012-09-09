@@ -6,7 +6,8 @@
   (:require funnyqt.protocols
             funnyqt.emf
             funnyqt.query
-            funnyqt.query.emf)
+            funnyqt.query.emf
+            clojure.java.io)
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
@@ -142,75 +143,68 @@
 (defn- create-eclass-relations
   "Creates relations for the given eclass."
   [ecls]
-  (let [v 'eo]
-    (for [na (class->rel-symbols ecls)]
-      `(defn ~(:unique-name (meta na))
-         {:doc ~(format "A relation where `%s` is an %s EObject." v na)}
-         [~v]
-         (fn [a#]
-           (let [v# (walk a# ~v)]
-             (if (fresh? v#)
-               (to-stream
-                (->> (map #(unify a# ~v %)
-                          (funnyqt.emf/eallobjects ~'*model* '~na))
-                     (remove not)))
-               (if (and (funnyqt.emf/eobject? v#)
-                        (funnyqt.protocols/has-type? v# '~na))
-                 (succeed a#)
-                 (fail a#)))))))))
+  (for [na (class->rel-symbols ecls)]
+    `(defn ~(:unique-name (meta na))
+       {:doc ~(format "A relation where `eo` is an %s EObject." na)}
+       [~'eo]
+       (fn [~'a]
+         (let [~'gv (walk ~'a ~'eo)]
+           (if (fresh? ~'gv)
+             (to-stream
+              (->> (map (fn [~'object] (unify ~'a ~'eo ~'object))
+                        (funnyqt.emf/eallobjects ~'*model* '~na))
+                   (remove not)))
+             (if (and (funnyqt.emf/eobject? ~'gv)
+                      (funnyqt.protocols/has-type? ~'gv '~na))
+               (succeed ~'a)
+               (fail ~'a))))))))
 
 (defn- create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
-  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls) ;; a type spec
-        elem   'eo
-        val    'refed-eo]
+  (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
     `(defn ~(symbol (str "+->" (name eref)))
        {:doc ~(format
-               "A relation where `%s` includes `%s` in its %s reference."
-               elem val eref)}
-       [~elem ~val]
-       (fn [a#]
-         (let [gelem# (walk a# ~elem)]
+               "A relation where `eo` includes `reo` in its %s reference." eref)}
+       [~'eo ~'reo]
+       (fn [~'a]
+         (let [~'geo (walk ~'a ~'eo)]
            (cond
-            (ground? gelem#)
-            (if (funnyqt.emf/eobject? gelem#)
+            (ground? ~'geo)
+            (if (funnyqt.emf/eobject? ~'geo)
               (to-stream
-               (->> (map #(unify a# ~val %)
-                         (funnyqt.query/adjs* gelem# ~eref))
+               (->> (map (fn [~'adj-eo] (unify ~'a ~'reo ~'adj-eo))
+                         (funnyqt.query/adjs* ~'geo ~eref))
                     (remove not)))
-              (fail a#))
+              (fail ~'a))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects ~'*model* '~ts)
-                              v# (funnyqt.query/adjs* e# ~eref)]
-                          (unify a# [~elem ~val] [e# v#]))
+                   (->> (for [~'obj (funnyqt.emf/eallobjects ~'*model* '~ts)
+                              ~'robj (funnyqt.query/adjs* ~'obj ~eref)]
+                          (unify ~'a [~'eo ~'reo] [~'obj ~'robj]))
                         (remove not)))))))))
 
 (defn- create-eattribute-relation
   "Creates relations for the given EAttribute."
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
-  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls) ;; a type spec
-        elem   'eo
-        val    'val]
+  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls)]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
-               "A relation where `%s' has value `%s' for its %s attribute."
-               elem val attr)}
-       [~elem ~val]
-       (fn [a#]
-         (let [elem# (walk a# ~elem)]
+               "A relation where `eo' has value `val' for its %s attribute." attr)}
+       [~'eo ~'val]
+       (fn [~'a]
+         (let [~'geo (walk ~'a ~'eo)]
            (cond
-            (ground? elem#)
-            (or (and (funnyqt.emf/eobject? elem#)
-                     (unify a# ~val (funnyqt.emf/eget elem# ~attr)))
-                (fail a#))
+            (ground? ~'geo)
+            (or (and (funnyqt.emf/eobject? ~'geo)
+                     (unify ~'a ~'val (funnyqt.emf/eget ~'geo ~attr)))
+                (fail ~'a))
 
             :else (to-stream
-                   (->> (for [e# (funnyqt.emf/eallobjects ~'*model* '~ts)
-                              :let [v# (funnyqt.emf/eget e# ~attr)]]
-                          (unify a# [~elem ~val] [e# v#]))
+                   (->> (for [~'obj (funnyqt.emf/eallobjects ~'*model* '~ts)
+                              :let [~'oval (funnyqt.emf/eget ~'obj ~attr)]]
+                          (unify ~'a [~'eo ~'val] [~'obj ~'oval]))
                         (remove not)))))))))
 
 
@@ -222,7 +216,9 @@
   `ecore-file` is the ecore file containing the metamodel."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     (let [ecore-model (funnyqt.emf/load-metamodel ecore-file)
+     (let [ecore-model (funnyqt.emf/load-metamodel (if (.exists (clojure.java.io/file ecore-file))
+                                                     ecore-file
+                                                     (clojure.java.io/resource ecore-file)))
            atts (atom {}) ;; map from attribute names to set of eclasses that have it
            refs (atom {}) ;; map from reference names to set of eclasses that have it
            old-ns *ns*]
