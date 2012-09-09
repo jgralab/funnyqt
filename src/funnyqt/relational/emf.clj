@@ -228,9 +228,7 @@
               `[(ns ~nssym
                   (:refer-clojure :exclude [~'==]))
 
-                (def ^:dynamic ~'*model*)
-                (.setDynamic (var ~'*model*) true)
-                (alter-meta! (var ~'*model*) assoc :dynamic true)])
+                (def ~(vary-meta '*model* assoc :dynamic true))])
 
           ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                             (funnyqt.emf/metamodel-epackages ecore-model))
