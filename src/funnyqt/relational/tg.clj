@@ -484,9 +484,10 @@ Have fun!"
   `schema-file` is the TG file with the schema."
   ([schema-file] `(generate-schema-relations ~schema-file nil))
   ([schema-file nssym]
-     (let [^Schema schema (funnyqt.tg/load-schema (if (.exists (clojure.java.io/file schema-file))
-                                                     schema-file
-                                                     (clojure.java.io/resource ecore-file)))
+     (let [^Schema schema (funnyqt.tg/load-schema
+                           (if (.exists (clojure.java.io/file schema-file))
+                             schema-file
+                             (clojure.java.io/resource schema-file)))
            atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
            refs (atom {}) ;; map from role names to set of [edgeclass dir] tuples  that have it
            old-ns *ns*]

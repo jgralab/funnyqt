@@ -216,9 +216,10 @@
   `ecore-file` is the ecore file containing the metamodel."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     (let [ecore-model (funnyqt.emf/load-metamodel (if (.exists (clojure.java.io/file ecore-file))
-                                                     ecore-file
-                                                     (clojure.java.io/resource ecore-file)))
+     (let [ecore-model (funnyqt.emf/load-metamodel
+                        (if (.exists (clojure.java.io/file ecore-file))
+                          ecore-file
+                          (clojure.java.io/resource ecore-file)))
            atts (atom {}) ;; map from attribute names to set of eclasses that have it
            refs (atom {}) ;; map from reference names to set of eclasses that have it
            old-ns *ns*]
