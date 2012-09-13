@@ -11,7 +11,7 @@
 (defn get-*model* []
   (if-let [vr (ns-resolve *ns* '*model*)]
     (var-get vr)
-    (errorf "No such var %s" (get-*model*-qname ns))))
+    (errorf "No such var %s" (get-*model*-qname *ns*))))
 
 (defmacro run*-on-model
   "Like `clojure.core.logic/run*` but bind *model* in the current namespace to
