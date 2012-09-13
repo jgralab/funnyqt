@@ -532,7 +532,8 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (prop-name? p) (oset (mapcat #(adjs* % p) (oset v)))
+   (prop-name? p) (into (ordered.set/ordered-set)
+                        (r/mapcat #(adjs* % p) v))
    :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
@@ -545,8 +546,8 @@ can compute that like so:
        (oset
         (if (seq vs)
           (let [tm (type-matcher (first vs) ts)]
-            (filter (every-pred tm pred)
-                    vs))
+            (into (ordered.set/ordered-set)
+                  (r/filter (every-pred tm pred) vs)))
           vs)))))
 
 (defn reachables

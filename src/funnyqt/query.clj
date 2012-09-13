@@ -229,9 +229,9 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varargs seq of path descriptions."
   [v & p]
-  (if (seq p)
-    (recur (*p-apply* v (first p)) (rest p))
-    (oset v)))
+  (oset (r/reduce (fn [c p]
+                    (*p-apply* c p))
+                  v p)))
 
 (defn p-opt
   "Path option starting at `v` and maybe traversing `p`.
@@ -245,27 +245,30 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varags seq of the alternative path descriptions."
   [v & p]
-  (oset (mapcat #(*p-apply* v %) p)))
+  (into (ordered.set/ordered-set)
+        (r/mapcat #(*p-apply* (oset v) %) p)))
+
+(defn ^:private p-*-or-+
+  [v p ret]
+  (let [n (into (ordered.set/ordered-set)
+                (r/remove ret (oset (*p-apply* v p))))]
+    (if (seq n)
+      (recur n p (into-oset ret n))
+      ret)))
 
 (defn p-*
   "Path iteration starting at `v` and traversing `p` zero or many times.
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
-  ([v p]
-     (p-* v p (oset v)))
-  ([v p ret]
-     (let [n (into (ordered.set/ordered-set)
-                   (r/remove ret (oset (*p-apply* v p))))]
-       (if (seq n)
-         (recur n p (into-oset ret n))
-         ret))))
+  [v p]
+  (p-*-or-+ v p (oset v)))
 
 (defn p-+
   "Path iteration starting at `v` and traversing `p` one or many times.
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   [v p]
-  (p-* v p (ordered.set/ordered-set)))
+  (p-*-or-+ v p (ordered.set/ordered-set)))
 
 (defn p-exp
   "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
