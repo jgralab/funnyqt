@@ -26,7 +26,7 @@
   g)
 
 (deftest test-transformation-1-instance-only
-  (let [g (transformation-1-instance-only (create-graph (schema (rg))))]
+  (let [g (transformation-1-instance-only (create-graph (schema rg)))]
     (is (= 4 (vcount g)))
     (is (= 3 (ecount g)))
     (is (= "Köln"      (value (vertex g 1) :name)))

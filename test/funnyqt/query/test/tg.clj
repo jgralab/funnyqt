@@ -4,7 +4,7 @@
   (:use funnyqt.utils)
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
-  (:use funnyqt.test.tg)
+  (:use [funnyqt.test.tg :only [rg jg]])
   (:use clojure.test)
   (:import
    (de.uni_koblenz.jgralab.schema AttributedElementClass)))
@@ -16,57 +16,24 @@
 
 ;;* The tests themselves
 
-(deftest test-vcount
-  (is (= 155 (vcount (rg)) (count (vseq (rg)))))
-  (is (= 3 (vcount (rg) 'localities.City)))
-  (is (= 6808 (vcount (jg)) (count (vseq (jg))))))
-
-(deftest test-ecount
-  (is (= 355 (ecount (rg)) (count (eseq (rg)))))
-  ;; Edge has no direct instances
-  (is (= 3 (ecount (rg) 'connections.AirRoute!)))
-  (is (= 6801 (ecount (jg)) (count (eseq (jg))))))
-
-(deftest test-query-1
-  (let [r (for [l (vseq (rg) 'localities.Locality)
-		:when (re-matches #".*e.*" (value l 'name))]
-	    [l (value l 'name)])]
-    ;; r must have 8 elems
-    (is (= 8 (count r)))
-    ;; the elems are...
-    (is (= (map #(let [v (vertex (rg) %1)] [v (value v 'name)])
-		[1 2 3 4 7 9 10 11])
-	   r))))
-
-(deftest test-incidences
-  (is (= 1 (count (iseq (vertex (rg) 1)))))
-  (is (= 10 (count (iseq (vertex (rg) 12)))))
-  (is (= 9 (count (iseq (vertex (rg) 12)
-			'localities.ContainsLocality!))))
-  (is (= 1 (count (iseq (vertex (rg) 12)
-			'localities.HasCapital!))))
-  (is (= 2 (count (iseq (vertex (rg) 6)))))
-  (is (= 4 (count (iseq (vertex (rg) 11)))))
-  (is (= 0 (count (iseq (vertex (rg) 6) nil :out)))))
-
 (deftest test-adjs
-  (is (member?(vertex (rg) 6)
-	      (adjs (vertex (rg) 12)
-                    'localities)))
-  (is (= 131 (count (adjs (vertex (rg) 12)
-                          'localities 'crossroads))))
-  (is (member? (vertex (rg) 39)
-	       (adjs (vertex (rg) 12)
-                     'localities 'crossroads))))
+  (is (member?(vertex rg 6)
+	      (adjs (vertex rg 12)
+                    :localities)))
+  (is (= 131 (count (adjs (vertex rg 12)
+                          :localities :crossroads))))
+  (is (member? (vertex rg 39)
+	       (adjs (vertex rg 12)
+                     :localities :crossroads))))
 
 (deftest test-average-inhabitants
-  (let [locs (vseq (rg) 'localities.Locality)]
+  (let [locs (vseq rg 'localities.Locality)]
     (is (< 0.00000000000000000001 ;; epsilon
 	   (- 91079.63636363637   ;; the GReQL computed val
 	      (/ (reduce + (map #(value %1 :inhabitants)
 				locs))))))))
 (deftest test-this
-  (doseq [v (vseq (rg))
+  (doseq [v (vseq rg)
 	  e (iseq v)]
     (is (= v (this e)))))
 
@@ -74,123 +41,123 @@
   (is (== 13480/11
           ;; straight-forward
           (let [years (map #(value (value %1 :foundingDate) :year)
-                           (vseq (rg) 'localities.Locality))]
+                           (vseq rg 'localities.Locality))]
             (/ (reduce + years)
                (count years)))
           ;; reduce-values
-          (/ (reduce-values + 0 (vseq (rg) 'localities.Locality)
+          (/ (reduce-values + 0 (vseq rg 'localities.Locality)
                             :foundingDate #(value % :year))
-             (count (vseq (rg) 'localities.Locality)))
+             (count (vseq rg 'localities.Locality)))
           ;; reduce-values even more convenient
-          (let [locs (vseq (rg) 'localities.Locality)]
+          (let [locs (vseq rg 'localities.Locality)]
             (/ (reduce-values + 0 locs :foundingDate :year)
                (count locs))))))
 
 (deftest test-all-localities-with-o
   (is (= 4 (count (filter #(re-matches #".*o.*" (value % :name))
-			  (vseq (rg) 'localities.Locality))))))
+			  (vseq rg 'localities.Locality))))))
 
 (deftest test-all-capitals
   (is (= 2 (count (map omega
-		       (eseq (rg) 'localities.HasCapital))))))
+		       (eseq rg 'localities.HasCapital))))))
 
 (deftest test-type-matchers
-  (is (= (vseq (rg) ['junctions.Airport 'localities.City])
-         (vseq (rg) [:or 'junctions.Airport 'localities.City]))))
+  (is (= (vseq rg ['junctions.Airport 'localities.City])
+         (vseq rg [:or 'junctions.Airport 'localities.City]))))
 
 (deftest test-tg-seqs-and-rseqs
-  (is (= (vseq (rg)) (reverse (rvseq (rg)))))
-  (is (= (eseq (rg)) (reverse (reseq (rg)))))
-  (is (= (iseq (first-vertex (rg))) (reverse (riseq (first-vertex (rg)))))))
+  (is (= (vseq rg) (reverse (rvseq rg))))
+  (is (= (eseq rg) (reverse (reseq rg))))
+  (is (= (iseq (first-vertex rg)) (reverse (riseq (first-vertex rg))))))
 
 
 ;;** Traversal Context
 
 (deftest test-vsubgraph-tc
-  (let [vcnt (vcount (rg))
-        ecnt (ecount (rg))]
+  (let [vcnt (vcount rg)
+        ecnt (ecount rg)]
     (testing "vertex induced TraversalContext by set"
-      (on-subgraph [(rg) (vsubgraph (rg) (set (map #(vertex (rg) %)
+      (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
                                                    [1 12 7])))]
-        (is (== 3 (vcount (rg))))
-        (is (== 2 (ecount (rg))))
+        (is (== 3 (vcount rg)))
+        (is (== 2 (ecount rg)))
         (testing "on-graph 1"
-          (on-graph [(rg)]
-            (is (== vcnt) (vcount (rg)))
-            (is (== ecnt) (ecount (rg)))))
+          (on-graph [rg]
+            (is (== vcnt) (vcount rg))
+            (is (== ecnt) (ecount rg))))
         (testing "vertex/edge on subgraph"
           ;; These are all in
-          (is (= [1 7 12] (map id (vseq (rg)))))
-          (is (= [17 22]  (map id (eseq (rg))))))))
+          (is (= [1 7 12] (map id (vseq rg))))
+          (is (= [17 22]  (map id (eseq rg)))))))
     (testing "vertex induced TraversalContext by type"
-      (on-subgraph [(rg) (vsubgraph (rg) 'junctions.Airport)]
-        (is (== 3 (vcount (rg))))
-        (is (== 3 (ecount (rg))))
+      (on-subgraph [rg (vsubgraph rg 'junctions.Airport)]
+        (is (== 3 (vcount rg)))
+        (is (== 3 (ecount rg)))
         (testing "on-graph 2"
-          (on-graph [(rg)]
-            (is (== vcnt) (vcount (rg)))
-            (is (== ecnt) (ecount (rg)))))))
+          (on-graph [rg]
+            (is (== vcnt) (vcount rg))
+            (is (== ecnt) (ecount rg))))))
     (testing "vertex induced TraversalContext by predicate"
       ;; Subgraph of all Locality vertices with more than 10 inhabitants.
-      (let [locality? (type-matcher (rg) 'localities.Locality)]
-        (on-subgraph [(rg) (vsubgraph (rg)
+      (let [locality? (type-matcher rg 'localities.Locality)]
+        (on-subgraph [rg (vsubgraph rg
                                       #(and (locality? %)
                                             (> (value % :inhabitants) 10)))]
-          (is (== 9 (vcount (rg))))
+          (is (== 9 (vcount rg)))
           (testing "on-graph 3"
-            (on-graph [(rg) nil]
-              (is (== vcnt) (vcount (rg)))
-              (is (== ecnt) (ecount (rg)))))
-          (is (== 0 (ecount (rg)))))))))
+            (on-graph [rg nil]
+              (is (== vcnt) (vcount rg))
+              (is (== ecnt) (ecount rg))))
+          (is (== 0 (ecount rg))))))))
 
 
 (deftest test-esubgraph-tc
-  (let [vcnt (vcount (rg))
-        ecnt (ecount (rg))]
+  (let [vcnt (vcount rg)
+        ecnt (ecount rg)]
     (testing "edge induced TraversalContext by set"
-      (on-subgraph [(rg) (esubgraph (rg) (set (map #(edge (rg) %)
+      (on-subgraph [rg (esubgraph rg (set (map #(edge rg %)
                                                    [17 22])))]
-        (is (== 3 (vcount (rg))))
-        (is (== 2 (ecount (rg))))
+        (is (== 3 (vcount rg)))
+        (is (== 2 (ecount rg)))
         (testing "on-graph 4"
-          (on-graph [(rg)]
-            (is (== vcnt) (vcount (rg)))
-            (is (== ecnt) (ecount (rg)))))))
+          (on-graph [rg]
+            (is (== vcnt) (vcount rg))
+            (is (== ecnt) (ecount rg))))))
     (testing "edge induced TraversalContext by type"
-      (on-subgraph [(rg) (esubgraph (rg) 'connections.AirRoute)]
-        (is (== 3 (vcount (rg))))
-        (is (== 3 (ecount (rg))))
+      (on-subgraph [rg (esubgraph rg 'connections.AirRoute)]
+        (is (== 3 (vcount rg)))
+        (is (== 3 (ecount rg)))
         (testing "on-graph 5"
-          (on-graph [(rg)]
-            (is (== vcnt) (vcount (rg)))
-            (is (== ecnt) (ecount (rg)))))))
+          (on-graph [rg]
+            (is (== vcnt) (vcount rg))
+            (is (== ecnt) (ecount rg))))))
     (testing "edge induced TraversalContext by predicate"
-      (let [airroute? (type-matcher (rg) 'connections.AirRoute)]
-        (on-subgraph [(rg) (esubgraph (rg) #(and (airroute? %)
+      (let [airroute? (type-matcher rg 'connections.AirRoute)]
+        (on-subgraph [rg (esubgraph rg #(and (airroute? %)
                                                  (== (value (alpha  %) :inhabitants) 0)))]
           (testing "on-graph 5"
-            (on-graph [(rg)]
-              (is (== vcnt) (vcount (rg)))
-              (is (== ecnt) (ecount (rg)))))
-          (is (== 2 (vcount (rg))))
-          (is (== 1 (ecount (rg)))))))))
+            (on-graph [rg]
+              (is (== vcnt) (vcount rg))
+              (is (== ecnt) (ecount rg))))
+          (is (== 2 (vcount rg)))
+          (is (== 1 (ecount rg))))))))
 
 (deftest test-subgraph-intersection-tcs
-  (on-subgraph [(rg) (vsubgraph (rg) (set (map #(vertex (rg) %)
+  (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
                                                           [1 12 7])))]
-    (on-subgraph-intersection [(rg) (esubgraph (rg) (set (map #(edge (rg) %)
+    (on-subgraph-intersection [rg (esubgraph rg (set (map #(edge rg %)
                                                                    [22 17])))]
-      (is (== 3 (vcount (rg))))
-      (is (== 2 (ecount (rg))))
-      (on-subgraph-intersection [(rg) (esubgraph (rg) #{(edge (rg) 22)})]
-        (is (== 2 (vcount (rg))))
-        (is (== 1 (ecount (rg))))))))
+      (is (== 3 (vcount rg)))
+      (is (== 2 (ecount rg)))
+      (on-subgraph-intersection [rg (esubgraph rg #{(edge rg 22)})]
+        (is (== 2 (vcount rg)))
+        (is (== 1 (ecount rg)))))))
 
 ;;** Path expression tests
 
 (deftest test--->
   (doall (map #(is (= %1 %2))
-	      (let [m (map id (reachables (vertex (rg) 12) -->))]
+	      (let [m (map id (reachables (vertex rg 12) -->))]
 		;; There are 9 reachable unique vertices
 		(is (= 9 (count m)))
 		m)
@@ -198,11 +165,11 @@
 	      [7 6 3 4 1 2 10 11 5])))
 
 (deftest test-<--
-  (is (= 0 (count (reachables (vertex (rg) 12) <--)))))
+  (is (= 0 (count (reachables (vertex rg 12) <--)))))
 
 (deftest test-<->
   (doall (map #(is (= %1 %2))
-	      (let [m (map id (reachables (vertex (rg) 12) <->))]
+	      (let [m (map id (reachables (vertex rg 12) <->))]
 		;; There are 9 reachable unique vertices
 		(is (= 9 (count m)))
 		m)
@@ -210,48 +177,48 @@
 	      [7 6 3 4 1 2 10 11 5])))
 
 (deftest test-reachable-vertices
-  (is (= 2 (count (reachables (vertex (rg) 1)
+  (is (= 2 (count (reachables (vertex rg 1)
 			   [p-seq --<> [p-* [--> 'localities.HasCapital]]]))))
-  (is (= 4272 (count (reachables (vertex (jg) 12) [p-* -->]))
-	      (count (reachables (vertex (jg) 12) [p-* -->]))))
-  (is (= 4272 (count (reachables (vertex (jg) 12) [p-+ -->]))))
-  (is (= 6117 (count (reachables (vertex (jg) 12) [p-* <->]))))
-  (is (= 6117 (count (reachables (vertex (jg) 12) [p-+ <->]))))
-  (is (= 19 (count (reachables (vertex (jg) 12) [p-+ <>--]))))
-  (is (= 20 (count (reachables (vertex (jg) 12) [p-* <>--]))))
-  (is (= 22 (count (reachables (vertex (jg) 12) [p-seq [p-* <>--] -->]))
-	    (count (reachables (vertex (jg) 12) [p-seq [p-* <>--] -->]))))
-  (is (= 4272 (count (reachables (vertex (jg) 12) [p-seq [p-* <>--] [p-+ -->]]))))
-  (is (= 2337 (count (reachables (vertex (jg) 12) [p-+ [p-seq <>-- -->]]))))
-  (is (= 6 (count (reachables (vertex (jg) 12)
+  (is (= 4272 (count (reachables (vertex jg 12) [p-* -->]))
+	      (count (reachables (vertex jg 12) [p-* -->]))))
+  (is (= 4272 (count (reachables (vertex jg 12) [p-+ -->]))))
+  (is (= 6117 (count (reachables (vertex jg 12) [p-* <->]))))
+  (is (= 6117 (count (reachables (vertex jg 12) [p-+ <->]))))
+  (is (= 19 (count (reachables (vertex jg 12) [p-+ <>--]))))
+  (is (= 20 (count (reachables (vertex jg 12) [p-* <>--]))))
+  (is (= 22 (count (reachables (vertex jg 12) [p-seq [p-* <>--] -->]))
+	    (count (reachables (vertex jg 12) [p-seq [p-* <>--] -->]))))
+  (is (= 4272 (count (reachables (vertex jg 12) [p-seq [p-* <>--] [p-+ -->]]))))
+  (is (= 2337 (count (reachables (vertex jg 12) [p-+ [p-seq <>-- -->]]))))
+  (is (= 6 (count (reachables (vertex jg 12)
                               [p-seq
                                [p-+ [p-seq <>-- -->]]
                                [p-restr  'annotations.Annotable]]))))
-  (is (= 3280 (count (reachables (vertex (jg) 12)
+  (is (= 3280 (count (reachables (vertex jg 12)
                                  [p-seq [p-opt --<>]
                                   [p-+ [p-seq <>-- -->]]
                                   [p-opt <--]]))))
-  (is (= 6 (count (reachables (vertex (jg) 12) [p-alt <>-- --<>])))))
+  (is (= 6 (count (reachables (vertex jg 12) [p-alt <>-- --<>])))))
 
 (deftest test-p-exp
-  (is (= (reachables (vertex (jg) 12) [p-seq --> --> -->])
-	 (reachables (vertex (jg) 12) [p-exp 3 -->])))
-  (is (= (reachables (vertex (jg) 12) -->)
-	 (reachables (vertex (jg) 12) [p-exp 1 -->])))
-  (is (= (oset (vertex (jg) 12))
-	 (reachables (vertex (jg) 12) [p-exp 0 -->])))
-  (is (= (reachables (vertex (jg) 12) [p-seq --> --> --> [p-opt -->] [p-opt -->] [p-opt -->]])
-         (reachables (vertex (jg) 12) [p-exp 3 6 -->])))
-  (is (= (reachables (vertex (jg) 12) [p-seq [p-opt -->] [p-opt -->] [p-opt -->]])
-         (reachables (vertex (jg) 12) [p-exp 0 3 -->]))))
+  (is (= (reachables (vertex jg 12) [p-seq --> --> -->])
+	 (reachables (vertex jg 12) [p-exp 3 -->])))
+  (is (= (reachables (vertex jg 12) -->)
+	 (reachables (vertex jg 12) [p-exp 1 -->])))
+  (is (= (oset (vertex jg 12))
+	 (reachables (vertex jg 12) [p-exp 0 -->])))
+  (is (= (reachables (vertex jg 12) [p-seq --> --> --> [p-opt -->] [p-opt -->] [p-opt -->]])
+         (reachables (vertex jg 12) [p-exp 3 6 -->])))
+  (is (= (reachables (vertex jg 12) [p-seq [p-opt -->] [p-opt -->] [p-opt -->]])
+         (reachables (vertex jg 12) [p-exp 0 3 -->]))))
 
 (deftest test-p-+*
-  (is (= (reachables (vertex (jg) 1) [p-+ <->])
-         (reachables (vertex (jg) 1) [p-seq <-> [p-* <->]])))
-  (is (contains? (reachables (vertex (jg) 1) [p-* <*>--])
-                 (vertex (jg) 1)))
-  (is (not (contains? (reachables (vertex (jg) 1) [p-+ <*>--])
-                      (vertex (jg) 1)))))
+  (is (= (reachables (vertex jg 1) [p-+ <->])
+         (reachables (vertex jg 1) [p-seq <-> [p-* <->]])))
+  (is (contains? (reachables (vertex jg 1) [p-* <*>--])
+                 (vertex jg 1)))
+  (is (not (contains? (reachables (vertex jg 1) [p-+ <*>--])
+                      (vertex jg 1)))))
 
 (deftest test-p-+*2
   (doseq [p [[p-seq <-> <->]
@@ -261,14 +228,14 @@
              [p-alt [p-seq --> -->]
                     [p-seq <-- <--]]]]
     (doseq [vid [1 20 117 3038]]
-      (is (= (reachables (vertex (jg) vid) [p-+ p])
-             (reachables (vertex (jg) vid) [p-seq p [p-* p]])))
-      (is (= (reachables (vertex (jg) vid) [p-* p])
-             (reachables (vertex (jg) vid) [p-opt [p-+ p]]))))))
+      (is (= (reachables (vertex jg vid) [p-+ p])
+             (reachables (vertex jg vid) [p-seq p [p-* p]])))
+      (is (= (reachables (vertex jg vid) [p-* p])
+             (reachables (vertex jg vid) [p-opt [p-+ p]]))))))
 
 (deftest test-derived-from-state
   (let [start (the (filter #(= (value %1 :name) "State")
-			   (vseq (jg) 'classifiers.Class)))]
+			   (vseq jg 'classifiers.Class)))]
     ;; test with only restrictions on the edge class types
     (is (= 11
 	   (count

@@ -7,13 +7,13 @@
 
 ;;* The test graphs
 
-(def rg (memoize #(load-graph "test/input/greqltestgraph.tg")))
-(def jg (memoize #(load-graph "test/input/medium-model.tg")))
+(defonce rg (load-graph "test/input/greqltestgraph.tg"))
+(defonce jg (load-graph "test/input/medium-model.tg"))
 
 ;;* Tests
 
 (deftest test-value
-  (let [winningen (vertex (rg) 4)]
+  (let [winningen (vertex rg 4)]
     ;; Normal attribute access
     (is (= "Winningen" (value winningen :name)))
     (is (= 2432 (value winningen :inhabitants)))
@@ -28,15 +28,15 @@
   (let [l  'localities.Locality
         hc 'localities.HasCapital
         ct 'localities.CountyTags]
-    (is (= (attributed-element-class (rg) 'localities.Locality)
-	   (attributed-element-class (rg) l)))
-    (is (= (attributed-element-class (rg) 'localities.HasCapital)
-	   (attributed-element-class (rg) hc)))
-    (is (= (domain (rg) 'localities.CountyTags)
-           (domain (rg) ct)))))
+    (is (= (attributed-element-class rg 'localities.Locality)
+	   (attributed-element-class rg l)))
+    (is (= (attributed-element-class rg 'localities.HasCapital)
+	   (attributed-element-class rg hc)))
+    (is (= (domain rg 'localities.CountyTags)
+           (domain rg ct)))))
 
 (deftest test-create-graph-vertex-edge-1
-  (let [g ^Graph (create-graph (schema (rg)) "Test graph 1")
+  (let [g ^Graph (create-graph (schema rg) "Test graph 1")
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
@@ -47,19 +47,52 @@
     (is (== 4 (.getVCount g)) "Wrong vertex count")
     (is (== 3 (.getECount g)) "Wrong edge count")))
 
+(deftest test-vcount
+  (is (= 155 (vcount rg) (count (vseq rg))))
+  (is (= 3 (vcount rg 'localities.City)))
+  (is (= 6808 (vcount jg) (count (vseq jg)))))
+
+(deftest test-ecount
+  (is (= 355 (ecount rg) (count (eseq rg))))
+  ;; Edge has no direct instances
+  (is (= 3 (ecount rg 'connections.AirRoute!)))
+  (is (= 6801 (ecount jg) (count (eseq jg)))))
+
+(deftest test-query-1
+  (let [r (for [l (vseq rg 'localities.Locality)
+		:when (re-matches #".*e.*" (value l 'name))]
+	    [l (value l 'name)])]
+    ;; r must have 8 elems
+    (is (= 8 (count r)))
+    ;; the elems are...
+    (is (= (map #(let [v (vertex rg %1)] [v (value v 'name)])
+		[1 2 3 4 7 9 10 11])
+	   r))))
+
+(deftest test-incidences
+  (is (= 1 (count (iseq (vertex rg 1)))))
+  (is (= 10 (count (iseq (vertex rg 12)))))
+  (is (= 9 (count (iseq (vertex rg 12)
+			'localities.ContainsLocality!))))
+  (is (= 1 (count (iseq (vertex rg 12)
+			'localities.HasCapital!))))
+  (is (= 2 (count (iseq (vertex rg 6)))))
+  (is (= 4 (count (iseq (vertex rg 11)))))
+  (is (= 0 (count (iseq (vertex rg 6) nil :out)))))
+
 
 (deftest test-print-read-stuff
   (let [x [1
-           (vertex (rg) 17)
+           (vertex rg 17)
            "Foo"
-           #{(edge (rg) 18) :kw}
+           #{(edge rg 18) :kw}
            {:a "A" :b "B"}
-           (rg)
-           #{1 2 (vertex (rg) 1)}]]
-    (is (= x (tg-read-str (tg-pr-str x) (rg))))))
+           rg
+           #{1 2 (vertex rg 1)}]]
+    (is (= x (tg-read-str (tg-pr-str x) rg)))))
 
 (deftest test-is-instance?
-  (let [g     (rg)
+  (let [g     rg
         gc    (attributed-element-class g)
         city  (vertex g 7)
         cityc (attributed-element-class city)
@@ -75,7 +108,7 @@
       (is (not (is-instance? hw loc))))))
 
 (deftest test-class-access
-  (let [g (rg)]
+  (let [g rg]
     (is (= (attributed-element-class g 'localities.Locality)
            (attributed-element-class g 'Locality)))
     (is (= (attributed-element-class g 'connections.AirRoute)

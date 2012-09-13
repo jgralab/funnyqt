@@ -55,8 +55,8 @@
         pg (tg/create-graph pattern-schema)
         get-by-name (fn [n]
                       (first (filter #(= (name n) (tg/value % :name))
-                                     (concat (tgq/vseq pg 'APatternVertex)
-                                             (tgq/eseq pg '[PatternEdge ArgumentEdge])))))
+                                     (concat (tg/vseq pg 'APatternVertex)
+                                             (tg/eseq pg '[PatternEdge ArgumentEdge])))))
         check-unique (fn [n t]
                        (when (and n t (get-by-name n))
                          (errorf "A pattern element with name %s is already declared!" n))
@@ -106,14 +106,14 @@
          (vertex-sym? (first pattern)) (let [sym (first pattern)
                                              [n t] (name-and-type sym)
                                              v (get-or-make-v n t)]
-                                         (when (= 0 (tgq/ecount pg 'HasStartPatternVertex))
+                                         (when (= 0 (tg/ecount pg 'HasStartPatternVertex))
                                            (tg/create-edge! pg 'HasStartPatternVertex
-                                                            (the (tgq/vseq pg 'Anchor)) v))
+                                                            (the (tg/vseq pg 'Anchor)) v))
                                          (recur (rest pattern) v))
          :else (errorf "Don't know how to handle pattern part: %s" (first pattern)))))
     ;; Anchor disconnected components at the anchor.
-    (let [vset (funnyqt.utils/oset (tgq/vseq pg))
-          a (the (tgq/vseq pg 'Anchor))]
+    (let [vset (funnyqt.utils/oset (tg/vseq pg))
+          a (the (tg/vseq pg 'Anchor))]
       (loop [disc (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))]
         (when (seq disc)
           (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
@@ -124,8 +124,8 @@
     ;; TODO: This changes the result order cause the binding vector is
     ;; different.  Maybe we should build the correct result vector here and
     ;; return it instead of determining it from the final bindings form...
-    #_(when-let [argv (first (tgq/vseq pg 'ArgumentVertex))]
-        (let [hfpv (the (tgq/eseq pg 'HasStartPatternVertex))]
+    #_(when-let [argv (first (tg/vseq pg 'ArgumentVertex))]
+        (let [hfpv (the (tg/eseq pg 'HasStartPatternVertex))]
           (when (has-type? (tg/omega hfpv) '!ArgumentVertex)
             (tg/set-omega! hfpv argv))))
     pg))
@@ -177,7 +177,7 @@
      (enqueue-incs cur stack done false))
   ([cur stack done only-out]
      (into stack (remove done
-                         (tgq/riseq cur nil (when only-out :out))))))
+                         (tg/riseq cur nil (when only-out :out))))))
 
 (defn- conj-done [done & elems]
   (into done (mapcat #(if (tg/edge? %)
@@ -205,7 +205,7 @@
        (tg/edge? cur)   (recur (tg/that cur)
                                (conj-done done cur)
                                (conj vec cur))
-       (tg/vertex? cur) (recur (let [ns (remove done (tgq/iseq cur ['PatternEdge]))]
+       (tg/vertex? cur) (recur (let [ns (remove done (tg/iseq cur ['PatternEdge]))]
                                  (if (> (count ns) 1)
                                    (errorf "Must not happen!")
                                    (first ns)))
@@ -217,7 +217,7 @@
         vec))))
 
 (defn- validate-bf [bf done pg]
-  (when-let [missing (seq (remove done (concat (tgq/vseq pg) (tgq/eseq pg))))]
+  (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
     (errorf "Some pattern elements were not reached: %s" missing))
   bf)
 
@@ -263,7 +263,7 @@
                        [(get-name target-node)
                         `(tgq/reachables ~startsym
                                          ~(anon-vec-to-rpd av))])))]
-    (loop [stack [(the (tgq/vseq pg 'Anchor))]
+    (loop [stack [(the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
       (if (seq stack)
@@ -282,7 +282,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (tgq/vseq ~gsym ~(get-type cur))]))
+                     (into bf `[~(get-name cur) (tg/vseq ~gsym ~(get-type cur))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
@@ -301,7 +301,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (apply conj bf `~(get-name cur)
-                                `(tgq/iseq ~(get-name (tg/this cur)) ~(get-type cur)
+                                `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
                                            ~(if (tg/normal-edge? cur) :out :in))
                                 (cond
                                  (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
@@ -342,19 +342,19 @@
                          (conj-done done trg)
                          (into bf `[:when (empty? (filter
                                                    #(= ~(get-name trg) (tg/that %))
-                                                   (tgq/iseq ~(get-name src) ~(get-type cur)
+                                                   (tg/iseq ~(get-name src) ~(get-type cur)
                                                              ~(if (tg/normal-edge? cur) :out :in))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (tgq/vseq ~gsym ~(get-type trg))])
-                                    :when (empty? (tgq/iseq ~(get-name src) ~(get-type cur)
+                                        `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))])
+                                    :when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
                                                             ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes
               (let [cob (tg/that cur)
                     allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                     forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                    allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
+                    allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
                 (recur (pop stack)
                        (apply conj-done done cur (concat allcobs allprecs))
                        (into bf forms))))))
@@ -405,10 +405,10 @@
                        [(get-name target-node)
                         `(emfq/reachables ~startsym ~(anon-vec-to-rpd av))])))]
     ;; Check there are only anonymous edges.
-    (when-not (every? anon? (tgq/eseq pg 'APatternEdge))
+    (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (errorf "Edges mustn't be named for EMF: %s"
-              (vec (map describe (remove anon? (tgq/eseq pg 'APatternEdge))))))
-    (loop [stack [(the (tgq/vseq pg 'Anchor))]
+              (vec (map describe (remove anon? (tg/eseq pg 'APatternEdge))))))
+    (loop [stack [(the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
       (if (seq stack)
@@ -463,7 +463,7 @@
               (let [cob (tg/that cur)
                     allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                     forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                    allprecs (mapcat #(tgq/iseq % 'Precedes) allcobs)]
+                    allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
                 (recur (pop stack)
                        (apply conj-done done cur (concat allcobs allprecs))
                        (into bf forms))))))

@@ -194,13 +194,13 @@ Have fun!"
        (ground? gt)
        (to-stream
           (->> (map #(unify a e %)
-                    (concat (funnyqt.query.tg/vseq (get-*model*) gt)
-                            (funnyqt.query.tg/eseq (get-*model*) gt)))
+                    (concat (funnyqt.tg/vseq (get-*model*) gt)
+                            (funnyqt.tg/eseq (get-*model*) gt)))
                (remove not)))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.query.tg/vseq (get-*model*))
-                                      (funnyqt.query.tg/eseq (get-*model*)))]
+              (->> (for [elem (concat (funnyqt.tg/vseq (get-*model*))
+                                      (funnyqt.tg/eseq (get-*model*)))]
                      (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                    (remove not)))))))
 
@@ -212,7 +212,7 @@ Have fun!"
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %)
-                   (funnyqt.query.tg/vseq (get-*model*)))
+                   (funnyqt.tg/vseq (get-*model*)))
               (remove not)))
         (if (and (funnyqt.tg/vertex? gv)
                  (funnyqt.tg/contains-vertex? (get-*model*) gv))
@@ -236,7 +236,7 @@ Have fun!"
        (if (funnyqt.tg/vertex? galpha)
          (to-stream
           (->> (map #(unify a [e omega] [% (funnyqt.tg/omega %)])
-                    (funnyqt.query.tg/iseq galpha nil :out))
+                    (funnyqt.tg/iseq galpha nil :out))
                (remove not)))
          (fail a))
 
@@ -244,12 +244,12 @@ Have fun!"
        (if (funnyqt.tg/vertex? gomega)
          (to-stream
           (->> (map #(unify a [e alpha] [% (funnyqt.tg/alpha %)])
-                    (funnyqt.query.tg/iseq gomega nil :in))
+                    (funnyqt.tg/iseq gomega nil :in))
                (remove not)))
          (fail a))
 
        :else (to-stream
-              (->> (for [edge (funnyqt.query.tg/eseq (get-*model*))]
+              (->> (for [edge (funnyqt.tg/eseq (get-*model*))]
                      (unify a [e alpha omega]
                             [edge (funnyqt.tg/alpha edge) (funnyqt.tg/omega edge)]))
                    (remove not)))))))
@@ -283,8 +283,8 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.query.tg/vseq (get-*model*))
-                                      (funnyqt.query.tg/eseq (get-*model*)))
+              (->> (for [elem (concat (funnyqt.tg/vseq (get-*model*))
+                                      (funnyqt.tg/eseq (get-*model*)))
                          ^Attribute attr (seq (.getAttributeList
                                                ^AttributedElementClass
                                                (funnyqt.tg/attributed-element-class elem)))
@@ -317,7 +317,7 @@ Have fun!"
        (ground? gv)
        (if (funnyqt.tg/vertex? gv)
          (to-stream
-          (->> (for [e (funnyqt.query.tg/iseq gv)
+          (->> (for [e (funnyqt.tg/iseq gv)
                      rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
                                           (if (funnyqt.tg/normal-edge? e) :to :from))
                      :when rn
@@ -329,7 +329,7 @@ Have fun!"
        (ground? grv)
        (if (funnyqt.tg/vertex? grv)
          (to-stream
-          (->> (for [e (funnyqt.query.tg/iseq grv)
+          (->> (for [e (funnyqt.tg/iseq grv)
                      rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
                                           (if (funnyqt.tg/normal-edge? e) :from :to))
                      :when rn
@@ -339,8 +339,8 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [s (funnyqt.query.tg/vseq (get-*model*))
-                         e (funnyqt.query.tg/iseq s)
+              (->> (for [s (funnyqt.tg/vseq (get-*model*))
+                         e (funnyqt.tg/iseq s)
                          rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
                                               (if (funnyqt.tg/normal-edge? e) :to :from))
                          :when rn
@@ -375,7 +375,7 @@ Have fun!"
            (if (fresh? ~'gv)
              (to-stream
               (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
-                        (funnyqt.query.tg/vseq ~'*model* '~na))
+                        (funnyqt.tg/vseq ~'*model* '~na))
                    (remove not)))
              (if (and (funnyqt.tg/vertex? ~'gv)
                       (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
@@ -407,7 +407,7 @@ Have fun!"
                (->> (map (fn [~'incidence]
                            (unify ~'a [~'e ~'om]
                                   [~'incidence (funnyqt.tg/omega ~'incidence)]))
-                         (funnyqt.query.tg/iseq ~'gal '~na :out))
+                         (funnyqt.tg/iseq ~'gal '~na :out))
                     (remove not)))
               (fail ~'a))
 
@@ -417,12 +417,12 @@ Have fun!"
                (->> (map (fn [~'incidence]
                            (unify ~'a [~'e ~'al]
                                   [~'incidence (funnyqt.tg/alpha ~'incidence)]))
-                         (funnyqt.query.tg/iseq ~'gom '~na :in))
+                         (funnyqt.tg/iseq ~'gom '~na :in))
                     (remove not)))
               (fail ~'a))
 
             :else (to-stream
-                   (->> (for [~'edge (funnyqt.query.tg/eseq ~'*model* '~na)]
+                   (->> (for [~'edge (funnyqt.tg/eseq ~'*model* '~na)]
                           (unify ~'a [~'e ~'al ~'om]
                                  [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
                         (remove not)))))))))
@@ -433,11 +433,11 @@ Have fun!"
                   ;;; having such an attr
   (let [ts     (mapv #(funnyqt.protocols/qname %) aecs) ;; a type spec
         seqf   (cond
-                (every? #(instance? VertexClass %) aecs) 'funnyqt.query.tg/vseq
-                (every? #(instance? EdgeClass %)   aecs) 'funnyqt.query.tg/eseq
+                (every? #(instance? VertexClass %) aecs) 'funnyqt.tg/vseq
+                (every? #(instance? EdgeClass %)   aecs) 'funnyqt.tg/eseq
                 :else `(fn [graph# ts#]
-                         (apply concat ((juxt funnyqt.query.tg/vseq
-                                              funnyqt.query.tg/eseq)
+                         (apply concat ((juxt funnyqt.tg/vseq
+                                              funnyqt.tg/eseq)
                                         graph# ts#))))]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
