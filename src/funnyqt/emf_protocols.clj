@@ -33,7 +33,7 @@
 
 ;;## Metamodel
 
-(defn- register-epackages
+(defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
   [pkgs]
@@ -44,7 +44,7 @@
                    (not (.containsKey EPackage$Registry/INSTANCE uri)))
           (.put EPackage$Registry/INSTANCE uri p))))))
 
-(defn- epks-and-subpgks
+(defn ^:private epks-and-subpgks
   ([pkgs]
      (epks-and-subpgks pkgs []))
   ([pkgs rv]

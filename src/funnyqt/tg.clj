@@ -248,7 +248,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (abstract? [this]
     (.isAbstract this)))
 
-(defprotocol Internalness
+(defprotocol ^:private Internalness
   "A protocol for checking if a graph element class is internal."
   (default-class? [this]
     "Returns true, iff the given attributed element class is abstract."))
@@ -258,7 +258,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (default-class? [this]
     (.isDefaultGraphElementClass this)))
 
-(defprotocol Resolving
+(defprotocol ^:private Resolving
   "A protocol for resolving schema classes and domains."
   (attributed-element-class [this] [this qname]
     "Returns this element's attributed element class, or the attributed element
@@ -273,7 +273,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
     "Returns the schema of this element."))
 
 (declare domain-qname)
-(defn- domain-vector-qname
+(defn ^:private domain-vector-qname
   [v]
   (when (seq v)
     (let [s (map domain-qname (rest v))
@@ -314,7 +314,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
   "If locical true, graph element classes may be retrieved by their simple
   names if they are unique.  That is, if there's only a vertex class `foo.Bar`,
   then `(vseq g 'Bar)` will work just fine.  If there are classes `foo.Bar` and
-  `baz.Bar`, then you need to use the qualified name anyway."
+  `baz.Bar` you'll get an error that the name is not unique, and you need to
+  use the qualified name anyway."
   true)
 
 (extend-protocol Resolving
@@ -374,7 +375,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
    (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
    ^Schema (schema g)))
 
-(defn- type-matcher-1
+(defn ^:private type-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [g c]
   (let [v     (type-with-modifiers (name c))
@@ -517,7 +518,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Access by ID
 
-(defprotocol IDOps
+(defprotocol ^:private IDOps
   "Protocol for types having IDs."
   (id [this]
     "Returns this element's ID.")
@@ -749,7 +750,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Value access (including attribute setting)
 
-(defprotocol ClojureValues2JGraLabValues
+(defprotocol ^:private ClojureValues2JGraLabValues
   "Protocol for transforming clojure persistent collections/maps into
   equivalent pcollections and ratios to doubles."
   (clj2jgval [coll]))
@@ -792,12 +793,13 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ;; nil stays nil/null
   nil (clj2jgval [_] nil))
 
-(defprotocol ValueAccess
+(defprotocol ^:private ValueAccess
   "Protocol for access to attribute values and record components."
   (value [this attr-or-comp]
-    "Returns `this` element's `attr-or-comp` value.")
-  (set-value! [this attr val]
-    "Sets `this` element's `attr` value to `val` and returns `this`."))
+    "Returns `this` attributed element's or record's `attr-or-comp` value.")
+  (set-value! [this attr-or-comp val]
+    "Sets `this` attributed element's or record's `attr` value to `val` and
+    returns `this`."))
 
 (extend-protocol ValueAccess
   AttributedElement
@@ -813,8 +815,9 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 (defn record
   "Creates a record of type `t` in the schema of element `e` with component
-  values as specified by map `m`.  The map `m` must specify all components, and
-  be sure that if a component is of type Integer, then use `Integer/valueOf'."
+  values as specified by map `m`, a map from keywords to values.  The map `m`
+  must specify all components, and be sure that if a component is of type
+  Integer, then use `Integer/valueOf'."
   [e t m]
   (let [^Graph g (if (instance? Graph e) e (graph e))]
     (.createRecord g
@@ -834,7 +837,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Element Order
 
-(defprotocol ElementOrder
+(defprotocol ^:private ElementOrder
   "Protocol for querying and setting the global order of vertices and edges,
   and the local order of incidences."
   (before? [this other]
@@ -881,7 +884,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Lazy Vertex, Edge, Incidence Seqs
 
-(defprotocol VSeq
+(defprotocol ^:private VSeq
   "Protocol for types supporting vseq."
   (vseq-internal [this tm]
     "Returns a lazy seq of the graphs vertices restricted by type matcher `tm`.")
@@ -933,7 +936,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([g ts]
      (rvseq-internal g (type-matcher g ts))))
 
-(defprotocol ESeq
+(defprotocol ^:private ESeq
   "Protocol for types supporting eseq."
   (eseq-internal [this tm]
     "Returns a lazy seq of the graph's edges restricted by tm.")
@@ -985,7 +988,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([g ts]
      (reseq-internal g (type-matcher g ts))))
 
-(defprotocol ISeq
+(defprotocol ^:private ISeq
   "Protocol for types supporting iseq."
   (iseq-internal [this tm dm]
     "Returns a lazy seq of incident edges restricted by tm and dm.")

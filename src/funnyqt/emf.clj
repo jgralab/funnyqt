@@ -165,7 +165,7 @@
 
 ;;## Traversal stuff
 
-(defn- eclass-matcher-1
+(defn ^:private eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [c]
   (let [v     (type-with-modifiers (name c))
@@ -283,7 +283,7 @@
                       identity)
    :else (errorf "Don't know how to create a reference matcher for %s" rs)))
 
-(defn- eopposite-refs
+(defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
 
   Example:
@@ -302,7 +302,7 @@
                              (when (src-rm o) r)))
                          (seq (-> eo .eClass .getEAllReferences))))))
 
-(defn- search-ereferencers
+(defn ^:private search-ereferencers
   "Returns the seq of objects referencing `refed` by a reference matching `rm`
   that are contained in `container`.  `reffn` is either erefs-internal or
   ecrossrefs-internal."
@@ -440,7 +440,10 @@
   nil
   (emf2clj-internal [_] nil))
 
-(def emf2clj emf2clj-internal)
+(defn emf2clj
+  "Converts an EMF value (e.g., an EList) to an appropriate clojure value."
+  [val]
+  (emf2clj-internal val))
 
 (defn eget-raw
   "Returns the value of `eo`s structural feature `sf`.
@@ -558,7 +561,7 @@
                       (eref-matcher src-rs) (eref-matcher trg-rs)
                       (eclass-matcher src-ts) (eclass-matcher trg-ts))))
 
-(defn- econtents-by-ref
+(defn ^:private econtents-by-ref
   [^EObject eo rm]
   (mapcat #(let [o (eget eo %)]
              (if (coll? o) o [o]))
@@ -631,21 +634,21 @@
        :doc "These objects are printed in color."}
   *marked-eobjects*)
 
-(defn- dot-included? [eo]
+(defn ^:private dot-included? [eo]
   (and (or (not *included-eobjects*) ;; Not set ==> all are included
            (*included-eobjects* eo))
        (not (*excluded-eobjects* eo))))
 
-(defn- dot-id [eo]
+(defn ^:private dot-id [eo]
   (str "O" (Integer/toString (hash eo) (Character/MAX_RADIX))))
 
-(defn- dot-attributes [^EObject eo]
+(defn ^:private dot-attributes [^EObject eo]
   (reduce str
           (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
                 :let [n (.getName attr)]]
             (str n " = \\\"" (eget eo n) "\\\"\\l"))))
 
-(defn- dot-eobject [eo]
+(defn ^:private dot-eobject [eo]
   (when-not (*excluded-eobjects* eo)
     (let [h (dot-id eo)]
       (str "  " h
@@ -656,13 +659,7 @@
                       "red" "black")
            "];\n"))))
 
-(defn- dot-label [^EReference r ^EReference or]
-  #_(if or
-      (str (.getName r) "/" (.getName or))
-      (str (.getName r) "/-"))
-  "                    ")
-
-(defn- dot-contentrefs [^EObject eo]
+(defn ^:private dot-contentrefs [^EObject eo]
   (let [h (dot-id eo)
         dist (atom [2.0 4.0])]
     (reduce str
@@ -682,7 +679,7 @@
                        (str ", taillabel=\"" (.getName oref) "\""))
                      "];\n"))))))
 
-(defn- dot-crossrefs [^EObject eo]
+(defn ^:private dot-crossrefs [^EObject eo]
   (let [h (dot-id eo)
         dist (atom  [2.0 4.0])]
     (reduce str
@@ -709,12 +706,12 @@
                        (str ", taillabel=\"" (.getName oref) "\""))
                      "];\n"))))))
 
-(defn- dot-ereferences [eo]
+(defn ^:private dot-ereferences [eo]
   (when (dot-included? eo)
     (str (dot-contentrefs eo)
          (dot-crossrefs eo))))
 
-(defn- dot-options [opts]
+(defn ^:private dot-options [opts]
   (letfn [(update [m k v]
             (if (get m k)
               m
@@ -737,7 +734,7 @@
       (with-meta m
         {:name gname, :include include, :exclude exclude, :mark mark}))))
 
-(defn- dot-model [m opts]
+(defn ^:private dot-model [m opts]
   (let [opts (dot-options opts)]
     (binding [*included-eobjects* (when-let [i (:include (meta opts))]
                                     (set i))
@@ -797,7 +794,7 @@
 
 ;; TODO: We don't handle EFactories, ETypedElements, and EAnnotations yet.
 
-(defn- feature-str
+(defn ^:private feature-str
   "Returns a description of enabled features `fs`.
   fs => [test-val desc-str]*"
   ([fs]
