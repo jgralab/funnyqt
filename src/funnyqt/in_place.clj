@@ -45,6 +45,8 @@
 (defmacro rule
   "Defines a rule.  Stands to defrule (which see) in the same way as fn stands
   to defn."
+  {:arglists '([name? [args] [pattern] & body]
+                 [name? ([args] [pattern] & body)+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]
@@ -59,6 +61,23 @@
          ~@(if (seq? (first more))
              (doall (map (partial convert-spec name (:debug (meta name))) more))
              (convert-spec name (:debug (meta name)) more))))))
+
+(defmacro letrule
+  "Establishes local rules just like `letfn` establishes local fns.
+  Also see `rule` and `defrule`."
+  {:arglists '([[rspecs] & body])}
+  [rspecs & body]
+  (when-not (vector? rspecs)
+    (errorf "No rspec vector in letmapping!"))
+  (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                            (:pattern-expansion-context (meta *ns*))
+                                            *pattern-expansion-context*)]
+    `(letfn [~@(map (fn [[n & more]]
+                      `(~n ~@(if (seq? (first more))
+                               (doall (map (partial convert-spec name nil) more))
+                               (convert-spec name false more))))
+                 rspecs)]
+       ~@body)))
 
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
@@ -90,8 +109,8 @@
 
   If a defrule form has ^:debug metadata, on every invocation of that rule
   *on-matched-rule-fn* is invoked which you can use to inspect matches."
-  {:arglists '([name doc-string? attr-map? [args] [match] & body]
-                 [name doc-string? attr-map? ([args] [match] & body)+])}
+  {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
+                 [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
