@@ -8,24 +8,21 @@
 (defn ^:private get-*model*-qname [ns]
   (symbol (str (ns-name ns) "/*model*")))
 
-(defn get-*model* []
-  (if-let [vr (ns-resolve *ns* '*model*)]
-    (var-get vr)
-    (errorf "No such var %s" (get-*model*-qname *ns*))))
+(def ^:dynamic *model*)
 
 (defmacro run*-on-model
-  "Like `clojure.core.logic/run*` but bind *model* in the current namespace to
+  "Like `clojure.core.logic/run*` but bind funnyqt.relational/*model* to
   `model` beforehand."
   [model [q] & goals]
-  `(binding [~(get-*model*-qname *ns*) ~model]
+  `(binding [*model* ~model]
      (run* [~q]
        ~@goals)))
 
 (defmacro run-on-model
-  "Like `clojure.core.logic/run` but bind *model* in the current namespace to
-  `model` beforehand."
+  "Like `clojure.core.logic/run` but bind funnyqt.relational/*model* to `model`
+  beforehand."
   [model n [q] & goals]
-  `(binding [~(get-*model*-qname *ns*) ~model]
+  `(binding [*model* ~model]
      (run ~n [~q]
        ~@goals)))
 
@@ -37,8 +34,7 @@
 
 (defmacro run*-on-models
   "Like `run*-on-model` but bind the *model* vars using the namespace-model
-  bindings provided in `ns-model-map`.  The namespaces are given as symbols or
-  keywords."
+  bindings provided in `ns-model-map`."
   [ns-model-map [q] & goals]
   `(binding ~(rom-binding-vec ns-model-map)
      (run* [~q]
@@ -46,8 +42,7 @@
 
 (defmacro run-on-models
   "Like `run*-on-model` but bind the *model* vars using the namespace-model
-  bindings provided in `ns-model-map`.  The namespaces are given as symbols or
-  keywords."
+  bindings provided in `ns-model-map`."
   [ns-model-map n [q] & goals]
   `(binding ~(rom-binding-vec ns-model-map)
      (run ~n [~q]

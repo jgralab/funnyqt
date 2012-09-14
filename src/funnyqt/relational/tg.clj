@@ -157,12 +157,12 @@ We can pose our question now using this new relation and get the same answer.
 Have fun!"
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
-        funnyqt.relational.util
-        [funnyqt.relational :only [get-*model*]])
+        funnyqt.relational.util)
   (:require funnyqt.tg
             funnyqt.protocols
             funnyqt.query.tg
             funnyqt.query
+            [funnyqt.relational :as rel]
             clojure.java.io)
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
@@ -194,13 +194,13 @@ Have fun!"
        (ground? gt)
        (to-stream
           (->> (map #(unify a e %)
-                    (concat (funnyqt.tg/vseq (get-*model*) gt)
-                            (funnyqt.tg/eseq (get-*model*) gt)))
+                    (concat (funnyqt.tg/vseq rel/*model* gt)
+                            (funnyqt.tg/eseq rel/*model* gt)))
                (remove not)))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.tg/vseq (get-*model*))
-                                      (funnyqt.tg/eseq (get-*model*)))]
+              (->> (for [elem (concat (funnyqt.tg/vseq rel/*model*)
+                                      (funnyqt.tg/eseq rel/*model*))]
                      (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                    (remove not)))))))
 
@@ -212,10 +212,10 @@ Have fun!"
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %)
-                   (funnyqt.tg/vseq (get-*model*)))
+                   (funnyqt.tg/vseq rel/*model*))
               (remove not)))
         (if (and (funnyqt.tg/vertex? gv)
-                 (funnyqt.tg/contains-vertex? (get-*model*) gv))
+                 (funnyqt.tg/contains-vertex? rel/*model* gv))
           (succeed a)
           (fail a))))))
 
@@ -249,7 +249,7 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [edge (funnyqt.tg/eseq (get-*model*))]
+              (->> (for [edge (funnyqt.tg/eseq rel/*model*)]
                      (unify a [e alpha omega]
                             [edge (funnyqt.tg/alpha edge) (funnyqt.tg/omega edge)]))
                    (remove not)))))))
@@ -283,8 +283,8 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [elem (concat (funnyqt.tg/vseq (get-*model*))
-                                      (funnyqt.tg/eseq (get-*model*)))
+              (->> (for [elem (concat (funnyqt.tg/vseq rel/*model*)
+                                      (funnyqt.tg/eseq rel/*model*))
                          ^Attribute attr (seq (.getAttributeList
                                                ^AttributedElementClass
                                                (funnyqt.tg/attributed-element-class elem)))
@@ -339,7 +339,7 @@ Have fun!"
          (fail a))
 
        :else (to-stream
-              (->> (for [s (funnyqt.tg/vseq (get-*model*))
+              (->> (for [s (funnyqt.tg/vseq rel/*model*)
                          e (funnyqt.tg/iseq s)
                          rn (edge-class-roles (funnyqt.tg/attributed-element-class e)
                                               (if (funnyqt.tg/normal-edge? e) :to :from))

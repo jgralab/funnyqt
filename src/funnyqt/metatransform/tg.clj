@@ -12,7 +12,6 @@
   (:import
    (java.util Arrays)
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.schema AggregationKind Attribute
                                   AttributedElementClass GraphElementClass
                                   GraphClass EdgeClass Schema VertexClass

@@ -1,12 +1,12 @@
 (ns funnyqt.relational.emf
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
-        funnyqt.relational.util
-        [funnyqt.relational :only [get-*model*]])
+        funnyqt.relational.util)
   (:require funnyqt.protocols
             funnyqt.emf
             funnyqt.query
             funnyqt.query.emf
+            [funnyqt.relational :as rel]
             clojure.java.io)
   (:import
    (org.eclipse.emf.ecore
@@ -37,11 +37,11 @@
        (ground? gt)
        (to-stream
         (->> (map #(unify a e %)
-                  (funnyqt.emf/eallobjects (get-*model*) gt))
+                  (funnyqt.emf/eallobjects rel/*model* gt))
              (remove not)))
 
        :else (to-stream
-              (->> (for [elem (funnyqt.emf/eallobjects (get-*model*))]
+              (->> (for [elem (funnyqt.emf/eallobjects rel/*model*)]
                      (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                    (remove not)))))))
 
@@ -54,7 +54,7 @@
         (if (funnyqt.emf/eobject? geo) (succeed a) (fail a))
         (to-stream
          (->> (map #(unify a eo %)
-                   (funnyqt.emf/eallobjects (get-*model*)))
+                   (funnyqt.emf/eallobjects rel/*model*))
               (remove not)))))))
 
 (defn valueo
@@ -82,7 +82,7 @@
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects (get-*model*))
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects rel/*model*)
                          ^EAttribute attr (seq (.getEAllAttributes
                                                  ^EClass (.eClass elem)))
                          :let [an (keyword (.getName attr))]]
@@ -117,7 +117,7 @@
          (fail a))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects (get-*model*))
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects rel/*model*)
                          ^EReference reference (seq (.getEAllReferences
                                                       ^EClass (.eClass elem)))
                          :let [rn (keyword (.getName reference))]

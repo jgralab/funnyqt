@@ -58,25 +58,25 @@ See `tgtree`, `show-graph`, and `print-graph`."
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
+   (de.uni_koblenz.jgralab.schema.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.utilities.tg2dot Tg2Dot)
    (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
-   (de.uni_koblenz.jgralab.codegenerator CodeGeneratorConfiguration)
    (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
    (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
 
 
 ;;# Utility Functions and Macros
 
-(defn- impl-type
+(defn ^:private impl-type
   [kw]
   (or
+   (when (nil? kw) ImplementationType/GENERIC)
    (when (instance? ImplementationType kw) kw)
    (case kw
      :generic     ImplementationType/GENERIC
      :standard    ImplementationType/STANDARD
-     :transaction ImplementationType/TRANSACTION
-     :database    ImplementationType/DATABASE
-     ;; Don't error with "no matching clause"
+     ;; Don't error with "no matching clause", but use the better error message
+     ;; below.
      nil)
    (errorf "No such implementation type %s" kw)))
 
@@ -129,7 +129,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
            (.show)
            (.pack))))))
 
-(defn tgtree
+;; FIXME: Has accidentally been moved to the museum...
+#_(defn tgtree
   "Shows a simple Swing tree view representation of the graph `g`."
   [g]
   (.setVisible (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g) true))
@@ -160,7 +161,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
   `impl` (default :generic, i.e., don't compile).  Supported impl types
-  are :generic, :standard, :transaction, and :database."
+  are :generic and :standard."
   ([file]
      (load-schema file ImplementationType/GENERIC))
   ([file impl]
@@ -172,21 +173,12 @@ See `tgtree`, `show-graph`, and `print-graph`."
                           is)))
            it (impl-type impl)]
        (.finish s)
-       ;; TODO: What if the schema has already been compiled for this impl
-       ;; type?
        (if (and it (not= it ImplementationType/GENERIC))
          (do
            #_(println
               (format "Loading schema %s, and compiling for implementation type %s."
                       file it))
-           (.compile s
-                     (cond
-                      (= it ImplementationType/STANDARD)
-                         CodeGeneratorConfiguration/MINIMAL
-                      (= it ImplementationType/TRANSACTION)
-                         CodeGeneratorConfiguration/WITH_TRANSACTION_SUPPORT
-                      (= it ImplementationType/DATABASE)
-                         CodeGeneratorConfiguration/WITH_DATABASE_SUPPORT))
+           (.compile s CodeGeneratorConfiguration/MINIMAL)
            (let [qn  (name (qname s))
                  scm (SchemaClassManager/instance qn)
                  sc  (Class/forName qn true scm)

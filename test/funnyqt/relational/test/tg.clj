@@ -7,8 +7,6 @@
   (:require [funnyqt.tg :as tg]
             [clojure.test :as test]))
 
-(def ^:dynamic *model*)
-
 (test/deftest test-vertexo
   (test/is (= (tg/vseq rg)
               (run*-on-model rg [q]
