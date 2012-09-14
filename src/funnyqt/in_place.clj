@@ -42,6 +42,24 @@
       ;; No match given
       `(~args ~@more))))
 
+(defmacro rule
+  "Defines a rule.  Stands to defrule (which see) in the same way as fn stands
+  to defn."
+  [& more]
+  (let [[name more] (if (symbol? (first more))
+                      [(first more) (next more)]
+                      [nil more])
+        [name more] (if name
+                      (m/name-with-attributes name more)
+                      [name more])]
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
+      `(fn ~@(when name [name])
+         ~@(if (seq? (first more))
+             (doall (map (partial convert-spec name (:debug (meta name))) more))
+             (convert-spec name (:debug (meta name)) more))))))
+
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
   an `args` vector, an optional `pattern` vector, and following `body` code.
