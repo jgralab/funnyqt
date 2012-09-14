@@ -21,7 +21,7 @@
 
 (defn- convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
-  [debug spec]
+  [name debug spec]
   (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
@@ -33,42 +33,31 @@
         `(~args
           (when-let [r# (first (pattern-for ~match ~matchsyms))]
             (when (every? (complement nil?) r#)
-              ~@(when debug
-                  `((when *on-matched-rule-fn*
-                      (*on-matched-rule-fn*
-                       '~name ~args ~matchsyms))))
               (let [~matchsyms r#]
+                ~@(when debug
+                    `((when *on-matched-rule-fn*
+                        (*on-matched-rule-fn*
+                         '~name ~args ~matchsyms))))
                 ~@body)))))
       ;; No match given
       `(~args ~@more))))
 
-(defmacro defrule-internal
-  [debug name more]
-  (let [[name more] (m/name-with-attributes name more)]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
-      `(defn ~name ~(meta name)
-         ~@(if (seq? (first more))
-             (doall (map (partial convert-spec debug) more))
-             (convert-spec debug more))))))
-
 (defmacro defrule
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
-  an `args` vector, an optional `match` vector, and following `body` code.
-  Just like `defn`, overloading is supported as well.  The `match` vector is
-  actually optional.  If no version has a match, then you should use `defn`
+  an `args` vector, an optional `pattern` vector, and following `body` code.
+  Just like `defn`, overloading is supported as well.  The `pattern` vector is
+  actually optional.  If no version has it, then you should use `defn`
   directly.
 
-  `match` specifies what the rule matches (a vector with the syntax of `for`).
-  The match vector is optional.  The purpose of this optionality is mainly
-  overloading, i.e., you can have a rule like this:
+  `pattern` is a vector with the syntax of funnyqt.pmatch/defpattern.  The
+  pattern is optional.  The purpose of this optionality is mainly overloading,
+  i.e., you can have a rule like this:
 
     (defrule foobar
       \"Matches a, b, and c, and performs actions on them.\"
-      ([g] [a ..., b ..., c ...] (foobar g a b c))
-      ([g a] [b ..., c ...]      (foobar g a b c))
-      ([g a b] [c ...]           (foobar g a b c))
+      ([g] [a --> b --> c ...] (foobar g a b c))
+      ([g a] [b --> c ...]     (foobar g a b c))
+      ([g a b] [c ...]         (foobar g a b c))
       ([g a b c]  ;; No match vector, just actions
         (action1 a)
         (action2 b)
@@ -81,21 +70,19 @@
   body, and any logical true value means the rule succeeded.  Thus, one should
   take care to always return logical true if the rule was applied.
 
-  It it a compile error, if the `args` contain vars that occur also in
-  `match`."
+  If a defrule form has ^:debug metadata, on every invocation of that rule
+  *on-matched-rule-fn* is invoked which you can use to inspect matches."
   {:arglists '([name doc-string? attr-map? [args] [match] & body]
                  [name doc-string? attr-map? ([args] [match] & body)+])}
   [name & more]
-  `(defrule-internal false ~name ~more))
-
-;; TODO: Implement this via metadata ^:debug-rule given to rules!
-(defmacro defrule-debug
-  "Exactly the same as `defrule`, but expands into a rule that calls
-`*on-matched-rule-fn*', if that's bound."
-  {:arglists '([name doc-string? attr-map? [args] [match] & body]
-                 [name doc-string? attr-map? ([args] [match] & body)+])}
-  [name & more]
-  `(defrule-internal true ~name ~more))
+  (let [[name more] (m/name-with-attributes name more)]
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
+      `(defn ~name ~(meta name)
+         ~@(if (seq? (first more))
+             (doall (map (partial convert-spec name (:debug (meta name))) more))
+             (convert-spec name (:debug (meta name)) more))))))
 
 ;;# Transformations
 

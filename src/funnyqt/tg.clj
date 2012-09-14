@@ -251,7 +251,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (defprotocol ^:private Internalness
   "A protocol for checking if a graph element class is internal."
   (default-class? [this]
-    "Returns true, iff the given attributed element class is abstract."))
+    "Returns true iff the given graph element class is internal (i.e., it is
+    either Vertex or Edge but no subclass)."))
 
 (extend-protocol Internalness
   GraphElementClass
