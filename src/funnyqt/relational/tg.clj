@@ -172,7 +172,7 @@ Have fun!"
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
-(defmacro ^:private make-typeo [*model*-var-symbol]
+(defmacro make-typeo [*model*-var-symbol]
   `(defn ~'typeo
      "A relation where vertex or edge `e` has the type `t`, a graph element
   class name.  In fact, `t` may be any type specification (see
@@ -207,7 +207,7 @@ Have fun!"
                         (unify ~'a [~'e ~'t] [~'elem (funnyqt.protocols/qname ~'elem)]))
                       (remove not))))))))
 
-(defmacro ^:private make-vertexo [*model*-var-symbol]
+(defmacro make-vertexo [*model*-var-symbol]
   `(defn ~'vertexo
      "A relation where `v` is a vertex."
      [~'v]
@@ -223,7 +223,7 @@ Have fun!"
              (succeed ~'a)
              (fail ~'a)))))))
 
-(defmacro ^:private make-edgeo [*model*-var-symbol]
+(defmacro make-edgeo [*model*-var-symbol]
   `(defn ~'edgeo
      "A relation where `e` is an edge from `alpha` to `omega`."
      [~'e ~'alpha ~'omega]
@@ -259,7 +259,7 @@ Have fun!"
                                [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
                       (remove not))))))))
 
-(defmacro ^:private make-valueo [*model*-var-symbol]
+(defmacro make-valueo [*model*-var-symbol]
   `(defn ~'valueo
      "A relation where `ae` has value `val` for its `at` attribute."
      [~'ae ~'at ~'val]
@@ -272,7 +272,8 @@ Have fun!"
                (ground? ~'gat))
           (or (and (funnyqt.tg/attributed-element? ~'gae)
                    (keyword? ~'gat)
-                   (.getAttribute ^AttributedElementClass (funnyqt.tg/attributed-element-class ~'gae)
+                   (.getAttribute ^AttributedElementClass
+                                  (funnyqt.tg/attributed-element-class ~'gae)
                                   (name ~'gat))
                    (unify ~'a ~'val (funnyqt.tg/value ~'gae ~'gat)))
               (fail ~'a))
@@ -280,7 +281,7 @@ Have fun!"
           (ground? ~'gae)
           (if (funnyqt.tg/vertex? ~'gae)
             (to-stream
-             (->> (for [~(u/tagged 'attr 'Attribute) (seq (.getAttributeList
+             (->> (for [~(u/tagged 'attr `Attribute) (seq (.getAttributeList
                                                            ^AttributedElementClass
                                                            (funnyqt.tg/attributed-element-class ~'gae)))
                         :let [~'an (keyword (.getName ~'attr))]]
@@ -291,19 +292,19 @@ Have fun!"
           :else (to-stream
                  (->> (for [~'elem (concat (funnyqt.tg/vseq ~*model*-var-symbol)
                                            (funnyqt.tg/eseq ~*model*-var-symbol))
-                            ~(u/tagged 'attr 'Attribute) (seq (.getAttributeList
+                            ~(u/tagged 'attr `Attribute) (seq (.getAttributeList
                                                                ^AttributedElementClass
                                                                (funnyqt.tg/attributed-element-class ~'elem)))
                             :let [~'an (keyword (.getName ~'attr))]]
                         (unify ~'a [~'ae ~'at ~'val] [~'elem ~'an (funnyqt.tg/value ~'elem ~'an)]))
                       (remove not))))))))
 
-(defmacro ^:private make-adjo [*model*-var-symbol]
+(defmacro make-adjo [*model*-var-symbol]
   `(defn ~'adjo
      "A relation where `rv` is in the `role` role of `v`."
      [~'v ~'role ~'rv]
      (fn [~'a]
-       (let [~'edge-class-roles (fn [~(u/tagged 'ec 'EdgeClass) ~'from-or-to]
+       (let [~'edge-class-roles (fn [~(u/tagged 'ec `EdgeClass) ~'from-or-to]
                                   (remove empty? (.getAllRoles (if (= :to ~'from-or-to)
                                                                  (.getTo ~'ec)
                                                                  (.getFrom ~'ec)))))
@@ -353,7 +354,7 @@ Have fun!"
                         (unify ~'a [~'v ~'role ~'rv] [(funnyqt.tg/this ~'e) ~'rn (funnyqt.tg/that ~'e)]))
                       (remove not))))))))
 
-(defmacro ^:private make-standard-tg-relations [*model*-var-symbol]
+(defmacro make-standard-tg-relations [*model*-var-symbol]
   `(do
      (make-typeo   ~*model*-var-symbol)
      (make-vertexo ~*model*-var-symbol)
@@ -365,7 +366,7 @@ Have fun!"
 
 ;;# Metamodel specific
 
-(defn- class->rel-symbols
+(defn ^:private class->rel-symbols
   "Returns a relation symbol for the class `c`."
   [^AttributedElementClass c]
   (let [n (.getUniqueName c)
@@ -377,7 +378,7 @@ Have fun!"
                                  s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
-(defn- create-vc-relations
+(defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
   [vc]
   (for [na (class->rel-symbols vc)]
@@ -397,7 +398,7 @@ Have fun!"
                (succeed ~'a)
                (fail ~'a))))))))
 
-(defn- create-ec-relations
+(defn ^:private create-ec-relations
   "Creates relations for the given edge class."
   [ec]
   (for [na (class->rel-symbols ec)]
@@ -441,7 +442,7 @@ Have fun!"
                                  [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
                         (remove not)))))))))
 
-(defn- create-attr-relation
+(defn ^:private create-attr-relation
   "Creates relations for the given attribute."
   [[attr aecs]]   ;;; attr is an attr name symbol, aecs the set of classes
                   ;;; having such an attr
@@ -462,7 +463,9 @@ Have fun!"
            (cond
             (ground? ~'gae)
             (or (and (funnyqt.tg/attributed-element? ~'gae)
-                     (.getAttribute (funnyqt.tg/attributed-element-class ~'gae) ~(name attr))
+                     (.getAttribute ^AttributedElementClass
+                                    (funnyqt.tg/attributed-element-class ~'gae)
+                                    ~(name attr))
                      (unify ~'a ~'val (funnyqt.tg/value ~'gae ~attr)))
                 (fail ~'a))
 
@@ -472,7 +475,7 @@ Have fun!"
                           (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
                         (remove not)))))))))
 
-(defn- create-reference-relation
+(defn ^:private create-reference-relation
   "Creates a relation for the given role name."
   [rn owners]
   (let [role-rel-sym (symbol (str "+->" rn))
@@ -510,9 +513,9 @@ Have fun!"
               `[(ns ~nssym
                   (:refer-clojure :exclude [~'==]))
 
-                (def ~(vary-meta '*model* assoc :dynamic true))])
-          ;; The standard relations
-          (make-standard-tg-relations *model*)
+                (def ~(vary-meta '*model* assoc :dynamic true))
+                          ;; The standard relations
+                (make-standard-tg-relations ~'*model*)])
           ;; The schema specific ones
           ~@(concat
              (doall

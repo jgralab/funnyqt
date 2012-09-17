@@ -15,7 +15,7 @@
 
 ;;# Utilities
 
-(defmacro ^:private make-typeo [*model*-var-symbol]
+(defmacro make-typeo [*model*-var-symbol]
   `(defn ~'typeo
      "A relation where the EObject `e` has the type `t`, an EClass name.
   In fact, `t` may be any type specification (see `eclass-matcher`)."
@@ -47,7 +47,7 @@
                         (unify ~'a [~'e ~'t] [~'elem (funnyqt.protocols/qname ~'elem)]))
                       (remove not))))))))
 
-(defmacro ^:private make-eobjecto [*model*-var-symbol]
+(defmacro make-eobjecto [*model*-var-symbol]
   `(defn ~'eobjecto
      "A relation where `eo` is an EObject."
      [~'eo]
@@ -60,7 +60,7 @@
                       (funnyqt.emf/eallobjects ~*model*-var-symbol))
                  (remove not))))))))
 
-(defmacro ^:private make-valueo [*model*-var-symbol]
+(defmacro make-valueo [*model*-var-symbol]
   `(defn ~'valueo
      "A relation where `eo` has value `val` for its `at` attribute."
      [~'eo ~'at ~'val]
@@ -92,7 +92,7 @@
                         (unify ~'a [~'eo ~'at ~'val] [~'elem ~'an (funnyqt.emf/eget ~'elem ~'an)]))
                       (remove not))))))))
 
-(defmacro ^:private make-adjo [*model*-var-symbol]
+(defmacro make-adjo [*model*-var-symbol]
   `(defn ~'adjo
      "A relation where `eo` references `reo` with its `ref` reference."
      [~'eo ~'ref ~'reo]
@@ -128,7 +128,7 @@
                         (unify ~'a [~'eo ~'ref ~'reo] [~'elem ~'rn ~'refed]))
                       (remove not))))))))
 
-(defmacro ^:private make-standard-emf-relations [*model*-var-symbol]
+(defmacro make-standard-emf-relations [*model*-var-symbol]
   `(do
      (make-typeo    ~*model*-var-symbol)
      (make-eobjecto ~*model*-var-symbol)
@@ -139,7 +139,7 @@
 
 ;;# Metamodel specific relations
 
-(defn- class->rel-symbols
+(defn ^:private class->rel-symbols
   "Returns a relation symbol for the eclass `c`."
   [^EClass c]
   (let [dup (funnyqt.emf/eclassifier (symbol (.getName c)))
@@ -154,7 +154,7 @@
                                  s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
-(defn- create-eclass-relations
+(defn ^:private create-eclass-relations
   "Creates relations for the given eclass."
   [ecls]
   (for [na (class->rel-symbols ecls)]
@@ -173,7 +173,7 @@
                (succeed ~'a)
                (fail ~'a))))))))
 
-(defn- create-ereference-relation
+(defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
   (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
@@ -198,7 +198,7 @@
                           (unify ~'a [~'eo ~'reo] [~'obj ~'robj]))
                         (remove not)))))))))
 
-(defn- create-eattribute-relation
+(defn ^:private create-eattribute-relation
   "Creates relations for the given EAttribute."
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
@@ -242,9 +242,9 @@
               `[(ns ~nssym
                   (:refer-clojure :exclude [~'==]))
 
-                (def ~(vary-meta '*model* assoc :dynamic true))])
-          ;; Standard EMF relations
-          (make-standard-emf-relations *model*)
+                (def ~(vary-meta '*model* assoc :dynamic true))
+                ;; Standard EMF relations
+                (make-standard-emf-relations ~'*model*)])
           ;; Metamodel specific relations
           ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                             (funnyqt.emf/metamodel-epackages ecore-model))
