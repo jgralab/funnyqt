@@ -129,8 +129,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
            (.show)
            (.pack))))))
 
-;; FIXME: Has accidentally been moved to the museum...
-#_(defn tgtree
+(defn tgtree
   "Shows a simple Swing tree view representation of the graph `g`."
   [g]
   (.setVisible (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g) true))
