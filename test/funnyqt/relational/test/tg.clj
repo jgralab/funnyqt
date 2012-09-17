@@ -5,6 +5,7 @@
         funnyqt.relational
         [funnyqt.test.tg :only [rg]])
   (:require [funnyqt.tg :as tg]
+            [funnyqt.query :as q]
             [clojure.test :as test]))
 
 (test/deftest test-vertexo
@@ -32,3 +33,22 @@
   (test/is (= (tg/eseq rg 'Connection)
               (run*-on-model rg [q]
                 (typeo q 'Connection)))))
+
+(test/deftest test-valueo
+  (test/is (= (map (fn [e]
+                     [e (tg/value e :name)])
+                   (concat (tg/vseq rg '[NamedElement Plaza])
+                           (tg/eseq rg 'Street)))
+              (run*-on-model rg [q]
+                (with-fresh
+                  (valueo ?elem :name ?val)
+                  (== q [?elem ?val]))))))
+
+(test/deftest test-adjo
+  (test/is (= (q/adjs (tg/vertex rg 12) :localities)
+              (run*-on-model rg [q]
+                (adjo (tg/vertex rg 12) :localities q))))
+  (test/is (= (q/adjs (tg/vertex rg 12) :capital)
+              (run*-on-model rg [q]
+                (adjo (tg/vertex rg 12) :capital q)))))
+
