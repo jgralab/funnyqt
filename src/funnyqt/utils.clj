@@ -203,3 +203,8 @@
            (catch Throwable _ false))
     `(do
        ~@then)))
+
+;;# Macro stuff
+
+(defn tagged [form tag]
+  (vary-meta form assoc :tag tag))
