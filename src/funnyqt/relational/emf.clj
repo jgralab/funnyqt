@@ -78,16 +78,16 @@
           (ground? ~'geo)
           (if (funnyqt.emf/eobject? ~'geo)
             (to-stream
-             (->> (for [~(u/tagged 'attr 'EAttribute) (seq (.getEAllAttributes
-                                                            (.eClass ~(u/tagged 'geo 'EObject))))
+             (->> (for [~(u/tagged 'attr `EAttribute) (seq (.getEAllAttributes
+                                                            (.eClass ~(u/tagged 'geo `EObject))))
                         :let [~'an (keyword (.getName ~'attr))]]
                     (unify ~'a [~'at ~'val] [~'an (funnyqt.emf/eget ~'geo ~'an)]))
                   (remove not)))
             (fail ~'a))
 
           :else (to-stream
-                 (->> (for [~(u/tagged 'elem 'EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
-                            ~(u/tagged 'attr 'EAttribute) (seq (.getEAllAttributes (.eClass ~'elem)))
+                 (->> (for [~(u/tagged 'elem `EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
+                            ~(u/tagged 'attr `EAttribute) (seq (.getEAllAttributes (.eClass ~'elem)))
                             :let [~'an (keyword (.getName ~'attr))]]
                         (unify ~'a [~'eo ~'at ~'val] [~'elem ~'an (funnyqt.emf/eget ~'elem ~'an)]))
                       (remove not))))))))
@@ -112,8 +112,8 @@
           (ground? ~'geo)
           (if (funnyqt.emf/eobject? ~'geo)
             (to-stream
-             (->> (for [~(u/tagged 'reference 'EReference) (seq (.getEAllReferences
-                                                                 (.eClass ~(u/tagged 'geo 'EObject))))
+             (->> (for [~(u/tagged 'reference `EReference) (seq (.getEAllReferences
+                                                                 (.eClass ~(u/tagged 'geo `EObject))))
                         :let [~'rn (keyword (.getName ~'reference))]
                         ~'refed (funnyqt.query/adjs* ~'geo ~'rn)]
                     (unify ~'a [~'ref ~'reo] [~'rn ~'refed]))
@@ -121,8 +121,8 @@
             (fail ~'a))
 
           :else (to-stream
-                 (->> (for [~(u/tagged 'elem 'EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
-                            ~(u/tagged 'reference 'EReference) (seq (.getEAllReferences (.eClass ~'elem)))
+                 (->> (for [~(u/tagged 'elem `EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
+                            ~(u/tagged 'reference `EReference) (seq (.getEAllReferences (.eClass ~'elem)))
                             :let [~'rn (keyword (.getName ~'reference))]
                             ~'refed (funnyqt.query/adjs* ~'elem ~'rn)]
                         (unify ~'a [~'eo ~'ref ~'reo] [~'elem ~'rn ~'refed]))
