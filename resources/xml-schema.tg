@@ -4,14 +4,15 @@ Schema de.uni_koblenz.xmltg.XMLSchema;
 GraphClass XMLGraph;
 
 abstract VertexClass Node;
-VertexClass Element : Node {name : String};
-VertexClass RootElement : Element;
-VertexClass Text : Node {content : String};
-VertexClass Attribute {name : String, value : String};
+abstract VertexClass NamespacedElement {namespace: String};
+VertexClass Element: Node, NamespacedElement {name: String};
+VertexClass RootElement: Element;
+VertexClass Text: Node {content: String};
+VertexClass Attribute: NamespacedElement {name: String, value: String};
 
 EdgeClass HasAttribute from Element (1,1) role element to Attribute (0,*) role attributes aggregation composite;
 EdgeClass References from Attribute (0,1) role referent to Element (0,*) role refs;
 
 abstract EdgeClass HasContent from Element (0,1) role parent to Node (0,*) role contents aggregation composite;
-EdgeClass HasChild : HasContent from Element (0,1) to Element (0,*) role children aggregation composite;
-EdgeClass HasText : HasContent from Element (0,1) to Text (0,*) role texts aggregation composite;
+EdgeClass HasChild: HasContent from Element (0,1) to Element (0,*) role children aggregation composite;
+EdgeClass HasText: HasContent from Element (0,1) to Text (0,*) role texts aggregation composite;

@@ -44,6 +44,32 @@ attribute type as string.
             (= (value c :name) (name type)))
           coll))
 
+(defn xml-namespace
+  "Returns the namespace of the given Element or Attribute.
+  If that doesn't declare a namespace itself, returns the namespace of its
+  container (recursively if needed)."
+  [e]
+  (if-let [n (value e :namespace)]
+    n
+    (when-let [p (adj e (if (has-type? e 'Element)
+                          :parent :element))]
+      (recur p))))
+
+(defn xml-expanded-name
+  "Returns the expanded name of the give Element, i.e., \"nsprefix:name\"."
+  [e]
+  (if-let [n (xml-namespace e)]
+    (str n ":" (value e :name))
+    (value e :name)))
+
+(defn xml-prefixed-name
+  "Returns the name of the given Element prefixed with its namespace.
+  If it doesn't declare a namespace, the local name is returned."
+  [e]
+  (if-let [n (value e :namespace)]
+    (str n ":" (value e :name))
+    (value e :name)))
+
 (defn xml-children
   "Returns the children Element vertices of Element vertex `e`.
   May be restricted to elements of `type` given as symbol, keyword, or string."
@@ -77,7 +103,7 @@ attribute type as string.
        [l (next r)])))
 
 (defn xml-attr-value
-  "Returns the value of `elem`s xml attribute `attr-name`."
+  "Returns the value of `elem`s xml attribute `attr-name`, a local name."
   [elem attr-name]
   (let [attr (the #(= (value % :name) (name attr-name))
                   (adjs elem :attributes))]
@@ -88,10 +114,10 @@ attribute type as string.
   ([e]
      (xml-describe-elem e true))
   ([e with-children]
-     {:name (value e :name)
+     {:expanded-name (xml-expanded-name e)
       :attrs (apply hash-map
                     (mapcat (fn [a]
-                              [(keyword (value a :name)) (value a :value)])
+                              [(keyword (xml-expanded-name a)) (value a :value)])
                             (adjs e :attributes)))
       :children (if with-children
                   (map #(xml-describe-elem % false)
@@ -127,11 +153,16 @@ attribute type as string.
           (when (seq a)
             (let [[n v t] (first a)
                   t (if (= t "CDATA")
-                      (*attr-type-fn* (value elem :name) n)
+                      (*attr-type-fn* (xml-expanded-name elem) n)
                       t)
-                  av (create-vertex! *graph* 'Attribute)]
-              (set-value! av :name n)
+                  av (create-vertex! *graph* 'Attribute)
+                  split (str/split n #":")]
               (set-value! av :value v)
+              (if (= (count split) 1)
+                (set-value! av :name (split 0))
+                (do
+                  (set-value! av :namespace (split 0))
+                  (set-value! av :name (split 1))))
               (create-edge! (graph elem) 'HasAttribute elem av)
               (cond
                (= t "ID")     (set! *id2elem* (assoc *id2elem* v elem))
@@ -175,8 +206,13 @@ attribute type as string.
       ;; ContentHandler
       (startElement [uri local-name qname ^Attributes attrs]
         (let [type (if (seq *stack*) 'Element 'RootElement)
-              e (create-vertex! *graph* type)]
-          (set-value! e :name qname)
+              e (create-vertex! *graph* type)
+              split (str/split qname #":")]
+          (if (= (count split) 1)
+            (set-value! e :name (split 0))
+            (do
+              (set-value! e :namespace (split 0))
+              (set-value! e :name (split 1))))
           (handle-attributes e attrs)
           (when *current*
             (push-text)
@@ -229,8 +265,9 @@ attribute type as string.
   IDREF resolving, which is needed for creating References edges, works
   automatically only for XML files containing a DTD describing them.  If you
   want IDREFs resolved anyway, you have to provide an `attr-type-fn` that takes
-  2 arguments, an element's qname and an attribute name, and then returns that
-  attribute's type as string: ID, IDREF, IDREFS, or nil (meaning CDATA)."
+  2 arguments, an element's qname (expanded name) and an attribute name, and
+  then returns that attribute's type as string: ID, IDREF, IDREFS, or
+  nil (meaning CDATA)."
   ([f]
      (xml2xml-graph f false))
   ([f attr-type-fn]
@@ -261,7 +298,7 @@ attribute type as string.
 (defn ^:private attributes-str [elem]
   (let [s (str/join " " (map (fn [a]
                                (format "%s=\"%s\""
-                                       (value a :name)
+                                       (xml-prefixed-name a)
                                        (xml-escape-chars (value a :value))))
                              (adjs elem :attributes)))]
     (if (seq s)
@@ -281,7 +318,7 @@ attribute type as string.
         contains-text-first (when-let [i (first (iseq elem 'HasContent :out))]
                               (has-type? i 'HasText))]
     (.write *writer* (format "<%s%s%s>%s"
-                             (value elem :name)
+                             (xml-prefixed-name elem)
                              (attributes-str elem)
                              (if has-contents "" "/")
                              (if contains-text-first
@@ -294,7 +331,7 @@ attribute type as string.
             (emit-element c))))
       (when-not *last-node-was-text*
         (indent))
-      (.write *writer* (format "</%s>\n" (value elem :name)))
+      (.write *writer* (format "</%s>\n" (xml-prefixed-name elem)))
       (set! *last-node-was-text* false))))
 
 ;;## The user API
