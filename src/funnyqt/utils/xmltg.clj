@@ -7,7 +7,7 @@ The DOM-like schema looks like this:
 
 To transform an XML document to a DOM-like TGraph, use
 
-  (xml2graph \"example.xml\")
+  (xml2xml-graph \"example.xml\")
 
 If the XML file has a DTD which describes what attributes are IDs, IDREFs, and
 IDREFS, all references will be represented as References edges in the Graph.
@@ -16,16 +16,17 @@ If the XML file doesn't contain a DTD, then you can provide a function that
 receives an element name and an attribute name and should return the correct
 attribute type as string.
 
-  (xml2graph \"example-without-dtd.xml\"
+  (xml2xml-graph \"example-without-dtd.xml\"
              #(cond ;; Here, we distingish only by 2nd arg, the attr name
                 (= %2 \"id\")        \"ID\"
                 (= %2 \"links\")     \"IDREF\"
                 (= %2 \"children\")  \"IDREFS\"))"
   (:use funnyqt.tg)
+  (:use funnyqt.protocols)
   (:use funnyqt.query.tg)
   (:use funnyqt.query)
   (:use [funnyqt.utils :only [error]])
-  (:require clojure.string)
+  (:require [clojure.string :as str])
   (:require [clojure.java.io :as io])
   (:import
    (org.xml.sax Attributes SAXException)
@@ -38,21 +39,48 @@ attribute type as string.
 
 ;;# XML Graph Utils
 
+(defn ^:private xml-filter-by-type [type coll]
+  (filter (fn [c]
+            (= (value c :name) (name type)))
+          coll))
+
 (defn xml-children
   "Returns the children Element vertices of Element vertex `e`.
-  May be restricted to elemenst of `type` given as symbol, keyword, or string."
+  May be restricted to elements of `type` given as symbol, keyword, or string."
   ([e]
      (adjs e :children))
   ([e type]
-     (filter (fn [c]
-               (= (value c :name) (name type)))
-             (adjs e :children))))
+     (xml-filter-by-type type (adjs e :children))))
+
+(defn xml-siblings
+  "Returns the sibling Element vertices of Element or Text `e`.
+  May be restricted to elements of the given `type`.
+  The result is a vector of two component seqs:
+
+    [left-siblings right-siblings]
+
+  left-siblings is a seq of siblings that occur left of (or above) `e`, and
+  right-siblings is a seq of siblings that occur right of (or below) `e`.  `e`
+  itself is not included."
+  ([e]
+     (xml-siblings e nil))
+  ([e type]
+     (let [all (if type
+                 (xml-filter-by-type type (adjs (adj e :parent) :contents))
+                 (adjs (adj e :parent) :contents))
+           right (atom false)
+           [l r] (partition-by (fn [s]
+                                 (or @right
+                                     (when (= s e)
+                                       (swap! right (fn [& _] true)))))
+                               all)]
+       [l (next r)])))
 
 (defn xml-attr-value
   "Returns the value of `elem`s xml attribute `attr-name`."
   [elem attr-name]
-  (let [attr (the (filter #(= (value % :name) (name attr-name))
-                          (adjs elem :attributes)))]
+  (let [attr (the #(= (value % :name) (name attr-name))
+                  (adjs elem :attributes))]
     (value attr :value)))
 
 (defn xml-describe-elem
@@ -90,7 +118,7 @@ attribute type as string.
 
 ;;## Internal functions
 
-(defn- handle-attributes
+(defn ^:private handle-attributes
   [elem ^Attributes attrs]
   (when-not (zero? (.getLength attrs))
     (loop [i 0, l (.getLength attrs), as []]
@@ -119,7 +147,7 @@ attribute type as string.
                (conj as [(.getLocalName attrs i)
                          (.getValue attrs i)
                          (.getType attrs i)]))))))
-(defn- resolve-refs
+(defn ^:private resolve-refs
   "Create References edges for ID/IDREF[S]s collected while parsing."
   []
   (loop [a2rs *attr2refd-ids*]
@@ -134,7 +162,7 @@ attribute type as string.
             (recur (rest ref)))))
       (recur (rest a2rs)))))
 
-(defn- content-handler
+(defn ^:private content-handler
   []
   (letfn [(push-text []
             (when (and (= *state* :chars)
@@ -187,17 +215,16 @@ attribute type as string.
       (warning [^org.xml.sax.SAXParseException ex]
         (println "WARNING:" (.getMessage ex))))))
 
-(defn- startparse-sax
+(defn ^:private startparse-sax
   [^String uri ^DefaultHandler ch]
   (let [pfactory (SAXParserFactory/newInstance)]
-    (.setNamespaceAware pfactory true)
     (-> pfactory
         .newSAXParser
         (.parse uri ch))))
 
-;;# The main function
+;;## The user API
 
-(defn xml2graph
+(defn xml2xml-graph
   "Parse the XML file `f` into a TGraph conforming the generic XML schema.
   IDREF resolving, which is needed for creating References edges, works
   automatically only for XML files containing a DTD describing them.  If you
@@ -205,7 +232,7 @@ attribute type as string.
   2 arguments, an element's qname and an attribute name, and then returns that
   attribute's type as string: ID, IDREF, IDREFS, or nil (meaning CDATA)."
   ([f]
-     (xml2graph f false))
+     (xml2xml-graph f false))
   ([f attr-type-fn]
      (binding [*graph* (create-graph
                         (load-schema (io/resource "xml-schema.tg")) f)
@@ -220,3 +247,72 @@ attribute type as string.
        (startparse-sax f (content-handler))
        *graph*)))
 
+;;# Saving back to XML
+
+;;## Internal vars and fns
+
+(def ^:private ^:dynamic ^java.io.Writer *writer*)
+(def ^:private ^:dynamic *indent-level*)
+
+(defn ^:private xml-escape-chars ^String [val]
+  (str/escape val {\" "&quot;", \' "&apos;", \& "&amp;", \< "&lt;", \> "&gt;"}))
+
+(defn ^:private attributes-str [elem]
+  (let [s (str/join " " (map (fn [a]
+                               (format "%s=\"%s\""
+                                       (value a :name)
+                                       (xml-escape-chars (value a :value))))
+                             (adjs elem :attributes)))]
+    (if (seq s)
+      (str " " s)
+      s)))
+
+(defn ^:private indent []
+  (.write *writer* ^String (apply str (repeat (* 2 *indent-level*) \space))))
+
+(defn ^:private emit-text [txt]
+  (.write *writer* (xml-escape-chars (value txt :content))))
+
+;; TODO: Don't newline if next content is a Text.
+(defn ^:private emit-element [elem]
+  (indent)
+  (let [has-contents (seq (iseq elem 'HasContent :out))]
+    (.write *writer* (format "<%s%s%s>%s"
+                             (value elem :name)
+                             (attributes-str elem)
+                             (if has-contents "" "/")
+                             ))
+    (when has-contents
+      (binding [*indent-level* (inc *indent-level*)]
+        (doseq [c (adjs elem :contents)]
+          (if (has-type? c 'Text)
+            (emit-text c)
+            (emit-element c))))
+      (indent)
+      (.write *writer* (format "</%s>\n" (value elem :name))))))
+
+;;## The user API
+
+(defn xml-graph2xml
+  "Serializes the given XMLGraph `g` back to an XML document `f`."
+  [g f]
+  (with-open [w (io/writer f)]
+    (binding [*writer* w
+              *indent-level* 0]
+      (.write *writer* "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+      (doseq [re (vseq g 'RootElement)]
+        (emit-element re))
+      (.flush *writer*))))
+
+#_(xml-graph2xml (xml2xml-graph "test/input/xmltg-example-with-dtd.xml")
+                 "/home/horn/xmltg-example-with-dtd.xml")
+
+#_(show-graph (xml2xml-graph "test/input/example.families"))
+
+#_(let [root (the (vseq (xml2xml-graph "test/input/example.families") 'RootElement))]
+    (adjs root :attributes))
+
+#_(xml-graph2xml (xml2xml-graph "test/input/example.families")
+                 "/home/horn/example.families")
+
+#_(attributes-str (the (vseq (xml2xml-graph "test/input/example.families") 'RootElement)))
