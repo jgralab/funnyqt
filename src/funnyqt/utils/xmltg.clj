@@ -253,6 +253,7 @@ attribute type as string.
 
 (def ^:private ^:dynamic ^java.io.Writer *writer*)
 (def ^:private ^:dynamic *indent-level*)
+(def ^:private ^:dynamic *last-node-was-text*)
 
 (defn ^:private xml-escape-chars ^String [val]
   (str/escape val {\" "&quot;", \' "&apos;", \& "&amp;", \< "&lt;", \> "&gt;"}))
@@ -271,25 +272,30 @@ attribute type as string.
   (.write *writer* ^String (apply str (repeat (* 2 *indent-level*) \space))))
 
 (defn ^:private emit-text [txt]
+  (set! *last-node-was-text* true)
   (.write *writer* (xml-escape-chars (value txt :content))))
 
-;; TODO: Don't newline if next content is a Text.
 (defn ^:private emit-element [elem]
   (indent)
-  (let [has-contents (seq (iseq elem 'HasContent :out))]
+  (let [has-contents (seq (iseq elem 'HasContent :out))
+        contains-text-first (when-let [i (first (iseq elem 'HasContent :out))]
+                              (has-type? i 'HasText))]
     (.write *writer* (format "<%s%s%s>%s"
                              (value elem :name)
                              (attributes-str elem)
                              (if has-contents "" "/")
-                             ))
+                             (if contains-text-first
+                               "" "\n")))
     (when has-contents
       (binding [*indent-level* (inc *indent-level*)]
         (doseq [c (adjs elem :contents)]
           (if (has-type? c 'Text)
             (emit-text c)
             (emit-element c))))
-      (indent)
-      (.write *writer* (format "</%s>\n" (value elem :name))))))
+      (when-not *last-node-was-text*
+        (indent))
+      (.write *writer* (format "</%s>\n" (value elem :name)))
+      (set! *last-node-was-text* false))))
 
 ;;## The user API
 
@@ -298,7 +304,8 @@ attribute type as string.
   [g f]
   (with-open [w (io/writer f)]
     (binding [*writer* w
-              *indent-level* 0]
+              *indent-level* 0
+              *last-node-was-text* false]
       (.write *writer* "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
       (doseq [re (vseq g 'RootElement)]
         (emit-element re))
