@@ -49,21 +49,20 @@
 
 (deftest test-example-without-dtd
   (let [g (xml2xml-graph "test/input/xmltg-example-without-dtd.xml"
-                     ;; This is a function that gets 2 parameters: an elements
-                     ;; qualified name and an attribute name.  Given that, it
-                     ;; should return the attribute's correct type: ID, IDREF,
-                     ;; IDREFS, or nil/CDATA otherwise.
-                     #(cond
-                       ;; In this simple example, the ID-typed attrs are named
-                       ;; ID, the IDREF-typed attributes are named IDREF, and
-                       ;; the IDREFS-typed attribute (of the element type
-                       ;; FAMILY) in named CHILDREN.  Here, we can simply
-                       ;; ignore the element qualified name given to the
-                       ;; function as first parameter.
-                       (= %2 "ID")        "ID"
-                       (= %2 "IDREF")     "IDREF"
-                       (= %2 "CHILDREN")  "IDREFS"))]
+                         ;; This is a function that gets 3 parameters: an
+                         ;; elements expanded name, an attribute (declared)
+                         ;; name, and the attribute value.  Given that, it
+                         ;; should return the attribute's correct type: ID,
+                         ;; IDREF, IDREFS, XPath, or nil/CDATA otherwise.
+                         (fn [exp-name aname aval]
+                           (cond
+                            ;; In this simple example, the ID-typed attrs are named
+                            ;; ID, the IDREF-typed attributes are named IDREF, and
+                            ;; the IDREFS-typed attribute (of the element type
+                            ;; FAMILY) in named CHILDREN.  Here, we can simply
+                            ;; ignore the element qualified name given to the
+                            ;; function as first parameter.
+                            (= aname "ID")        "ID"
+                            (= aname "IDREF")     "IDREF"
+                            (= aname "CHILDREN")  "IDREFS")))]
     (asserts-for-idrefs-example g)))
-
-
-

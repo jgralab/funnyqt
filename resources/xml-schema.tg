@@ -4,7 +4,7 @@ Schema de.uni_koblenz.xmltg.XMLSchema;
 GraphClass XMLGraph;
 
 abstract VertexClass Node;
-abstract VertexClass NamespacedElement {namespace: String};
+abstract VertexClass NamespacedElement {nsPrefix: String};
 VertexClass Element: Node, NamespacedElement {name: String};
 VertexClass RootElement: Element;
 VertexClass Text: Node {content: String};
