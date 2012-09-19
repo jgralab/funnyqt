@@ -51,6 +51,17 @@ attribute name as string.
                           :parent :element))]
       (recur p))))
 
+(defn ns-uri
+  "Returns the namespace URI of the current element."
+  [e]
+  (let [root (the (vseq (graph e) 'RootElement))
+        nspref (ns-prefix e)
+        attrs (filter #(and (= (value % :nsPrefix) "xmlns")
+                            (= (value % :name) nspref))
+                      (adjs root :attributes))]
+    (when (seq attrs)
+      (value (the attrs) :value))))
+
 (defn expanded-name
   "Returns the expanded name of the give Element, i.e., \"nsprefix:name\"."
   [e]
@@ -66,14 +77,21 @@ attribute name as string.
     (str n ":" (value e :name))
     (value e :name)))
 
-(defn ^:private filter-by-name [n coll]
-  (filter (fn [c]
-            (= (expanded-name c) (name n)))
-          coll))
+(defn ^:private filter-by-name
+  ;; n = foo:bar => check declared and expanded name
+  ;; n = bar     => only check local name
+  [n coll]
+  (let [n (name n)
+        name-matches (if (re-matches #".*:.*" n)
+                       #(or (= n (declared-name %))
+                            (= n (expanded-name %)))
+                       #(= n (value % :name)))]
+    (filter name-matches coll)))
 
 (defn children
   "Returns the children Element vertices of Element vertex `e`.
-  May be restricted to elements of name `n` (an expanded name)."
+  May be restricted to elements of name `n`, an expanded, declared, or local
+  name."
   ([e]
      (adjs e :children))
   ([e n]
@@ -81,8 +99,8 @@ attribute name as string.
 
 (defn siblings
   "Returns the sibling Element vertices of Element or Text `e`.
-  May be restricted to elements of the given `name` (an expanded name).
-  The result is a vector of two component seqs:
+  May be restricted to elements of the given `name`, an expanded, declared, or
+  local name.  The result is a vector of two component seqs:
 
     [left-siblings right-siblings]
 
@@ -104,10 +122,12 @@ attribute name as string.
        [l (next r)])))
 
 (defn attribute-value
-  "Returns the value of `elem`s xml attribute `attr-name`, a declared name."
+  "Returns the value of `elem`s xml attribute `attr-name`.
+  First the `attr-name' is compared to the declared name.  If no attribute
+  matches, the local names are compared, too."
   [elem attr-name]
-  (if-let [attr (first #(= (declared-name %) (name attr-name))
-                       (adjs elem :attributes))]
+  (if-let [attr (first (filter #(= (declared-name %) (name attr-name))
+                               (adjs elem :attributes)))]
     (value attr :value)
     (if-let [attrs (seq (filter #(= (value % :name) (name attr-name))
                                 (adjs elem :attributes)))]
@@ -144,9 +164,9 @@ attribute name as string.
 ;; map from Attribute vertex to a vector of referenced element IDs (an attr can
 ;; reference multiple elements in terms of a IDREFS attr name)
 (def ^:dynamic ^:private *attr2refd-ids*)
-;; set of Attribute vertices whose value is an XPath expression that has to be
-;; resolved after the graph has successfully been created
-(def ^:dynamic ^:private *xpath-attrs*)
+;; set of Attribute vertices whose value is an EMFFragmentPath expression that
+;; has to be resolved after the graph has successfully been created
+(def ^:dynamic ^:private *emf-fragment-path-attrs*)
 
 ;;## Internal functions
 
@@ -171,7 +191,8 @@ attribute name as string.
                   (set-value! av :name (split 1))))
               (create-edge! (graph elem) 'HasAttribute elem av)
               (cond
-               (= t "XPath")  (set! *xpath-attrs* (conj *xpath-attrs* av))
+               (= t "EMFFragmentPath")  (set! *emf-fragment-path-attrs*
+                                              (conj *emf-fragment-path-attrs* av))
                (= t "ID")     (set! *id2elem* (assoc *id2elem* v elem))
                (= t "IDREF")  (set! *attr2refd-ids*
                                     (update-in *attr2refd-ids* [av]
@@ -200,11 +221,54 @@ attribute name as string.
             (recur (rest ref)))))
       (recur (rest a2rs)))))
 
-(defn ^:private resolve-xpath-expressions
+(defn ^:private eval-emf-fragment-1 [start exps]
+  (println exps)
+  (if (seq exps)
+    (let [^String f (first exps)]
+      (recur
+       (cond
+        ;; @members
+        (.startsWith f "@") (children start (symbol (subs f 1)))
+        ;; @members.17
+        (re-matches #"[0-9]+" f) (nth (if (vertex? start)
+                                        (adjs start :children)
+                                        start)
+                                      (Long/valueOf f))
+        ;; @members[firstName='Hugo'] where firstName is an attribute set as
+        ;; eKeys feature for the members reference
+        (re-matches #".*=.*" f)
+        (let [m (apply hash-map
+                       (mapcat (fn [kv]
+                                 (let [[k v] (str/split kv #"=")]
+                                   [k (subs v 1 (dec (count v)))]))
+                               (str/split f #",[ ]*")))]
+          (the (fn [e]
+                 (every? (fn [[a v]]
+                           (= (attribute-value e a) v))
+                         m))
+               start))
+        ;; Oh, we don't know that...
+        :else (errorf "Don't know how to handle EMF fragment '%s'." f))
+       (rest exps)))
+    start))
+
+(defn ^:private eval-emf-fragment [g frag]
+  (let [r (if (graph? g)
+            (the (vseq g 'RootElement))
+            g)]
+    (eval-emf-fragment-1 r (next (str/split frag #"[/.\[\]]+")))))
+
+(defn ^:private resolve-emf-fragment-paths
   ""
   []
-  (doseq [a *xpath-attrs*]
-    (errorf "Not yet implemented")))
+  (let [r (the (vseq *graph* 'RootElement))]
+    (doseq [a *emf-fragment-path-attrs*
+            :let [fe (value a :value)]]
+      (doseq [exp (str/split fe #" ")]
+        (if-let [t (eval-emf-fragment r exp)]
+          (create-edge! *graph* 'References a t)
+          (binding [*out* *err*]
+            (println (format "Couldn't resolve EMF Fragment Path '%s'." exp))))))))
 
 (defn ^:private content-handler
   []
@@ -251,7 +315,7 @@ attribute name as string.
       (startDocument [])
       (endDocument []
         (resolve-refs)
-        (resolve-xpath-expressions))
+        (resolve-emf-fragment-paths))
       (startPrefixMapping [prefix uri])
       (endPrefixMapping [prefix])
       (ignorableWhitespace [ch start length])
@@ -281,7 +345,7 @@ attribute name as string.
   want IDREFs resolved anyway, you have to provide an `attr-type-fn` that takes
   3 arguments: an element's expanded name, an attribute name, and that
   attribute's value.  It should return that attribute's type as string: \"ID\",
-  \"IDREF\", \"IDREFS\", \"XPath\", or nil (meaning CDATA)."
+  \"IDREF\", \"IDREFS\", \"EMFFragmentPath\", or nil (meaning CDATA)."
   ([f]
      (xml2xml-graph f false))
   ([f attr-type-fn]
@@ -295,7 +359,7 @@ attribute name as string.
                *attr2refd-ids* {}
                *attr-type-fn* (or attr-type-fn
                                   (constantly nil))
-               *xpath-attrs* #{}]
+               *emf-fragment-path-attrs* #{}]
        (startparse-sax f (content-handler))
        *graph*)))
 
@@ -366,7 +430,15 @@ attribute name as string.
 #_(xml-graph2xml (xml2xml-graph "test/input/xmltg-example-with-dtd.xml")
                  "/home/horn/xmltg-example-with-dtd.xml")
 
-#_(show-graph (xml2xml-graph "test/input/example.families"))
+#_(show-graph (xml2xml-graph "test/input/example.families"
+                             (fn [en a v]
+                               (when (re-matches #".*@.*" v)
+                                 "EMFFragmentPath"))))
+
+#_(show-graph (xml2xml-graph "/home/horn/example.families"
+                             (fn [en a v]
+                               (when (re-matches #".*@.*" v)
+                                 "EMFFragmentPath"))))
 
 #_(let [root (the (vseq (xml2xml-graph "test/input/example.families") 'RootElement))]
     (adjs root :attributes))

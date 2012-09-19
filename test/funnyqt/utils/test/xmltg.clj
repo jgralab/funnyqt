@@ -53,7 +53,8 @@
                          ;; elements expanded name, an attribute (declared)
                          ;; name, and the attribute value.  Given that, it
                          ;; should return the attribute's correct type: ID,
-                         ;; IDREF, IDREFS, XPath, or nil/CDATA otherwise.
+                         ;; IDREF, IDREFS, EMFFragmentPath, or nil/CDATA
+                         ;; otherwise.
                          (fn [exp-name aname aval]
                            (cond
                             ;; In this simple example, the ID-typed attrs are named
