@@ -440,11 +440,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;# Graph Access
 
-(definline graph
+(defn graph
   "Returns the graph containing the graph element `ge`."
-  [ge]
-  (let [tagged-ge (vary-meta ge assoc :tag `GraphElement)]
-    `(.getGraph ~tagged-ge)))
+  [^GraphElement ge]
+  (.getGraph ge))
 
 ;;## General type predicates
 
@@ -502,19 +501,15 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Containment
 
-(definline contains-vertex?
+(defn contains-vertex?
   "Returns true if graph `g` contains vertex `v`."
-  [g v]
-  (let [tagged-g (vary-meta g assoc :tag `Graph)
-        tagged-v (vary-meta v assoc :tag `Vertex)]
-    `(.containsVertex ~tagged-g ~tagged-v)))
+  [^Graph g ^Vertex v]
+  (.containsVertex g v))
 
 (defn contains-edge?
   "Returns true if graph `g` contains edge `e`."
-  [g e]
-  (let [tagged-g (vary-meta g assoc :tag `Graph)
-        tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.containsEdge ~tagged-g ~tagged-e)))
+  [^Graph g ^Edge e]
+  (.containsEdge g e))
 
 ;;## Access by ID
 
@@ -546,47 +541,40 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Edge functions
 
-(definline alpha
+(defn alpha
   "Returns the start vertex of edge `e`."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getAlpha ~tagged-e)))
+  [^Edge e]
+  (.getAlpha e))
 
-(definline omega
+(defn omega
   "Returns the end vertex of edge `e`."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getOmega ~tagged-e)))
+  [^Edge e]
+  (.getOmega e))
 
-(definline this
+(defn this
   "Returns `e`s this-vertex."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getThis ~tagged-e)))
+  [^Edge e]
+  (.getThis e))
 
-(definline that
+(defn that
   "Returns `e`s that-vertex."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getThat ~tagged-e)))
+  [^Edge e]
+  (.getThat e))
 
-(definline normal-edge
+(defn normal-edge
   "Returns `e`s normal (forward-oriented) edge."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getNormalEdge ~tagged-e)))
+  [^Edge e]
+  (.getNormalEdge e))
 
-(definline reversed-edge
+(defn reversed-edge
   "Returns `e`s reversed (backward-oriented) edge."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.getReversedEdge ~tagged-e)))
+  [^Edge e]
+  (.getReversedEdge e))
 
-(definline normal-edge?
+(defn normal-edge?
   "Returns true, iff `e` is normal (forward-oriented)."
-  [e]
-  (let [tagged-e (vary-meta e assoc :tag `Edge)]
-    `(.isNormal ~tagged-e)))
+  [^Edge e]
+  (.isNormal e))
 
 (defn inverse-edge
   "Returns the normal edge of a reversed edge, or the reversed edge of a normal edge."
