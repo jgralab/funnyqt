@@ -24,7 +24,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
   (:import
    (javax.xml.stream XMLInputFactory XMLEventReader XMLStreamConstants)
    (javax.xml.stream.events StartDocument EndDocument StartElement EndElement
-                            Attribute Characters XMLEvent)
+                            Attribute Characters Namespace XMLEvent)
    (javax.xml.namespace QName)
    (de.uni_koblenz.jgralab Graph Vertex Edge)
    (de.uni_koblenz.jgralab.schema Schema)))
@@ -79,7 +79,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
   [n coll]
   (let [n (name n)
         name-matches (cond
-                      (re-matches #"\{.*\}.*" "{http://foo/1.0}bar") #(= n (qualified-name %))
+                      (re-matches #"\{.*\}.*" n) #(= n (qualified-name %))
                       (re-matches #".*:.*" n) #(or (= n (declared-name %))
                                                    (= n (expanded-name %)))
                       :else #(= n (value % :name)))]
@@ -197,7 +197,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
       (recur
        (cond
         ;; @members
-        (.startsWith f "@") (children start (symbol (subs f 1)))
+        (.startsWith f "@") (children start (subs f 1))
         ;; @members.17
         (re-matches #"[0-9]+" f) (nth (if (vertex? start)
                                         (adjs start :children)
@@ -227,9 +227,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
             g)]
     (eval-emf-fragment-1 r (next (str/split frag #"[/.\[\]]+")))))
 
-(defn ^:private resolve-emf-fragment-paths
-  ""
-  []
+(defn ^:private resolve-emf-fragment-paths []
   (let [r (the (vseq *graph* 'RootElement))]
     (doseq [a *emf-fragment-path-attrs*
             :let [fe (value a :value)]]
@@ -290,6 +288,13 @@ If the XML file has no DTD, you can influence the resolution by providing an
         (set-value! e :nsURI u)))
     (doseq [a (iterator-seq (.getAttributes ev))]
       (handle-attribute e a))
+    (let [nsmap (reduce (fn [m ^Namespace n]
+                          (assoc m
+                            (.getPrefix n)
+                            (.getNamespaceURI n)))
+                        {} (iterator-seq (.getNamespaces ev)))]
+      (when (seq nsmap)
+        (set-value! e :declaredNamespaces nsmap)))
     (when *current*
       (create-edge! (graph e) 'HasChild *current* e))
     (set! *stack* (conj *stack* *current*))
@@ -403,13 +408,23 @@ If the XML file has no DTD, you can influence the resolution by providing an
   (set! *last-node-was-text* true)
   (.write *writer* (xml-escape-chars (value txt :content))))
 
+(defn ^:private namespaces-str [elem]
+  (let [s (str/join " " (map (fn [[p u]]
+                               (str "xmlns" (when p (str ":" p))
+                                    "=\"" u "\""))
+                             (seq (value elem :declaredNamespaces))))]
+    (if (seq s)
+      (str " " s)
+      s)))
+
 (defn ^:private emit-element [elem]
   (indent)
   (let [has-contents (seq (iseq elem 'HasContent :out))
         contains-text-first (when-let [i (first (iseq elem 'HasContent :out))]
                               (has-type? i 'HasText))]
-    (.write *writer* (format "<%s%s%s>%s"
+    (.write *writer* (format "<%s%s%s%s>%s"
                              (declared-name elem)
+                             (namespaces-str elem)
                              (attributes-str elem)
                              (if has-contents "" "/")
                              (if contains-text-first
@@ -443,12 +458,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                  "/home/horn/xmltg-example-with-dtd.xml")
 
 #_(show-graph (xml2xml-graph "test/input/example.families"
-                             (fn [en a v]
-                               (when (re-matches #".*@.*" v)
-                                 "EMFFragmentPath"))))
-
-#_(show-graph (xml2xml-graph "/home/horn/example.families"
-                             (fn [en a v]
+                             (fn [qn a v]
                                (when (re-matches #".*@.*" v)
                                  "EMFFragmentPath"))))
 

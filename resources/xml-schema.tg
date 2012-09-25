@@ -6,7 +6,7 @@ GraphClass XMLGraph;
 abstract VertexClass Node;
 abstract VertexClass NamespacedElement {nsURI: String, nsPrefix: String};
 abstract VertexClass Referent;
-VertexClass Element: Node, NamespacedElement {name: String};
+VertexClass Element: Node, NamespacedElement {name: String, declaredNamespaces: Map<String, String>};
 VertexClass RootElement: Element;
 VertexClass Text: Node, Referent {content: String};
 VertexClass Attribute: NamespacedElement, Referent {name: String, value: String};
