@@ -67,3 +67,17 @@
                             (= aname "IDREF")     "IDREF"
                             (= aname "CHILDREN")  "IDREFS")))]
     (asserts-for-idrefs-example g)))
+
+(deftest test-example-with-semantically-importants-text
+  (let [g (xml2xml-graph "test/input/xml-example-with-semantically-important-text.xml"
+                         nil
+                         (fn [p c v]
+                           (condp = c
+                             "pid"      "ID"
+                             "spouse"   "IDREF"
+                             "children" "IDREFS"
+                             "parents"  "IDREFS")))]
+    (is (= 18 (vcount g 'Element)))
+    (is (= 12 (vcount g 'Text)))
+    (is (= 14 (ecount g 'References)))))
+

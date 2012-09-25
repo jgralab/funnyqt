@@ -181,11 +181,11 @@ If the XML file has no DTD, you can influence the resolution by providing an
   []
   (loop [a2rs *referent2refed-ids*]
     (when (seq a2rs)
-      (let [[attr refs] (first a2rs)]
+      (let [[referent refs] (first a2rs)]
         (loop [ref refs]
           (when (seq ref)
-            (create-edge! (graph attr)
-                          'References attr
+            (create-edge! *graph*
+                          'References referent
                           (or (*id2elem* (first ref))
                               (errorf "No element for id %s." (first ref))))
             (recur (rest ref)))))
@@ -244,17 +244,17 @@ If the XML file has no DTD, you can influence the resolution by providing an
   (resolve-refs)
   (resolve-emf-fragment-paths))
 
-(defn ^:private handle-type-semantics [t container-vertex referent-vertex val]
+(defn ^:private handle-type-semantics [t id-vertex referent-vertex val]
   (condp = t
     "EMFFragmentPath"  (set! *emf-fragment-path-attrs*
                              (conj *emf-fragment-path-attrs* referent-vertex))
-    "ID"     (set! *id2elem* (assoc *id2elem* val container-vertex))
+    "ID"     (set! *id2elem* (assoc *id2elem* val id-vertex))
     "IDREF"  (set! *referent2refed-ids*
                    (update-in *referent2refed-ids* [referent-vertex]
                               #(conj (vec %) val)))
     "IDREFS" (set! *referent2refed-ids*
                    (update-in *referent2refed-ids* [referent-vertex]
-                              #(into (vec %) (clojure.string/split val #"\s+"))))
+                              #(into (vec %) (remove empty? (clojure.string/split val #"\s+")))))
     nil))
 
 (defn ^:private handle-attribute [elem ^Attribute a]
@@ -316,11 +316,12 @@ If the XML file has no DTD, you can influence the resolution by providing an
       (set-value! txt :content data)
       (create-edge! *graph* 'HasText *current* txt)
       (when *text-type-fn*
-        (handle-type-semantics t parent *current* data)))))
+        (handle-type-semantics t parent txt data)))))
 
 (defn ^:private parse [f]
   (let [xer (.createXMLEventReader
-             (XMLInputFactory/newFactory)
+             (doto (XMLInputFactory/newFactory)
+               (.setProperty "javax.xml.stream.isCoalescing" true))
              (io/input-stream f))
         conts (iterator-seq xer)]
     (doseq [^XMLEvent ev conts]
