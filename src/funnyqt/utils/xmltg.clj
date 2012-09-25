@@ -13,14 +13,9 @@ If the XML file has a DTD which describes what attributes are IDs, IDREFs, and
 IDREFS, all references will be represented as References edges in the Graph.
 
 If the XML file doesn't contain a DTD, then you can provide a function that
-receives an element name and an attribute name and should return the correct
-attribute name as string.
-
-  (xml2xml-graph \"example-without-dtd.xml\"
-             #(cond ;; Here, we distingish only by 2nd arg, the attr name
-                (= %2 \"id\")        \"ID\"
-                (= %2 \"links\")     \"IDREF\"
-                (= %2 \"children\")  \"IDREFS\"))"
+receives an element's expanded name, an attribute name, and an attribute value
+and should return the correct attribute type as string (ID, IDREF, IDREFS,
+EMFFragmentPath)."
   (:use funnyqt.tg)
   (:use funnyqt.protocols)
   (:use funnyqt.query.tg)
@@ -29,11 +24,10 @@ attribute name as string.
   (:require [clojure.string :as str])
   (:require [clojure.java.io :as io])
   (:import
-   (org.xml.sax Attributes SAXException)
-   (org.xml.sax.helpers DefaultHandler)
-   (javax.xml XMLConstants)
-   (javax.xml.parsers SAXParser SAXParserFactory)
-   (javax.xml.validation SchemaFactory)
+   (javax.xml.stream XMLInputFactory XMLEventReader XMLStreamConstants)
+   (javax.xml.stream.events StartDocument EndDocument StartElement EndElement
+                            Attribute Characters XMLEvent)
+   (javax.xml.namespace QName)
    (de.uni_koblenz.jgralab Graph Vertex Edge)
    (de.uni_koblenz.jgralab.schema Schema)))
 
@@ -156,8 +150,6 @@ attribute name as string.
 (def ^:dynamic ^:private *graph*)
 (def ^:dynamic ^:private *stack*)
 (def ^:dynamic ^:private *current*)
-(def ^:dynamic ^:private *state*)   ;; :element :chars :between
-(def ^:dynamic ^:private *sb*)
 (def ^:dynamic ^:private *attr-type-fn*)
 (def ^:dynamic ^:private *id2elem*) ;; map from ID to Element vertex
 
@@ -168,44 +160,14 @@ attribute name as string.
 ;; has to be resolved after the graph has successfully been created
 (def ^:dynamic ^:private *emf-fragment-path-attrs*)
 
+(defonce ^:private xml-stream-constants-map
+  (apply hash-map
+         (mapcat (fn [^java.lang.reflect.Field f]
+                   [(.get f nil) (.getName f)])
+                 (seq (.getDeclaredFields XMLStreamConstants)))))
+
 ;;## Internal functions
 
-(defn ^:private handle-attributes
-  [elem ^Attributes attrs]
-  (when-not (zero? (.getLength attrs))
-    (loop [i 0, l (.getLength attrs), as []]
-      (if (== i l)
-        (loop [a as]
-          (when (seq a)
-            (let [[n v t] (first a)
-                  t (if (= t "CDATA")
-                      (*attr-type-fn* (expanded-name elem) n v)
-                      t)
-                  av (create-vertex! *graph* 'Attribute)
-                  split (str/split n #":")]
-              (set-value! av :value v)
-              (if (= (count split) 1)
-                (set-value! av :name (split 0))
-                (do
-                  (set-value! av :nsPrefix (split 0))
-                  (set-value! av :name (split 1))))
-              (create-edge! (graph elem) 'HasAttribute elem av)
-              (cond
-               (= t "EMFFragmentPath")  (set! *emf-fragment-path-attrs*
-                                              (conj *emf-fragment-path-attrs* av))
-               (= t "ID")     (set! *id2elem* (assoc *id2elem* v elem))
-               (= t "IDREF")  (set! *attr2refd-ids*
-                                    (update-in *attr2refd-ids* [av]
-                                               #(conj (vec %) v)))
-               (= t "IDREFS") (set! *attr2refd-ids*
-                                   (update-in *attr2refd-ids* [av]
-                                              #(into (vec %) (clojure.string/split v #" "))))))
-            (recur (rest a))))
-        (recur (inc i)
-               l
-               (conj as [(.getLocalName attrs i)
-                         (.getValue attrs i)
-                         (.getType attrs i)]))))))
 (defn ^:private resolve-refs
   "Create References edges for ID/IDREF[S]s collected while parsing."
   []
@@ -270,71 +232,79 @@ attribute name as string.
           (binding [*out* *err*]
             (println (format "Couldn't resolve EMF Fragment Path '%s'." exp))))))))
 
-(defn ^:private content-handler
-  []
-  (letfn [(push-text []
-            (when (and (= *state* :chars)
-                       (some (complement #(Character/isWhitespace (char %)))
-                             (str *sb*)))
-              (let [t (create-vertex! *graph* 'Text)]
-                (set-value! t :content (clojure.string/trim (str *sb*)))
-                (create-edge! (graph t) 'HasText *current* t))))]
-    (proxy [DefaultHandler] []
-      ;; ContentHandler
-      (startElement [uri local-name qname ^Attributes attrs]
-        (let [name (if (seq *stack*) 'Element 'RootElement)
-              e (create-vertex! *graph* name)
-              split (str/split qname #":")]
-          (if (= (count split) 1)
-            (set-value! e :name (split 0))
-            (do
-              (set-value! e :nsPrefix (split 0))
-              (set-value! e :name (split 1))))
-          (handle-attributes e attrs)
-          (when *current*
-            (push-text)
-            (create-edge! (graph e) 'HasChild *current* e))
-          (set! *stack* (conj *stack* *current*))
-          (set! *current* e)
-          (set! *state* :element))
-        nil)
-      (endElement [uri local-name qname]
-        (push-text)
-        (set! *current* (peek *stack*))
-        (set! *stack* (pop *stack*))
-        (set! *state* :between)
-        nil)
-      (characters [^chars ch start length]
-        (when-not (= *state* :chars)
-          (set! *sb* (new StringBuilder)))
-        (let [^StringBuilder sb *sb*]
-          (.append sb ch (int start) (int length))
-          (set! *state* :chars))
-        nil)
-      (setDocumentLocator [locator])
-      (startDocument [])
-      (endDocument []
-        (resolve-refs)
-        (resolve-emf-fragment-paths))
-      (startPrefixMapping [prefix uri])
-      (endPrefixMapping [prefix])
-      (ignorableWhitespace [ch start length])
-      (processingInstruction [target data])
-      (skippedEntity [name])
-      ;; ErrorHandler
-      (error [^org.xml.sax.SAXParseException ex]
-        (println "ERROR:" (.getMessage ex)))
-      (fatalError [^org.xml.sax.SAXParseException ex]
-        (println "FATAL ERROR:" (.getMessage ex)))
-      (warning [^org.xml.sax.SAXParseException ex]
-        (println "WARNING:" (.getMessage ex))))))
+(defn ^:private handle-start-document [^StartDocument ev]
+  nil)
 
-(defn ^:private startparse-sax
-  [^String uri ^DefaultHandler ch]
-  (let [pfactory (SAXParserFactory/newInstance)]
-    (-> pfactory
-        .newSAXParser
-        (.parse uri ch))))
+(defn ^:private handle-end-document [^EndDocument ev]
+  (resolve-refs)
+  (resolve-emf-fragment-paths))
+
+(defn ^:private handle-attribute [elem ^Attribute a]
+  (let [qn (.getName a)
+        val (.getValue a)
+        t (.getDTDType a)
+        t (if (= t "CDATA")
+            (*attr-type-fn* (expanded-name elem) (str qn) val)
+            t)
+        av (create-vertex! *graph* 'Attribute)]
+    (set-value! av :value val)
+    (set-value! av :name (.getLocalPart qn))
+    (let [p (.getPrefix qn)]
+      (when (seq p)
+        (set-value! av :nsPrefix p)))
+    (create-edge! *graph* 'HasAttribute elem av)
+    (cond
+     (= t "EMFFragmentPath")  (set! *emf-fragment-path-attrs*
+                                    (conj *emf-fragment-path-attrs* av))
+     (= t "ID")     (set! *id2elem* (assoc *id2elem* val elem))
+     (= t "IDREF")  (set! *attr2refd-ids*
+                          (update-in *attr2refd-ids* [av]
+                                     #(conj (vec %) val)))
+     (= t "IDREFS") (set! *attr2refd-ids*
+                          (update-in *attr2refd-ids* [av]
+                                     #(into (vec %) (clojure.string/split val #" ")))))))
+
+(defn ^:private handle-start-element [^StartElement ev]
+  (let [type (if (seq *stack*) 'Element 'RootElement)
+        e (create-vertex! *graph* type)
+        ^QName qn (.getName ev)]
+    (set-value! e :name (.getLocalPart qn))
+    (let [p (.getPrefix qn)]
+      (when (seq p)
+        (set-value! e :nsPrefix p)))
+    (doseq [a (iterator-seq (.getAttributes ev))]
+      (handle-attribute e a))
+    (when *current*
+      (create-edge! (graph e) 'HasChild *current* e))
+    (set! *stack* (conj *stack* *current*))
+    (set! *current* e)))
+
+(defn ^:private handle-end-element [^EndElement ev]
+  (set! *current* (peek *stack*))
+  (set! *stack* (pop *stack*)))
+
+(defn ^:private handle-characters [^Characters ev]
+  (when-not (or (.isIgnorableWhiteSpace ev)
+                (.isWhiteSpace ev))
+    (let [txt (create-vertex! *graph* 'Text)]
+      (set-value! txt :content (.getData ev))
+      (create-edge! *graph* 'HasText *current* txt))))
+
+(defn ^:private parse [f]
+  (let [xer (.createXMLEventReader
+             (XMLInputFactory/newFactory)
+             (io/input-stream f))
+        conts (iterator-seq xer)]
+    (doseq [^XMLEvent ev conts]
+      (condp = (.getEventType ev)
+        XMLStreamConstants/START_DOCUMENT (handle-start-document ev)
+        XMLStreamConstants/END_DOCUMENT   (handle-end-document ev)
+        XMLStreamConstants/START_ELEMENT  (handle-start-element ev)
+        XMLStreamConstants/END_ELEMENT    (handle-end-element ev)
+        XMLStreamConstants/CHARACTERS     (handle-characters ev)
+        (binding [*out* *err*]
+          (println "Unhandled XMLEvent of type"
+                   (xml-stream-constants-map (.getEventType ev))))))))
 
 ;;## The user API
 
@@ -353,14 +323,11 @@ attribute name as string.
                         (load-schema (io/resource "xml-schema.tg")) f)
                *stack*   nil
                *current* nil
-               *state*   :between
-               *sb*      nil
                *id2elem* {}
                *attr2refd-ids* {}
-               *attr-type-fn* (or attr-type-fn
-                                  (constantly nil))
+               *attr-type-fn* (or attr-type-fn (constantly nil))
                *emf-fragment-path-attrs* #{}]
-       (startparse-sax f (content-handler))
+       (parse f)
        *graph*)))
 
 ;;# Saving back to XML
