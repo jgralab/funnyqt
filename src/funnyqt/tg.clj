@@ -418,25 +418,38 @@ See `tgtree`, `show-graph`, and `print-graph`."
                   identity)
    :else (errorf "Don't know how to create a type matcher for %s" ts)))
 
+(defmacro ^:private has-type?-1 [obj spec dc]
+  ;; For simple type specs, we don't need to create a type-matcher.
+  `(if (symbol? ~spec)
+     (let [[neg# cls# ex#] (type-with-modifiers (name ~spec))
+           aec# (attributed-element-class ~obj cls#)
+           r# (if ex#
+                (identical? (attributed-element-class ~obj)
+                            aec#)
+                (and (instance? ~dc aec#)
+                     (.isInstanceOf ~obj aec#)))]
+       (if neg# (not r#) r#))
+     ((type-matcher ~obj ~spec) ~obj)))
+
 (extend-protocol InstanceOf
   Graph
   (is-instance? [object class]
     (and (instance? GraphClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    ((type-matcher obj spec) obj))
+    (has-type?-1 obj spec GraphClass))
   Vertex
   (is-instance? [object class]
     (and (instance? VertexClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    ((type-matcher obj spec) obj))
+    (has-type?-1 obj spec VertexClass))
   Edge
   (is-instance? [object class]
     (and (instance? EdgeClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    ((type-matcher obj spec) obj)))
+    (has-type?-1 obj spec EdgeClass)))
 
 ;;# Graph Access
 
