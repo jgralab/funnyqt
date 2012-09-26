@@ -77,6 +77,7 @@
                              "spouse"   "IDREF"
                              "children" "IDREFS"
                              "parents"  "IDREFS")))]
+    #_(show-graph g)
     (is (= 18 (vcount g 'Element)))
     (is (= 12 (vcount g 'Text)))
     (is (= 14 (ecount g 'References)))))

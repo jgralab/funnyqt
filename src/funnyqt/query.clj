@@ -2,8 +2,29 @@
   "Generic functions like quantified expressions."
   (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
-                                  adj*-internal adjs*-internal]])
+                                  adj*-internal adjs*-internal
+                                  has-type?]])
   (:require [clojure.core.reducers :as r]))
+
+;;# Type Cond
+
+(defmacro type-cond
+  "Takes an element `elem` (a GraphElement or EObject) and a set of `clauses`.
+  Every clause is a pair of the form:
+
+    type-spec result-expr
+
+  The type-specs are tested one after the other, and if a type-spec matches the
+  type of `elem`, the return value of type-cond is the result-expr paired with
+  the succeeding type-spec.
+
+  A single default-expr may follow the pairs.  If no type-spec matches, the
+  return value of type-cond is the value of that default expression.  If there
+  is no default expression and no type-spec matches, an
+  IllegalArgumentException is thrown."
+  [elem & clauses]
+  `(condp (fn [t# e#] (has-type? e# t#)) ~elem
+     ~@clauses))
 
 ;;# Quantified Expressions
 
@@ -12,12 +33,12 @@
   forall? every?)
 
 (defn exists?
-  "Returns logical true, iff `pred` holds at least for one element in `coll`."
+  "Returns logical true iff `pred` holds at least for one element in `coll`."
   [pred coll]
   (some pred coll))
 
 (defn exists1?
-  "Returns logical true, iff `pred` holds for exactly one element in `coll`."
+  "Returns logical true iff `pred` holds for exactly one element in `coll`."
   [pred coll]
   (let [s (filter pred coll)]
     ;; There must be one and no other
@@ -26,7 +47,7 @@
 ;;# Sequence Functions
 
 (defn member?
-  "Returns true, iff `e` is a member of `coll`."
+  "Returns true iff `e` is a member of `coll`."
   [e ^java.util.Collection coll]
   (if (seq coll)
     (.contains coll e)
@@ -92,7 +113,7 @@
 ;;# Logical (higher-order) funs
 
 (defn xor
-  "Logical XOR: returns true, iff exactly one argument is true.
+  "Logical XOR: returns true iff exactly one argument is true.
   (xor) returns false."
   ([] false)
   ([f & r]
@@ -107,7 +128,7 @@
 
 (defn xor-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true, iff exactly one of the predicates returns true."
+  logical true iff exactly one of the predicates returns true."
   [& ps]
   (fn [& args]
     (loop [good false, p ps]
@@ -120,7 +141,7 @@
 
 (defn and-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true, iff all predicates return true.
+  logical true iff all predicates return true.
   If no predicate is given, the returned fn returns constantly true."
   [& ps]
   (if (seq ps)
@@ -130,14 +151,14 @@
 
 (defn nand-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true, iff at least one predicate returns false.
+  logical true iff at least one predicate returns false.
   If no predicate is given, the returned fn returns constantly false."
   [& ps]
   (complement (apply and-fn ps)))
 
 (defn or-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true, iff at least one of the predicates returns true.
+  logical true iff at least one of the predicates returns true.
   If no predicate is given, the returned fn returns constantly false."
   [& ps]
   (if (seq ps)
@@ -147,7 +168,7 @@
 
 (defn nor-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true, iff none of the predicate returns true.
+  logical true iff none of the predicate returns true.
   If no predicate is given, the returned fn returns constantly true."
   [& ps]
   (complement (apply or-fn ps)))
@@ -162,9 +183,9 @@
   distinguish the sequences, i.e., evaluates the comparators until one returns
   non-zero.
 
-  `cmps` must be comparator functions that get 2 elements and returns 0, if the
-  elements are equal, a negative integer, if the first is \"smaller\", or a
-  positive integer, if the second is \"smaller\".
+  `cmps` must be comparator functions that get 2 elements and returns 0 if the
+  elements are equal, a negative integer if the first is \"smaller\", or a
+  positive integer if the second is \"smaller\".
 
   If all comparators evaluate to 0, then the hash-codes are used as a last
   resort.
