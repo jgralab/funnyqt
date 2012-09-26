@@ -173,11 +173,13 @@
         qname (v 1)
         exact (v 2)
         ^EClassifier type  (eclassifier qname)]
-    (cond
-     (and (not neg) (not exact)) (fn [^EClass x] (.isInstance type x))
-     (and (not neg) exact)       (fn [^EClass x] (identical? type (.eClass x)))
-     (and neg       (not exact)) (fn [^EClass x] (not (.isInstance type x)))
-     :default                    (fn [^EClass x] (not (identical? type (.eClass x)))))))
+    (if neg
+      (if exact
+        (fn [^EClass x] (not (identical? type (.eClass x))))
+        (fn [^EClass x] (not (.isInstance type x))))
+      (if exact
+        (fn [^EClass x] (identical? type (.eClass x)))
+        (fn [^EClass x] (.isInstance type x))))))
 
 (defn eclass-matcher
   "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
@@ -206,10 +208,18 @@
 (extend-protocol InstanceOf
   EObject
   (is-instance? [object class]
-    (if (instance? EClass class)
-      (.isInstance ^EClass class object)
-      false))
+    (and (instance? EClass class)
+         (.isInstance ^EClass class object)))
   (has-type? [obj spec]
+    ;; TODO: Isn't yet worth it, the bottle-neck is `eclassifier`.
+    #_(if (qname? spec)
+        (let [[neg cls ex] (type-with-modifiers (name spec))
+              ^EClass ec (eclassifier cls)
+              r (if ex
+                  (identical? (.eClass obj) ec)
+                  (.isInstance ec obj))]
+          (if neg (not r) r))
+        ((eclass-matcher spec) obj))
     ((eclass-matcher spec) obj)))
 
 (extend-protocol EContents

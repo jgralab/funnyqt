@@ -383,11 +383,13 @@ See `tgtree`, `show-graph`, and `print-graph`."
         qname (v 1)
         exact (v 2)
         type  (attributed-element-class g qname)]
-    (cond
-     (and (not neg) (not exact)) (fn [x] (is-instance? x type))
-     (and (not neg) exact)       (fn [x] (identical? type (attributed-element-class x)))
-     (and neg       (not exact)) (fn [x] (not (is-instance? x type)))
-     :default                    (fn [x] (not (identical? type (attributed-element-class x)))))))
+    (if neg
+      (if exact
+        (fn [x] (not (identical? type (attributed-element-class x))))
+        (fn [x] (not (is-instance? x type))))
+      (if exact
+        (fn [x] (identical? type (attributed-element-class x)))
+        (fn [x] (is-instance? x type))))))
 
 (defn type-matcher
   "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
