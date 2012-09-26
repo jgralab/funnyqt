@@ -422,7 +422,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 (defmacro ^:private has-type?-1 [obj spec dc]
   ;; For simple type specs, we don't need to create a type-matcher.
-  `(if (symbol? ~spec)
+  `(if (qname? ~spec)
      (let [[neg# cls# ex#] (type-with-modifiers (name ~spec))
            aec# (attributed-element-class ~obj cls#)
            r# (if ex#

@@ -59,10 +59,10 @@
   "Returns the EPackage with the given qualified name."
   ([qn]
      (let [qn (symbol qn)
-           tops (seq (filter (fn [^EPackage p]
-                               (= (qname p) qn))
-                             (epackages)))]
-       (when-not tops
+           tops (filter (fn [^EPackage p]
+                          (= (qname p) qn))
+                        (epackages))]
+       (when-not (seq tops)
          (errorf "No such package %s." qn))
        (when (nnext tops)
          (errorf "Multiple  packages named %s: %s\n%s" qn tops
@@ -83,7 +83,7 @@
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
-  `name` may be a simple or qualified name.  Throws an exception, if no such
+  `name` may be a simple or qualified name.  Throws an exception if no such
   classifier could be found, or if the given simple name is ambiguous."
   [name]
   (let [^String n (clojure.core/name name)
