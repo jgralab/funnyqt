@@ -161,6 +161,7 @@
 
 ;;# Model
 
+;; TODO: Add arglists and docs
 (def add-eobject! add-eobject!-internal)
 (def add-eobjects! add-eobjects!-internal)
 (def clone-model clone-model-internal)
@@ -168,10 +169,10 @@
 
 ;;# Simple type predicates
 
-(defn eobject?
-  "Returns true if eo is an EObject."
+(definline eobject?
+  "Returns true if `eo` is an EObject."
   [eo]
-  (instance? EObject eo))
+  `(instance? EObject ~eo))
 
 ;;## Qualified Names
 
@@ -215,12 +216,14 @@
 
 (defn ^:private eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
-  [c]
+  [root-ns-uri c]
   (let [v     (type-with-modifiers (name c))
         neg   (v 0)
         qname (v 1)
         exact (v 2)
-        ^EClassifier type  (eclassifier qname)]
+        ^EClassifier type (if root-ns-uri
+                            (eclassifier root-ns-uri qname)
+                            (eclassifier qname))]
     (if neg
       (if exact
         (fn [^EClass x] (not (identical? type (.eClass x))))
@@ -234,24 +237,26 @@
   or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
   the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
   semantics."
-  [ts]
-  (cond
-   (nil? ts)   identity
-   (fn? ts)    ts
-   (qname? ts) (eclass-matcher-1 ts)
-   (coll? ts)  (if (seq ts)
-                  (let [f (first ts)
-                        [op r] (case f
-                                 :and  [every-pred (next ts)]
-                                 :nand [nand-fn    (next ts)]
-                                 :or   [some-fn    (next ts)]
-                                 :nor  [nor-fn     (next ts)]
-                                 :xor  [xor-fn     (next ts)]
-                                 [some-fn    ts])]
-                    (apply op (map eclass-matcher r)))
-                  ;; Empty collection given: (), [], that's also ok
-                  identity)
-   :else (errorf "Don't know how to create a type matcher for %s" ts)))
+  ([ts]
+     (eclass-matcher nil ts))
+  ([root-ns-uri ts]
+     (cond
+      (nil? ts)   identity
+      (fn? ts)    ts
+      (qname? ts) (eclass-matcher-1 root-ns-uri ts)
+      (coll? ts)  (if (seq ts)
+                    (let [f (first ts)
+                          [op r] (case f
+                                   :and  [every-pred (next ts)]
+                                   :nand [nand-fn    (next ts)]
+                                   :or   [some-fn    (next ts)]
+                                   :nor  [nor-fn     (next ts)]
+                                   :xor  [xor-fn     (next ts)]
+                                   [some-fn    ts])]
+                      (apply op (map #(eclass-matcher root-ns-uri %) r)))
+                    ;; Empty collection given: (), [], that's also ok
+                    identity)
+      :else (errorf "Don't know how to create a type matcher for %s" ts))))
 
 (extend-protocol InstanceOf
   EObject
@@ -260,15 +265,16 @@
          (.isInstance ^EClass class object)))
   (has-type? [obj spec]
     ;; TODO: Isn't yet worth it, the bottle-neck is `eclassifier`.
-    #_(if (qname? spec)
+    (let [root-ns (eroot-package-nsuri (.getEPackage (.eClass obj)))]
+      (if (qname? spec)
         (let [[neg cls ex] (type-with-modifiers (name spec))
-              ^EClass ec (eclassifier cls)
+              ^EClass ec (eclassifier root-ns cls)
               r (if ex
                   (identical? (.eClass obj) ec)
                   (.isInstance ec obj))]
           (if neg (not r) r))
-        ((eclass-matcher spec) obj))
-    ((eclass-matcher spec) obj)))
+        ((eclass-matcher root-ns spec) obj)))
+    #_((eclass-matcher (eroot-package-nsuri (.getEPackage (.eClass obj))) spec) obj)))
 
 (extend-protocol EContents
   EObject
@@ -284,8 +290,8 @@
     (filter tm (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this tm]
     (filter tm (iterator-seq (.getAllContents ^Resource (.resource this)))))
-  (eallobjects-internal [this ts]
-    (eallcontents-internal this (eclass-matcher ts)))
+  (eallobjects-internal [this tm]
+    (eallcontents-internal this tm))
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
@@ -299,14 +305,22 @@
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
-     (eallcontents-internal x (eclass-matcher ts))))
+     (if (eobject? x)
+       (eallcontents-internal x (eclass-matcher (eroot-package-nsuri
+                                                 (.getEPackage (.eClass ^EObject x)))
+                                                ts))
+       (eallcontents-internal x (eclass-matcher ts)))))
 
 (defn econtents
   "Returns a seq of `x`s direct contents matching the type spec `ts`."
   ([x]
      (econtents-internal x identity))
   ([x ts]
-     (econtents-internal x (eclass-matcher ts))))
+     (if (eobject? x)
+       (econtents-internal x (eclass-matcher (eroot-package-nsuri
+                                              (.getEPackage (.eClass ^EObject x)))
+                                             ts))
+       (econtents-internal x (eclass-matcher ts)))))
 
 (defn eallobjects
   "Returns a seq of all objects in `m` that match the type spec `ts`."
