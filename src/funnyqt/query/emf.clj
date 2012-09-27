@@ -3,7 +3,7 @@
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use [funnyqt.emf-protocols :only [eroot-package-nsuri]])
+  (:use [funnyqt.emf-protocols :only [eroot-pkg-ns-uri-from-eo]])
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf)
@@ -143,9 +143,7 @@
      (let [objs (oset objs)]
        (oset
         (if (seq objs)
-          (let [tm (eclass-matcher (eroot-package-nsuri
-                                    (.getEPackage (.eClass ^EObject (first objs))))
-                                   ts)]
+          (let [tm (eclass-matcher (eroot-pkg-ns-uri-from-eo (first objs)) ts)]
             (filter (every-pred tm pred)
                     objs))
           objs)))))

@@ -195,21 +195,24 @@
 
 ;;## EMF Model
 
+(definline emf-model? [m]
+  "Returns true if `m` is an EMFModel."
+  `(instance? EMFModel ~m))
+
 (defn new-model
   "Creates and returns a new, empty EMFModel."
   []
-  (->EMFModel (ResourceImpl.)))
+  (->EMFModel (ResourceImpl.) nil))
 
 (defn load-model
-  "Loads an EMF model from the XMI file `f`.
-  Returns a seq of the models top-level elements."
+  "Loads an EMFModel from the XMI file `f`."
   [f]
   (let [f (if (instance? java.io.File f)
             (.getPath ^java.io.File f)
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (->EMFModel res)
+    (doto (->EMFModel res nil)
       init-model-internal)))
 
 ;;## Traversal stuff
@@ -240,6 +243,8 @@
   ([ts]
      (eclass-matcher nil ts))
   ([root-ns-uri ts]
+     #_(when-not root-ns-uri
+         (errorf "bang"))
      (cond
       (nil? ts)   identity
       (fn? ts)    ts
@@ -264,8 +269,7 @@
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
   (has-type? [obj spec]
-    ;; TODO: Isn't yet worth it, the bottle-neck is `eclassifier`.
-    (let [root-ns (eroot-package-nsuri (.getEPackage (.eClass obj)))]
+    (let [root-ns (eroot-pkg-ns-uri-from-eo obj)]
       (if (qname? spec)
         (let [[neg cls ex] (type-with-modifiers (name spec))
               ^EClass ec (eclassifier root-ns cls)
@@ -273,25 +277,28 @@
                   (identical? (.eClass obj) ec)
                   (.isInstance ec obj))]
           (if neg (not r) r))
-        ((eclass-matcher root-ns spec) obj)))
-    #_((eclass-matcher (eroot-package-nsuri (.getEPackage (.eClass obj))) spec) obj)))
+        ((eclass-matcher root-ns spec) obj)))))
 
 (extend-protocol EContents
   EObject
-  (econtents-internal [this tm]
-    (filter tm (seq (.eContents this))))
-  (eallcontents-internal [this tm]
-    (filter tm (iterator-seq (.eAllContents this))))
+  (econtents-internal [this ts]
+    (filter (eclass-matcher (eroot-pkg-ns-uri-from-eo this) ts)
+            (seq (.eContents this))))
+  (eallcontents-internal [this ts]
+    (filter (eclass-matcher (eroot-pkg-ns-uri-from-eo this) ts)
+            (iterator-seq (.eAllContents this))))
   (econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
-  (econtents-internal [this tm]
-    (filter tm (seq (.getContents ^Resource (.resource this)))))
-  (eallcontents-internal [this tm]
-    (filter tm (iterator-seq (.getAllContents ^Resource (.resource this)))))
-  (eallobjects-internal [this tm]
-    (eallcontents-internal this tm))
+  (econtents-internal [this ts]
+    (filter (eclass-matcher (root-ns-uri this) ts)
+            (seq (.getContents ^Resource (.resource this)))))
+  (eallcontents-internal [this ts]
+    (filter (eclass-matcher (root-ns-uri this) ts)
+            (iterator-seq (.getAllContents ^Resource (.resource this)))))
+  (eallobjects-internal [this ts]
+    (eallcontents-internal this ts))
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
@@ -305,28 +312,21 @@
   ([x]
      (eallcontents-internal x identity))
   ([x ts]
-     (if (eobject? x)
-       (eallcontents-internal x (eclass-matcher (eroot-package-nsuri
-                                                 (.getEPackage (.eClass ^EObject x)))
-                                                ts))
-       (eallcontents-internal x (eclass-matcher ts)))))
+     (eallcontents-internal x ts)))
 
 (defn econtents
   "Returns a seq of `x`s direct contents matching the type spec `ts`."
   ([x]
      (econtents-internal x identity))
   ([x ts]
-     (if (eobject? x)
-       (econtents-internal x (eclass-matcher (eroot-package-nsuri
-                                              (.getEPackage (.eClass ^EObject x)))
-                                             ts))
-       (econtents-internal x (eclass-matcher ts)))))
+     (econtents-internal x ts)))
 
 (defn eallobjects
   "Returns a seq of all objects in `m` that match the type spec `ts`."
   ([m] (eallobjects-internal m identity))
-  ([m ts] (eallobjects-internal m (eclass-matcher ts))))
+  ([m ts] (eallobjects-internal m ts)))
 
+;; TODO: Add :arglists and :doc
 (def econtainer econtainer-internal)
 
 (defn eref-matcher
@@ -388,9 +388,11 @@
 
 (extend-protocol EReferences
   EMFModel
-  (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
-    (let [done (atom #{})]
-      (for [^EObject src (eallobjects this src-tm)
+  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
+    (let [done (atom #{})
+          src-rm (eref-matcher src-rs)
+          trg-rm (eref-matcher trg-rs)]
+      (for [^EObject src (eallobjects this src-ts)
             ^EReference ref (seq (-> src .eClass .getEAllReferences))
             :when (not (member? ref @done))
             :when (trg-rm ref)
@@ -400,7 +402,7 @@
                     (src-rm oref)
                     true)
             trg (reffn src nthere-rm)
-            :when (trg-tm trg)]
+            :when (or (nil? trg-ts) (has-type? trg trg-ts))]
         (do
           (when oref (swap! done conj oref))
           [src trg]))))
@@ -604,34 +606,22 @@
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
   specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m erefs-internal
-                      identity identity
-                      identity identity))
+     (epairs-internal m erefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m erefs-internal
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      identity identity))
+     (epairs-internal m erefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m erefs-internal
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+     (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (defn ecrosspairs
   "Returns the seq of all cross-reference edges in terms of [src trg] pairs.
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m ecrossrefs-internal
-                      identity identity
-                      identity identity))
+     (epairs-internal m ecrossrefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m ecrossrefs-internal
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      identity identity))
+     (epairs-internal m ecrossrefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m ecrossrefs-internal
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (defn ^:private econtents-by-ref
   [^EObject eo rm]
@@ -647,17 +637,11 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m econtents-by-ref
-                      identity identity
-                      identity identity))
+     (epairs-internal m econtents-by-ref identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m econtents-by-ref
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      identity identity))
+     (epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m ecrossrefs-internal
-                      (eref-matcher src-rs) (eref-matcher trg-rs)
-                      (eclass-matcher src-ts) (eclass-matcher trg-ts))))
+     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation

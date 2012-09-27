@@ -9,7 +9,7 @@
    [org.eclipse.emf.ecore.xmi XMLResource]
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
-   [org.eclipse.emf.common.util URI]
+   [org.eclipse.emf.common.util URI EList]
    [org.eclipse.emf.ecore.resource Resource]
    [org.eclipse.emf.ecore.resource.impl ResourceImpl]
    [org.eclipse.emf.ecore
@@ -36,10 +36,13 @@
 ;; {baseNsURI -> {qname -> epackage}}
 (defonce uri->qname->pkg-map (atom {}))
 
-(defn eroot-package-nsuri [^EPackage p]
+(defn eroot-pkg-ns-uri [^EPackage p]
   (if-let [parent (.getESuperPackage p)]
     (recur parent)
     (.getNsURI p)))
+
+(defn eroot-pkg-ns-uri-from-eo [^EObject eo]
+  (eroot-pkg-ns-uri (.getEPackage (.eClass eo))))
 
 (defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
@@ -49,7 +52,7 @@
     (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
-          (let [buri (eroot-package-nsuri p)
+          (let [buri (eroot-pkg-ns-uri p)
                 m (@uri->qname->pkg-map buri)
                 qn (name (qname p))]
             (when-not (contains? m qn)
@@ -92,21 +95,34 @@
 
 (defprotocol EMFModelBasics
   "A protocol for basid EMFModel operations."
+  (root-ns-uri [this])
   (init-model-internal [this])
   (add-eobject!-internal [this eo])
   (add-eobjects!-internal [this eos])
   (clone-model-internal [this])
   (save-model-internal [this] [this file]))
 
-(deftype EMFModel [^Resource resource]
+(deftype EMFModel [^Resource resource ^:volatile-mutable root-ns-uri]
   EMFModelBasics
+  (root-ns-uri [this] root-ns-uri)
   (init-model-internal [this]
-    (.load resource nil))
+    (.load resource nil)
+    (let [^EList conts (.getContents resource)]
+      (when-not (.isEmpty conts)
+        (set! root-ns-uri
+              (eroot-pkg-ns-uri-from-eo (.get conts 0))))))
   (add-eobject!-internal [this eo]
+    (when-not root-ns-uri
+      (set! root-ns-uri
+            (eroot-pkg-ns-uri-from-eo eo)))
     (doto (.getContents resource)
       (.add eo))
     eo)
   (add-eobjects!-internal [this eos]
+    (when-not root-ns-uri
+      (when-let [^EObject eo (first eos)]
+        (set! root-ns-uri
+              (eroot-pkg-ns-uri-from-eo eo))))
     (doto (.getContents resource)
       (.addAll eos))
     eos)
@@ -115,7 +131,7 @@
           nconts (.getContents nres)]
       (doseq [o (EcoreUtil/copyAll (.getContents resource))]
         (.add nconts o))
-      (EMFModel. nres)))
+      (EMFModel. nres root-ns-uri)))
   (save-model-internal [this]
     (if (.getURI resource)
       (.save resource nil)
@@ -135,23 +151,23 @@
 (defprotocol EContents
   (eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the eclass-matcher `tm`.")
+  matches the type spec `ts`.")
   (econtents-internal [this tm]
     "Returns a seq of all directly contained EObjects whose type matches the
-  eclass-matcher `tm`.")
+  type spec `ts`.")
   (econtainer-internal [this]
     "Returns the EObject containing this.")
-  (eallobjects-internal [this] [this tm]
+  (eallobjects-internal [this tm]
     "Returns a seq of all objects matching the type specification `ts` (see
   `eclass-matcher`) that are contained in this EMFModel."))
 
 ;;## EReferences
 
 (defprotocol EReferences
-  (epairs-internal [this reffn src-rm trg-rm src-tm trg-tm]
+  (epairs-internal [this reffn src-rm trg-rm src-ts trg-ts]
     "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
-  May be restricted by reference matchers and eclass matchers on source and
-  target.  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
+  May be restricted by reference matchers and type specs on source and target.
+  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
   `econtents-internal`.")
   (ecrossrefs-internal [this rm]
     "Returns a seq of cross-referenced EObjects accepted by reference-matcher
