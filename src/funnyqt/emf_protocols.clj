@@ -33,6 +33,14 @@
 
 ;;## Metamodel
 
+;; {baseNsURI -> {qname -> epackage}}
+(defonce uri->qname->pkg-map (atom {}))
+
+(defn eroot-package-nsuri [^EPackage p]
+  (if-let [parent (.getESuperPackage p)]
+    (recur parent)
+    (.getNsURI p)))
+
 (defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
@@ -40,9 +48,14 @@
   (with-system-class-loader
     (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
-        (when (and (seq uri)
-                   (not (.containsKey EPackage$Registry/INSTANCE uri)))
-          (.put EPackage$Registry/INSTANCE uri p))))))
+        (when (seq uri)
+          (let [buri (eroot-package-nsuri p)
+                m (@uri->qname->pkg-map buri)
+                qn (name (qname p))]
+            (when-not (contains? m qn)
+              (swap! uri->qname->pkg-map update-in [buri] assoc qn p)))
+          (when-not (.containsKey EPackage$Registry/INSTANCE uri)
+            (.put EPackage$Registry/INSTANCE uri p)))))))
 
 (defn ^:private epks-and-subpgks
   ([pkgs]
@@ -64,6 +77,10 @@
   EcoreModelBasics
   (load-and-register-internal [this]
     (.load resource nil)
+    (doseq [^EPackage base-pkg (seq (.getContents resource))]
+      (let [uri (.getNsURI base-pkg)]
+        (when-not (.containsKey EPackage$Registry/INSTANCE uri)
+          (swap! uri->qname->pkg-map assoc uri {}))))
     (register-epackages (metamodel-epackages-internal this)))
   ;; TODO: Implement me.
   (save-metamodel-internal [this file]

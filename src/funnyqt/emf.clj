@@ -48,26 +48,43 @@
      ~@body))
 
 (defn epackages
-  "The lazy seq (pkg subpkg...).
-  If no package is given, the lazy seq of all registered packages is returned."
+  "The lazy seq of all registered EPackages.
+  If a `root-ns-uri' is given, returns the this EPackages and all contained
+  packages."
   ([]
      (with-system-class-loader
        (map #(.getEPackage EPackage$Registry/INSTANCE %)
-            (or *ns-uris* (keys EPackage$Registry/INSTANCE))))))
+            (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
+  ([root-ns-uri]
+     (vals (@uri->qname->pkg-map root-ns-uri))))
 
 (defn epackage
-  "Returns the EPackage with the given qualified name."
-  ([qn]
-     (let [qn (symbol qn)
-           tops (filter (fn [^EPackage p]
-                          (= (qname p) qn))
-                        (epackages))]
-       (when-not (seq tops)
-         (errorf "No such package %s." qn))
-       (when (nnext tops)
-         (errorf "Multiple  packages named %s: %s\n%s" qn tops
+  "Returns the EPackage with the given (simple or qualified) `name`.
+  If `root-ns-uri` is given, look only in this package and subpackages."
+  ([name]
+     (let [name (clojure.core/name name)
+           ffn (if (.contains name ".")
+                 (fn [^EPackage p] (= (clojure.core/name (qname p)) name))
+                 (fn [^EPackage p] (= (.getName p) name)))
+           qkgs (filter ffn (epackages))]
+       (when-not (seq qkgs)
+         (errorf "No such package %s." name))
+       (when (nnext qkgs)
+         (errorf "Multiple packages named %s: %s\n%s" name qkgs
                  "Restrict the search space using `with-ns-uris`."))
-       (first tops))))
+       (first qkgs)))
+  ([root-ns-uri name]
+     (let [^String n (clojure.core/name name)]
+       (if (.contains n ".")
+         ((@uri->qname->pkg-map root-ns-uri) n)
+         (let [pkgs (filter (fn [^EPackage p]
+                              (= n (.getName p)))
+                            (epackages root-ns-uri))]
+           (when-not (seq pkgs)
+             (errorf "No such package %s in %s." n root-ns-uri))
+           (when (nnext pkgs)
+             (errorf "Multiple packages named %s in %s: %s" n root-ns-uri pkgs))
+           (first pkgs))))))
 
 (extend-protocol Abstractness
   EClass
@@ -75,41 +92,72 @@
     (.isAbstract this)))
 
 (defn eclassifiers
-  "The lazy seq of EClassifiers."
-  []
-  (mapcat (fn [^EPackage ep]
-            (.getEClassifiers ep))
-          (epackages)))
+  "The lazy seq of EClassifiers.
+  May be restricted to all EClassifiers contained below the root package with
+  the given nsURI."
+  ([]
+     (mapcat (fn [^EPackage ep]
+               (.getEClassifiers ep))
+             (epackages)))
+  ([root-ns-uri]
+     (mapcat (fn [^EPackage ep]
+               (.getEClassifiers ep))
+             (epackages root-ns-uri))))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
   `name` may be a simple or qualified name.  Throws an exception if no such
   classifier could be found, or if the given simple name is ambiguous."
-  [name]
-  (let [^String n (clojure.core/name name)
-        ld (.lastIndexOf n ".")]
-    (if (>= ld 0)
-      (let [^EPackage ep (epackage (subs n 0 ld))]
-        (or (.getEClassifier ep (subs n (inc ld)))
-            (errorf "No such EClassifier %s in %s." n (print-str ep))))
-      (let [classifiers (filter (fn [^EClassifier ec]
-                                  (= (.getName ec) n))
-                                (eclassifiers))]
-        (cond
-         (empty? classifiers) (errorf "No such EClassifier %s." n)
-         (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
-                                      n (print-str classifiers)
-                                      "Restrict the search space using `with-ns-uris`.")
-         :else (first classifiers))))))
+  ([name]
+     (let [^String n (clojure.core/name name)
+           ld (.lastIndexOf n ".")]
+       (if (>= ld 0)
+         (if-let [^EPackage ep (epackage (subs n 0 ld))]
+           (or (.getEClassifier ep (subs n (inc ld)))
+               (errorf "No such EClassifier %s in %s." n (print-str ep)))
+           (errorf "No such EPackage %s." (subs n 0 ld)))
+         (let [classifiers (filter (fn [^EClassifier ec]
+                                     (= (.getName ec) n))
+                                   (eclassifiers))]
+           (cond
+            (empty? classifiers) (errorf "No such EClassifier %s." n)
+            (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
+                                         n (print-str classifiers)
+                                         "Restrict the search space using `with-ns-uris`.")
+            :else (first classifiers))))))
+  ([root-ns-uri name]
+     (let [^String n (clojure.core/name name)
+           ld (.lastIndexOf n ".")]
+       (if (>= ld 0)
+         (if-let [^EPackage ep (epackage root-ns-uri (subs n 0 ld))]
+           (or (.getEClassifier ep (subs n (inc ld)))
+               (errorf "No such EClassifier %s in %s." n (print-str ep)))
+           (errorf "No such EPackage %s in %s." (subs n 0 ld) root-ns-uri))
+         (let [classifiers (filter (fn [^EClassifier ec]
+                                     (= (.getName ec) n))
+                                   (eclassifiers root-ns-uri))]
+           (cond
+            (empty? classifiers) (errorf "No such EClassifier %s in %s." n root-ns-uri)
+            (next classifiers)   (errorf "EClassifier %s is ambiguous in %s: %s"
+                                         n root-ns-uri classifiers)
+            :else (first classifiers)))))))
 
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
-  [qname]
-  (let [[eenum elit] (split-qname qname)
-        ^EEnum enum-cls (eclassifier eenum)]
-    (or (.getEEnumLiteral enum-cls ^String elit)
-        (errorf "%s has no EEnumLiteral with name %s."
-                (print-str enum-cls) elit))))
+  ([qname]
+     (let [[eenum elit] (split-qname qname)]
+       (if-let [^EEnum enum-cls (eclassifier eenum)]
+         (or (.getEEnumLiteral enum-cls ^String elit)
+             (errorf "%s has no EEnumLiteral with name %s."
+                     (print-str enum-cls) elit))
+         (errorf "No such EEnum %s." eenum))))
+  ([root-ns-uri qname]
+     (let [[eenum elit] (split-qname qname)]
+       (if-let [^EEnum enum-cls (eclassifier root-ns-uri eenum)]
+         (or (.getEEnumLiteral enum-cls ^String elit)
+             (errorf "%s has no EEnumLiteral with name %s."
+                     (print-str enum-cls) elit))
+         (errorf "No such EEnum %s in %s." eenum root-ns-uri)))))
 
 ;;# Model
 
