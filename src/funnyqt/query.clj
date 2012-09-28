@@ -208,30 +208,31 @@
 ;; Those are defined in funnyqt.query.tg and funnyqt.query.emf
 
 (defn adj
-  "Traverses single-valued `roles` starting at `elem`, and returns the target object.
+  "Traverses single-valued `role` and more `roles` starting at `elem`.
+  Returns the target object.
   Errors if a role is undefined, intermediate targets are nil, or there are
   more elements that can be reached that way."
-  [elem & roles]
-  (adj-internal elem roles))
+  [elem role & roles]
+  (adj-internal elem (cons role roles)))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
   simply returns nil."
-  [elem & roles]
-  (adj*-internal elem roles))
+  [elem role & roles]
+  (adj*-internal elem (cons role roles)))
 
 (defn adjs
-  "Traverses `roles` starting at `elem`, and returns the seq of target objects.
+  "Traverses `role` and more `roles` starting at `elem`.
+  Returns the seq of target objects.
   Errors if a role is undefined or intermediate targets are nil."
-  [elem & roles]
-  (adjs-internal elem roles))
+  [elem role & roles]
+  (adjs-internal elem (cons role roles)))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
   it simply returns nil."
-  [elem & roles]
-  (adjs*-internal elem roles))
-
+  [elem role & roles]
+  (adjs*-internal elem (cons role roles)))
 
 ;;# Regular Path Expressions
 
