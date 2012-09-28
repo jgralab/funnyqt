@@ -19,7 +19,7 @@
     - match is the vector of the elements matched by the rule"}
   *on-matched-rule-fn* nil)
 
-(defn- convert-spec
+(defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
   [name debug spec]
   (let [args (first spec)

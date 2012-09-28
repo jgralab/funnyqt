@@ -473,7 +473,7 @@
   "Rips out the symbols declared in `bindings`.
   `bindings` is a binding vector with the syntax of `for`."
   [bindings]
-  (loop [p bindings l []]
+  (loop [p bindings, l []]
     (if (seq p)
       (cond
        ;; Handle :let [x y, [u v] z]
