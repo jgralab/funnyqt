@@ -340,7 +340,7 @@
     someERef      => accept only this EReference
     :foo          => accept only references named foo
     [:foo :bar]   => accept both foo and bar refs
-    (fn [r] ...)  => simply use that"
+    (fn [r] ...)   => simply use that"
   [rs]
   (cond
    (nil? rs)        identity
