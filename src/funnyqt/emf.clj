@@ -438,44 +438,33 @@
       (search-ereferencers this ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (ecrossrefs-internal this (eref-matcher opposites))
-        (error "No opposite EReferences found."))))
-
-  clojure.lang.IPersistentCollection
-  (ecrossrefs-internal [this rm]
-    (mapcat #(ecrossrefs-internal % rm) this))
-  (erefs-internal [this rm]
-    (mapcat #(erefs-internal % rm) this))
-  (inv-erefs-internal [this rm container]
-    (mapcat #(inv-erefs-internal % rm container) this))
-  (inv-ecrossrefs-internal [this rm container]
-    (mapcat #(inv-ecrossrefs-internal % rm container) this)))
+        (error "No opposite EReferences found.")))))
 
 (defn ecrossrefs
-  "Returns a seq of EObjects cross-referenced by `eo`, possibly restricted by
-  the reference spec `rs`.  `eo` may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs`, see `eref-matcher`.  In EMF, crossrefs
-  are all non-containment refs."
+  "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
+  restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
+  see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
   ([eo]
      (ecrossrefs-internal eo identity))
   ([eo rs]
      (ecrossrefs-internal eo (eref-matcher rs))))
 
 (defn erefs
-  "Returns a seq of EObjects referenced by `eo`, possibly restricted by the
-  reference spec `rs`.  `eo` may be an EObject or a collection of EObjects.
-  For the syntax and semantics of `rs`, see `eref-matcher`.  In contrast to
-  `ecrossrefs`, this function doesn't ignore containment refs."
+  "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
+  the reference spec `rs`.  For the syntax and semantics of `rs`, see
+  `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
+  containment refs."
   ([eo]
      (erefs-internal eo identity))
   ([eo rs]
      (erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
-  "Returns the seq of EOjects that reference `eo` with an EReference matching
-  `rs` (see `eref-matcher`).  `eo` may also be a collection of eobjects.  If no
-  `container` is given, then only check the opposite refs of `eo`.  Else, all
-  objects in `container` are tested if they reference `eo`.  `container` may be
-  either an EMFModel or a collection of EObjects."
+  "Returns the seq of EOjects that reference EObject `eo` with an EReference
+  matching `rs` (see `eref-matcher`).  If no `container` is given, then only
+  check the opposite refs of `eo`.  Else, all objects in `container` are tested
+  if they reference `eo`.  `container` may be either an EMFModel or a
+  collection of EObjects."
   ([eo]
      (inv-erefs-internal eo identity nil))
   ([eo rs]
@@ -484,11 +473,11 @@
      (inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
-  "Returns the seq of EOjects that cross-reference `eo` with an EReference
-  matching `rs` (see `eref-matcher`).  `eo` may also be a collection of
-  eobjects.  If no `container` is given, then only check the opposite refs of
-  `eo`.  Else, all objects in `container` are tested if they cross-reference
-  `eo`. `container` may be either an EMFModel or a collection of EObjects. "
+  "Returns the seq of EOjects that cross-reference EObject `eo` with an
+  EReference matching `rs` (see `eref-matcher`).  If no `container` is given,
+  then only check the opposite refs of `eo`.  Else, all objects in `container`
+  are tested if they cross-reference `eo`. `container` may be either an
+  EMFModel or a collection of EObjects."
   ([eo]
      (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
