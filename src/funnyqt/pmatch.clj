@@ -205,7 +205,7 @@
        (tg/edge? cur)   (recur (tg/that cur)
                                (conj-done done cur)
                                (conj vec cur))
-       (tg/vertex? cur) (recur (let [ns (remove done (tg/iseq cur ['PatternEdge]))]
+       (tg/vertex? cur) (recur (let [ns (remove done (tg/iseq cur 'PatternEdge))]
                                  (if (> (count ns) 1)
                                    (errorf "Must not happen!")
                                    (first ns)))
@@ -223,46 +223,44 @@
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
-        anon-vec-to-rpd (fn [av]
-                          `[q/p-seq ~@(mapcat (fn [el]
-                                                (if (tg/vertex? el)
-                                                  (if (or (has-type? el 'ArgumentVertex)
-                                                          (not (get-type el)))
-                                                    []
-                                                    [[`q/p-restr (get-type el)]])
-                                                  [[(if (tg/normal-edge? el)
-                                                      `tgq/--> `tgq/<--)
-                                                    (get-type el)]]))
-                                          av)])
-        build-rpe (fn [startsym av done]
-                    ;;(println "build-rpe:" startsym av done)
-                    (let [target-node (last av)]
-                      (cond
-                       (anon? target-node)
-                       [:when `(seq (tgq/reachables
-                                     ~startsym
-                                     ~(anon-vec-to-rpd av)))]
-                       ;;---
-                       (done target-node)
-                       [:when
-                        `(q/member?  ~(get-name target-node)
-                                     (tgq/reachables
-                                      ~startsym
-                                      ~(anon-vec-to-rpd av)))]
-                       ;;---
-                       ;; Not already done ArgumentVertex, so declare it!
-                       (has-type? target-node 'ArgumentVertex)
-                       [:when-let `[~(get-name target-node) ~(get-name target-node)]
-                        :when
-                        `(q/member?  ~(get-name target-node)
-                                     (tgq/reachables
-                                      ~startsym
-                                      ~(anon-vec-to-rpd av)))]
-                       ;;---
-                       :normal-v
-                       [(get-name target-node)
-                        `(tgq/reachables ~startsym
-                                         ~(anon-vec-to-rpd av))])))]
+        anon-vec-to-for (fn [start-sym av]
+                          (let [[v r]
+                                (loop [cs start-sym, av av, r []]
+                                  (if (seq av)
+                                    (let [el (first av)
+                                          ncs (gensym)]
+                                      (recur ncs
+                                             (rest av)
+                                             (if (tg/vertex? el)
+                                               (into r `[:let [~ncs (tg/that ~cs)]
+                                                         ~@(when-let [t (get-type el)]
+                                                             [:when `(has-type? ~ncs ~t)])])
+                                               (into r `[~ncs (tg/iseq ~cs ~(get-type el)
+                                                                       ~(if (tg/normal-edge? el)
+                                                                          :out :in))]))))
+                                    [cs r]))]
+                            `(for ~r ~v)))
+        do-anons (fn [startsym av done]
+                   (let [target-node (last av)]
+                     (cond
+                      (anon? target-node)
+                      [:when `(seq ~(anon-vec-to-for startsym av))]
+                      ;;---
+                      (done target-node)
+                      [:when
+                       `(q/member? ~(get-name target-node)
+                                   ~(anon-vec-to-for startsym av))]
+                      ;;---
+                      ;; Not already done ArgumentVertex, so declare it!
+                      (has-type? target-node 'ArgumentVertex)
+                      [:when-let `[~(get-name target-node) ~(get-name target-node)]
+                       :when
+                       `(q/member? ~(get-name target-node)
+                                   ~(anon-vec-to-for startsym av))]
+                      ;;---
+                      :normal-v
+                      [(get-name target-node)
+                       (anon-vec-to-for startsym av)])))]
     (loop [stack [(the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -295,7 +293,7 @@
                   ;;(println av)
                   (recur (enqueue-incs target-node (pop stack) done)
                          (apply conj-done done av)
-                         (into bf (build-rpe (get-name (tg/this cur)) av done))))
+                         (into bf (do-anons (get-name (tg/this cur)) av done))))
                 (let [trg (tg/that cur)
                       done (conj-done done cur)]
                   (recur (enqueue-incs trg (pop stack) done)
@@ -305,8 +303,8 @@
                                            ~(if (tg/normal-edge? cur) :out :in))
                                 (cond
                                  (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                 (anon? trg) (build-rpe `(tg/that ~(get-name cur))
-                                                        (anon-vec trg done) done)
+                                 (anon? trg) (do-anons `(tg/that ~(get-name cur))
+                                                       (anon-vec trg done) done)
                                  ;;---
                                  (has-type? trg 'ArgumentVertex)
                                  [:when-let [(get-name trg) (get-name trg)]
