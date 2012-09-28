@@ -242,14 +242,14 @@
                        [:when `(seq (tgq/reachables
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        (done target-node)
                        [:when
                         `(q/member?  ~(get-name target-node)
                                      (tgq/reachables
                                       ~startsym
                                       ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        ;; Not already done ArgumentVertex, so declare it!
                        (has-type? target-node 'ArgumentVertex)
                        [:when-let `[~(get-name target-node) ~(get-name target-node)]
@@ -258,7 +258,7 @@
                                      (tgq/reachables
                                       ~startsym
                                       ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        :normal-v
                        [(get-name target-node)
                         `(tgq/reachables ~startsym
@@ -307,11 +307,11 @@
                                  (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  (anon? trg) (build-rpe `(tg/that ~(get-name cur))
                                                         (anon-vec trg done) done)
-;;;;;;;
+                                 ;;---
                                  (has-type? trg 'ArgumentVertex)
                                  [:when-let [(get-name trg) (get-name trg)]
                                   :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-;;;;;;;
+                                 ;;---
                                  :else (concat
                                         [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                         (when-let [t (get-type trg)]
@@ -324,11 +324,11 @@
                        (apply conj bf :when `(= ~(get-name src) (tg/this ~(get-name cur)))
                               (cond
                                (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-;;;;;;;
+                               ;;---
                                (has-type? trg 'ArgumentVertex)
                                [:when-let [(get-name trg) (get-name trg)]
                                 :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
-;;;;;;;
+                               ;;---
                                :else (concat
                                       [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                       (when-let [t (get-type trg)]
@@ -384,14 +384,14 @@
                        [:when `(seq (emfq/reachables
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        (done target-node)
                        [:when
                         `(q/member? ~(get-name target-node)
                                     (emfq/reachables
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        ;; Not already done ArgumentVertex, so declare it!
                        (has-type? target-node 'ArgumentVertex)
                        [:when-let `[~(get-name target-node) ~(get-name target-node)]
@@ -400,7 +400,7 @@
                                     (emfq/reachables
                                      ~startsym
                                      ~(anon-vec-to-rpd av)))]
-                       ;;;;;;;;;;;;;;;
+                       ;;---
                        :normal-v
                        [(get-name target-node)
                         `(emfq/reachables ~startsym ~(anon-vec-to-rpd av))])))]
