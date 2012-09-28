@@ -142,28 +142,6 @@
                          more))
              (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
 
-;;# Transformations
-
-(defmacro deftransformation
-  {:doc "Defines a match-replace transformation named `name` with optional
-  `doc-string?', optional `meta-map?, a mandatory `args` vector, and a `body`.
-  The `body` must consist of arbitrary many `defpattern` and `defrule` forms,
-  and exactly one other form, the main entry point of the transformation.  This
-  form is evaluated when the transformation is called.
-
-  All patterns, rules, and the main form of the transformation have access to
-  the `args` of the transformation."
-   :arglists '([name doc-string? meta-map? [args] & body])}
-  [tname & more]
-  (let [[tname more] (m/name-with-attributes tname more)
-        args (first more)
-        body (next more)]
-    (when-not (vector? args)
-      (errorf "No args vector specified for transformation %s." args))
-    `(defn ~tname ~(meta tname)
-       ~args
-       ~@body)))
-
 ;;# Higher order rules
 
 (defn iteratively

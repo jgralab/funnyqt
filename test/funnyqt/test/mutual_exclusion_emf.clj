@@ -120,7 +120,7 @@
   (eremove! r :blocked p)
   (eset! r :releaser p))
 
-(deftransformation apply-mutual-exclusion-sts
+(defn apply-mutual-exclusion-sts
   "Does the STS on `m`."
   [m n param-pass]
   ;; n-2 times new-rule ==> n processes in a ring
@@ -173,7 +173,7 @@
      (eset! r1 :releaser p2)))
 
 
-(deftransformation apply-mutual-exclusion-lts
+(defn apply-mutual-exclusion-lts
   "Performs the LTS transformation."
   [model n param-pass]
   ;; The main entry point

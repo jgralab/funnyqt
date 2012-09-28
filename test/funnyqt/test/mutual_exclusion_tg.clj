@@ -116,7 +116,7 @@
   (delete! [hb b])
   (create-edge! g 'Release r p))
 
-(deftransformation apply-mutual-exclusion-sts
+(defn apply-mutual-exclusion-sts
   [g n param-pass]
   ;; n-2 times new-rule ==> n processes in a ring
   (dotimes [_ (- n 2)]
@@ -167,7 +167,7 @@
      (delete! h1)
      (create-edge! g 'Release r1 p2)))
 
-(deftransformation apply-mutual-exclusion-lts
+(defn apply-mutual-exclusion-lts
   [g n param-pass]
   (dotimes [_ n]
     (request-star-rule g))
