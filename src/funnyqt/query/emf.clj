@@ -13,7 +13,7 @@
 
 ;;# Adjancencies
 
-(defn- eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
+(defn ^:private eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
   (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
     (if (instance? EReference sf)
       (if single-valued
@@ -28,7 +28,7 @@
       nil
       (errorf "No such structural feature '%s' at %s." ref eo))))
 
-(defn- zero-or-one [s]
+(defn ^:private zero-or-one [s]
   (if-not (coll? s)
     s
     (if (next s)
@@ -47,11 +47,14 @@
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (adjs-internal [this roles]
-    (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) false false))]
-        (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
-      [this]))
+  (adjs-internal
+    ([this]
+       (erefs this))
+    ([this roles]
+       (if (seq roles)
+         (when-let [a (emf2clj (eget-ref this (first roles) false false))]
+           (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
+         [this])))
   (adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true false))]
@@ -123,7 +126,7 @@
   ([obj rs container]
      (oset (mapcat #(inv-erefs % rs container) (oset obj)))))
 
-(defn- p-apply-emf
+(defn ^:private p-apply-emf
   [obj p]
   (cond
    ;; funs: --->
@@ -134,7 +137,7 @@
    (prop-name? p) (oset (mapcat #(erefs % p) (oset obj)))
    :else (errorf "Don't know how to apply %s." p)))
 
-(defn- p-restr-emf
+(defn ^:private p-restr-emf
   "EObject restriction concerning `ts` and `pred` on each object in `objs`.
   ts is a type specification (see `eclass-matcher`), `pred` a predicate."
   ([objs ts]

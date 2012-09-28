@@ -24,6 +24,8 @@
   (is (every? #(= %
                   (adj % :father :familyFather)
                   (adj % :mother :familyMother)
+                  (the (adjs % :father :familyFather))
+                  (the (adjs % :mother :familyMother))
                   (eget (eget % :father) :familyFather)
                   (eget (eget % :mother) :familyMother))
               (eallobjects family-model 'Family)))
@@ -137,4 +139,3 @@
     (is (== 3 (count as)))
     (is (= #{"Stella" "Carol" "Conzuela"}
            (into #{} (map #(eget % :firstName) as))))))
-

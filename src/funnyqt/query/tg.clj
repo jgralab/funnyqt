@@ -175,12 +175,15 @@ can compute that like so:
       (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
         (recur target (rest roles)))
       this))
-  (adjs-internal [this roles]
-    (loop [r [this], roles roles]
-      (if (and (seq roles) (seq r))
-        (recur (mapcat #(maybe-traverse % (first roles) false false) r)
-               (rest roles))
-        r)))
+  (adjs-internal
+    ([this]
+       (map that (iseq this)))
+    ([this roles]
+       (loop [r [this], roles roles]
+         (if (and (seq roles) (seq r))
+           (recur (mapcat #(maybe-traverse % (first roles) false false) r)
+                  (rest roles))
+           r))))
   (adjs*-internal [this roles]
     (loop [r [this], roles roles]
       (if (and (seq roles) (seq r))
