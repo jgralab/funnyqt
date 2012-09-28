@@ -32,9 +32,13 @@
             body (next more)]
         `(~args
           ~(if forall
-             `(doseq [~matchsyms (pattern-for ~match ~matchsyms)]
-                (when (every? (complement nil?) ~matchsyms)
-                  ~@body))
+             `(let [triggered# (atom false)]
+                (doseq [~matchsyms (pattern-for ~match ~matchsyms)]
+                  (when (every? (complement nil?) ~matchsyms)
+                    (when-not @triggered#
+                      (swap! triggered# (constantly true)))
+                    ~@body))
+                @triggered#)
              `(when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
                 (when (every? (complement nil?) ~matchsyms)
                   ~@(when debug
@@ -46,8 +50,9 @@
       `(~args ~@more))))
 
 (defmacro rule
-  "Defines a rule.  Stands to defrule (which see) in the same way as fn stands
-  to defn."
+  "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way as fn
+  stands to defn.  Also see `letrule`.
+  :debug and :forall metadata on the rule's local name are supported."
   {:arglists '([name? [args] [pattern] & body]
                  [name? ([args] [pattern] & body)+])}
   [& more]
@@ -62,13 +67,14 @@
                                               *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name)) false)
+             (doall (map (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
                          more))
-             (convert-spec name (:debug (meta name)) false more))))))
+             (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
-  Also see `rule` and `defrule`."
+  Also see `rule` and `defrule`.
+  :debug and :forall metadata on the rule's name are supported."
   {:arglists '([[rspecs] & body])}
   [rspecs & body]
   (when-not (vector? rspecs)
@@ -78,9 +84,10 @@
                                             *pattern-expansion-context*)]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
-                               (doall (map (partial convert-spec name (:debug (meta n)) false)
+                               (doall (map (partial convert-spec n (:debug (meta n))
+                                                    (:forall (meta n)))
                                            more))
-                               (convert-spec name (:debug (meta n)) false more))))
+                               (convert-spec n (:debug (meta n)) (:forall (meta n)) more))))
                  rspecs)]
        ~@body)))
 
@@ -88,8 +95,7 @@
   "Defines a rule with `name`, optional doc-string', optional `attr-map?',
   an `args` vector, an optional `pattern` vector, and following `body` code.
   Just like `defn`, overloading is supported as well.  The `pattern` vector is
-  actually optional.  If no version has it, then you should use `defn`
-  directly.
+  optional.  If no version has it, then you should use `defn` directly.
 
   `pattern` is a vector with the syntax of funnyqt.pmatch/defpattern.  The
   pattern is optional.  The purpose of this optionality is mainly overloading,
@@ -108,9 +114,18 @@
 
   `body` is applied on the match.
 
-  If the rule could be applied, then it returns the value of the last form in
-  body, and any logical true value means the rule succeeded.  Thus, one should
-  take care to always return logical true if the rule was applied.
+  Applying a rule means finding a single match and applying `body` on it.  It
+  returns the value of the last form in `body`, and any logical true value
+  means the rule succeeded.  Thus, one should take care to always return
+  logical true if the rule was applied.
+
+  If ^:forall metadata was given to the rule name, then applying the rule
+  searches all matches and applies `body` to each of them.  If at least one
+  match could be found, it succeeds automatically.  Note that applying a forall
+  rule is not equivalent to `(iteratively normal-rule)`.  The former searches
+  the model only once while the latter starts a new search every time.  Thus,
+  if `body` produces new matches, they will possibly not be found by the forall
+  rule.
 
   If a defrule form has ^:debug metadata, on every invocation of that rule
   *on-matched-rule-fn* is invoked which you can use to inspect matches."
@@ -123,9 +138,9 @@
                                               *pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name)) false)
+             (doall (map (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
                          more))
-             (convert-spec name (:debug (meta name)) false more))))))
+             (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
 
 ;;# Transformations
 

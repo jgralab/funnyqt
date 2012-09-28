@@ -192,8 +192,8 @@
     (ignore-rule model)
     (if param-pass
       (iteratively #(apply release-star-rule model
-                                         (apply take-rule model
-                                                (give-rule model))))
+                           (apply take-rule model
+                                  (give-rule model))))
       (iteratively #(do
                       (give-rule model)
                       (take-rule model)

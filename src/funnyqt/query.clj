@@ -59,7 +59,7 @@
   ([s]
      (if-let [f (first s)]
        (if (next s)
-         (errorf "seq contains more than one element: %s" s)
+         (errorf "seq contains more than one element: %s" (print-str s))
          f)
        (error "seq contains zero elements!")))
   ([pred s]

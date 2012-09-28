@@ -119,3 +119,20 @@
              (is (== 0 (ecount tree)))
              (is (== 1.65 (value (the (vseq tree)) :value))))))
 
+(deftest test-replace-binops6
+  (let [tree (bin-tree)]
+    (letrule [(^:forall repl-bin-op
+                        ([g x] [x --> y]
+                           (throw (RuntimeException. "Must not have happened.")))
+                        ([g] [b<BinaryOp> -<HasArg>-> a1<Const>
+                              b -<HasArg>-> a2<Const>
+                              :when (not= a1 a2)]
+                           (let [c (create-vertex! g 'Const)]
+                             (set-value! c :value (eval-exp b))
+                             (relink! b c nil :in))
+                           (delete! [b a1 a2])))]
+      (is (== 4 (iteratively repl-bin-op tree)))
+      (is (== 1 (vcount tree)))
+      (is (== 0 (ecount tree)))
+      (is (== 1.65 (value (the (vseq tree)) :value))))))
+
