@@ -21,7 +21,7 @@
 
 (defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
-  [name debug spec]
+  [name debug forall spec]
   (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
@@ -31,14 +31,17 @@
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          (when-let [r# (first (pattern-for ~match ~matchsyms))]
-            (when (every? (complement nil?) r#)
-              (let [~matchsyms r#]
-                ~@(when debug
-                    `((when *on-matched-rule-fn*
-                        (*on-matched-rule-fn*
-                         '~name ~args ~matchsyms))))
-                ~@body)))))
+          ~(if forall
+             `(doseq [~matchsyms (pattern-for ~match ~matchsyms)]
+                (when (every? (complement nil?) ~matchsyms)
+                  ~@body))
+             `(when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
+                (when (every? (complement nil?) ~matchsyms)
+                  ~@(when debug
+                      `((when *on-matched-rule-fn*
+                          (*on-matched-rule-fn*
+                           '~name ~args ~matchsyms))))
+                  ~@body)))))
       ;; No match given
       `(~args ~@more))))
 
@@ -59,8 +62,9 @@
                                               *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name))) more))
-             (convert-spec name (:debug (meta name)) more))))))
+             (doall (map (partial convert-spec name (:debug (meta name)) false)
+                         more))
+             (convert-spec name (:debug (meta name)) false more))))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
@@ -74,8 +78,9 @@
                                             *pattern-expansion-context*)]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
-                               (doall (map (partial convert-spec name nil) more))
-                               (convert-spec name false more))))
+                               (doall (map (partial convert-spec name (:debug (meta n)) false)
+                                           more))
+                               (convert-spec name (:debug (meta n)) false more))))
                  rspecs)]
        ~@body)))
 
@@ -118,8 +123,9 @@
                                               *pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name))) more))
-             (convert-spec name (:debug (meta name)) more))))))
+             (doall (map (partial convert-spec name (:debug (meta name)) false)
+                         more))
+             (convert-spec name (:debug (meta name)) false more))))))
 
 ;;# Transformations
 
