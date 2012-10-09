@@ -398,58 +398,79 @@ Have fun!"
                      ^:volatile-mutable omega
                      ^:volatile-mutable attrs
                      ^:volatile-mutable adjs
+                     ^:volatile-mutable manifested
                      ^:volatile-mutable manifestation]
   TmpAEOps
   (manifest [this graph]
-    (or manifestation
-        ;; TODO
-        (u/errorf "Manifestation not yet implemented!")))
+    ;; TODO: Note that manifestation can already exist.
+    (when-not manifested
+      (u/errorf "Manifestation not yet implemented!"))
+    manifestation)
   (set-tmp-kind [this k]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (when (and kind (not= kind k))
       (u/errorf "Cannot reset kind %s to %s." kind k))
     (set! kind k))
   (set-tmp-type [this t]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (when (and type (not= type t))
       (u/errorf "Cannot reset type %s to %s." type t))
     (set! type t))
   (add-tmp-attr [this attr val]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (set! attrs (assoc attrs attr val)))
   (as-map [this]
-    {:type type :attrs attrs :adjs adjs})
+    {:kind kind :type type :alpha alpha :omega omega :attrs attrs :adjs adjs
+     :manifested manifested :manifestation manifestation})
   TmpVertexOps
   (add-tmp-adj [this role trg]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (set! adjs (conj adjs [role trg])))
   TmpEdgeOps
   (set-tmp-alpha [this al]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (if (and alpha (not= alpha al))
       (u/errorf "The alpha vertex is already set to %s. Cannot reset to %s." alpha al)
       (set! alpha al)))
   (set-tmp-omega [this om]
-    (when manifestation
+    (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (if (and omega (not= omega om))
       (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
       (set! omega om))))
+
+(defn make-tmp-element []
+  (->TmpElement nil nil nil nil {} [] false nil))
 
 (defn make-tmp-vertex [type]
   (let [^String n (name type)]
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement :vertex type nil nil {} [] nil))
+  (->TmpElement :vertex type nil nil {} [] false nil))
 
 (defn make-tmp-edge [type al om]
-  (->TmpElement :edge type al om {} nil nil))
+  (let [^String n (name type)]
+    (when (or (.startsWith n "!")
+              (.endsWith n "!"))
+      (u/errorf "Type must be a plain type (no !): %s" type)))
+  (->TmpElement :edge type al om {} nil false nil))
+
+(defn tmp-element? [elem]
+  (instance? funnyqt.relational.tg.TmpElement elem))
+
+(defn tmp-vertex? [elem]
+  (and (tmp-element? elem)
+       (= :vertex (.kind ^funnyqt.relational.tg.TmpElement elem))))
+
+(defn tmp-edge? [elem]
+  (and (tmp-element? elem)
+       (= :edge (.kind ^funnyqt.relational.tg.TmpElement elem))))
 
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
@@ -471,10 +492,9 @@ Have fun!"
              (if (or (and (funnyqt.tg/vertex? ~'gv)
                           (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
                           (p/has-type? ~'gv '~na))
-                     (and (satisfies? TmpAEOps ~'gv)
-                          (or (= '~na (.type ~'gv))
-                              (and (nil? (.type ~'gv))
-                                   (set-tmp-type ~'gv '~na)))))
+                     (and (tmp-element? ~'gv)
+                          (set-tmp-kind ~'gv :vertex)
+                          (set-tmp-type ~'gv '~na)))
                (succeed ~'a)
                (fail ~'a))))))))
 
@@ -547,15 +567,21 @@ Have fun!"
                                     (funnyqt.tg/attributed-element-class ~'gae)
                                     ~(name attr))
                      (unify ~'a ~'val (funnyqt.tg/value ~'gae ~attr)))
-                (and (satisfies? TmpAEOps ~'gae)
+                (and (tmp-element? ~'gae)
                      (add-tmp-attr ~'gae ~attr (walk ~'a ~'val))
                      (succeed ~'a))
                 (fail ~'a))
 
             :else (to-stream
-                   (->> (for [~'oae (~seqf ~'*model* '~ts)
-                              :let [~'oval (funnyqt.tg/value ~'oae ~attr)]]
-                          (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
+                   (->> (concat (for [~'oae (~seqf ~'*model* '~ts)
+                                      :let [~'oval (funnyqt.tg/value ~'oae ~attr)]]
+                                  (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
+                                (if rel/*make-tmp-elements*
+                                  [(let [tmp# (make-tmp-element)
+                                         gval# (walk ~'a ~'val)]
+                                     (add-tmp-attr tmp# ~attr gval#)
+                                     (unify ~'a [~'ae ~'val] [tmp# gval#]))]
+                                  []))
                         (remove not)))))))))
 
 (defn ^:private create-reference-relation
