@@ -397,8 +397,13 @@ Have fun!"
                      ^:volatile-mutable alpha
                      ^:volatile-mutable omega
                      ^:volatile-mutable attrs
-                     ^:volatile-mutable adjs]
+                     ^:volatile-mutable adjs
+                     ^:volatile-mutable manifestation]
   TmpAEOps
+  (manifest [this graph]
+    (or manifestation
+        ;; TODO
+        (u/errorf "Manifestation not yet implemented!")))
   (set-tmp-kind [this k]
     (when (and kind (not= kind k))
       (u/errorf "Cannot reset kind %s to %s." kind k))
