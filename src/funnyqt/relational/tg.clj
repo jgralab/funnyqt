@@ -405,26 +405,38 @@ Have fun!"
         ;; TODO
         (u/errorf "Manifestation not yet implemented!")))
   (set-tmp-kind [this k]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (when (and kind (not= kind k))
       (u/errorf "Cannot reset kind %s to %s." kind k))
     (set! kind k))
   (set-tmp-type [this t]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (when (and type (not= type t))
       (u/errorf "Cannot reset type %s to %s." type t))
     (set! type t))
   (add-tmp-attr [this attr val]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (set! attrs (assoc attrs attr val)))
   (as-map [this]
     {:type type :attrs attrs :adjs adjs})
   TmpVertexOps
   (add-tmp-adj [this role trg]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (set! adjs (conj adjs [role trg])))
   TmpEdgeOps
   (set-tmp-alpha [this al]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (if (and alpha (not= alpha al))
       (u/errorf "The alpha vertex is already set to %s. Cannot reset to %s." alpha al)
       (set! alpha al)))
   (set-tmp-omega [this om]
+    (when manifestation
+      (u/errorf "Cannot modify a manifested element!"))
     (if (and omega (not= omega om))
       (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
       (set! omega om))))
@@ -434,10 +446,10 @@ Have fun!"
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement :vertex type nil nil {} []))
+  (->TmpElement :vertex type nil nil {} [] nil))
 
 (defn make-tmp-edge [type al om]
-  (->TmpElement :edge type al om {} nil))
+  (->TmpElement :edge type al om {} nil nil))
 
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
