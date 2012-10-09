@@ -247,17 +247,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (abstract? [this]
     (.isAbstract this)))
 
-(defprotocol ^:private Internalness
-  "A protocol for checking if a graph element class is internal."
-  (default-class? [this]
-    "Returns true iff the given graph element class is internal (i.e., it is
-    either Vertex or Edge but no subclass)."))
-
-(extend-protocol Internalness
-  GraphElementClass
-  (default-class? [this]
-    (.isDefaultGraphElementClass this)))
-
 (defprotocol ^:private Resolving
   "A protocol for resolving schema classes and domains."
   (attributed-element-class [this] [this qname]
