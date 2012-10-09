@@ -159,7 +159,7 @@ Have fun!"
   (:use clojure.core.logic
         funnyqt.relational.util)
   (:require funnyqt.tg
-            funnyqt.protocols
+            [funnyqt.protocols :as p]
             funnyqt.query.tg
             funnyqt.query
             [funnyqt.utils :as u]
@@ -185,13 +185,13 @@ Have fun!"
           (and (ground? ~'ge) (ground? ~'gt))
           (if (and (funnyqt.tg/attributed-element? ~'ge)
                    (or (coll? ~'gt) (symbol? ~'gt))
-                   (funnyqt.protocols/has-type? ~'ge ~'gt))
+                   (p/has-type? ~'ge ~'gt))
             (succeed ~'a)
             (fail ~'a))
 
           (ground? ~'ge)
           (or (and (funnyqt.tg/attributed-element? ~'ge)
-                   (unify ~'a ~'t (funnyqt.protocols/qname ~'ge)))
+                   (unify ~'a ~'t (p/qname ~'ge)))
               (fail ~'a))
 
           (ground? ~'gt)
@@ -204,7 +204,7 @@ Have fun!"
           :else (to-stream
                  (->> (for [~'elem (concat (funnyqt.tg/vseq ~*model*-var-symbol)
                                            (funnyqt.tg/eseq ~*model*-var-symbol))]
-                        (unify ~'a [~'e ~'t] [~'elem (funnyqt.protocols/qname ~'elem)]))
+                        (unify ~'a [~'e ~'t] [~'elem (p/qname ~'elem)]))
                       (remove not))))))))
 
 (defmacro make-vertexo [*model*-var-symbol]
@@ -378,6 +378,62 @@ Have fun!"
                                  s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
+(defprotocol TmpAEOps
+  (set-tmp-kind [this kind])
+  (set-tmp-type [this type])
+  (add-tmp-attr [this attr val])
+  (manifest [this graph])
+  (as-map [this]))
+
+(defprotocol TmpVertexOps
+  (add-tmp-adj [this role trg]))
+
+(defprotocol TmpEdgeOps
+  (set-tmp-alpha [this al])
+  (set-tmp-omega [this om]))
+
+(deftype TmpElement [^:volatile-mutable kind
+                     ^:volatile-mutable type
+                     ^:volatile-mutable alpha
+                     ^:volatile-mutable omega
+                     ^:volatile-mutable attrs
+                     ^:volatile-mutable adjs]
+  TmpAEOps
+  (set-tmp-kind [this k]
+    (when (and kind (not= kind k))
+      (u/errorf "Cannot reset kind %s to %s." kind k))
+    (set! kind k))
+  (set-tmp-type [this t]
+    (when (and type (not= type t))
+      (u/errorf "Cannot reset type %s to %s." type t))
+    (set! type t))
+  (add-tmp-attr [this attr val]
+    (set! attrs (assoc attrs attr val)))
+  (as-map [this]
+    {:type type :attrs attrs :adjs adjs})
+  TmpVertexOps
+  (add-tmp-adj [this role trg]
+    (set! adjs (conj adjs [role trg])))
+  TmpEdgeOps
+  (set-tmp-alpha [this al]
+    (if (and alpha (not= alpha al))
+      (u/errorf "The alpha vertex is already set to %s. Cannot reset to %s." alpha al)
+      (set! alpha al)))
+  (set-tmp-omega [this om]
+    (if (and omega (not= omega om))
+      (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
+      (set! omega om))))
+
+(defn make-tmp-vertex [type]
+  (let [^String n (name type)]
+    (when (or (.startsWith n "!")
+              (.endsWith n "!"))
+      (u/errorf "Type must be a plain type (no !): %s" type)))
+  (->TmpElement :vertex type nil nil {} []))
+
+(defn make-tmp-edge [type al om]
+  (->TmpElement :edge type al om {} nil))
+
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
   [vc]
@@ -390,11 +446,18 @@ Have fun!"
            (if (fresh? ~'gv)
              (to-stream
               (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
-                        (funnyqt.tg/vseq ~'*model* '~na))
+                        (concat (funnyqt.tg/vseq ~'*model* '~na)
+                                (if rel/*make-tmp-elements*
+                                  [(make-tmp-vertex '~na)]
+                                  [])))
                    (remove not)))
-             (if (and (funnyqt.tg/vertex? ~'gv)
-                      (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
-                      (funnyqt.protocols/has-type? ~'gv '~na))
+             (if (or (and (funnyqt.tg/vertex? ~'gv)
+                          (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
+                          (p/has-type? ~'gv '~na))
+                     (and (satisfies? TmpAEOps ~'gv)
+                          (or (= '~na (.type ~'gv))
+                              (and (nil? (.type ~'gv))
+                                   (set-tmp-type ~'gv '~na)))))
                (succeed ~'a)
                (fail ~'a))))))))
 
@@ -446,7 +509,7 @@ Have fun!"
   "Creates relations for the given attribute."
   [[attr aecs]]   ;;; attr is an attr name symbol, aecs the set of classes
                   ;;; having such an attr
-  (let [ts     (mapv #(funnyqt.protocols/qname %) aecs) ;; a type spec
+  (let [ts     (mapv #(p/qname %) aecs) ;; a type spec
         seqf   (cond
                 (every? #(instance? VertexClass %) aecs) 'funnyqt.tg/vseq
                 (every? #(instance? EdgeClass %)   aecs) 'funnyqt.tg/eseq
@@ -467,6 +530,9 @@ Have fun!"
                                     (funnyqt.tg/attributed-element-class ~'gae)
                                     ~(name attr))
                      (unify ~'a ~'val (funnyqt.tg/value ~'gae ~attr)))
+                (and (satisfies? TmpAEOps ~'gae)
+                     (add-tmp-attr ~'gae ~attr (walk ~'a ~'val))
+                     (succeed ~'a))
                 (fail ~'a))
 
             :else (to-stream

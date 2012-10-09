@@ -10,6 +10,8 @@
 
 (def ^:dynamic *model*)
 
+(def ^:dynamic *make-tmp-elements* false)
+
 (defmacro run*-on-model
   "Like `clojure.core.logic/run*` but bind funnyqt.relational/*model* to
   `model` beforehand."
