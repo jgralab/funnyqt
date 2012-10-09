@@ -876,25 +876,29 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Lazy Vertex, Edge, Incidence Seqs
 
+(defn ^:private vseq-internal-1 [v tm]
+  (lazy-seq
+   (let [n (next-vertex v tm)]
+     (and n (cons n (vseq-internal-1 n tm))))))
+
 (defn ^:private vseq-internal [g tm]
   (condp instance? g
-    Vertex (lazy-seq
-            (let [n (next-vertex g tm)]
-              (and n (cons n (vseq-internal n tm)))))
-
+    Vertex (vseq-internal-1 g tm)
     Graph (lazy-seq
            (let [f (first-vertex g tm)]
-             (and f (cons f (vseq-internal f tm)))))))
+             (and f (cons f (vseq-internal-1 f tm)))))))
+
+(defn ^:private rvseq-internal-1 [v tm]
+  (lazy-seq
+   (let [n (prev-vertex v tm)]
+     (and n (cons n (rvseq-internal-1 n tm))))))
 
 (defn ^:private rvseq-internal [g tm]
   (condp instance? g
-    Vertex (lazy-seq
-            (let [n (prev-vertex g tm)]
-              (and n (cons n (rvseq-internal n tm)))))
-
+    Vertex (rvseq-internal-1 g tm)
     Graph (lazy-seq
            (let [f (last-vertex g tm)]
-             (and f (cons f (rvseq-internal f tm)))))))
+             (and f (cons f (rvseq-internal-1 f tm)))))))
 
 (defn vseq
   "Returns the lazy seq of vertices of `g` restricted by the type spec `ts`.
@@ -914,23 +918,29 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([g ts]
      (rvseq-internal g (type-matcher g ts))))
 
+(defn ^:private eseq-internal-1 [e tm]
+  (lazy-seq
+   (let [n (next-edge e tm)]
+     (and n (cons n (eseq-internal-1 n tm))))))
+
 (defn ^:private eseq-internal [g tm]
   (condp instance? g
-    Edge (lazy-seq
-          (let [n (next-edge g tm)]
-            (and n (cons n (eseq-internal n tm)))))
+    Edge (eseq-internal-1 g tm)
     Graph (lazy-seq
            (let [f (first-edge g tm)]
-             (and f (cons f (eseq-internal f tm)))))))
+             (and f (cons f (eseq-internal-1 f tm)))))))
+
+(defn ^:private reseq-internal-1 [e tm]
+  (lazy-seq
+   (let [n (prev-edge e tm)]
+     (and n (cons n (reseq-internal-1 n tm))))))
 
 (defn ^:private reseq-internal [g tm]
   (condp instance? g
-    Edge (lazy-seq
-          (let [n (prev-edge g tm)]
-            (and n (cons n (reseq-internal n tm)))))
+    Edge (reseq-internal-1 g tm)
     Graph (lazy-seq
            (let [f (last-edge g tm)]
-             (and f (cons f (reseq-internal f tm)))))))
+             (and f (cons f (reseq-internal-1 f tm)))))))
 
 (defn eseq
   "Returns the lazy seq of edges of `e` restricted by `ts`.
@@ -950,23 +960,29 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ([g ts]
      (reseq-internal g (type-matcher g ts))))
 
+(defn ^:private iseq-internal-1 [e tm dm]
+  (lazy-seq
+   (let [n (next-inc e tm dm)]
+     (and n (cons n (iseq-internal-1 n tm dm))))))
+
 (defn ^:private iseq-internal [v tm dm]
   (condp instance? v
-    Edge (lazy-seq
-          (let [n (next-inc v tm dm)]
-            (and n (cons n (iseq-internal n tm dm)))))
+    Edge (iseq-internal-1 v tm dm)
     Vertex (lazy-seq
             (let [f (first-inc v tm dm)]
-              (and f (cons f (iseq-internal f tm dm)))))))
+              (and f (cons f (iseq-internal-1 f tm dm)))))))
+
+(defn ^:private riseq-internal-1 [e tm dm]
+  (lazy-seq
+   (let [n (prev-inc e tm dm)]
+     (and n (cons n (riseq-internal-1 n tm dm))))))
 
 (defn ^:private riseq-internal [v tm dm]
   (condp instance? v
-    Edge (lazy-seq
-          (let [n (prev-inc v tm dm)]
-            (and n (cons n (riseq-internal n tm dm)))))
+    Edge (riseq-internal-1 v tm dm)
     Vertex (lazy-seq
             (let [f (last-inc v tm dm)]
-              (and f (cons f (riseq-internal f tm dm)))))))
+              (and f (cons f (riseq-internal-1 f tm dm)))))))
 
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
