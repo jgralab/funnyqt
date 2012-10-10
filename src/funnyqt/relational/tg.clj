@@ -528,11 +528,11 @@ Have fun!"
 
               (and (ground? ~'gal) (ground? ~'gom)
                    (or (tmp-element? ~'gal) (tmp-element? ~'gom)))
-              (or (unify ~'a [~'e ~'al ~'om]
+              (or (unify ~'a ~'e
                          (let [tmp# (make-tmp-edge ~'*model* '~na)]
                            (set-tmp-alpha tmp# ~'gal)
                            (set-tmp-omega tmp# ~'gom)
-                           [tmp# ~'gal ~'gom]))
+                           tmp#))
                   (fail ~'a))
 
               (and (ground? ~'gal) (ground? ~'gom)
