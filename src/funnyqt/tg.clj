@@ -785,25 +785,18 @@ See `tgtree`, `show-graph`, and `print-graph`."
   ;; nil stays nil/null
   nil (clj2jgval [_] nil))
 
-(defprotocol ^:private ValueAccess
-  "Protocol for access to attribute values and record components."
-  (value [this attr-or-comp]
-    "Returns `this` attributed element's or record's `attr-or-comp` value.")
-  (set-value! [this attr-or-comp val]
-    "Sets `this` attributed element's or record's `attr` value to `val` and
-    returns `this`."))
+(defn value
+  "Returns `ae-or-rec`s (an attributed element or record) `attr-or-comp` value."
+  [ae-or-rec attr-or-comp]
+  (condp instance? ae-or-rec
+    AttributedElement (.getAttribute ^AttributedElement ae-or-rec (name attr-or-comp))
+    Record            (.getComponent ^Record ae-or-rec (name attr-or-comp))))
 
-(extend-protocol ValueAccess
-  AttributedElement
-  (value [ae attr]
-    (.getAttribute ae (name attr)))
-
-  (set-value! [ae attr val]
-    (doto ae (.setAttribute (name attr) (clj2jgval val))))
-
-  Record
-  (value [rec comp]
-    (.getComponent rec (name comp))))
+(defn set-value!
+  "Sets `ae`s (an attributed element) `attr` value to `val` and returns `ae`."
+  [^AttributedElement ae attr val]
+  (doto ae
+    (.setAttribute (name attr) (clj2jgval val))))
 
 (defn record
   "Creates a record of type `t` in the schema of element `e` with component
