@@ -793,50 +793,57 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Element Order
 
-(defprotocol ^:private ElementOrder
-  "Protocol for querying and setting the global order of vertices and edges,
-  and the local order of incidences."
-  (before? [this other]
-    "Returns true, iff `this` element is defined before `other` in the global
-  vertex/edge sequence.")
-  (after? [this other]
-    "Returns true, iff `this` element is defined after `other` in the global
-  vertex/edge sequence.")
-  (put-before! [this other]
-    "Puts `this` element directly before `other` in the graph's vertex/edge
-  sequence.")
-  (put-after! [this other]
-    "Puts `this` element directly after `other` in the graph's vertex/edge
-  sequence.")
-  (before-inc? [this other]
-    "Returns true, iff `this` incidence is defined before `other` in the
-  incidence sequence of the current vertex.")
-  (after-inc? [this other]
-    "Returns true, iff `this` incidence is defined after `other` in the
-  incidence sequence of the current vertex.")
-  (put-before-inc! [this other]
-    "Puts `this` incidence directly before `other` in the current vertex's
-  incidence sequence.")
-  (put-after-inc! [this other]
-    "Puts `this` incidence directly ofter `other` in the current vertex's
-  incidence sequence."))
+(defn before?
+  "Returns true iff `a` is defined before `b` in the global vertex/edge
+  sequence."
+  [a b]
+  (condp instance? a
+    Vertex (.isBefore ^Vertex a b)
+    Edge   (.isBeforeEdge ^Edge a b)))
 
-(extend-protocol ElementOrder
-  Vertex
-  (before? [this other]     (.isBefore this other))
-  (after? [this other]      (.isAfter this other))
-  (put-before! [this other] (.putBefore this other))
-  (put-after! [this other]  (.putAfter this other))
+(defn put-before!
+  "Puts `a` directly before `b` in the graph's vertex/edge sequence."
+  [a b]
+  (condp instance? a
+    Vertex (.putBefore ^Vertex a b)
+    Edge   (.putBeforeEdge ^Edge a b)))
 
-  Edge
-  (before? [this other]     (.isBeforeEdge this other))
-  (after? [this other]      (.isAfterEdge this other))
-  (put-before! [this other] (.putBeforeEdge this other))
-  (put-after! [this other]  (.putAfterEdge this other))
-  (before-inc? [this other] (.isBeforeIncidence this other))
-  (after-inc? [this other]  (.isAfterIncidence this other))
-  (put-before-inc! [this other] (.putIncidenceBefore this other))
-  (put-after-inc! [this other]  (.putIncidenceAfter this other)))
+(defn after?
+  "Returns true iff `a` is defined after `b` in the global vertex/edge
+  sequence."
+  [a b]
+  (condp instance? a
+    Vertex (.isAfter ^Vertex a b)
+    Edge   (.isAfterEdge ^Edge a b)))
+
+(defn put-after!
+  "Puts `a` directly after `b` in the graph's vertex/edge sequence."
+  [a b]
+  (condp instance? a
+    Vertex (.putAfter ^Vertex a b)
+    Edge   (.putAfterEdge ^Edge a b)))
+
+(defn before-inc?
+  "Returns true iff `a` is defined before `b` in the incidence sequence of the
+  current vertex."
+  [^Edge a b]
+  (.isBeforeIncidence a b))
+
+(defn put-before-inc!
+  "Puts `a` directly before `b` in the current vertex's incidence sequence."
+  [^Edge a b]
+  (.putIncidenceBefore a b))
+
+(defn after-inc?
+  "Returns true iff `a` is defined after `b` in the incidence sequence of the
+  current vertex."
+  [^Edge a b]
+  (.isAfterIncidence a b))
+
+(defn put-after-inc!
+  "Puts `a` directly after `b` in the current vertex's incidence sequence."
+  [^Edge a b]
+  (.putIncidenceAfter a b))
 
 ;;## Lazy Vertex, Edge, Incidence Seqs
 
