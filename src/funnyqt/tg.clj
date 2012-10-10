@@ -247,32 +247,21 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (abstract? [this]
     (.isAbstract this)))
 
-(defprotocol ^:private Resolving
-  "A protocol for resolving schema classes and domains."
-  (domain [this qname]
-    "Returns the domain of the domain qname in this element's schema.
-  qname may be a symbol, keyword, string, or a vector like [Set Integer]
-  corresponding to the domain Set<Integer>, or [Map Integer [List String]]
-  corresponding to Map<Integer, List<String>>."))
-
-(declare domain-qname)
-(defn ^:private domain-vector-qname
-  [v]
-  (when (seq v)
-    (let [s (map domain-qname (rest v))
-          l (last s)
-          f (butlast s)]
-      (apply str (first v) "<"
-             (concat (interleave f (iterate (constantly ", ") ", "))
-                     [l ">"])))))
-
 (defn domain-qname
   "Transforms a domain qname given as symbol, keyword, string, or vector to a
   canonical string representation:"
   [qn]
-  (if (coll? qn)
-    (domain-vector-qname qn)
-    (name qn)))
+  (letfn [(domain-vector-qname [v]
+            (when (seq v)
+              (let [s (map domain-qname (rest v))
+                    l (last s)
+                    f (butlast s)]
+                (apply str (first v) "<"
+                       (concat (interleave f (iterate (constantly ", ") ", "))
+                               [l ">"])))))]
+    (if (coll? qn)
+      (domain-vector-qname qn)
+      (name qn))))
 
 ;; TODO: We need to think about this.  Unlimited caching definitively isn't the
 ;; right thing, and it'll become wrong when metatransforms rename/delete/create
@@ -337,20 +326,15 @@ See `tgtree`, `show-graph`, and `print-graph`."
     AttributedElementClass (.getSchema ^AttributedElementClass elem)
     Domain                 (.getSchema ^Domain elem)))
 
-(extend-protocol Resolving
-  AttributedElement
-  (domain [elem qname]
-    (or (.getDomain (.getSchema elem) (domain-qname qname))
-        (errorf "No such domain %s" (domain-qname qname))))
-
-  AttributedElementClass
-  (domain [aec qname]
-    (or (.getDomain (.getSchema aec) (domain-qname qname))
-        (errorf "No such domain %s" (domain-qname qname))))
-
-  Schema
-  (domain [s qname]
-    (or (.getDomain s (domain-qname qname))
+(defn domain
+  "Returns the Domain `qname` in the schema of `elem`.  `elem` may be an
+  AttributedElement, AttributedElementClass, or a Schema."
+  [elem qname]
+  (if (or (instance? AttributedElement elem)
+          (instance? AttributedElementClass elem))
+    (or (.getDomain ^Schema (schema elem) (domain-qname qname))
+        (errorf "No such domain %s" (domain-qname qname)))
+    (or (.getDomain ^Schema elem (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname)))))
 
 (defn schema-graph
