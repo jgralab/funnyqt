@@ -385,9 +385,6 @@ Have fun!"
   (manifest [this])
   (as-map [this]))
 
-(defprotocol TmpVertexOps
-  (add-tmp-adj [this role trg]))
-
 (defprotocol TmpEdgeOps
   (set-tmp-alpha [this al])
   (set-tmp-omega [this om]))
@@ -398,7 +395,6 @@ Have fun!"
                      ^:volatile-mutable alpha
                      ^:volatile-mutable omega
                      ^:volatile-mutable attrs
-                     ^:volatile-mutable adjs
                      ^:volatile-mutable manifested
                      ^:volatile-mutable manifestation]
   TmpAEOps
@@ -428,13 +424,8 @@ Have fun!"
        (= v val) val
        :else (u/errorf "Cannot reset %s value from %s to %s." attr v val))))
   (as-map [this]
-    {:kind kind :type type :alpha alpha :omega omega :attrs attrs :adjs adjs
+    {:kind kind :type type :alpha alpha :omega omega :attrs attrs
      :manifested manifested :manifestation manifestation})
-  TmpVertexOps
-  (add-tmp-adj [this role trg]
-    (when manifested
-      (u/errorf "Cannot modify a manifested element!"))
-    (set! adjs (conj adjs [role trg])))
   TmpEdgeOps
   (set-tmp-alpha [this al]
     (when manifested
@@ -450,21 +441,21 @@ Have fun!"
       (set! omega om))))
 
 (defn make-tmp-element [g]
-  (->TmpElement g nil nil nil nil {} [] false nil))
+  (->TmpElement g nil nil nil nil {} false nil))
 
 (defn make-tmp-vertex [g type]
   (let [^String n (name type)]
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement g :vertex type nil nil {} [] false nil))
+  (->TmpElement g :vertex type nil nil {} false nil))
 
 (defn make-tmp-edge [g type]
   (let [^String n (name type)]
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement g :edge type nil nil {} nil false nil))
+  (->TmpElement g :edge type nil nil {} false nil))
 
 (defn tmp-element? [elem]
   (instance? funnyqt.relational.tg.TmpElement elem))
@@ -490,7 +481,8 @@ Have fun!"
             (ground? ~'gv)
             (or (and (tg/vertex? ~'gv)
                      (tg/contains-vertex? ~'*model* ~'gv)
-                     (p/has-type? ~'gv '~na))
+                     (p/has-type? ~'gv '~na)
+                     (succeed ~'a))
                 (and rel/*make-tmp-elements*
                      (tmp-element? ~'gv)
                      (set-tmp-kind ~'gv :vertex)
