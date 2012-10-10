@@ -253,9 +253,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
     "Returns the domain of the domain qname in this element's schema.
   qname may be a symbol, keyword, string, or a vector like [Set Integer]
   corresponding to the domain Set<Integer>, or [Map Integer [List String]]
-  corresponding to Map<Integer, List<String>>.")
-  (schema [this]
-    "Returns the schema of this element."))
+  corresponding to Map<Integer, List<String>>."))
 
 (declare domain-qname)
 (defn ^:private domain-vector-qname
@@ -330,31 +328,30 @@ See `tgtree`, `show-graph`, and `print-graph`."
                   ((aec-simple-name-map s) (name qname)))
              (errorf "No such attributed element class %s" (name qname)))))))
 
+(defn schema
+  "Returns the schema of `elem` (an AttributedElement, AttributedElementClass,
+  or a Domain)."
+  [elem]
+  (condp instance? elem
+    AttributedElement      (.getSchema ^AttributedElement elem)
+    AttributedElementClass (.getSchema ^AttributedElementClass elem)
+    Domain                 (.getSchema ^Domain elem)))
+
 (extend-protocol Resolving
   AttributedElement
   (domain [elem qname]
     (or (.getDomain (.getSchema elem) (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
-  (schema [ae]
-    (.getSchema ae))
-
-  Domain
-  (schema [this]
-    (.getSchema this))
 
   AttributedElementClass
   (domain [aec qname]
     (or (.getDomain (.getSchema aec) (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
-  (schema [this]
-    (.getSchema this))
 
   Schema
   (domain [s qname]
     (or (.getDomain s (domain-qname qname))
-        (errorf "No such domain %s" (domain-qname qname))))
-  (schema [this]
-    this))
+        (errorf "No such domain %s" (domain-qname qname)))))
 
 (defn schema-graph
   "Returns the SchemaGraph of `g`."
