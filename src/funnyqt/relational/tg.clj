@@ -527,12 +527,29 @@ Have fun!"
                   (fail ~'a))
 
               (and (ground? ~'gal) (ground? ~'gom)
-                   (or (tmp-element? ~'gal) (tmp-element? ~'gom))
-                   (unify ~'a [~'e ~'al ~'om]
-                          (let [tmp# (make-tmp-edge ~'*model* '~na)]
-                            (set-tmp-alpha tmp# ~'gal)
-                            (set-tmp-omega tmp# ~'gom)
-                            [tmp# ~'gal ~'gom])))
+                   (or (tmp-element? ~'gal) (tmp-element? ~'gom)))
+              (or (unify ~'a [~'e ~'al ~'om]
+                         (let [tmp# (make-tmp-edge ~'*model* '~na)]
+                           (set-tmp-alpha tmp# ~'gal)
+                           (set-tmp-omega tmp# ~'gom)
+                           [tmp# ~'gal ~'gom]))
+                  (fail ~'a))
+
+              (and (ground? ~'gal) (ground? ~'gom)
+                   (tg/vertex? ~'gal) (tg/vertex? ~'gom))
+              (to-stream
+               (->> (concat
+                     (map (fn [~'inc]
+                            (when (= ~'gom (tg/omega ~'inc))
+                              (unify ~'a ~'e ~'inc)))
+                          (tg/iseq ~'gal '~na :out))
+                     (if rel/*make-tmp-elements*
+                       (let [tmp# (make-tmp-edge ~'*model* '~na)]
+                         (set-tmp-alpha tmp# ~'gal)
+                         (set-tmp-omega tmp# ~'gom)
+                         [(unify ~'a ~'e tmp#)])
+                       []))
+                     (remove not)))
 
               (ground? ~'gal)
               (cond
@@ -542,25 +559,6 @@ Have fun!"
                             (unify ~'a [~'e ~'om]
                                    [~'incidence (tg/omega ~'incidence)]))
                           (tg/iseq ~'gal '~na :out))
-                     (remove not)))
-
-               (and rel/*make-tmp-elements*
-                    (tmp-element? ~'gal))
-               (to-stream
-                (->> (concat
-                      (map (fn [om#]
-                             (unify ~'a [~'e ~'om]
-                                    [(doto (make-tmp-edge ~'*model* '~na)
-                                       (set-tmp-alpha ~'gal)
-                                       (set-tmp-omega om#))
-                                     om#]))
-                           (tg/vseq ~'*model* '~to-vc-qn))
-                      [(unify ~'a [~'e ~'om]
-                              (let [tmpe# (make-tmp-edge ~'*model* '~na)
-                                    tmpo# (make-tmp-vertex ~'*model* '~to-vc-qn)]
-                                (set-tmp-alpha tmpe# ~'gal)
-                                (set-tmp-omega tmpe# tmpo#)
-                                [tmpe# tmpo#]))])
                      (remove not)))
 
                :else (fail ~'a))
@@ -573,25 +571,6 @@ Have fun!"
                             (unify ~'a [~'e ~'al]
                                    [~'incidence (tg/alpha ~'incidence)]))
                           (tg/iseq ~'gom '~na :in))
-                     (remove not)))
-
-               (and rel/*make-tmp-elements*
-                    (tmp-element? ~'gom))
-               (to-stream
-                (->> (concat
-                      (map (fn [al#]
-                             (unify ~'a [~'e ~'al]
-                                    [(doto (make-tmp-edge ~'*model* '~na)
-                                       (set-tmp-alpha al#)
-                                       (set-tmp-omega ~'gom))
-                                     al#]))
-                           (tg/vseq ~'*model* '~from-vc-qn))
-                      [(unify ~'a [~'e ~'al]
-                              (let [tmpe# (make-tmp-edge ~'*model* '~na)
-                                    tmpa# (make-tmp-vertex ~'*model* '~from-vc-qn)]
-                                (set-tmp-alpha tmpe# tmpa#)
-                                (set-tmp-omega tmpe# ~'gom)
-                                [tmpe# tmpa#]))])
                      (remove not)))
 
                :else (fail ~'a))
