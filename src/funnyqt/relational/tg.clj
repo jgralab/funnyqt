@@ -158,7 +158,7 @@ Have fun!"
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
         funnyqt.relational.util)
-  (:require funnyqt.tg
+  (:require [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]
             funnyqt.query.tg
             funnyqt.query
@@ -183,27 +183,27 @@ Have fun!"
              ~'gt (walk ~'a ~'t)]
          (cond
           (and (ground? ~'ge) (ground? ~'gt))
-          (if (and (funnyqt.tg/attributed-element? ~'ge)
+          (if (and (tg/attributed-element? ~'ge)
                    (or (coll? ~'gt) (symbol? ~'gt))
                    (p/has-type? ~'ge ~'gt))
             (succeed ~'a)
             (fail ~'a))
 
           (ground? ~'ge)
-          (or (and (funnyqt.tg/attributed-element? ~'ge)
+          (or (and (tg/attributed-element? ~'ge)
                    (unify ~'a ~'t (p/qname ~'ge)))
               (fail ~'a))
 
           (ground? ~'gt)
           (to-stream
            (->> (map #(unify ~'a ~'e %)
-                     (concat (funnyqt.tg/vseq ~*model*-var-symbol ~'gt)
-                             (funnyqt.tg/eseq ~*model*-var-symbol ~'gt)))
+                     (concat (tg/vseq ~*model*-var-symbol ~'gt)
+                             (tg/eseq ~*model*-var-symbol ~'gt)))
                 (remove not)))
 
           :else (to-stream
-                 (->> (for [~'elem (concat (funnyqt.tg/vseq ~*model*-var-symbol)
-                                           (funnyqt.tg/eseq ~*model*-var-symbol))]
+                 (->> (for [~'elem (concat (tg/vseq ~*model*-var-symbol)
+                                           (tg/eseq ~*model*-var-symbol))]
                         (unify ~'a [~'e ~'t] [~'elem (p/qname ~'elem)]))
                       (remove not))))))))
 
@@ -216,10 +216,10 @@ Have fun!"
          (if (fresh? ~'gv)
            (to-stream
             (->> (map #(unify ~'a ~'v %)
-                      (funnyqt.tg/vseq ~*model*-var-symbol))
+                      (tg/vseq ~*model*-var-symbol))
                  (remove not)))
-           (if (and (funnyqt.tg/vertex? ~'gv)
-                    (funnyqt.tg/contains-vertex? ~*model*-var-symbol ~'gv))
+           (if (and (tg/vertex? ~'gv)
+                    (tg/contains-vertex? ~*model*-var-symbol ~'gv))
              (succeed ~'a)
              (fail ~'a)))))))
 
@@ -233,30 +233,30 @@ Have fun!"
              ~'gomega (walk ~'a ~'omega)]
          (cond
           (ground? ~'ge)
-          (or (and (funnyqt.tg/edge? ~'ge)
-                   (unify ~'a [~'alpha ~'omega] [(funnyqt.tg/alpha ~'ge) (funnyqt.tg/omega ~'ge)]))
+          (or (and (tg/edge? ~'ge)
+                   (unify ~'a [~'alpha ~'omega] [(tg/alpha ~'ge) (tg/omega ~'ge)]))
               (fail ~'a))
 
           (ground? ~'galpha)
-          (if (funnyqt.tg/vertex? ~'galpha)
+          (if (tg/vertex? ~'galpha)
             (to-stream
-             (->> (map #(unify ~'a [~'e ~'omega] [% (funnyqt.tg/omega %)])
-                       (funnyqt.tg/iseq ~'galpha nil :out))
+             (->> (map #(unify ~'a [~'e ~'omega] [% (tg/omega %)])
+                       (tg/iseq ~'galpha nil :out))
                   (remove not)))
             (fail ~'a))
 
           (ground? ~'gomega)
-          (if (funnyqt.tg/vertex? ~'gomega)
+          (if (tg/vertex? ~'gomega)
             (to-stream
-             (->> (map #(unify ~'a [~'e ~'alpha] [% (funnyqt.tg/alpha %)])
-                       (funnyqt.tg/iseq ~'gomega nil :in))
+             (->> (map #(unify ~'a [~'e ~'alpha] [% (tg/alpha %)])
+                       (tg/iseq ~'gomega nil :in))
                   (remove not)))
             (fail ~'a))
 
           :else (to-stream
-                 (->> (for [~'edge (funnyqt.tg/eseq ~*model*-var-symbol)]
+                 (->> (for [~'edge (tg/eseq ~*model*-var-symbol)]
                         (unify ~'a [~'e ~'alpha ~'omega]
-                               [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
+                               [~'edge (tg/alpha ~'edge) (tg/omega ~'edge)]))
                       (remove not))))))))
 
 (defmacro make-valueo [*model*-var-symbol]
@@ -270,33 +270,33 @@ Have fun!"
          (cond
           (and (ground? ~'gae)
                (ground? ~'gat))
-          (or (and (funnyqt.tg/attributed-element? ~'gae)
+          (or (and (tg/attributed-element? ~'gae)
                    (keyword? ~'gat)
                    (.getAttribute ^AttributedElementClass
-                                  (funnyqt.tg/attributed-element-class ~'gae)
+                                  (tg/attributed-element-class ~'gae)
                                   (name ~'gat))
-                   (unify ~'a ~'val (funnyqt.tg/value ~'gae ~'gat)))
+                   (unify ~'a ~'val (tg/value ~'gae ~'gat)))
               (fail ~'a))
 
           (ground? ~'gae)
-          (if (funnyqt.tg/vertex? ~'gae)
+          (if (tg/vertex? ~'gae)
             (to-stream
              (->> (for [~(u/tagged 'attr `Attribute) (seq (.getAttributeList
                                                            ^AttributedElementClass
-                                                           (funnyqt.tg/attributed-element-class ~'gae)))
+                                                           (tg/attributed-element-class ~'gae)))
                         :let [~'an (keyword (.getName ~'attr))]]
-                    (unify ~'a [~'at ~'val] [~'an (funnyqt.tg/value ~'gae ~'an)]))
+                    (unify ~'a [~'at ~'val] [~'an (tg/value ~'gae ~'an)]))
                   (remove not)))
             (fail ~'a))
 
           :else (to-stream
-                 (->> (for [~'elem (concat (funnyqt.tg/vseq ~*model*-var-symbol)
-                                           (funnyqt.tg/eseq ~*model*-var-symbol))
+                 (->> (for [~'elem (concat (tg/vseq ~*model*-var-symbol)
+                                           (tg/eseq ~*model*-var-symbol))
                             ~(u/tagged 'attr `Attribute) (seq (.getAttributeList
                                                                ^AttributedElementClass
-                                                               (funnyqt.tg/attributed-element-class ~'elem)))
+                                                               (tg/attributed-element-class ~'elem)))
                             :let [~'an (keyword (.getName ~'attr))]]
-                        (unify ~'a [~'ae ~'at ~'val] [~'elem ~'an (funnyqt.tg/value ~'elem ~'an)]))
+                        (unify ~'a [~'ae ~'at ~'val] [~'elem ~'an (tg/value ~'elem ~'an)]))
                       (remove not))))))))
 
 (defmacro make-adjo [*model*-var-symbol]
@@ -313,7 +313,7 @@ Have fun!"
              ~'grv   (walk ~'a ~'rv)]
          (cond
           (and (ground? ~'gv) (ground? ~'grole))
-          (if (and (funnyqt.tg/vertex? ~'gv) (keyword? ~'grole))
+          (if (and (tg/vertex? ~'gv) (keyword? ~'grole))
             (to-stream
              (->> (for [~'refed (funnyqt.query/adjs* ~'gv ~'grole)]
                     (unify ~'a [~'rv] [~'refed]))
@@ -321,37 +321,37 @@ Have fun!"
             (fail ~'a))
 
           (ground? ~'gv)
-          (if (funnyqt.tg/vertex? ~'gv)
+          (if (tg/vertex? ~'gv)
             (to-stream
-             (->> (for [~'e (funnyqt.tg/iseq ~'gv)
-                        ~'rn (~'edge-class-roles (funnyqt.tg/attributed-element-class ~'e)
-                                                 (if (funnyqt.tg/normal-edge? ~'e) :to :from))
+             (->> (for [~'e (tg/iseq ~'gv)
+                        ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
+                                                 (if (tg/normal-edge? ~'e) :to :from))
                         :when ~'rn
                         :let [~'rn (keyword ~'rn)]]
-                    (unify ~'a [~'role ~'rv] [~'rn (funnyqt.tg/that ~'e)]))
+                    (unify ~'a [~'role ~'rv] [~'rn (tg/that ~'e)]))
                   (remove not)))
             (fail ~'a))
 
           (ground? ~'grv)
-          (if (funnyqt.tg/vertex? ~'grv)
+          (if (tg/vertex? ~'grv)
             (to-stream
-             (->> (for [~'e (funnyqt.tg/iseq ~'grv)
-                        ~'rn (~'edge-class-roles (funnyqt.tg/attributed-element-class ~'e)
-                                                 (if (funnyqt.tg/normal-edge? ~'e) :from :to))
+             (->> (for [~'e (tg/iseq ~'grv)
+                        ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
+                                                 (if (tg/normal-edge? ~'e) :from :to))
                         :when ~'rn
                         :let [~'rn (keyword ~'rn)]]
-                    (unify ~'a [~'v ~'role] [(funnyqt.tg/that ~'e) ~'rn]))
+                    (unify ~'a [~'v ~'role] [(tg/that ~'e) ~'rn]))
                   (remove not)))
             (fail ~'a))
 
           :else (to-stream
-                 (->> (for [~'s (funnyqt.tg/vseq ~*model*-var-symbol)
-                            ~'e (funnyqt.tg/iseq ~'s)
-                            ~'rn (~'edge-class-roles (funnyqt.tg/attributed-element-class ~'e)
-                                                     (if (funnyqt.tg/normal-edge? ~'e) :to :from))
+                 (->> (for [~'s (tg/vseq ~*model*-var-symbol)
+                            ~'e (tg/iseq ~'s)
+                            ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
+                                                     (if (tg/normal-edge? ~'e) :to :from))
                             :when ~'rn
                             :let [~'rn (keyword ~'rn)]]
-                        (unify ~'a [~'v ~'role ~'rv] [(funnyqt.tg/this ~'e) ~'rn (funnyqt.tg/that ~'e)]))
+                        (unify ~'a [~'v ~'role ~'rv] [(tg/this ~'e) ~'rn (tg/that ~'e)]))
                       (remove not))))))))
 
 (defmacro make-standard-tg-relations [*model*-var-symbol]
@@ -382,7 +382,7 @@ Have fun!"
   (set-tmp-kind [this kind])
   (set-tmp-type [this type])
   (add-tmp-attr [this attr val])
-  (manifest [this graph])
+  (manifest [this])
   (as-map [this]))
 
 (defprotocol TmpVertexOps
@@ -392,7 +392,8 @@ Have fun!"
   (set-tmp-alpha [this al])
   (set-tmp-omega [this om]))
 
-(deftype TmpElement [^:volatile-mutable kind
+(deftype TmpElement [graph
+                     ^:volatile-mutable kind
                      ^:volatile-mutable type
                      ^:volatile-mutable alpha
                      ^:volatile-mutable omega
@@ -401,7 +402,7 @@ Have fun!"
                      ^:volatile-mutable manifested
                      ^:volatile-mutable manifestation]
   TmpAEOps
-  (manifest [this graph]
+  (manifest [this]
     ;; TODO: Note that manifestation can already exist.
     (when-not manifested
       (u/errorf "Manifestation not yet implemented!"))
@@ -448,22 +449,22 @@ Have fun!"
       (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
       (set! omega om))))
 
-(defn make-tmp-element []
-  (->TmpElement nil nil nil nil {} [] false nil))
+(defn make-tmp-element [g]
+  (->TmpElement g nil nil nil nil {} [] false nil))
 
-(defn make-tmp-vertex [type]
+(defn make-tmp-vertex [g type]
   (let [^String n (name type)]
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement :vertex type nil nil {} [] false nil))
+  (->TmpElement g :vertex type nil nil {} [] false nil))
 
-(defn make-tmp-edge [type al om]
+(defn make-tmp-edge [g type]
   (let [^String n (name type)]
     (when (or (.startsWith n "!")
               (.endsWith n "!"))
       (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement :edge type al om {} nil false nil))
+  (->TmpElement g :edge type nil nil {} nil false nil))
 
 (defn tmp-element? [elem]
   (instance? funnyqt.relational.tg.TmpElement elem))
@@ -485,22 +486,25 @@ Have fun!"
        [~'v]
        (fn [~'a]
          (let [~'gv (walk ~'a ~'v)]
-           (if (fresh? ~'gv)
-             (to-stream
-              (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
-                        (concat (funnyqt.tg/vseq ~'*model* '~na)
-                                (if rel/*make-tmp-elements*
-                                  [(make-tmp-vertex '~na)]
-                                  [])))
-                   (remove not)))
-             (if (or (and (funnyqt.tg/vertex? ~'gv)
-                          (funnyqt.tg/contains-vertex? ~'*model* ~'gv)
-                          (p/has-type? ~'gv '~na))
-                     (and (tmp-element? ~'gv)
-                          (set-tmp-kind ~'gv :vertex)
-                          (set-tmp-type ~'gv '~na)))
-               (succeed ~'a)
-               (fail ~'a))))))))
+           (cond
+            (ground? ~'gv)
+            (or (and (tg/vertex? ~'gv)
+                     (tg/contains-vertex? ~'*model* ~'gv)
+                     (p/has-type? ~'gv '~na))
+                (and rel/*make-tmp-elements*
+                     (tmp-element? ~'gv)
+                     (set-tmp-kind ~'gv :vertex)
+                     (set-tmp-type ~'gv '~na)
+                     (succeed ~'a))
+                (fail ~'a))
+
+            :else (to-stream
+                   (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
+                             (concat (tg/vseq ~'*model* '~na)
+                                     (if rel/*make-tmp-elements*
+                                       [(make-tmp-vertex ~'*model* '~na)]
+                                       [])))
+                   (remove not)))))))))
 
 (defn ^:private create-ec-relations
   "Creates relations for the given edge class."
@@ -515,35 +519,38 @@ Have fun!"
                ~'gom (walk ~'a ~'om)]
            (cond
             (ground? ~'ge)
-            (or (and (funnyqt.tg/edge? ~'ge)
+            (or (and (tg/edge? ~'ge)
                      (unify ~'a [~'al ~'om]
-                            [(funnyqt.tg/alpha ~'ge) (funnyqt.tg/omega ~'ge)]))
+                            [(tg/alpha ~'ge) (tg/omega ~'ge)]))
                 (fail ~'a))
 
             (ground? ~'gal)
-            (if (funnyqt.tg/vertex? ~'gal)
+            (if (tg/vertex? ~'gal)
               (to-stream
                (->> (map (fn [~'incidence]
                            (unify ~'a [~'e ~'om]
-                                  [~'incidence (funnyqt.tg/omega ~'incidence)]))
-                         (funnyqt.tg/iseq ~'gal '~na :out))
+                                  [~'incidence (tg/omega ~'incidence)]))
+                         (tg/iseq ~'gal '~na :out))
                     (remove not)))
               (fail ~'a))
 
             (ground? ~'gom)
-            (if (funnyqt.tg/vertex? ~'gom)
+            (if (tg/vertex? ~'gom)
               (to-stream
                (->> (map (fn [~'incidence]
                            (unify ~'a [~'e ~'al]
-                                  [~'incidence (funnyqt.tg/alpha ~'incidence)]))
-                         (funnyqt.tg/iseq ~'gom '~na :in))
+                                  [~'incidence (tg/alpha ~'incidence)]))
+                         (tg/iseq ~'gom '~na :in))
                     (remove not)))
               (fail ~'a))
 
             :else (to-stream
-                   (->> (for [~'edge (funnyqt.tg/eseq ~'*model* '~na)]
+                   (->> (for [~'edge (concat (tg/eseq ~'*model* '~na)
+                                             (if rel/*make-tmp-elements*
+                                               [(make-tmp-edge ~'*model* '~na)]
+                                               []))]
                           (unify ~'a [~'e ~'al ~'om]
-                                 [~'edge (funnyqt.tg/alpha ~'edge) (funnyqt.tg/omega ~'edge)]))
+                                 [~'edge (tg/alpha ~'edge) (tg/omega ~'edge)]))
                         (remove not)))))))))
 
 (defn ^:private create-attr-relation
@@ -552,39 +559,42 @@ Have fun!"
                   ;;; having such an attr
   (let [ts     (mapv #(p/qname %) aecs) ;; a type spec
         seqf   (cond
-                (every? #(instance? VertexClass %) aecs) 'funnyqt.tg/vseq
-                (every? #(instance? EdgeClass %)   aecs) 'funnyqt.tg/eseq
+                (every? #(instance? VertexClass %) aecs) `tg/vseq
+                (every? #(instance? EdgeClass %)   aecs) `tg/eseq
                 :else `(fn [graph# ts#]
-                         (apply concat ((juxt funnyqt.tg/vseq
-                                              funnyqt.tg/eseq)
+                         (apply concat ((juxt tg/vseq
+                                              tg/eseq)
                                         graph# ts#))))]
     `(defn ~(symbol (str "+" (name attr)))
        {:doc ~(format
                "A relation where `ae' has value `val' for its %s attribute." attr)}
        [~'ae ~'val]
        (fn [~'a]
-         (let [~'gae (walk ~'a ~'ae)]
+         (let [~'gae (walk ~'a ~'ae)
+               ~'gval (walk ~'a ~'val)]
            (cond
             (ground? ~'gae)
-            (or (and (funnyqt.tg/attributed-element? ~'gae)
+            (or (and (tg/attributed-element? ~'gae)
                      (.getAttribute ^AttributedElementClass
-                                    (funnyqt.tg/attributed-element-class ~'gae)
+                                    (tg/attributed-element-class ~'gae)
                                     ~(name attr))
-                     (unify ~'a ~'val (funnyqt.tg/value ~'gae ~attr)))
-                (and (tmp-element? ~'gae)
-                     (add-tmp-attr ~'gae ~attr (walk ~'a ~'val))
+                     (unify ~'a ~'val (tg/value ~'gae ~attr)))
+                (and rel/*make-tmp-elements*
+                     (tmp-element? ~'gae)
+                     (add-tmp-attr ~'gae ~attr ~'gval)
                      (succeed ~'a))
                 (fail ~'a))
 
             :else (to-stream
                    (->> (concat (for [~'oae (~seqf ~'*model* '~ts)
-                                      :let [~'oval (funnyqt.tg/value ~'oae ~attr)]]
+                                      :let [~'oval (tg/value ~'oae ~attr)]]
                                   (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
                                 (if rel/*make-tmp-elements*
-                                  [(let [tmp# (make-tmp-element)
-                                         gval# (walk ~'a ~'val)]
-                                     (add-tmp-attr tmp# ~attr gval#)
-                                     (unify ~'a [~'ae ~'val] [tmp# gval#]))]
+                                  [(let [tmp# (make-tmp-element ~'*model*)]
+                                     (if ~'gval
+                                       (do (add-tmp-attr tmp# ~attr ~'gval)
+                                           (unify ~'a [~'ae ~'val] [tmp# ~'gval]))
+                                       (unify ~'a ~'ae tmp#)))]
                                   []))
                         (remove not)))))))))
 
@@ -614,7 +624,7 @@ Have fun!"
   `schema-file` is the TG file with the schema."
   ([schema-file] `(generate-schema-relations ~schema-file nil))
   ([schema-file nssym]
-     (let [^Schema schema (funnyqt.tg/load-schema
+     (let [^Schema schema (tg/load-schema
                            (if (.exists (clojure.java.io/file schema-file))
                              schema-file
                              (clojure.java.io/resource schema-file)))
