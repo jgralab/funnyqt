@@ -401,7 +401,26 @@ Have fun!"
   (manifest [this]
     ;; TODO: Note that manifestation can already exist.
     (when-not manifested
-      (u/errorf "Manifestation not yet implemented!"))
+      (when-not kind
+        (u/errorf "TmpElement kind not set!"))
+      (when-not type
+        (u/errorf "TmpElement type not set!"))
+      (condp = kind
+        :vertex (let [v (tg/create-vertex! graph type)]
+                  (doseq [[a val] attrs]
+                    (tg/set-value! v a val))
+                  (set! manifested true)
+                  (set! manifestation v))
+        :edge (do
+                (when-not (tg/vertex? alpha)
+                  (set! alpha (manifest alpha)))
+                (when-not (tg/vertex? omega)
+                  (set! omega (manifest omega)))
+                (let [e (tg/create-edge! graph type alpha omega)]
+                  (doseq [[a val] attrs]
+                    (tg/set-value! e a val))
+                  (set! manifested true)
+                  (set! manifestation e)))))
     manifestation)
   (set-tmp-kind [this k]
     (when manifested
@@ -459,14 +478,6 @@ Have fun!"
 
 (defn tmp-element? [elem]
   (instance? funnyqt.relational.tg.TmpElement elem))
-
-(defn tmp-vertex? [elem]
-  (and (tmp-element? elem)
-       (= :vertex (.kind ^funnyqt.relational.tg.TmpElement elem))))
-
-(defn tmp-edge? [elem]
-  (and (tmp-element? elem)
-       (= :edge (.kind ^funnyqt.relational.tg.TmpElement elem))))
 
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
