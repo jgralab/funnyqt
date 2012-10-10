@@ -249,10 +249,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 (defprotocol ^:private Resolving
   "A protocol for resolving schema classes and domains."
-  (attributed-element-class [this] [this qname]
-    "Returns this element's attributed element class, or the attributed element
-  class with the given qname in the schema of this.  qname may be a symbol,
-  keyword or string.")
   (domain [this qname]
     "Returns the domain of the domain qname in this element's schema.
   qname may be a symbol, keyword, string, or a vector like [Set Integer]
@@ -307,16 +303,35 @@ See `tgtree`, `show-graph`, and `print-graph`."
   use the qualified name anyway."
   true)
 
+(defn attributed-element-class
+  "Returns `ae`s AttributedElementClass or the AttributedElementClass with the
+  given `qname` in the schema of `ae`.  In the arity 2 version, `ae` may be an
+  attributed element, an attributed element class, or a schema."
+  ([^AttributedElement ae]
+     (.getAttributedElementClass ae))
+  ([elem qname]
+     (condp instance? elem
+       AttributedElement
+       (let [^AttributedElement ae elem]
+         (or (-> ae .getSchema (.getAttributedElementClass (name qname)))
+             (and *allow-class-access-by-simple-name*
+                  ((aec-simple-name-map (.getSchema ae)) (name qname)))
+             (errorf "No such attributed element class %s" (name qname))))
+       AttributedElementClass
+       (let [^AttributedElementClass aec elem]
+         (or (-> aec .getSchema (.getAttributedElementClass (name qname)))
+             (and *allow-class-access-by-simple-name*
+                  ((aec-simple-name-map (.getSchema aec)) (name qname)))
+             (errorf "No such attributed element class %s" (name qname))))
+       Schema
+       (let [^Schema s elem]
+         (or (.getAttributedElementClass s (name qname))
+             (and *allow-class-access-by-simple-name*
+                  ((aec-simple-name-map s) (name qname)))
+             (errorf "No such attributed element class %s" (name qname)))))))
+
 (extend-protocol Resolving
   AttributedElement
-  (attributed-element-class
-    ([this]
-       (.getAttributedElementClass this))
-    ([this qname]
-       (or (-> this .getSchema (.getAttributedElementClass (name qname)))
-           (and *allow-class-access-by-simple-name*
-                ((aec-simple-name-map (.getSchema this)) (name qname)))
-           (errorf "No such attributed element class %s" (name qname)))))
   (domain [elem qname]
     (or (.getDomain (.getSchema elem) (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
@@ -328,14 +343,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (.getSchema this))
 
   AttributedElementClass
-  (attributed-element-class
-    ([this]
-       this)
-    ([this qname]
-       (or (-> this .getSchema (.getAttributedElementClass (name qname)))
-           (and *allow-class-access-by-simple-name*
-                ((aec-simple-name-map (.getSchema this)) (name qname)))
-           (errorf "No such attributed element class %s" (name qname)))))
   (domain [aec qname]
     (or (.getDomain (.getSchema aec) (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
@@ -343,14 +350,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (.getSchema this))
 
   Schema
-  (attributed-element-class
-    ([this]
-       (error "A schema is no attributed element class!"))
-    ([this qname]
-       (or (.getAttributedElementClass this (name qname))
-           (and *allow-class-access-by-simple-name*
-                ((aec-simple-name-map this) (name qname)))
-           (errorf "No such attributed element class %s" (name qname)))))
   (domain [s qname]
     (or (.getDomain s (domain-qname qname))
         (errorf "No such domain %s" (domain-qname qname))))
