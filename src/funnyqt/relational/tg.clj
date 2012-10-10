@@ -421,7 +421,11 @@ Have fun!"
   (add-tmp-attr [this attr val]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
-    (set! attrs (assoc attrs attr val)))
+    (let [v (get attrs attr ::not-found)]
+      (cond
+       (= v ::not-found) (set! attrs (assoc attrs attr val))
+       (= v val) val
+       :else (u/errorf "Cannot reset %s value from %s to %s." attr v val))))
   (as-map [this]
     {:kind kind :type type :alpha alpha :omega omega :attrs attrs :adjs adjs
      :manifested manifested :manifestation manifestation})
