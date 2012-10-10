@@ -497,31 +497,22 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Access by ID
 
-(defprotocol ^:private IDOps
-  "Protocol for types having IDs."
-  (id [this]
-    "Returns this element's ID.")
-  (vertex [this id]
-    "Returns the vertex with the given ID.")
-  (edge [this id]
-    "Returns the edge with the given ID."))
+(defn id
+  "Returns this element's ID."
+  [elem]
+  (condp instance? elem
+    GraphElement (.getId ^GraphElement elem)
+    Graph        (.getId ^Graph elem)))
 
-(extend-protocol IDOps
-  Graph
-  (id [g]
-    (.getId g))
-  (vertex [g id]
-    (.getVertex g id))
-  (edge [g id]
-    (.getEdge g id))
+(defn vertex
+  "Returns `g`s vertex with the given ID."
+  [^Graph g id]
+  (.getVertex g id))
 
-  GraphElement
-  (id [ge]
-    (.getId ge))
-  (edge [ge id]
-    (.getEdge (.getGraph ge) id))
-  (vertex [ge id]
-    (.getVertex (.getGraph ge) id)))
+(defn edge
+  "Returns `g`s edge with the given ID."
+  [^Graph g id]
+  (.getEdge g id))
 
 ;;## Edge functions
 
