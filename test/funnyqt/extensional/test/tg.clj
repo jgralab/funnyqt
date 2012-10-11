@@ -91,6 +91,7 @@
   (let [g (create-graph (load-schema "test/input/genealogy-schema.tg"))
         _ (emf/load-metamodel "test/input/Families.ecore")
         m (emf/load-model "test/input/example.families")]
+    #_(clojure.pprint/pprint (families2genealogy m g))
     (families2genealogy m g)
     (is (= 13 (vcount g 'Person)))
     (is (=  7 (vcount g 'Female)))

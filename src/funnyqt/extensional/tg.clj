@@ -4,6 +4,7 @@
   (:use funnyqt.extensional)
   (:use [funnyqt.utils :only [errorf split-qname]])
   (:require clojure.set)
+  (:require funnyqt.protocols)
   (:import
    (de.uni_koblenz.jgralab.schema GraphElementClass EdgeClass VertexClass)))
 
@@ -27,37 +28,31 @@
 
 ;;# Utility Functions
 
-(defn ^:private img-internal-1
-  "Returns the image of `arch` for AttributedElementClass `aec`.
-  Can only be called inside a deftransformation."
-  [^GraphElementClass aec arch]
-  (or (when-let [m (@*img* aec)]
-        (m arch))
-      (first (remove nil?
-                     (map #(img-internal-1 %1 arch)
-                          (.getDirectSubClasses aec))))))
-
 (defn ^:private img-internal
-  [aec arch]
-  (or (img-internal-1 aec arch)
-      (errorf "Couldn't resolve image of %s in img fn of %s: %s"
-              arch aec @*img*)))
-
-(defn ^:private arch-internal-1
-  "Returns the archetype of `img` for AttributedElementClass `aec`.
-  Can only be called inside a deftransformation."
-  [^GraphElementClass aec img]
-  (or (when-let [m (@*arch* aec)]
-        (m img))
-      (first (remove nil?
-                     (map #(arch-internal-1 %1 img)
-                          (.getDirectSubClasses aec))))))
+  "Returns the image of `arch` for GraphElementClass `gec`.
+  Can only be called inside a `deftransformation`."
+  [^GraphElementClass gec arch]
+  (let [m (@*img* gec)]
+    (or (and m (m arch))
+        (loop [subs (remove funnyqt.protocols/abstract? (.getAllSubClasses gec))]
+          (when (seq subs)
+            (or (get (@*img* (first subs)) arch)
+                (recur (rest subs)))))
+        (errorf "Couldn't resolve image of %s in img fn of %s: %s"
+                arch gec @*img*))))
 
 (defn ^:private arch-internal
-  [aec img]
-  (or (arch-internal-1 aec img)
-      (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-              img aec @*arch*)))
+  "Returns the archetype of `img` for GraphElementClass `gec`.
+  Can only be called inside a `deftransformation`."
+  [^GraphElementClass gec img]
+  (let [m (@*arch* gec)]
+    (or (and m (m img))
+        (loop [subs (remove funnyqt.protocols/abstract? (.getAllSubClasses gec))]
+          (when (seq subs)
+            (or (get (@*arch* (first subs)) img)
+                (recur (rest subs)))))
+        (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
+                img gec @*arch*))))
 
 ;;# Creating Elements
 

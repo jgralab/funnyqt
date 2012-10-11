@@ -16,21 +16,11 @@
 
 ;;# Utilities
 
-(defn checked-merge
-  "Internal helper: Like a arity 2 variant of `clojure.core/merge` but checks
-  for uniqueness of keys.  Throws an exception on a key clash."
-  [m1 m2]
-  (if (or (nil? m1) (nil? m2)
-          (if (< (count m1) (count m2))
-            (every? #(nil? (get m2 %)) (keys m1))
-            (every? #(nil? (get m1 %)) (keys m2))))
-    (merge m1 m2)))
-
 (defn into-trace-map
-  "Internal helper: Update `trace-map` of `cls` with `new` mappings and error
-  if a new mapping overrides an existing mapping."
+  "Internal helper: Update `trace-map` of `cls` with `new` mappings.
+  Earlier mappings get overridden by `new` mappings."
   [trace-map cls new]
-  (update-in trace-map [cls] checked-merge new))
+  (update-in trace-map [cls] merge new))
 
 ;;# User fns and macros
 
