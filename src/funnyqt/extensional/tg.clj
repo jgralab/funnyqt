@@ -3,22 +3,16 @@
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
   (:use funnyqt.query)
+  (:use funnyqt.extensional)
   (:use funnyqt.protocols)
   (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
   (:require clojure.set)
-  (:require clojure.pprint)
   (:require [clojure.tools.macro :as m])
   (:import
    (de.uni_koblenz.jgralab.schema GraphElementClass EdgeClass VertexClass)))
 
 
 ;;# Dynamic vars
-
-(def ^{:dynamic true}
-  *img* nil)
-
-(def ^{:dynamic true}
-  *arch* nil)
 
 (def ^{:dynamic true
        :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
@@ -39,19 +33,6 @@
   resolve-element nil)
 
 ;;# Utility Functions
-
-(defn- checked-merge
-  "Like a arity 2 variant of `clojure.core/merge` but checks for uniqueness of
-  keys.  Throws an exception on a key clash."
-  [m1 m2]
-  (if-let [isect (seq (clojure.set/intersection
-                       (keys m1) (keys m2)))]
-    (errorf "Traceability clash! %s should be added but were already present."
-            isect)
-    (merge m1 m2)))
-
-(defn- into-trace-map [trace-map aec new]
-  (update-in trace-map [aec] checked-merge new))
 
 (defn- img-internal-1
   "Returns the image of `arch` for AttributedElementClass `aec`.
@@ -91,7 +72,7 @@
 
 (defn create-vertices! [g cls archfn]
   (let [^VertexClass vc (attributed-element-class g cls)]
-    (loop [as (archfn)
+    (loop [as (set (archfn))
            im (transient {})
            am (transient {})]
       (if (seq as)
@@ -103,9 +84,9 @@
                  (assoc! am v a)))
         (let [img  (persistent! im)
               arch (persistent! am)]
-          (when (bound? #'*img*)
+          (when *img*
             (swap! *img*  into-trace-map vc img))
-          (when (bound? #'*arch*)
+          (when *arch*
             (swap! *arch* into-trace-map vc arch))
           (keys arch))))))
 
@@ -117,7 +98,7 @@
         eaec (-> ec (.getTo)   (.getVertexClass))]
     (loop [as (binding [resolve-alpha #(img-internal saec %)
                         resolve-omega #(img-internal eaec %)]
-                (doall (archfn)))
+                (set (archfn)))
            im (transient {})
            am (transient {})]
       (if (seq as)
@@ -126,9 +107,9 @@
           (recur (rest as) (assoc! im a e) (assoc! am e a)))
         (let [img  (persistent! im)
               arch (persistent! am)]
-          (when (bound? #'*img*)
+          (when *img*
             (swap! *img*  into-trace-map ec img))
-          (when (bound? #'*arch*)
+          (when *arch*
             (swap! *arch* into-trace-map ec arch))
           (keys arch))))))
 
@@ -140,22 +121,3 @@
     (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
                          (doall (valfn)))]
       (set-value! elem attrname val))))
-
-;;# The transformation macro itself
-
-(defmacro deftransformation
-  "Create a new transformation named `name` with optional `doc-string` and
-  optional `attr-map`, the given `params` (input graph args), and the given
-  `body`."
-  ;; Nicer arglist in doc
-  {:arglists '([name doc-string? attr-map? [params*] & body])}
-  [name & more]
-  (let [[name more] (m/name-with-attributes name more)
-        args (vec (first more))
-        body (next more)]
-    `(defn ~name
-       ~(meta name)
-       ~args
-       (binding [*arch* (atom {})
-                 *img*  (atom {})]
-         (do ~@body)))))

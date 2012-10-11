@@ -3,6 +3,7 @@
   (:require [funnyqt.emf :as emf])
   (:use funnyqt.query.tg)
   (:require [funnyqt.query.emf :as emfq])
+  (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.query)
   (:use [funnyqt.test.tg :only [rg]])
