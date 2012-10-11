@@ -7,7 +7,7 @@
   (:require clojure.set)
   (:require funnyqt.protocols)
   (:import
-   (org.eclipse.emf.ecore EObject EClass)))
+   (org.eclipse.emf.ecore EObject EClass EStructuralFeature EReference)))
 
 
 ;;# Dynamic vars
@@ -17,46 +17,50 @@
   corresponding to the EClass of the current attribute."}
   resolve-eobject)
 
+(def ^{:dynamic true
+       :doc "todo"}
+  resolve-target)
+
+(def ^{:dynamic true
+       :doc "todo"}
+  resolve-all-targets)
+
 ;;# Utility Functions
 
 (defn ^:private img-internal
   [^EClass ec arch]
   (let [m (@*img* ec)]
     (or (and m (m arch))
-        (loop [subs (esubclasses (eroot-pkg-ns-uri ec) ec)]
+        (loop [subs (eallsubclasses (eroot-pkg-ns-uri ec) ec)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
                 (recur (rest subs)))))
         (errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                arch ec @*img*))))
+                (print-str arch) (print-str ec) @*img*))))
 
 (defn ^:private arch-internal
   [^EClass ec img]
   (let [m (@*arch* ec)]
     (or (and m (m img))
-        (loop [subs (esubclasses (eroot-pkg-ns-uri ec) ec)]
+        (loop [subs (eallsubclasses (eroot-pkg-ns-uri ec) ec)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
                 (recur (rest subs)))))
         (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                img ec @*arch*))))
+                (print-str img) (print-str ec) @*arch*))))
 
 ;;# Creating Elements
 
 ;;## Creating EObjects
 
-#_(defn create-vertices!
-  "In graph `g` create one vertex of VertexClass `cls` for every archetype
-  returned by `archfn`.  `archfn` must return a collection of arbitrary
-  objects.  It's value is taken as a set.  Traceability mappings are
-  established implicitly."
-  [g cls archfn]
-  (let [^VertexClass vc (attributed-element-class g cls)]
+(defn create-eobjects!
+  [m cls archfn]
+  (let [^EClass vc (eclassifier (eroot-pkg-ns-uri m) cls)]
     (loop [as (set (archfn))
            im (transient {})
            am (transient {})]
       (if (seq as)
-        (let [v (create-vertex! g cls)
+        (let [v (ecreate! m cls)
               a (first as)]
           ;;(println "Created" v "for" a)
           (recur (rest as)
@@ -70,35 +74,36 @@
             (swap! *arch* into-trace-map vc arch))
           (keys arch))))))
 
-(defn create-eobjects!
-  [m cls archfn]
-  (let [^EClass vc (eclassifier (eroot-pkg-ns-uri m) cls)]
-    (loop [as (set (archfn))
-           im (transient {})
-           am (transient {})]
-      (if (seq as)
-        (let [v (ecreate! m cls)
-              a (first as)]
-          (println "Created" v "for" a)
-          (recur (rest as)
-                 (assoc! im a v)
-                 (assoc! am v a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (when *img*
-            (swap! *img*  into-trace-map vc img))
-          (when *arch*
-            (swap! *arch* into-trace-map vc arch))
-          (keys arch))))))
+;;## Setting Features Values
 
-;;## Setting Attribute Values
+(defn ^:private internal-modify-feature-fn
+  [m featureqn valfn action]
+  (let [[ecname attrname _] (split-qname featureqn)
+        ^EClass ec (eclassifier (eroot-pkg-ns-uri m) ecname)]
+    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec attrname)]
+      (let [resolve-target-fn (if (instance? EReference sf)
+                                (partial img-internal (.getEReferenceType ^EReference sf))
+                                #(errorf "Can't call `resolve-target` for EAttribute %s!"
+                                         featureqn))
+            resolve-all-targets-fn (if (instance? EReference sf)
+                                     (partial map resolve-target-fn)
+                                     #(errorf "Can't call `resolve-all-targets` for EAttribute %s!"
+                                              featureqn))]
+        (doseq [[elem val]
+                (binding [resolve-eobject (partial img-internal ec)
+                          resolve-target resolve-target-fn
+                          resolve-all-targets resolve-all-targets-fn]
+                  (doall (valfn)))]
+          (action elem attrname val)))
+      (errorf "%s has no EStructuralFeature %s." (print-str ec) attrname))))
 
-#_(defn set-values!
-  [m attrqn valfn]
-  (let [[aecname attrname _] (split-qname attrqn)
-        aec (attributed-element-class m aecname)]
-    (doseq [[elem val] (binding [resolve-eobject (fn [arch] (img-internal aec arch))]
-                         (doall (valfn)))]
-      (set-value! elem attrname val))))
+(defn set-features!
+  [m featureqn valfn]
+  (internal-modify-feature-fn m featureqn valfn eset!))
 
-;;## Setting references
+(defn add-features!
+  [m featureqn valfn]
+  (internal-modify-feature-fn m featureqn valfn
+                              (fn [e an val]
+                                (when (seq val)
+                                  (apply eadd! e an (first val) (rest val))))))
