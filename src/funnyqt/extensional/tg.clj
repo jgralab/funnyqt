@@ -2,7 +2,6 @@
   "Specify TGraphs extensionally."
   (:use funnyqt.tg)
   (:use funnyqt.extensional)
-  (:use funnyqt.protocols)
   (:use [funnyqt.utils :only [errorf split-qname]])
   (:require clojure.set)
   (:import
