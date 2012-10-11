@@ -1,8 +1,6 @@
 (ns funnyqt.extensional.tg
   "Specify TGraphs extensionally."
   (:use funnyqt.tg)
-  (:use funnyqt.query.tg)
-  (:use funnyqt.query)
   (:use funnyqt.extensional)
   (:use funnyqt.protocols)
   (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
@@ -15,52 +13,49 @@
 ;;# Dynamic vars
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
-  Resolves the image of the given archetype in the img function corresponding
-  to the start vertex class."}
-  resolve-alpha nil)
+       :doc "Resolves the image of the given archetype in the img function
+  corresponding to the start vertex class."}
+  resolve-alpha)
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-edge-class!` / `create-edges!`.
-  Resolves the image of the given archetype in the img function corresponding
-  to the end vertex class."}
-  resolve-omega nil)
+       :doc "Resolves the image of the given archetype in the img function
+  corresponding to the end vertex class."}
+  resolve-omega)
 
 (def ^{:dynamic true
-       :doc "Only bound in calls to `create-attribute!` / `set-values!`.
-  Resolves the image of the given archetype in the img function corresponding
-  to the attributed element class of the current attribute."}
-  resolve-element nil)
+       :doc "Resolves the image of the given archetype in the img function
+  corresponding to the attributed element class of the current attribute."}
+  resolve-element)
 
 ;;# Utility Functions
 
-(defn- img-internal-1
+(defn ^:private img-internal-1
   "Returns the image of `arch` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
-  [aec arch]
+  [^GraphElementClass aec arch]
   (or (when-let [m (@*img* aec)]
         (m arch))
       (first (remove nil?
                      (map #(img-internal-1 %1 arch)
-                          (.getDirectSubClasses ^GraphElementClass aec))))))
+                          (.getDirectSubClasses aec))))))
 
-(defn- img-internal
+(defn ^:private img-internal
   [aec arch]
   (or (img-internal-1 aec arch)
       (errorf "Couldn't resolve image of %s in img fn of %s: %s"
               arch aec @*img*)))
 
-(defn- arch-internal-1
+(defn ^:private arch-internal-1
   "Returns the archetype of `img` for AttributedElementClass `aec`.
   Can only be called inside a deftransformation."
-  [aec img]
+  [^GraphElementClass aec img]
   (or (when-let [m (@*arch* aec)]
         (m img))
       (first (remove nil?
                      (map #(arch-internal-1 %1 img)
-                          (.getDirectSubClasses ^GraphElementClass aec))))))
+                          (.getDirectSubClasses aec))))))
 
-(defn- arch-internal
+(defn ^:private arch-internal
   [aec img]
   (or (arch-internal-1 aec img)
       (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
@@ -70,7 +65,12 @@
 
 ;;## Creating Vertices
 
-(defn create-vertices! [g cls archfn]
+(defn create-vertices!
+  "In graph `g` create one vertex of VertexClass `cls` for every archetype
+  returned by `archfn`.  `archfn` must return a collection of arbitrary
+  objects.  It's value is taken as a set.  Traceability mappings are
+  established implicitly."
+  [g cls archfn]
   (let [^VertexClass vc (attributed-element-class g cls)]
     (loop [as (set (archfn))
            im (transient {})
@@ -92,7 +92,20 @@
 
 ;;## Creating Edges
 
-(defn create-edges! [g cls archfn]
+(defn create-edges!
+  "In graph `g` create one edge of edge class `cls` for every archetype
+  returned by `archfn`.  `cls` is a symbol denoting the qualified name of the
+  edge class.
+
+  `archfn` must return a collection of triples [arch src trg].  arch is an
+  arbitrary object taken as archetype for the new edge, and src and trg are the
+  new edge's source and target vertex.  Traceability mappings are established
+  implicitly.
+
+  In `archfn`, `resolve-alpha` and `resolve-omega` are bound to functions that
+  return the image of the given archetype in the image-mapping of the new
+  edge's source/target vertex class."
+  [g cls archfn]
   (let [^EdgeClass ec (attributed-element-class g cls)
         saec (-> ec (.getFrom) (.getVertexClass))
         eaec (-> ec (.getTo)   (.getVertexClass))]
@@ -115,8 +128,18 @@
 
 ;;## Setting Attribute Values
 
-(defn set-values! [g a valfn]
-  (let [[aecname attrname _] (split-qname a)
+(defn set-values!
+  "In graph `g` set the attribute `attrqn` for all element-value pairs returned
+  by `valfn`, i.e., `valfn` has to return a map {attr-elem attrqn-value} or a
+  collection of pairs.  `attrqn` is a qualified attribute name,
+  e.g. Person.firstName.
+
+  In `valfn`, `resolve-element` is bound to a function that given an archetype
+  for the class defining the attribute returns the image, that is, the instance
+  of the defining class (or subclass) that has been created for the given
+  archetype."
+  [g attrqn valfn]
+  (let [[aecname attrname _] (split-qname attrqn)
         aec (attributed-element-class g aecname)]
     (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
                          (doall (valfn)))]
