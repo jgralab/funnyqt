@@ -84,13 +84,19 @@
                  (fn []
                    (for [child (emf/eallobjects m 'Member)
                          parent (parents-of child)]
-                     [[child parent] (resolve-alpha parent) (resolve-omega child)]))))
+                     [[child parent] (resolve-alpha parent) (resolve-omega child)])))
+  @*img*)
 
 (deftest test-families2genealogy-extensional
   (let [g (create-graph (load-schema "test/input/genealogy-schema.tg"))
         _ (emf/load-metamodel "test/input/Families.ecore")
         m (emf/load-model "test/input/example.families")]
-    ;; TODO: Add assertions
     (families2genealogy m g)
-    ;;(show-graph g)
+    (is (= 13 (vcount g 'Person)))
+    (is (=  7 (vcount g 'Female)))
+    (is (=  6 (vcount g 'Male)))
+    (is (= 18 (ecount g 'HasChild)))
+    (is (=  3 (ecount g 'HasSpouse)))
+    (is (= 21 (ecount g 'HasRelative)))
+    #_(show-graph g)
     ))

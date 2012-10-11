@@ -20,10 +20,10 @@
   "Internal helper: Like a arity 2 variant of `clojure.core/merge` but checks
   for uniqueness of keys.  Throws an exception on a key clash."
   [m1 m2]
-  (if-let [isect (seq (clojure.set/intersection
-                       (keys m1) (keys m2)))]
-    (errorf "Traceability clash! %s should be added but were already present."
-            isect)
+  (if (or (nil? m1) (nil? m2)
+          (if (< (count m1) (count m2))
+            (every? #(nil? (get m2 %)) (keys m1))
+            (every? #(nil? (get m1 %)) (keys m2))))
     (merge m1 m2)))
 
 (defn into-trace-map
