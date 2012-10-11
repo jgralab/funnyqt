@@ -3,9 +3,8 @@
   (:use funnyqt.tg)
   (:use funnyqt.extensional)
   (:use funnyqt.protocols)
-  (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
+  (:use [funnyqt.utils :only [errorf split-qname]])
   (:require clojure.set)
-  (:require [clojure.tools.macro :as m])
   (:import
    (de.uni_koblenz.jgralab.schema GraphElementClass EdgeClass VertexClass)))
 
