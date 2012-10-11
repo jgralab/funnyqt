@@ -104,6 +104,15 @@
                (.getEClassifiers ep))
              (epackages root-ns-uri))))
 
+(defn eclasses
+  "The lazy seq of EClasses.
+  May be restricted to all EClasses contained below the root package with
+  the given nsURI."
+  ([]
+     (filter (partial instance? EClass) (eclassifiers)))
+  ([root-ns-uri]
+     (filter (partial instance? EClass) (eclassifiers root-ns-uri))))
+
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
   `name` may be a simple or qualified name.  Throws an exception if no such
@@ -126,21 +135,30 @@
                                          "Restrict the search space using `with-ns-uris`.")
             :else (first classifiers))))))
   ([root-ns-uri name]
-     (let [^String n (clojure.core/name name)
-           ld (.lastIndexOf n ".")]
-       (if (>= ld 0)
-         (if-let [^EPackage ep (epackage root-ns-uri (subs n 0 ld))]
-           (or (.getEClassifier ep (subs n (inc ld)))
-               (errorf "No such EClassifier %s in %s." n (print-str ep)))
-           (errorf "No such EPackage %s in %s." (subs n 0 ld) root-ns-uri))
-         (let [classifiers (filter (fn [^EClassifier ec]
-                                     (= (.getName ec) n))
-                                   (eclassifiers root-ns-uri))]
-           (cond
-            (empty? classifiers) (errorf "No such EClassifier %s in %s." n root-ns-uri)
-            (next classifiers)   (errorf "EClassifier %s is ambiguous in %s: %s"
-                                         n root-ns-uri classifiers)
-            :else (first classifiers)))))))
+     (if-not root-ns-uri
+       (eclassifier name)
+       (let [^String n (clojure.core/name name)
+             ld (.lastIndexOf n ".")]
+         (if (>= ld 0)
+           (if-let [^EPackage ep (epackage root-ns-uri (subs n 0 ld))]
+             (or (.getEClassifier ep (subs n (inc ld)))
+                 (errorf "No such EClassifier %s in %s." n (print-str ep)))
+             (errorf "No such EPackage %s in %s." (subs n 0 ld) root-ns-uri))
+           (let [classifiers (filter (fn [^EClassifier ec]
+                                       (= (.getName ec) n))
+                                     (eclassifiers root-ns-uri))]
+             (cond
+              (empty? classifiers) (errorf "No such EClassifier %s in %s." n root-ns-uri)
+              (next classifiers)   (errorf "EClassifier %s is ambiguous in %s: %s"
+                                           n root-ns-uri classifiers)
+              :else (first classifiers))))))))
+
+(defn eallsubclasses
+  "Returns the (direct and indirect) sub-EClasses of the given EClass."
+  ([^EClass ecls]
+     (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses)))
+  ([root-ns-uri ^EClass ecls]
+     (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses root-ns-uri))))
 
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
@@ -201,8 +219,10 @@
 
 (defn new-model
   "Creates and returns a new, empty EMFModel."
-  []
-  (->EMFModel (ResourceImpl.) nil))
+  ([]
+     (->EMFModel (ResourceImpl.) nil))
+  ([metamodel]
+     (->EMFModel (ResourceImpl.) (eroot-pkg-ns-uri metamodel))))
 
 (defn load-model
   "Loads an EMFModel from the XMI file `f`."
@@ -269,7 +289,7 @@
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
   (has-type? [obj spec]
-    (let [root-ns (eroot-pkg-ns-uri-from-eo obj)]
+    (let [root-ns (eroot-pkg-ns-uri obj)]
       (if (qname? spec)
         (let [[neg cls ex] (type-with-modifiers (name spec))
               ^EClass ec (eclassifier root-ns cls)
@@ -282,20 +302,20 @@
 (extend-protocol EContents
   EObject
   (econtents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri-from-eo this) ts)
+    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
             (seq (.eContents this))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri-from-eo this) ts)
+    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
             (iterator-seq (.eAllContents this))))
   (econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
   (econtents-internal [this ts]
-    (filter (eclass-matcher (root-ns-uri this) ts)
+    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
             (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher (root-ns-uri this) ts)
+    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
             (iterator-seq (.getAllContents ^Resource (.resource this)))))
   (eallobjects-internal [this ts]
     (eallcontents-internal this ts))
@@ -860,12 +880,6 @@
                (feature-str
                 [[(.isAbstract ec)  :abstract]
                  [(.isInterface ec) :interface]])
-               (let [m (into {}
-                             (map (fn [^EAttribute attr]
-                                    [(keyword (.getName attr)) (.getEType attr)])
-                                  (seq (.getEAttributes ec))))]
-                 (when (seq m)
-                   (str " " m)))
                ">")))
 
 (defmethod print-method EEnum
@@ -922,6 +936,8 @@
             ;; Custom toString() for the others
             (str "#<"
                  (qname eo)
+                 "@" (or (EcoreUtil/getID eo)
+                         (Integer/toHexString (hash eo)))
                  ">"))))
 
 

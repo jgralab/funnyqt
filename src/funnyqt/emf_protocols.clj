@@ -33,16 +33,26 @@
 
 ;;## Metamodel
 
+(defprotocol RootNsUri
+  (eroot-pkg-ns-uri [this]
+    "Returns the nsURI of the root package of `this` metamodel.
+  `this` may be an EObject, EClass, EPackage, EMFModel, or EcoreModel."))
+
+(extend-protocol RootNsUri
+  EPackage
+  (eroot-pkg-ns-uri [p]
+    (if-let [parent (.getESuperPackage p)]
+      (recur parent)
+      (.getNsURI p)))
+  EClass
+  (eroot-pkg-ns-uri [c]
+    (eroot-pkg-ns-uri (.getEPackage c)))
+  EObject
+  (eroot-pkg-ns-uri [eo]
+    (eroot-pkg-ns-uri (.eClass eo))))
+
 ;; {baseNsURI -> {qname -> epackage}}
 (defonce uri->qname->pkg-map (atom {}))
-
-(defn eroot-pkg-ns-uri [^EPackage p]
-  (if-let [parent (.getESuperPackage p)]
-    (recur parent)
-    (.getNsURI p)))
-
-(defn eroot-pkg-ns-uri-from-eo [^EObject eo]
-  (eroot-pkg-ns-uri (.getEPackage (.eClass eo))))
 
 (defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
@@ -77,6 +87,12 @@
   (save-metamodel-internal [this file]))
 
 (deftype EcoreModel [^Resource resource]
+  RootNsUri
+  (eroot-pkg-ns-uri [this]
+    (when resource
+      (let [^EList conts (.getContents resource)]
+        (when-not (.isEmpty conts)
+          (eroot-pkg-ns-uri (.get conts 0))))))
   EcoreModelBasics
   (load-and-register-internal [this]
     (.load resource nil)
@@ -95,26 +111,26 @@
 
 (defprotocol EMFModelBasics
   "A protocol for basid EMFModel operations."
-  (root-ns-uri [this])
   (init-model-internal [this])
   (add-eobject!-internal [this eo])
   (add-eobjects!-internal [this eos])
   (clone-model-internal [this])
   (save-model-internal [this] [this file]))
 
-(deftype EMFModel [^Resource resource ^:volatile-mutable root-ns-uri]
+(deftype EMFModel [^Resource resource ^:unsynchronized-mutable root-ns-uri]
+  RootNsUri
+  (eroot-pkg-ns-uri [this] root-ns-uri)
   EMFModelBasics
-  (root-ns-uri [this] root-ns-uri)
   (init-model-internal [this]
     (.load resource nil)
     (let [^EList conts (.getContents resource)]
       (when-not (.isEmpty conts)
         (set! root-ns-uri
-              (eroot-pkg-ns-uri-from-eo (.get conts 0))))))
+              (eroot-pkg-ns-uri (.get conts 0))))))
   (add-eobject!-internal [this eo]
     (when-not root-ns-uri
       (set! root-ns-uri
-            (eroot-pkg-ns-uri-from-eo eo)))
+            (eroot-pkg-ns-uri eo)))
     (doto (.getContents resource)
       (.add eo))
     eo)
@@ -122,7 +138,7 @@
     (when-not root-ns-uri
       (when-let [^EObject eo (first eos)]
         (set! root-ns-uri
-              (eroot-pkg-ns-uri-from-eo eo))))
+              (eroot-pkg-ns-uri eo))))
     (doto (.getContents resource)
       (.addAll eos))
     eos)

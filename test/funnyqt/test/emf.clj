@@ -223,7 +223,7 @@
          [:father :sons]
          [:mother :daughters])))
 
-(defn- make-test-familymodel
+(defn  make-test-familymodel
   "Creates a more or less random FamilyModel with `fnum` families and `mnum`
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
@@ -299,7 +299,7 @@
                                  ims))))
     (is (== (* 2 i) (count (econtents fm 'Member))))))
 
-#_(deftest test-stressy-add-remove
+(deftest test-stressy-add-remove
   (let [fm (new-model)
         root (ecreate! fm 'FamilyModel)
         f   (ecreate! 'Member)
@@ -310,12 +310,12 @@
     (is (== 3 (count (eallpairs fm))))
     (is (== 3 (count (econtentpairs fm))))
     (is (zero? (count (ecrosspairs fm))))
+    ;; the refs are unique, so in fact only one new link is established.
     (dotimes [i 1000]
       (eadd! fam :sons s))
-    (is (== 1003 (count (eallpairs fm))))
-    (is (==    3 (count (econtentpairs fm))))
-    (is (== 1000 (count (ecrosspairs fm))))
-    ))
+    (is (== 4 (count (eallpairs fm))))
+    (is (== 3 (count (econtentpairs fm))))
+    (is (== 1 (count (ecrosspairs fm))))))
 
 (deftest test-non-recursive-delete!
   (let [check (fn [m all mems fams]

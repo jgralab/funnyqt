@@ -34,7 +34,7 @@
   [^GraphElementClass gec arch]
   (let [m (@*img* gec)]
     (or (and m (m arch))
-        (loop [subs (remove funnyqt.protocols/abstract? (.getAllSubClasses gec))]
+        (loop [subs (.getAllSubClasses gec)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
                 (recur (rest subs)))))
@@ -47,7 +47,7 @@
   [^GraphElementClass gec img]
   (let [m (@*arch* gec)]
     (or (and m (m img))
-        (loop [subs (remove funnyqt.protocols/abstract? (.getAllSubClasses gec))]
+        (loop [subs (.getAllSubClasses gec)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
                 (recur (rest subs)))))
