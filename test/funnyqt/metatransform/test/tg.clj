@@ -2,6 +2,7 @@
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
   (:use funnyqt.metatransform.tg)
+  (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.test.tg)
   (:use funnyqt.query)
