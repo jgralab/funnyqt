@@ -2,6 +2,7 @@
   (:use [funnyqt.protocols   :only [has-type?]])
   (:use [funnyqt.utils       :only [errorf]])
   (:use [funnyqt.query       :only [member? xor]])
+  (:require [ordered.map     :as om])
   (:require [funnyqt.emf     :as emf])
   (:require [funnyqt.tg      :as tg])
   (:use [clojure.tools.macro :only [name-with-attributes macrolet mexpand-all]]))
@@ -34,6 +35,10 @@
        :doc "Actions deferred to the end of the transformation."}
   *deferred-actions*)
 
+(def ^{:dynamic true
+       :doc "A map {rule {input output}}."}
+  *trace*)
+
 (defmacro deferred
   "Captures a thunk (closure) that evaluates `body` as the last step of the
   transformation."
@@ -51,19 +56,57 @@
       :name name
       :args args)))
 
-(defn ^:private make-lookups [trace arg where gens]
-  (cons `(get ((deref ~trace) ~(keyword (name where))) ~arg)
+(defn ^:private make-lookups [arg where gens]
+  (cons `(get ((deref *trace*) ~(keyword (name where))) ~arg)
         (map (fn [w] `(~w ~arg))
              gens)))
 
-(defn ^:private convert-rule [trace rule]
+(defn ^:private type-constr [e t]
+  (if t
+    `(has-type? ~e '~t)
+    true))
+
+(defn ^:private create-vector [v outs]
+  (let [v (loop [v v, r []]
+            (if (seq v)
+              (if (= (first (nnext v)) :model)
+                (recur (nnext (nnext v)) (conj (into r (take 2 v))
+                                               (outs (nth v 3))
+                                               (nth v 3)))
+                (recur (nnext v) (conj (into r (take 2 v))
+                                       (outs (ffirst outs))
+                                       (ffirst outs))))
+              r))
+        v (partition 4 v)]
+    (vec (mapcat (fn [[sym type mk model]]
+                   [sym (if (= mk :tg)
+                          `(tg/create-vertex! ~model '~type)
+                          `(emf/ecreate! ~model '~type))])
+                 v))))
+
+(defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
         ;; TODO: must be exactly one arg; check it!
-        arg (first (:args m))]
+        _ (when (> (count (:args m)) 1)
+            (errorf "Error: Rules must have exactly one argument: %s" (:name m)))
+        arg (first (:args m))
+        create-vec (create-vector (:to m) outs)
+        created (vec (map first (partition 2 create-vec)))
+        retval (if (= (count created) 1)
+                 (first created)
+                 created)]
     `(~(:name m) ~(:args m)
       (when ~arg
-        (or ~@(make-lookups trace arg
-                            (:name m) (:generalizes m)))))))
+        (or ~@(make-lookups arg (:name m) (:generalizes m))
+            ;; type constraint & :when constraint
+            (when (and ~(type-constr arg (:from m))
+                       ~(or (:when m) true))
+              ~(when (seq created)
+                 `(let ~create-vec
+                    (swap! *trace* update-in [~(keyword (:name m))]
+                           assoc ~arg ~retval)
+                    ~@(:body m)
+                    ~retval))))))))
 
 (defmacro deftransformation [name & more]
   (let [[name more] (name-with-attributes name more)
@@ -77,72 +120,23 @@
                       (nil? o) (errorf "No output models given.")
                       (not (vector? i)) (errorf "Error: input models must be a vector.")
                       (not (vector? o)) (errorf "Error: output models must be a vector.")
-                      :else [(apply hash-map i) (apply hash-map o)]))
+                      :else [(apply om/ordered-map i) (apply om/ordered-map o)]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
-                     rules-and-fns)
-        trace-sym (gensym "trace")]
+                     rules-and-fns)]
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
-       (binding [*deferred-actions* (atom [])]
-         (let [~trace-sym (atom {})]
-           (letfn [~@fns
-                   ~@(map (partial convert-rule trace-sym) rules)]))))))
+       (binding [*deferred-actions* (atom [])
+                 *trace*            (atom {})]
+         (letfn [~@fns
+                 ~@(map (partial convert-rule outs) rules)]
+           ~@(for [m (keys ins)
+                   :let [kind (ins m)]]
+               `(doseq [elem# ~(if (= :tg kind)
+                                 `(tg/vseq ~m)
+                                 `(emf/eallobjects ~m))]
+                  (doseq [r# ~(mapv first rules)]
+                    (r# elem#))))
+           ~(if (= (count outs) 1)
+              (first (first outs))
+              (vec (keys outs))))))))
 
-
-(deftransformation families2genealogy [[in :emf]
-                                       [out :tg]]
-  (member2person [m]
-                 :generalizes [member2male member2female])
-  (member2person-setter [m p]
-                        (tg/set-value! p :name (emf/eget m :firstName))
-                        (deferred (do p)))
-  (member2male [m]
-               :model out1
-               :from Member
-               :when (male? m)
-               :to   [p Male]
-               (member2person-setter m p)
-               (tg/add-adj p :wife (member2female (spouse m))))
-  (member2female [m]
-                 :from Member
-                 :when (not (male? m))
-                 :to   [p Female]
-                 (member2person-setter m p)))
-
-#_(defn families2genealogy-atl [in out]
-  (let [cache (atom {})
-        deferred-actions (atom [])]
-    (letfn [(member2person [m]
-              (when m
-                (or (get (@cache :member2male) m)
-                    (get (@cache :member2female) m))))
-            (member2person-setter [m p]
-              (tg/set-value! p :fullName (emf/eget m :firstName))
-              (swap! deferred-actions conj
-                     (fn []
-                       (tg/set-adjs! p :parents (map member2person
-                                                     (parents-of m))))))
-            (member2male [m]
-              (when m
-                (or (get (@cache :member2male) m)
-                    (when (and (has-type? m 'Member) (male? m))
-                      (let [p (create-vertex! out 'Male)]
-                        (swap! cache update-in [:member2male] assoc m p)
-                        (member2person-setter m p)
-                        (when-let [w (member2female (wife m))]
-                          (add-adj! p :wife w))
-                        p)))))
-            (member2female [m]
-              (when m
-                (or (get (@cache :member2female) m)
-                    (when (and (has-type? m 'Member) (not (male? m)))
-                      (let [p (create-vertex! out 'Female)]
-                        (swap! cache update-in [:member2female] assoc m p)
-                        (member2person-setter m p)
-                        p)))))]
-      (doseq [v (emf/eallobjects in)]
-        (doseq [r [member2male member2female]]
-          (r v)))
-      (doseq [a @deferred-actions]
-        (a))
-      out)))

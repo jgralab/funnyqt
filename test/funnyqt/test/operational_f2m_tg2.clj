@@ -65,10 +65,11 @@
 (deftest test-transformation
   (let [in (load-graph "test/input/familygraph.tg")
         gen (time (families2genealogy-tg in))]
-    (save-graph gen "test/output/families2genealogy-tg2.tg")
-    (print-graph gen "test/output/families2genealogy-tg2.pdf" false)
     (is gen)
-    (is (== 13 (count (vseq gen 'Person))))
-    (is (== 7  (count (vseq gen 'Female))))
-    (is (== 6  (count (vseq gen 'Male))))
-    (is (== 3  (count (vseq gen 'Address))))))
+    (is (== 13 (vcount gen 'Person)))
+    (is (==  7 (vcount gen 'Female)))
+    (is (==  6 (vcount gen 'Male)))
+    (is (==  3 (vcount gen 'Address)))
+    (is (== 18 (ecount gen 'HasChild)))
+    (is (==  3 (ecount gen 'HasSpouse)))))
+

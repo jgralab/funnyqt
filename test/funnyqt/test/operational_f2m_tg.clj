@@ -59,10 +59,11 @@
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (create-graph out-schema)
         gen (time (families2genealogy-tg in ng))]
-    (save-graph gen "test/output/families2genealogy-tg.tg")
-    (print-graph gen "test/output/families2genealogy-tg.pdf" false)
     (is gen)
-    (is (== 13 (count (vseq gen 'Person))))
-    (is (== 7  (count (vseq gen 'Female))))
-    (is (== 6  (count (vseq gen 'Male))))
-    (is (== 3  (count (vseq gen 'Address))))))
+    (is (== 13 (vcount gen 'Person)))
+    (is (==  7 (vcount gen 'Female)))
+    (is (==  6 (vcount gen 'Male)))
+    (is (==  3 (vcount gen 'Address)))
+    (is (== 18 (ecount gen 'HasChild)))
+    (is (==  3 (ecount gen 'HasSpouse)))))
+
