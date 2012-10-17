@@ -75,8 +75,6 @@
 (deftest test-transformation
   (let [gen (families2genealogy-emf (load-model "test/input/example.families")
                                     (new-model))]
-    (print-model gen "test/output/families2genealogy-emf.pdf")
-    (save-model gen "test/output/families2genealogy-emf.xmi")
     (is gen)
     (is (== 13 (count (eallobjects gen 'Person))))
     (is (== 7  (count (eallobjects gen 'Female))))

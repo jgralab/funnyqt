@@ -80,7 +80,7 @@
   [m featureqn valfn action]
   (let [[ecname attrname _] (split-qname featureqn)
         ^EClass ec (eclassifier (eroot-pkg-ns-uri m) ecname)]
-    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec attrname)]
+    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String attrname)]
       (let [resolve-target-fn (if (instance? EReference sf)
                                 (partial img-internal (.getEReferenceType ^EReference sf))
                                 #(errorf "Can't call `resolve-target` for EAttribute %s!"
