@@ -50,9 +50,11 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn pattern-to-pattern-graph [argvec pattern]
+(defn pattern-to-pattern-graph [pname argvec pattern]
   (let [argset (into #{} argvec)
-        pg (tg/create-graph pattern-schema)
+        pg (let [g (tg/create-graph pattern-schema)]
+             (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
+             g)
         get-by-name (fn [n]
                       (first (filter #(= (name n) (tg/value % :name))
                                      (concat (tg/vseq pg 'APatternVertex)
@@ -118,16 +120,12 @@
         (when (seq disc)
           (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
           (recur (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))))))
-    ;; Finally, do a small optimization: If there's an ArgumentVertex but the
-    ;; HasStartPatternVertex edge doesn't point to it, then make it so!
-    ;;
-    ;; TODO: This changes the result order cause the binding vector is
-    ;; different.  Maybe we should build the correct result vector here and
-    ;; return it instead of determining it from the final bindings form...
-    #_(when-let [argv (first (tg/vseq pg 'ArgumentVertex))]
-        (let [hfpv (the (tg/eseq pg 'HasStartPatternVertex))]
-          (when (has-type? (tg/omega hfpv) '!ArgumentVertex)
-            (tg/set-omega! hfpv argv))))
+    (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
+      (let [hfpv (the (tg/eseq pg 'HasStartPatternVertex))]
+        (when (has-type? (tg/omega hfpv) '!ArgumentVertex)
+          (println
+           (format "The pattern %s could perform better by anchoring it at an argument node."
+                   (tg/value pg :patternName))))))
     pg))
 
 ;;# Pattern comprehension
@@ -510,16 +508,16 @@
 (defn transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
   supported by `pattern-for`.  (Only for internal use.)"
-  [pattern args]
-  (let [pgraph (pattern-to-pattern-graph args pattern)
+  [name pattern args]
+  (let [pgraph (pattern-to-pattern-graph name args pattern)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
       (transform-fn args pgraph)
       (errorf "The pattern expansion context is not set.\n%s"
               "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
-(defn ^:private convert-spec [[args pattern resultform]]
-  (let [bf (transform-pattern-vector pattern args)]
+(defn ^:private convert-spec [name [args pattern resultform]]
+  (let [bf (transform-pattern-vector name pattern args)]
     (verify-pattern-vector bf args)
     `(~args
       (pattern-for ~bf
@@ -611,8 +609,8 @@
                                               (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (doall (map convert-spec more))
-             (convert-spec more))))))
+             (doall (map (partial convert-spec name) more))
+             (convert-spec name more))))))
 
 (defmacro letpattern
   "Establishes local patterns just like `letfn` establishes local functions.
@@ -625,8 +623,8 @@
   Following the patterns vector, an `attr-map` may be given for specifying the
   `*pattern-expansion-context*` in case it's not bound otherwise (see that
   var's documentation and `defpattern`)."
-
-  {:arglists '([[patterns] attr-map? & body])} [patterns attr-map & body]
+  {:arglists '([[patterns] attr-map? & body])}
+  [patterns attr-map & body]
   (when-not (vector? patterns)
     (errorf "No patterns vector in letpattern!"))
   (let [body (if (map? attr-map) body (cons attr-map body))]
@@ -635,8 +633,40 @@
                                               (:pattern-expansion-context (meta *ns*)))]
       `(letfn [~@(map (fn [[n & more]]
                         `(~n ~@(if (vector? (first more))
-                                 (convert-spec more)
-                                 (doall (map convert-spec more)))))
+                                 (convert-spec n more)
+                                 (doall (map (partial convert-spec n) more)))))
                    patterns)]
          ~@body))))
 
+(defmacro pattern
+  "Creates an anonymous patterns just like `fn` creates an anonymous functions.
+  The syntax is
+
+    (pattern pattern-name? attr-map? [args] [pattern-spec] result-form?)
+    (pattern pattern-name? attr-map? ([args] [pattern-spec] result-form?)+)
+
+  The `result-form` is optional.
+
+  The `*pattern-expansion-context*` may be given as metadata to the pattern
+  name in case it's not bound otherwise (see that var's documentation and
+  `defpattern`)."
+
+  {:arglists '([name attr-map? [args] [pattern] result-spec?]
+                 [name attr-map? ([args] [pattern] result-spec?)+])}
+  [& more]
+  (let [[name more] (if (symbol? (first more))
+                      [(first more) (next more)]
+                      [nil more])
+        [attr-map more] (if (map? (first more))
+                          [(first more) (next more)]
+                          [nil more])
+        [name more] (if name
+                      (m/name-with-attributes name more)
+                      [name more])]
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
+                                              *pattern-expansion-context*
+                                              (:pattern-expansion-context (meta *ns*)))]
+      `(fn ~@(when name [name])
+         ~@(if (vector? (first more))
+             (convert-spec name more)
+             (doall (map (partial convert-spec name) more)))))))

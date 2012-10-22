@@ -1,6 +1,6 @@
 TGraph 2;
 Schema de.uni_koblenz.jgralab.patternschema.PatternSchema;
-GraphClass PatternGraph;
+GraphClass PatternGraph { patternName : String };
 
 abstract VertexClass AVertex;
 

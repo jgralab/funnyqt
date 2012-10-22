@@ -72,6 +72,21 @@
     (is (= 3 (count (families-with-fathers fg (constantly true)))))
     (is (= 2 (count (families-with-fathers fg #(= "Smith" (tg/value % :lastName))))))))
 
+(deftest test-pattern-tg
+  (let [families-with-fathers-simple (pattern {:pattern-expansion-context :tg} [g]
+                                              [f<Family> -hf<HasFather>-> m<Member>])
+        families-with-fathers (pattern {:pattern-expansion-context :tg}
+                                       ([g]
+                                          [f<Family> -hf<HasFather>-> m<Member>])
+                                       ([g famconst]
+                                          [f<Family> -hf<HasFather>-> m<Member>
+                                           :when (famconst f)]
+                                            [f hf m]))]
+    (is (= 3 (count (families-with-fathers-simple fg))))
+    (is (= 3 (count (families-with-fathers fg))))
+    (is (= 3 (count (families-with-fathers fg (constantly true)))))
+    (is (= 2 (count (families-with-fathers fg #(= "Smith" (tg/value % :lastName))))))))
+
 ;;# EMF
 
 (emf/load-metamodel "test/input/Families.ecore")
@@ -145,3 +160,18 @@
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
 
+(deftest test-pattern-emf
+  (let [families-with-fathers-simple (pattern {:pattern-expansion-context :emf}
+                                              [g]
+                                               [f<Family> -<father>-> m<Member>])
+        families-with-fathers (pattern {:pattern-expansion-context :emf}
+                                       ([g]
+                                          [f<Family> -<father>-> m<Member>])
+                                       ([g famconst]
+                                          [f<Family> -<father>-> m<Member>
+                                           :when (famconst f)]
+                                            [f m]))]
+    (is (= 3 (count (families-with-fathers-simple fm))))
+    (is (= 3 (count (families-with-fathers fm))))
+    (is (= 3 (count (families-with-fathers fm (constantly true)))))
+    (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))

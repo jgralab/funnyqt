@@ -27,7 +27,7 @@
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
-            match (transform-pattern-vector match args)
+            match (transform-pattern-vector name match args)
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
