@@ -1,160 +1,4 @@
 (ns funnyqt.relational.tg
-  "Querying graphs as if they were prolog fact bases.
-
-CAUTION: These docs are a bit outdated!!!
-
-Getting Started
-===============
-
-For a basic understanding of logic programming using miniKanren, have a look
-here: http://tinyurl.com/czn2nxz
-
-The first thing you want to do is to generate relations (derived from the
-schema) and populate them with facts (from the graph).  Here's how to do this.
-
-First, we require the FunnyQT TG core namespace with prefix core, so that we
-can use its general graph loading function.
-
-    user> (require '[funnyqt.tg :as core])
-
-Then, we load the GReQL test graph and bind it to a var `g`.
-
-    user> (def g (core/load-graph \"test/input/greqltestgraph.tg\"))
-
-We import the relational namespace.
-
-    user> (use 'funnyqt.relational.tg)
-
-Now, we can generate relations and facts for a graph and its schema.  The first
-argument is the graph, and the second argument is a new namespace name.  That
-will be created, and all relations (including an implicit reference to the
-graph) are defined in it.
-
-    user> (generate-schema-relations g 'roadmap)
-
-This procedure creates 4 relations per attributed element class of the schema
-of our graph.  For any vertex class Foo, there's a relation (+Foo! x) which
-succeeds if `x` can be unified with a vertex of exact type Foo.  Additionally,
-`there`s a relation (+Foo! x) which succeeds if `x` can be unified with a vertex
-of exact type Foo or a subtype thereof.  Furthermore, there are +!Foo and
-+!Foo!, which succeed for vertices not of (exact) type Foo.
-
-For an edge class Bar, there is the relation (+Bar! e a o) which succeeds if
-`e` can be unified with an edge of exact type Bar, and `a` and `o` can be
-unified with the start and end vertex of `e`.  Similarly to vertex classes,
-relations +Bar, +!Bar, and +!Bar! are also created with the same signature.
-
-For any attribute name baz, a relation (+baz el val) is generated, which
-succeeds if the attributed element `el` is an instance of an attributed element
-class that has such an attribute defined, and its value is set to `val`.
-
-To use our new relations, we change into the roadmap namespace.
-
-    user> (in-ns 'roadmap)
-
-Now, we are ready to go.
-
-Asking Questions
-================
-
-After we've populated our user namespace with relations and facts about the
-route graph, we can ask questions.  That's done with the `run` and `run*'
-macros provided by clojure.core.logic.  For example
-
-    (run 3 [q] <goals>)
-
-returns at most 3 answers unifying `q` with the given goals, or () if there's
-no answer at all, and
-
-    (run* [q] <goals>)
-
-returns all possible answers.
-
-Now, let's ask what's the capital of the County the Village Kammerforst is
-located in.
-
-    user> (run* [q]
-            (fresh [kammerforst county e1 e2]
-              (+Village kammerforst)
-              (+name kammerforst \"Kammerforst\")
-              (+ContainsLocality e1 county kammerforst)
-              (+HasCapital e2 county q)))
-
-    (#<CityImpl v6: localities.City>)
-
-We use `run*` because we want to get all answers.  `fresh` introduces new logic
-vars that should be unified.  In its body, we declare that `kammerforst` has to
-be unified with a Village vertex, whose name is \"Kammerforst\".  Furthermore,
-there has to be a ContainsLocality edge `e1' starting at some `county` and
-leading to `kammerforst`.  `county` has to be the capital of `q`, which is
-exactly what we wanted to ask.  Because `kammerforst` and `county` occur
-multiple times, they are subject to unification.  Likewise, our question `q` is
-unified with the end vertex of the edge `e2`.
-
-Now let's try to pose a question about what capitals reign which localities,
-e.g., what are the localities contained in the county of some capital, for all
-capitals.  We want to get all pairs of the form [capital-name locality-name] as
-answer.
-
-Here, we use the `with-fresh` macro for convenience.  It creates one fresh
-logic variable for any symbol in its body starting with a question mark (?).
-Additionally, it creates one anonymous fresh logic variable per occurence of
-`_`.  In the former example, we had the logic vars `e1` and `e2` explicit,
-although we never unified them with some other var.  So `_` is a shortcut for
-'I don't care for anything except existence'.
-
-    user> (run* [q]
-            (with-fresh
-              (+Locality ?loc)
-              (+ContainsLocality _ ?county ?loc)
-              (+HasCapital _ ?county ?capital)
-              (!= ?capital ?loc)
-              (+name ?capital ?cname)
-              (+name ?loc ?lname)
-              (== q [?cname ?lname])))
-
-    ([\"Main\" \"Lautzenhausen\"] [\"Main\" \"Montabaur\"]
-     [\"Main\" \"Flughafen Frankfurt-Hahn\"] [\"Main\" \"Winningen\"]
-     [\"Main\" \"Koblenz\"] [\"Main\" \"Kammerforst\"]
-     [\"Frankfurt am Main\" \"Frankfurt-Flughafen\"]
-     [\"Main\" \"Flugplatz Koblenz-Winningen\"] [\"Main\" \"Höhr-Grenzhausen\"])
-
-Looks like in the graph we've misspelled Mainz as Main, but anyway.  We say
-that `?loc` has to be a Locality that is contained in `?county` that in turn
-has a `?capital`.  We don't want to get the captial as ruled by itself, so we
-declare that `?capital` and `?loc` must not be unified with each other.
-
-To define our result, we declare `?cname` and `?lname` to be the names of
-`?capital` and `?loc`, respectively.  Finally, we declare that our question `q`
-should be unified with a vector containing `?cname` and `?lname`.
-
-Custom Relations
-================
-
-We think that being able to query for the capital of a location or the
-locations of some capital is a thing we're going to do frequently.  So we can
-factor that out into a custom relation `(capitalo c l)` that succeeds if `c` is
-the captial of `l` simply by defining a function.
-
-    user> (defn capitalo
-            \"Succeeds, if c is the capital of Locality l.\"
-            [c l]
-            (with-fresh
-              (+Locality l)
-              (+ContainsLocality _ ?county l)
-              (+HasCapital _ ?county c)
-              (!= c l)))
-
-We can pose our question now using this new relation and get the same answer.
-
-    user> (run* [q]
-            (with-fresh
-              (capitalo ?capital ?loc)
-              (+name ?capital ?cname)
-              (+name ?loc ?lname)
-              (== q [?cname ?lname])))
-
-Have fun!"
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
         funnyqt.relational.util)
@@ -172,40 +16,50 @@ Have fun!"
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
-(defmacro make-typeo [*model*-var-symbol]
-  `(defn ~'typeo
-     "A relation where vertex or edge `e` has the type `t`, a graph element
-  class name.  In fact, `t` may be any type specification (see
-  `type-matcher`)."
-     [~'e ~'t]
-     (fn [~'a]
-       (let [~'ge (walk ~'a ~'e)
-             ~'gt (walk ~'a ~'t)]
-         (cond
-          (and (ground? ~'ge) (ground? ~'gt))
-          (if (and (tg/attributed-element? ~'ge)
-                   (or (coll? ~'gt) (symbol? ~'gt))
-                   (p/has-type? ~'ge ~'gt))
-            (succeed ~'a)
-            (fail ~'a))
+(defn typeo
+  "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
+  element class name.  In fact, `t` may be any type specification (see
+  `type-matcher`).  The graph `g` must be ground."
+  [g e t]
+  (fn [a]
+    (let [ge (walk a e)
+          gt (walk a t)]
+      (cond
+       (and (ground? ge)
+            (ground? gt))
+       (if (and (tg/attributed-element? ge)
+                (or (coll? gt) (symbol? gt))
+                (p/has-type? ge gt))
+         (succeed a)
+         (fail a))
 
-          (ground? ~'ge)
-          (or (and (tg/attributed-element? ~'ge)
-                   (unify ~'a ~'t (p/qname ~'ge)))
-              (fail ~'a))
+       (ground? ge)
+       (or (and (tg/attributed-element? ge)
+                (unify a t (p/qname ge)))
+           (fail a))
 
-          (ground? ~'gt)
-          (to-stream
-           (->> (map #(unify ~'a ~'e %)
-                     (concat (tg/vseq ~*model*-var-symbol ~'gt)
-                             (tg/eseq ~*model*-var-symbol ~'gt)))
-                (remove not)))
+       (ground? gt)
+       (if (symbol? gt)
+         ;; Ok, here we can determine if its a vertex or an edge class
+         (let [[_ tn _] (u/type-with-modifiers (name '!foo.Bar!))
+               aec      (tg/attributed-element-class g tn)]
+           (if (tg/vertex-class? aec)
+             (to-stream
+              (->> (map #(unify a e %) (tg/vseq g gt))
+                   (remove not)))
+             (to-stream
+              (->> (map #(unify a e %) (tg/eseq g gt))
+                   (remove not)))))
+         (to-stream
+          (->> (map #(unify a e %)
+                    (concat (tg/vseq g gt)
+                            (tg/eseq g gt)))
+               (remove not))))
 
-          :else (to-stream
-                 (->> (for [~'elem (concat (tg/vseq ~*model*-var-symbol)
-                                           (tg/eseq ~*model*-var-symbol))]
-                        (unify ~'a [~'e ~'t] [~'elem (p/qname ~'elem)]))
-                      (remove not))))))))
+       :else (to-stream
+              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
+                     (unify a [e t] [elem (p/qname elem)]))
+                   (remove not)))))))
 
 (defmacro make-vertexo [*model*-var-symbol]
   `(defn ~'vertexo
@@ -356,7 +210,6 @@ Have fun!"
 
 (defmacro make-standard-tg-relations [*model*-var-symbol]
   `(do
-     (make-typeo   ~*model*-var-symbol)
      (make-vertexo ~*model*-var-symbol)
      (make-edgeo   ~*model*-var-symbol)
      (make-valueo  ~*model*-var-symbol)
