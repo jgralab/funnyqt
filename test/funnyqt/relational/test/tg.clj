@@ -66,3 +66,4 @@
              (adjo rg (tg/vertex rg 12) :capital q))
            (run* [q]
              (routemap/+->capital rg (tg/vertex rg 12) q)))))
+

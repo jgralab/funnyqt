@@ -15,127 +15,120 @@
 
 ;;# Utilities
 
-(defmacro make-typeo [*model*-var-symbol]
-  `(defn ~'typeo
-     "A relation where the EObject `e` has the type `t`, an EClass name.
+(defn eobjecto
+  "A relation where EObject `e` has the type `t`, an EClass name in EMFModel `m`.
   In fact, `t` may be any type specification (see `eclass-matcher`)."
-     [~'e ~'t]
-     (fn [~'a]
-       (let [~'ge (walk ~'a ~'e)
-             ~'gt (walk ~'a ~'t)]
+  ([m eo]
+     (fn [a]
+       (let [geo (walk a eo)]
+         (if (ground? geo)
+           (if (funnyqt.emf/eobject? geo) (succeed a) (fail a))
+           (to-stream
+            (->> (map #(unify a eo %)
+                      (funnyqt.emf/eallobjects m))
+                 (remove not)))))))
+  ([m e t]
+     (fn [a]
+       (let [ge (walk a e)
+             gt (walk a t)]
          (cond
-          (and (ground? ~'ge) (ground? ~'gt))
-          (if (and (funnyqt.emf/eobject? ~'ge)
-                   (or (coll? ~'gt) (symbol? ~'gt))
-                   (funnyqt.protocols/has-type? ~'ge ~'gt))
-            (succeed ~'a)
-            (fail ~'a))
+          (and (ground? ge) (ground? gt))
+          (if (and (funnyqt.emf/eobject? ge)
+                   (or (coll? gt) (symbol? gt))
+                   (funnyqt.protocols/has-type? ge gt))
+            (succeed a)
+            (fail a))
 
-          (ground? ~'ge)
-          (or (and (funnyqt.emf/eobject? ~'ge)
-                   (unify ~'a ~'t (funnyqt.protocols/qname ~'ge)))
-              (fail ~'a))
+          (ground? ge)
+          (or (and (funnyqt.emf/eobject? ge)
+                   (unify a t (funnyqt.protocols/qname ge)))
+              (fail a))
 
-          (ground? ~'gt)
+          (ground? gt)
           (to-stream
-           (->> (map #(unify ~'a ~'e %)
-                     (funnyqt.emf/eallobjects ~*model*-var-symbol ~'gt))
+           (->> (map #(unify a e %)
+                     (funnyqt.emf/eallobjects m t))
                 (remove not)))
 
           :else (to-stream
-                 (->> (for [~'elem (funnyqt.emf/eallobjects ~*model*-var-symbol)]
-                        (unify ~'a [~'e ~'t] [~'elem (funnyqt.protocols/qname ~'elem)]))
+                 (->> (for [elem (funnyqt.emf/eallobjects m t)]
+                        (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                       (remove not))))))))
 
-(defmacro make-eobjecto [*model*-var-symbol]
-  `(defn ~'eobjecto
-     "A relation where `eo` is an EObject."
-     [~'eo]
-     (fn [~'a]
-       (let [~'geo (walk ~'a ~'eo)]
-         (if (ground? ~'geo)
-           (if (funnyqt.emf/eobject? ~'geo) (succeed ~'a) (fail ~'a))
-           (to-stream
-            (->> (map #(unify ~'a ~'eo %)
-                      (funnyqt.emf/eallobjects ~*model*-var-symbol))
-                 (remove not))))))))
+(defn valueo
+  "A relation where EObject `eo` has value `val` for its `at` attribute in
+  EMFModel `m`."
+  [m eo at val]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gat  (walk a at)
+          gval (walk a val)]
+      (cond
+       (and (ground? geo)
+            (ground? gat))
+       (or (and (funnyqt.emf/eobject? geo)
+                (keyword? gat)
+                (when-let [sf (.getEStructuralFeature (.eClass ^EObject geo)
+                                                       ^String (name gat))]
+                  (instance? EAttribute sf))
+                (unify a val (funnyqt.emf/eget geo gat)))
+           (fail a))
 
-(defmacro make-valueo [*model*-var-symbol]
-  `(defn ~'valueo
-     "A relation where `eo` has value `val` for its `at` attribute."
-     [~'eo ~'at ~'val]
-     (fn [~'a]
-       (let [~'geo  (walk ~'a ~'eo)
-             ~'gat  (walk ~'a ~'at)
-             ~'gval (walk ~'a ~'val)]
-         (cond
-          (and (ground? ~'geo)
-               (ground? ~'gat))
-          (or (and (funnyqt.emf/eobject? ~'geo) (keyword? ~'gat)
-                   (unify ~'a ~'val (funnyqt.emf/eget ~'geo ~'gat)))
-              (fail ~'a))
+       (ground? geo)
+       (if (funnyqt.emf/eobject? geo)
+         (to-stream
+          (->> (for [^EAttribute attr (seq (.getEAllAttributes (.eClass ^EObject geo)))
+                     :let [an (keyword (.getName attr))]]
+                 (unify a [at val] [an (funnyqt.emf/eget geo an)]))
+               (remove not)))
+         (fail a))
 
-          (ground? ~'geo)
-          (if (funnyqt.emf/eobject? ~'geo)
-            (to-stream
-             (->> (for [~(u/tagged 'attr `EAttribute) (seq (.getEAllAttributes
-                                                            (.eClass ~(u/tagged 'geo `EObject))))
-                        :let [~'an (keyword (.getName ~'attr))]]
-                    (unify ~'a [~'at ~'val] [~'an (funnyqt.emf/eget ~'geo ~'an)]))
-                  (remove not)))
-            (fail ~'a))
+       :else (to-stream
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects m)
+                         ^EAttribute attr (seq (.getEAllAttributes (.eClass elem)))
+                         :let [an (keyword (.getName attr))]]
+                     (unify a [eo at val] [elem an (funnyqt.emf/eget elem an)]))
+                   (remove not)))))))
 
-          :else (to-stream
-                 (->> (for [~(u/tagged 'elem `EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
-                            ~(u/tagged 'attr `EAttribute) (seq (.getEAllAttributes (.eClass ~'elem)))
-                            :let [~'an (keyword (.getName ~'attr))]]
-                        (unify ~'a [~'eo ~'at ~'val] [~'elem ~'an (funnyqt.emf/eget ~'elem ~'an)]))
-                      (remove not))))))))
+(defn adjo
+  "A relation where `eo` references `reo` with its `ref` reference in EMFModel
+  `m`."
+  [m eo ref reo]
+  (fn [a]
+    (let [geo  (walk a eo)
+          gref (walk a ref)
+          greo (walk a reo)]
+      (cond
+       (and (ground? geo)
+            (ground? gref))
+       (if (and (funnyqt.emf/eobject? geo)
+                (keyword? gref)
+                (when-let [sf (.getEStructuralFeature (.eClass ^EObject geo)
+                                                       ^String (name gref))]
+                  (instance? EReference sf)))
+         (to-stream
+          (->> (for [refed (funnyqt.query/adjs* geo gref)]
+                 (unify a [reo] [refed]))
+               (remove not)))
+         (fail a))
 
-(defmacro make-adjo [*model*-var-symbol]
-  `(defn ~'adjo
-     "A relation where `eo` references `reo` with its `ref` reference."
-     [~'eo ~'ref ~'reo]
-     (fn [~'a]
-       (let [~'geo  (walk ~'a ~'eo)
-             ~'gref (walk ~'a ~'ref)
-             ~'greo (walk ~'a ~'reo)]
-         (cond
-          (and (ground? ~'geo) (ground? ~'gref))
-          (if (and (funnyqt.emf/eobject? ~'geo) (keyword? ~'gref))
-            (to-stream
-             (->> (for [~'refed (funnyqt.query/adjs* ~'geo ~'gref)]
-                    (unify ~'a [~'reo] [~'refed]))
-                  (remove not)))
-            (fail ~'a))
+       (ground? geo)
+       (if (funnyqt.emf/eobject? geo)
+         (to-stream
+          (->> (for [^EReference reference (seq (.getEAllReferences (.eClass ^EObject geo)))
+                     :let [rn (keyword (.getName reference))]
+                     refed (funnyqt.query/adjs* geo rn)]
+                 (unify a [ref reo] [rn refed]))
+               (remove not)))
+         (fail a))
 
-          (ground? ~'geo)
-          (if (funnyqt.emf/eobject? ~'geo)
-            (to-stream
-             (->> (for [~(u/tagged 'reference `EReference) (seq (.getEAllReferences
-                                                                 (.eClass ~(u/tagged 'geo `EObject))))
-                        :let [~'rn (keyword (.getName ~'reference))]
-                        ~'refed (funnyqt.query/adjs* ~'geo ~'rn)]
-                    (unify ~'a [~'ref ~'reo] [~'rn ~'refed]))
-                  (remove not)))
-            (fail ~'a))
-
-          :else (to-stream
-                 (->> (for [~(u/tagged 'elem `EObject) (funnyqt.emf/eallobjects ~*model*-var-symbol)
-                            ~(u/tagged 'reference `EReference) (seq (.getEAllReferences (.eClass ~'elem)))
-                            :let [~'rn (keyword (.getName ~'reference))]
-                            ~'refed (funnyqt.query/adjs* ~'elem ~'rn)]
-                        (unify ~'a [~'eo ~'ref ~'reo] [~'elem ~'rn ~'refed]))
-                      (remove not))))))))
-
-(defmacro make-standard-emf-relations [*model*-var-symbol]
-  `(do
-     (make-typeo    ~*model*-var-symbol)
-     (make-eobjecto ~*model*-var-symbol)
-     (make-valueo   ~*model*-var-symbol)
-     (make-adjo     ~*model*-var-symbol)))
-
-(make-standard-emf-relations funnyqt.relational/*model*)
+       :else (to-stream
+              (->> (for [^EObject elem (funnyqt.emf/eallobjects m)
+                         ^EReference reference (seq (.getEAllReferences (.eClass elem)))
+                         :let [rn (keyword (.getName reference))]
+                         refed (funnyqt.query/adjs* elem rn)]
+                     (unify a [eo ref reo] [elem rn refed]))
+                   (remove not)))))))
 
 ;;# Metamodel specific relations
 
@@ -159,67 +152,32 @@
   [ecls]
   (for [na (class->rel-symbols ecls)]
     `(defn ~(:unique-name (meta na))
-       {:doc ~(format "A relation where `eo` is an %s EObject." na)}
-       [~'eo]
-       (fn [~'a]
-         (let [~'gv (walk ~'a ~'eo)]
-           (if (fresh? ~'gv)
-             (to-stream
-              (->> (map (fn [~'object] (unify ~'a ~'eo ~'object))
-                        (funnyqt.emf/eallobjects ~'*model* '~na))
-                   (remove not)))
-             (if (and (funnyqt.emf/eobject? ~'gv)
-                      (funnyqt.protocols/has-type? ~'gv '~na))
-               (succeed ~'a)
-               (fail ~'a))))))))
+       ~(format "A relation where `eo` is an %s EObject." na)
+       [~'m ~'eo]
+       (eobjecto ~'m ~'eo '~na))))
 
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
   (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
     `(defn ~(symbol (str "+->" (name eref)))
-       {:doc ~(format
-               "A relation where `eo` includes `reo` in its %s reference." eref)}
-       [~'eo ~'reo]
-       (fn [~'a]
-         (let [~'geo (walk ~'a ~'eo)]
-           (cond
-            (ground? ~'geo)
-            (if (funnyqt.emf/eobject? ~'geo)
-              (to-stream
-               (->> (map (fn [~'adj-eo] (unify ~'a ~'reo ~'adj-eo))
-                         (funnyqt.query/adjs* ~'geo ~eref))
-                    (remove not)))
-              (fail ~'a))
-
-            :else (to-stream
-                   (->> (for [~'obj (funnyqt.emf/eallobjects ~'*model* '~ts)
-                              ~'robj (funnyqt.query/adjs* ~'obj ~eref)]
-                          (unify ~'a [~'eo ~'reo] [~'obj ~'robj]))
-                        (remove not)))))))))
+       ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
+       [~'m ~'eo ~'reo]
+       (all
+        (eobjecto ~'m ~'eo '~ts)
+        (adjo ~'m ~'eo ~eref ~'reo)))))
 
 (defn ^:private create-eattribute-relation
   "Creates relations for the given EAttribute."
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
-  (let [ts     (mapv #(funnyqt.protocols/qname %) ecls)]
+  (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
     `(defn ~(symbol (str "+" (name attr)))
-       {:doc ~(format
-               "A relation where `eo' has value `val' for its %s attribute." attr)}
-       [~'eo ~'val]
-       (fn [~'a]
-         (let [~'geo (walk ~'a ~'eo)]
-           (cond
-            (ground? ~'geo)
-            (or (and (funnyqt.emf/eobject? ~'geo)
-                     (unify ~'a ~'val (funnyqt.emf/eget ~'geo ~attr)))
-                (fail ~'a))
-
-            :else (to-stream
-                   (->> (for [~'obj (funnyqt.emf/eallobjects ~'*model* '~ts)
-                              :let [~'oval (funnyqt.emf/eget ~'obj ~attr)]]
-                          (unify ~'a [~'eo ~'val] [~'obj ~'oval]))
-                        (remove not)))))))))
+       ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
+       [~'m ~'eo ~'val]
+       (all
+        (eobjecto ~'m ~'eo '~ts)
+        (valueo ~'m ~'eo ~attr ~'val)))))
 
 
 ;;# Main
@@ -240,11 +198,7 @@
        `(do
           ~@(when nssym
               `[(ns ~nssym
-                  (:refer-clojure :exclude [~'==]))
-
-                (def ~(vary-meta '*model* assoc :dynamic true))
-                ;; Standard EMF relations
-                (make-standard-emf-relations ~'*model*)])
+                  (:refer-clojure :exclude [~'==]))])
           ;; Metamodel specific relations
           ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                             (funnyqt.emf/metamodel-epackages ecore-model))

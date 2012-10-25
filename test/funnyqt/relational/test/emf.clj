@@ -12,36 +12,39 @@
 
 (t/deftest test-eobjecto
   (t/is (= (emf/eallobjects family-model)
-           (run*-on-model family-model [q]
-             (eobjecto q))
-           (run*-on-models {families family-model} [q]
-             (families/eobjecto q)))))
+           (run* [q]
+             (eobjecto family-model q)))))
 
-(t/deftest test-typeo
+(t/deftest test-eobjecto-with-type
   (t/is (= (emf/eallobjects family-model 'Member)
-           (run*-on-model family-model [q]
-             (typeo q 'Member))
-           (run*-on-models {families family-model} [q]
-             (families/typeo q 'Member)))))
+           (run* [q]
+             (eobjecto family-model q 'Member))
+           (run* [q]
+             (families/+Member family-model q))))
+  (t/is (= (emf/eallobjects family-model '!Member)
+           (run* [q]
+             (eobjecto family-model q '!Member))
+           (run* [q]
+             (families/+!Member family-model q)))))
 
 (t/deftest test-valueo
   (t/is (= (map (fn [e]
                   [e (emf/eget e :firstName)])
                 (emf/eallobjects family-model 'Member))
-           (run*-on-model family-model [q]
+           (run* [q]
              (with-fresh
-               (valueo ?elem :firstName ?val)
+               (valueo family-model ?elem :firstName ?val)
                (== q [?elem ?val])))
-           (run*-on-models {families family-model} [q]
+           (run* [q]
              (with-fresh
-               (families/valueo ?elem :firstName ?val)
+               (families/+firstName family-model ?elem ?val)
                (== q [?elem ?val]))))))
 
 (t/deftest test-adjo
   (let [fam-carter (q/the #(= "Carter" (emf/eget % :lastName))
                           (emf/eallobjects family-model 'Family))]
     (t/is (= (q/adjs fam-carter :daughters)
-             (run*-on-model family-model [q]
-               (adjo fam-carter :daughters q))
-             (run*-on-models {families family-model} [q]
-               (families/adjo fam-carter :daughters q))))))
+             (run* [q]
+               (adjo family-model fam-carter :daughters q))
+             (run* [q]
+               (families/+->daughters family-model fam-carter q))))))
