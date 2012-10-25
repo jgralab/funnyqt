@@ -41,7 +41,7 @@
        (ground? gt)
        (if (symbol? gt)
          ;; Ok, here we can determine if its a vertex or an edge class
-         (let [[_ tn _] (u/type-with-modifiers (name '!foo.Bar!))
+         (let [[_ tn _] (u/type-with-modifiers (name gt))
                aec      (tg/attributed-element-class g tn)]
            (if (tg/vertex-class? aec)
              (to-stream
@@ -61,161 +61,149 @@
                      (unify a [e t] [elem (p/qname elem)]))
                    (remove not)))))))
 
-(defmacro make-vertexo [*model*-var-symbol]
-  `(defn ~'vertexo
-     "A relation where `v` is a vertex."
-     [~'v]
-     (fn [~'a]
-       (let [~'gv (walk ~'a ~'v)]
-         (if (fresh? ~'gv)
-           (to-stream
-            (->> (map #(unify ~'a ~'v %)
-                      (tg/vseq ~*model*-var-symbol))
-                 (remove not)))
-           (if (and (tg/vertex? ~'gv)
-                    (tg/contains-vertex? ~*model*-var-symbol ~'gv))
-             (succeed ~'a)
-             (fail ~'a)))))))
+(defn vertexo
+  "A relation where `v` is a vertex in graph `g`.
+  `g` has to be ground."
+  [g v]
+  (fn [a]
+    (let [gv (walk a v)]
+      (if (fresh? gv)
+        (to-stream
+         (->> (map #(unify a v %) (tg/vseq g))
+              (remove not)))
+        (if (and (tg/vertex? gv)
+                 (tg/contains-vertex? g gv))
+          (succeed a)
+          (fail a))))))
 
-(defmacro make-edgeo [*model*-var-symbol]
-  `(defn ~'edgeo
-     "A relation where `e` is an edge from `alpha` to `omega`."
-     [~'e ~'alpha ~'omega]
-     (fn [~'a]
-       (let [~'ge     (walk ~'a ~'e)
-             ~'galpha (walk ~'a ~'alpha)
-             ~'gomega (walk ~'a ~'omega)]
-         (cond
-          (ground? ~'ge)
-          (or (and (tg/edge? ~'ge)
-                   (unify ~'a [~'alpha ~'omega] [(tg/alpha ~'ge) (tg/omega ~'ge)]))
-              (fail ~'a))
+(defn edgeo
+  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`."
+  [g e alpha omega]
+  (fn [a]
+    (let [ge     (walk a e)
+          galpha (walk a alpha)
+          gomega (walk a omega)]
+      (cond
+       (ground? ge)
+       (or (and (tg/edge? ge)
+                (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)]))
+           (fail a))
 
-          (ground? ~'galpha)
-          (if (tg/vertex? ~'galpha)
-            (to-stream
-             (->> (map #(unify ~'a [~'e ~'omega] [% (tg/omega %)])
-                       (tg/iseq ~'galpha nil :out))
-                  (remove not)))
-            (fail ~'a))
+       (ground? galpha)
+       (if (tg/vertex? galpha)
+         (to-stream
+          (->> (map #(unify a [e omega] [% (tg/omega %)])
+                    (tg/iseq galpha nil :out))
+               (remove not)))
+         (fail a))
 
-          (ground? ~'gomega)
-          (if (tg/vertex? ~'gomega)
-            (to-stream
-             (->> (map #(unify ~'a [~'e ~'alpha] [% (tg/alpha %)])
-                       (tg/iseq ~'gomega nil :in))
-                  (remove not)))
-            (fail ~'a))
+       (ground? gomega)
+       (if (tg/vertex? gomega)
+         (to-stream
+          (->> (map #(unify a [e alpha] [% (tg/alpha %)])
+                    (tg/iseq gomega nil :in))
+               (remove not)))
+         (fail a))
 
-          :else (to-stream
-                 (->> (for [~'edge (tg/eseq ~*model*-var-symbol)]
-                        (unify ~'a [~'e ~'alpha ~'omega]
-                               [~'edge (tg/alpha ~'edge) (tg/omega ~'edge)]))
-                      (remove not))))))))
+       :else (to-stream
+              (->> (for [edge (tg/eseq g)]
+                     (unify a [e alpha omega]
+                            [edge (tg/alpha edge) (tg/omega edge)]))
+                   (remove not)))))))
 
-(defmacro make-valueo [*model*-var-symbol]
-  `(defn ~'valueo
-     "A relation where `ae` has value `val` for its `at` attribute."
-     [~'ae ~'at ~'val]
-     (fn [~'a]
-       (let [~'gae  (walk ~'a ~'ae)
-             ~'gat  (walk ~'a ~'at)
-             ~'gval (walk ~'a ~'val)]
-         (cond
-          (and (ground? ~'gae)
-               (ground? ~'gat))
-          (or (and (tg/attributed-element? ~'gae)
-                   (keyword? ~'gat)
-                   (.getAttribute ^AttributedElementClass
-                                  (tg/attributed-element-class ~'gae)
-                                  (name ~'gat))
-                   (unify ~'a ~'val (tg/value ~'gae ~'gat)))
-              (fail ~'a))
+(defn valueo
+  "A relation where graph `g`s attributed element `ae` has value `val` for its
+  `at` attribute."
+  [g ae at val]
+  (fn [a]
+    (let [gae  (walk a ae)
+          gat  (walk a at)
+          gval (walk a val)]
+      (cond
+       (and (ground? gae)
+            (ground? gat))
+       (or (and (tg/attributed-element? gae)
+                (keyword? gat)
+                (.getAttribute ^AttributedElementClass
+                               (tg/attributed-element-class gae)
+                               (name gat))
+                (unify a val (tg/value gae gat)))
+           (fail a))
 
-          (ground? ~'gae)
-          (if (tg/vertex? ~'gae)
-            (to-stream
-             (->> (for [~(u/tagged 'attr `Attribute) (seq (.getAttributeList
-                                                           ^AttributedElementClass
-                                                           (tg/attributed-element-class ~'gae)))
-                        :let [~'an (keyword (.getName ~'attr))]]
-                    (unify ~'a [~'at ~'val] [~'an (tg/value ~'gae ~'an)]))
-                  (remove not)))
-            (fail ~'a))
+       (ground? gae)
+       (if (tg/vertex? gae)
+         (to-stream
+          (->> (for [^Attribute attr (seq (.getAttributeList
+                                           ^AttributedElementClass
+                                           (tg/attributed-element-class gae)))
+                     :let [an (keyword (.getName attr))]]
+                 (unify a [at val] [an (tg/value gae an)]))
+               (remove not)))
+         (fail a))
 
-          :else (to-stream
-                 (->> (for [~'elem (concat (tg/vseq ~*model*-var-symbol)
-                                           (tg/eseq ~*model*-var-symbol))
-                            ~(u/tagged 'attr `Attribute) (seq (.getAttributeList
-                                                               ^AttributedElementClass
-                                                               (tg/attributed-element-class ~'elem)))
-                            :let [~'an (keyword (.getName ~'attr))]]
-                        (unify ~'a [~'ae ~'at ~'val] [~'elem ~'an (tg/value ~'elem ~'an)]))
-                      (remove not))))))))
+       :else (to-stream
+              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
+                         ^Attribute attr (seq (.getAttributeList
+                                               ^AttributedElementClass
+                                               (tg/attributed-element-class elem)))
+                         :let [an (keyword (.getName attr))]]
+                     (unify a [ae at val] [elem an (tg/value elem an)]))
+                   (remove not)))))))
 
-(defmacro make-adjo [*model*-var-symbol]
-  `(defn ~'adjo
-     "A relation where `rv` is in the `role` role of `v`."
-     [~'v ~'role ~'rv]
-     (fn [~'a]
-       (let [~'edge-class-roles (fn [~(u/tagged 'ec `EdgeClass) ~'from-or-to]
-                                  (remove empty? (.getAllRoles (if (= :to ~'from-or-to)
-                                                                 (.getTo ~'ec)
-                                                                 (.getFrom ~'ec)))))
-             ~'gv    (walk ~'a ~'v)
-             ~'grole (walk ~'a ~'role)
-             ~'grv   (walk ~'a ~'rv)]
-         (cond
-          (and (ground? ~'gv) (ground? ~'grole))
-          (if (and (tg/vertex? ~'gv) (keyword? ~'grole))
-            (to-stream
-             (->> (for [~'refed (funnyqt.query/adjs* ~'gv ~'grole)]
-                    (unify ~'a [~'rv] [~'refed]))
-                  (remove not)))
-            (fail ~'a))
+(defn adjo
+  "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
+  `g`."
+  [g v role rv]
+  (fn [a]
+    (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
+                             (remove empty? (.getAllRoles (if (= :to from-or-to)
+                                                            (.getTo ec)
+                                                            (.getFrom ec)))))
+          gv    (walk a v)
+          grole (walk a role)
+          grv   (walk a rv)]
+      (cond
+       (and (ground? gv) (ground? grole))
+       (if (and (tg/vertex? gv) (keyword? grole))
+         (to-stream
+          (->> (for [refed (funnyqt.query/adjs* gv grole)]
+                 (unify a [rv] [refed]))
+               (remove not)))
+         (fail a))
 
-          (ground? ~'gv)
-          (if (tg/vertex? ~'gv)
-            (to-stream
-             (->> (for [~'e (tg/iseq ~'gv)
-                        ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
-                                                 (if (tg/normal-edge? ~'e) :to :from))
-                        :when ~'rn
-                        :let [~'rn (keyword ~'rn)]]
-                    (unify ~'a [~'role ~'rv] [~'rn (tg/that ~'e)]))
-                  (remove not)))
-            (fail ~'a))
+       (ground? gv)
+       (if (tg/vertex? gv)
+         (to-stream
+          (->> (for [e (tg/iseq gv)
+                     rn (edge-class-roles (tg/attributed-element-class e)
+                                          (if (tg/normal-edge? e) :to :from))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [role rv] [rn (tg/that e)]))
+               (remove not)))
+         (fail a))
 
-          (ground? ~'grv)
-          (if (tg/vertex? ~'grv)
-            (to-stream
-             (->> (for [~'e (tg/iseq ~'grv)
-                        ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
-                                                 (if (tg/normal-edge? ~'e) :from :to))
-                        :when ~'rn
-                        :let [~'rn (keyword ~'rn)]]
-                    (unify ~'a [~'v ~'role] [(tg/that ~'e) ~'rn]))
-                  (remove not)))
-            (fail ~'a))
+       (ground? grv)
+       (if (tg/vertex? grv)
+         (to-stream
+          (->> (for [e (tg/iseq grv)
+                     rn (edge-class-roles (tg/attributed-element-class e)
+                                          (if (tg/normal-edge? e) :from :to))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [v role] [(tg/that e) rn]))
+               (remove not)))
+         (fail a))
 
-          :else (to-stream
-                 (->> (for [~'s (tg/vseq ~*model*-var-symbol)
-                            ~'e (tg/iseq ~'s)
-                            ~'rn (~'edge-class-roles (tg/attributed-element-class ~'e)
-                                                     (if (tg/normal-edge? ~'e) :to :from))
-                            :when ~'rn
-                            :let [~'rn (keyword ~'rn)]]
-                        (unify ~'a [~'v ~'role ~'rv] [(tg/this ~'e) ~'rn (tg/that ~'e)]))
-                      (remove not))))))))
-
-(defmacro make-standard-tg-relations [*model*-var-symbol]
-  `(do
-     (make-vertexo ~*model*-var-symbol)
-     (make-edgeo   ~*model*-var-symbol)
-     (make-valueo  ~*model*-var-symbol)
-     (make-adjo    ~*model*-var-symbol)))
-
-(make-standard-tg-relations funnyqt.relational/*model*)
+       :else (to-stream
+              (->> (for [s (tg/vseq g)
+                         e (tg/iseq s)
+                         rn (edge-class-roles (tg/attributed-element-class e)
+                                              (if (tg/normal-edge? e) :to :from))
+                         :when rn
+                         :let [rn (keyword rn)]]
+                     (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
+                   (remove not)))))))
 
 ;;# Metamodel specific
 

@@ -8,69 +8,48 @@
             [funnyqt.query :as q]
             [clojure.test :as t]))
 
-(generate-schema-relations "test/input/greqltestgraph.tg" routemap)
+#_(generate-schema-relations "test/input/greqltestgraph.tg" routemap)
 
 (t/deftest test-vertexo
   (t/is (= (tg/vseq rg)
-           (run*-on-model rg [q]
-             (vertexo q))
-           (run*-on-models {routemap rg} [q]
-             (routemap/vertexo q)))))
+           (run* [q]
+             (vertexo rg q)))))
 
 (t/deftest test-edgeo
   (t/is (= (tg/eseq rg)
-           (run*-on-model rg [q]
+           (run* [q]
              (with-fresh
-               (edgeo q _ _)))
-           (run*-on-models {routemap rg} [q]
-             (with-fresh
-               (routemap/edgeo q _ _)))))
+               (edgeo rg q _ _)))))
   (t/is (= (map (fn [e]
                   [e (tg/alpha e) (tg/omega e)])
                 (tg/eseq rg))
-           (run*-on-model rg [q]
+           (run* [q]
              (with-fresh
-               (edgeo ?e ?a ?o)
-               (== q [?e ?a ?o])))
-           (run*-on-models {routemap rg} [q]
-             (with-fresh
-               (routemap/edgeo ?e ?a ?o)
+               (edgeo rg ?e ?a ?o)
                (== q [?e ?a ?o]))))))
 
 (t/deftest test-typeo
   (t/is (= (tg/vseq rg 'Junction)
-           (run*-on-model rg [q]
-             (typeo q 'Junction))
-           (run*-on-models {routemap rg} [q]
-             (routemap/typeo q 'Junction))))
+           (run* [q]
+             (typeo rg q 'Junction))))
   (t/is (= (tg/eseq rg 'Connection)
-           (run*-on-model rg [q]
-             (typeo q 'Connection))
-           (run*-on-models {routemap rg} [q]
-             (routemap/typeo q 'Connection)))))
+           (run* [q]
+             (typeo rg q 'Connection)))))
 
 (t/deftest test-valueo
   (t/is (= (map (fn [e]
                   [e (tg/value e :name)])
                 (concat (tg/vseq rg '[NamedElement Plaza])
                         (tg/eseq rg 'Street)))
-           (run*-on-model rg [q]
+           (run* [q]
              (with-fresh
-               (valueo ?elem :name ?val)
-               (== q [?elem ?val])))
-           (run*-on-models {routemap rg} [q]
-             (with-fresh
-               (routemap/valueo ?elem :name ?val)
+               (valueo rg ?elem :name ?val)
                (== q [?elem ?val]))))))
 
 (t/deftest test-adjo
   (t/is (= (q/adjs (tg/vertex rg 12) :localities)
-           (run*-on-model rg [q]
-             (adjo (tg/vertex rg 12) :localities q))
-           (run*-on-models {routemap rg} [q]
-             (routemap/adjo (tg/vertex rg 12) :localities q))))
+           (run* [q]
+             (adjo rg (tg/vertex rg 12) :localities q))))
   (t/is (= (q/adjs (tg/vertex rg 12) :capital)
-           (run*-on-model rg [q]
-             (adjo (tg/vertex rg 12) :capital q))
-           (run*-on-models {routemap rg} [q]
-             (routemap/adjo (tg/vertex rg 12) :capital q)))))
+           (run* [q]
+             (adjo rg (tg/vertex rg 12) :capital q)))))
