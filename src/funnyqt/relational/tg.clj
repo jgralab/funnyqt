@@ -224,153 +224,34 @@
   [vc]
   (for [na (class->rel-symbols vc)]
     `(defn ~(:unique-name (meta na))
-       {:doc ~(format "A relation where `v` is a %s vertex." na)}
-       [~'v]
-       (fn [~'a]
-         (let [~'gv (walk ~'a ~'v)]
-           (cond
-            (ground? ~'gv)
-            (or (and (tg/vertex? ~'gv)
-                     (tg/contains-vertex? ~'*model* ~'gv)
-                     (p/has-type? ~'gv '~na)
-                     (succeed ~'a))
-                (and rel/*make-tmp-elements*
-                     (tmp-element? ~'gv)
-                     (set-tmp-kind ~'gv :vertex)
-                     (set-tmp-type ~'gv '~na)
-                     (succeed ~'a))
-                (fail ~'a))
-
-            :else (to-stream
-                   (->> (map (fn [~'vertex] (unify ~'a ~'v ~'vertex))
-                             (concat (tg/vseq ~'*model* '~na)
-                                     (if rel/*make-tmp-elements*
-                                       [(make-tmp-vertex ~'*model* '~na)]
-                                       [])))
-                   (remove not)))))))))
+       ~(format "A relation where `v` is a %s vertex of graph `g`." na)
+       [~'g ~'v]
+       (all
+        (typeo ~'g ~'v '~na)
+        (vertexo ~'g ~'v)))))
 
 (defn ^:private create-ec-relations
   "Creates relations for the given edge class."
   [^EdgeClass ec]
-  (let [from-vc-qn (p/qname (-> ec .getFrom .getVertexClass))
-        to-vc-qn   (p/qname (-> ec .getTo .getVertexClass))]
-    (for [na (class->rel-symbols ec)]
-      `(defn ~(:unique-name (meta na))
-         {:doc ~(format "A relation where `e' is a %s edge from `al' to `om'." na)}
-         [~'e ~'al ~'om]
-         (fn [~'a]
-           (let [~'ge  (walk ~'a ~'e)
-                 ~'gal (walk ~'a ~'al)
-                 ~'gom (walk ~'a ~'om)]
-             (cond
-              (ground? ~'ge)
-              (or (and (tg/edge? ~'ge)
-                       (unify ~'a [~'al ~'om]
-                              [(tg/alpha ~'ge) (tg/omega ~'ge)]))
-                  (fail ~'a))
-
-              (and (ground? ~'gal) (ground? ~'gom)
-                   (or (tmp-element? ~'gal) (tmp-element? ~'gom)))
-              (or (unify ~'a ~'e
-                         (let [tmp# (make-tmp-edge ~'*model* '~na)]
-                           (set-tmp-alpha tmp# ~'gal)
-                           (set-tmp-omega tmp# ~'gom)
-                           tmp#))
-                  (fail ~'a))
-
-              (and (ground? ~'gal) (ground? ~'gom)
-                   (tg/vertex? ~'gal) (tg/vertex? ~'gom))
-              (to-stream
-               (->> (concat
-                     (map (fn [~'inc]
-                            (when (= ~'gom (tg/omega ~'inc))
-                              (unify ~'a ~'e ~'inc)))
-                          (tg/iseq ~'gal '~na :out))
-                     (if rel/*make-tmp-elements*
-                       (let [tmp# (make-tmp-edge ~'*model* '~na)]
-                         (set-tmp-alpha tmp# ~'gal)
-                         (set-tmp-omega tmp# ~'gom)
-                         [(unify ~'a ~'e tmp#)])
-                       []))
-                     (remove not)))
-
-              (ground? ~'gal)
-              (cond
-               (tg/vertex? ~'gal)
-               (to-stream
-                (->> (map (fn [~'incidence]
-                            (unify ~'a [~'e ~'om]
-                                   [~'incidence (tg/omega ~'incidence)]))
-                          (tg/iseq ~'gal '~na :out))
-                     (remove not)))
-
-               :else (fail ~'a))
-
-              (ground? ~'gom)
-              (cond
-               (tg/vertex? ~'gom)
-               (to-stream
-                (->> (map (fn [~'incidence]
-                            (unify ~'a [~'e ~'al]
-                                   [~'incidence (tg/alpha ~'incidence)]))
-                          (tg/iseq ~'gom '~na :in))
-                     (remove not)))
-
-               :else (fail ~'a))
-
-              :else (to-stream
-                     (->> (for [~'edge (concat (tg/eseq ~'*model* '~na)
-                                               (if rel/*make-tmp-elements*
-                                                 [(make-tmp-edge ~'*model* '~na)]
-                                                 []))]
-                            (unify ~'a [~'e ~'al ~'om]
-                                   [~'edge (tg/alpha ~'edge) (tg/omega ~'edge)]))
-                          (remove not))))))))))
+  (for [na (class->rel-symbols ec)]
+    `(defn ~(:unique-name (meta na))
+       ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
+       [~'g ~'e ~'al ~'om]
+       (all
+        (edgeo ~'g ~'e ~'al ~'om)
+        (typeo ~'g ~'e '~na)))))
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."
-  [[attr aecs]]   ;;; attr is an attr name symbol, aecs the set of classes
-                  ;;; having such an attr
-  (let [ts     (mapv #(p/qname %) aecs) ;; a type spec
-        seqf   (cond
-                (every? #(instance? VertexClass %) aecs) `tg/vseq
-                (every? #(instance? EdgeClass %)   aecs) `tg/eseq
-                :else `(fn [graph# ts#]
-                         (apply concat ((juxt tg/vseq
-                                              tg/eseq)
-                                        graph# ts#))))]
+  [[attr aecs]] ;; attr is an attr name keyword, aecs the set of classes having
+                ;; such an attr
+  (let [ts (mapv #(p/qname %) aecs)]
     `(defn ~(symbol (str "+" (name attr)))
-       {:doc ~(format
-               "A relation where `ae' has value `val' for its %s attribute." attr)}
-       [~'ae ~'val]
-       (fn [~'a]
-         (let [~'gae (walk ~'a ~'ae)
-               ~'gval (walk ~'a ~'val)]
-           (cond
-            (ground? ~'gae)
-            (or (and (tg/attributed-element? ~'gae)
-                     (.getAttribute ^AttributedElementClass
-                                    (tg/attributed-element-class ~'gae)
-                                    ~(name attr))
-                     (unify ~'a ~'val (tg/value ~'gae ~attr)))
-                (and rel/*make-tmp-elements*
-                     (tmp-element? ~'gae)
-                     (add-tmp-attr ~'gae ~attr ~'gval)
-                     (succeed ~'a))
-                (fail ~'a))
-
-            :else (to-stream
-                   (->> (concat (for [~'oae (~seqf ~'*model* '~ts)
-                                      :let [~'oval (tg/value ~'oae ~attr)]]
-                                  (unify ~'a [~'ae ~'val] [~'oae ~'oval]))
-                                (if rel/*make-tmp-elements*
-                                  [(let [tmp# (make-tmp-element ~'*model*)]
-                                     (if ~'gval
-                                       (do (add-tmp-attr tmp# ~attr ~'gval)
-                                           (unify ~'a [~'ae ~'val] [tmp# ~'gval]))
-                                       (unify ~'a ~'ae tmp#)))]
-                                  []))
-                        (remove not)))))))))
+       ~(format "A relation where `ae` has value `val` for its %s attribute in graph `g`." attr)
+       [~'g ~'ae ~'val]
+       (all
+        (typeo ~'g ~'ae '~ts)
+        (valueo ~'g ~'ae ~attr ~'val)))))
 
 (defn ^:private create-reference-relation
   "Creates a relation for the given role name."
@@ -379,8 +260,8 @@
         make-one   (fn [[^EdgeClass ec dir]]
                      (let [ec-rel-sym (symbol (str "+" (.getUniqueName ec)))]
                        (if (= dir :omega)
-                          `(~ec-rel-sym ~'ign ~'sv ~'tv)
-                          `(~ec-rel-sym ~'ign ~'tv ~'sv))))
+                          `(~ec-rel-sym ~'g ~'ign ~'sv ~'tv)
+                          `(~ec-rel-sym ~'g ~'ign ~'tv ~'sv))))
         make (fn [tups]
                (if (> (count tups) 1)
                  `(conde
@@ -388,7 +269,7 @@
                  (make-one (first tups))))]
     `(defn ~role-rel-sym
        ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
-       [~'sv ~'tv]
+       [~'g ~'sv ~'tv]
        (fresh [~'ign]
          ~(make owners)))))
 
@@ -402,17 +283,15 @@
                            (if (.exists (clojure.java.io/file schema-file))
                              schema-file
                              (clojure.java.io/resource schema-file)))
-           atts (atom {}) ;; map from attribute names to set of attributed element classes that have it
-           refs (atom {}) ;; map from role names to set of [edgeclass dir] tuples  that have it
+           atts (atom {}) ;; map from attribute names given as keywords to set
+                          ;; of attributed element classes that have it
+           refs (atom {}) ;; map from role names given as keywords to set of
+                          ;; [edgeclass dir] tuples that have it
            old-ns *ns*]
        `(do
           ~@(when nssym
               `[(ns ~nssym
-                  (:refer-clojure :exclude [~'==]))
-
-                (def ~(vary-meta '*model* assoc :dynamic true))
-                          ;; The standard relations
-                (make-standard-tg-relations ~'*model*)])
+                  (:refer-clojure :exclude [~'==]))])
           ;; The schema specific ones
           ~@(concat
              (doall

@@ -8,7 +8,7 @@
             [funnyqt.query :as q]
             [clojure.test :as t]))
 
-#_(generate-schema-relations "test/input/greqltestgraph.tg" routemap)
+(generate-schema-relations "test/input/greqltestgraph.tg" routemap)
 
 (t/deftest test-vertexo
   (t/is (= (tg/vseq rg)
@@ -31,10 +31,15 @@
 (t/deftest test-typeo
   (t/is (= (tg/vseq rg 'Junction)
            (run* [q]
-             (typeo rg q 'Junction))))
+             (typeo rg q 'Junction))
+           (run* [q]
+             (routemap/+Junction rg q))))
   (t/is (= (tg/eseq rg 'Connection)
            (run* [q]
-             (typeo rg q 'Connection)))))
+             (typeo rg q 'Connection))
+           (run* [q]
+             (with-fresh
+               (routemap/+Connection rg q _ _))))))
 
 (t/deftest test-valueo
   (t/is (= (map (fn [e]
@@ -44,12 +49,20 @@
            (run* [q]
              (with-fresh
                (valueo rg ?elem :name ?val)
+               (== q [?elem ?val])))
+           (run* [q]
+             (with-fresh
+               (routemap/+name rg ?elem ?val)
                (== q [?elem ?val]))))))
 
 (t/deftest test-adjo
   (t/is (= (q/adjs (tg/vertex rg 12) :localities)
            (run* [q]
-             (adjo rg (tg/vertex rg 12) :localities q))))
+             (adjo rg (tg/vertex rg 12) :localities q))
+           (run* [q]
+             (routemap/+->localities rg (tg/vertex rg 12) q))))
   (t/is (= (q/adjs (tg/vertex rg 12) :capital)
            (run* [q]
-             (adjo rg (tg/vertex rg 12) :capital q)))))
+             (adjo rg (tg/vertex rg 12) :capital q))
+           (run* [q]
+             (routemap/+->capital rg (tg/vertex rg 12) q)))))

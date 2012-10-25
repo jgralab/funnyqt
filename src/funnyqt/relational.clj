@@ -5,50 +5,7 @@
         [funnyqt.utils :only [errorf]]
         funnyqt.relational.util))
 
-(defn ^:private get-*model*-qname [ns]
-  (symbol (str (ns-name ns) "/*model*")))
-
-(def ^:dynamic *model*)
-
 (def ^:dynamic *make-tmp-elements* false)
-
-(defmacro run*-on-model
-  "Like `clojure.core.logic/run*` but bind funnyqt.relational/*model* to
-  `model` beforehand."
-  [model [q] & goals]
-  `(binding [*model* ~model]
-     (run* [~q]
-       ~@goals)))
-
-(defmacro run-on-model
-  "Like `clojure.core.logic/run` but bind funnyqt.relational/*model* to `model`
-  beforehand."
-  [model n [q] & goals]
-  `(binding [*model* ~model]
-     (run ~n [~q]
-       ~@goals)))
-
-(defn ^:private rom-binding-vec [ns-model-map]
-  (vec (mapcat (fn [[ns model]]
-                 [(get-*model*-qname (find-ns ns))
-                  model])
-               ns-model-map)))
-
-(defmacro run*-on-models
-  "Like `run*-on-model` but bind the *model* vars using the namespace-model
-  bindings provided in `ns-model-map`."
-  [ns-model-map [q] & goals]
-  `(binding ~(rom-binding-vec ns-model-map)
-     (run* [~q]
-       ~@goals)))
-
-(defmacro run-on-models
-  "Like `run*-on-model` but bind the *model* vars using the namespace-model
-  bindings provided in `ns-model-map`."
-  [ns-model-map n [q] & goals]
-  `(binding ~(rom-binding-vec ns-model-map)
-     (run ~n [~q]
-       ~@goals)))
 
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
