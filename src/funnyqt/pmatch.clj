@@ -381,7 +381,7 @@
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (errorf "Edges mustn't be named for EMF: %s"
-              (vec (map describe (remove anon? (tg/eseq pg 'APatternEdge))))))
+              (mapv describe (remove anon? (tg/eseq pg 'APatternEdge)))))
     (loop [stack [(the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -609,7 +609,7 @@
                                               (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name) more))
+             (mapv (partial convert-spec name) more)
              (convert-spec name more))))))
 
 (defmacro letpattern
@@ -634,7 +634,7 @@
       `(letfn [~@(map (fn [[n & more]]
                         `(~n ~@(if (vector? (first more))
                                  (convert-spec n more)
-                                 (doall (map (partial convert-spec n) more)))))
+                                 (mapv (partial convert-spec n) more))))
                    patterns)]
          ~@body))))
 
@@ -669,4 +669,4 @@
       `(fn ~@(when name [name])
          ~@(if (vector? (first more))
              (convert-spec name more)
-             (doall (map (partial convert-spec name) more)))))))
+             (mapv (partial convert-spec name) more))))))

@@ -91,7 +91,7 @@
             (errorf "Error: Rules must have exactly one argument: %s" (:name m)))
         arg (first (:args m))
         create-vec (create-vector (:to m) outs)
-        created (vec (map first (partition 2 create-vec)))
+        created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
                  (first created)
                  created)]
