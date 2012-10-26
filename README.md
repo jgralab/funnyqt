@@ -4,9 +4,7 @@ FunnyQT is a model querying and transformation library.  It supports (or is
 going to support) TGraph and EMF models.  It's part of Tassilo Horn's
 dissertation studies.
 
-The current build status is:
-
-[![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
+Current build status: [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 
 ## Documentation
 
