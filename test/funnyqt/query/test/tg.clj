@@ -156,25 +156,25 @@
 ;;** Path expression tests
 
 (deftest test--->
-  (doall (map #(is (= %1 %2))
-	      (let [m (map id (reachables (vertex rg 12) -->))]
-		;; There are 9 reachable unique vertices
-		(is (= 9 (count m)))
-		m)
-	      ;; and that's the order (by ids)
-	      [7 6 3 4 1 2 10 11 5])))
+  (mapv #(is (= %1 %2))
+        (let [m (map id (reachables (vertex rg 12) -->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's the order (by ids)
+        [7 6 3 4 1 2 10 11 5]))
 
 (deftest test-<--
   (is (= 0 (count (reachables (vertex rg 12) <--)))))
 
 (deftest test-<->
-  (doall (map #(is (= %1 %2))
-	      (let [m (map id (reachables (vertex rg 12) <->))]
-		;; There are 9 reachable unique vertices
-		(is (= 9 (count m)))
-		m)
-	      ;; and that's the order (by ids)
-	      [7 6 3 4 1 2 10 11 5])))
+  (mapv #(is (= %1 %2))
+        (let [m (map id (reachables (vertex rg 12) <->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's the order (by ids)
+        [7 6 3 4 1 2 10 11 5]))
 
 (deftest test-reachable-vertices
   (is (= 2 (count (reachables (vertex rg 1)

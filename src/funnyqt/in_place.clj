@@ -67,8 +67,8 @@
                                               *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
-                         more))
+             (mapv (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
+                   more)
              (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
 
 (defmacro letrule
@@ -84,9 +84,9 @@
                                             *pattern-expansion-context*)]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
-                               (doall (map (partial convert-spec n (:debug (meta n))
-                                                    (:forall (meta n)))
-                                           more))
+                               (mapv (partial convert-spec n (:debug (meta n))
+                                              (:forall (meta n)))
+                                     more)
                                (convert-spec n (:debug (meta n)) (:forall (meta n)) more))))
                  rspecs)]
        ~@body)))
@@ -138,8 +138,8 @@
                                               *pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (doall (map (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
-                         more))
+             (mapv (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
+                   more)
              (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
 
 ;;# Higher order rules
