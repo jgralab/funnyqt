@@ -136,7 +136,7 @@
 
 (deftest test-attr-rename-1
   (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute."
-        (attr-rename-1 (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")))))
+        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-2
   [g]
@@ -145,7 +145,7 @@
 
 (deftest test-attr-rename-2
   (is (thrown-with-msg? Exception #"localities.Locality already has a inhabitants attribute."
-        (attr-rename-1 (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")))))
+        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-3
   [g]
@@ -153,7 +153,7 @@
   (rename-attribute! g 'NamedElement.name :id))
 
 (deftest test-attr-rename-3
-  (let [g (load-graph "/home/horn/Repos/uni/funnyqt/test/input/greqltestgraph.tg")
+  (let [g (load-graph "test/input/greqltestgraph.tg")
         attr-map (fn [attr]
                    (apply hash-map (mapcat (fn [ne]
                                              [ne (value ne attr)])

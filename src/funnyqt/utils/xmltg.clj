@@ -455,18 +455,3 @@ If the XML file has no DTD, you can influence the resolution by providing an
         (emit-element re))
       (.flush *writer*))))
 
-#_(xml-graph2xml (xml2xml-graph "test/input/xmltg-example-with-dtd.xml")
-                 "/home/horn/xmltg-example-with-dtd.xml")
-
-#_(show-graph (xml2xml-graph "test/input/example.families"
-                             (fn [qn a v]
-                               (when (re-matches #".*@.*" v)
-                                 "EMFFragmentPath"))))
-
-#_(let [root (the (vseq (xml2xml-graph "test/input/example.families") 'RootElement))]
-    (adjs root :attributes))
-
-#_(xml-graph2xml (xml2xml-graph "test/input/example.families")
-                 "/home/horn/example.families")
-
-#_(attributes-str (the (vseq (xml2xml-graph "test/input/example.families") 'RootElement)))
