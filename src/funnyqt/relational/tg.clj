@@ -17,50 +17,78 @@
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
+(defn ^:private tmp-typeo
+  [g e t]
+  (fn [a]
+    (let [ge (walk a e)
+          gt (walk a t)]
+      ;; We assume gt is a ground symbol.  We may assume that since bidi
+      ;; transformations usually should only use the generated +Foo relations.
+      (when-not (ground? gt)
+        (u/error "The type given to tmp-typeo must be ground."))
+      (tmp/check-tmp-type gt)
+      (let [aec (tg/attributed-element-class g gt)
+            vc? (tg/vertex-class? aec)]
+        (if (ground? ge)
+          (if (or (and (tmp/tmp-element? ge)
+                       (tmp/set-tmp-type ge gt)
+                       (tmp/set-tmp-kind ge (if vc? :vertex :edge)))
+                  (p/has-type? ge t))
+            (succeed a)
+            (fail a))
+          (let [[sfn tefn] (if vc?
+                             [tg/vseq tmp/make-tmp-vertex]
+                             [tg/eseq tmp/make-tmp-edge])]
+            (to-stream
+             (->> (map #(unify a e %) (concat (sfn g) [(tefn g gt)]))
+                  (remove not)))))))))
+
 (defn typeo
   "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
   element class name.  In fact, `t` may be any type specification (see
   `type-matcher`).  The graph `g` must be ground."
   [g e t]
-  (fn [a]
-    (let [ge (walk a e)
-          gt (walk a t)]
-      (cond
-       (and (ground? ge)
-            (ground? gt))
-       (if (and (tg/attributed-element? ge)
-                (or (coll? gt) (symbol? gt))
-                (p/has-type? ge gt))
-         (succeed a)
-         (fail a))
-
-       (ground? ge)
-       (or (and (tg/attributed-element? ge)
-                (unify a t (p/qname ge)))
+  (if tmp/*make-tmp-elements*
+    (tmp-typeo g e t)
+    (fn [a]
+      (let [ge (walk a e)
+            gt (walk a t)]
+        (cond
+         (and (ground? ge)
+              (ground? gt))
+         (if (and (tg/attributed-element? ge)
+                  (or (coll? gt) (symbol? gt))
+                  (p/has-type? ge gt))
+           (succeed a)
            (fail a))
 
-       (ground? gt)
-       (if (symbol? gt)
-         ;; Ok, here we can determine if its a vertex or an edge class
-         (let [[_ tn _] (u/type-with-modifiers (name gt))
-               aec      (tg/attributed-element-class g tn)]
-           (if (tg/vertex-class? aec)
-             (to-stream
-              (->> (map #(unify a e %) (tg/vseq g gt))
-                   (remove not)))
-             (to-stream
-              (->> (map #(unify a e %) (tg/eseq g gt))
-                   (remove not)))))
-         (to-stream
-          (->> (map #(unify a e %)
-                    (concat (tg/vseq g gt)
-                            (tg/eseq g gt)))
-               (remove not))))
+         (ground? ge)
+         (or (and (tg/attributed-element? ge)
+                  (unify a t (p/qname ge)))
+             (fail a))
 
-       :else (to-stream
-              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
-                     (unify a [e t] [elem (p/qname elem)]))
-                   (remove not)))))))
+         (ground? gt)
+         (if (symbol? gt)
+           ;; Ok, here we can determine if its a vertex or an edge class
+           (let [[_ tn _] (u/type-with-modifiers (name gt))
+                 aec      (tg/attributed-element-class g tn)]
+             (if (tg/vertex-class? aec)
+               (to-stream
+                (->> (map #(unify a e %) (tg/vseq g gt))
+                     (remove not)))
+               (to-stream
+                (->> (map #(unify a e %) (tg/eseq g gt))
+                     (remove not)))))
+           (to-stream
+            (->> (map #(unify a e %)
+                      (concat (tg/vseq g gt)
+                              (tg/eseq g gt)))
+                 (remove not))))
+
+         :else (to-stream
+                (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
+                       (unify a [e t] [elem (p/qname elem)]))
+                     (remove not))))))))
 
 (defn ^:private tmp-vertexo [g v]
   (fn [a]

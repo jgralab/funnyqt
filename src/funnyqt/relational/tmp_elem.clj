@@ -63,19 +63,22 @@
       (u/errorf "Cannot modify a manifested element!"))
     (when (and kind (not= kind k))
       (u/errorf "Cannot reset kind %s to %s." kind k))
-    (set! kind k))
+    (set! kind k)
+    true)
   (set-tmp-type [this t]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
+    ;; TODO: Resetting to a more special class should probably be allowed.
     (when (and type (not= type t))
       (u/errorf "Cannot reset type %s to %s." type t))
-    (when (not (symbol? type))
-      (u/errorf "Type must be a plain type: %s" type))
-    (let [^String n (name type)]
+    (when-not (symbol? t)
+      (u/errorf "Type must be a plain type symbol: %s" t))
+    (let [^String n (name t)]
       (when (or (.startsWith n "!")
                 (.endsWith n "!"))
-        (u/errorf "Type must be a plain type (no !): %s" type)))
-    (set! type t))
+        (u/errorf "Type must be a plain type symbol (no !): %s" t)))
+    (set! type t)
+    true)
   (add-tmp-attr [this attr val]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
@@ -83,7 +86,8 @@
       (cond
        (= v ::not-found) (set! attrs (assoc attrs attr val))
        (= v val) val
-       :else (u/errorf "Cannot reset %s value from %s to %s." attr v val))))
+       :else (u/errorf "Cannot reset %s value from %s to %s." attr v val)))
+    true)
   (as-map [this]
     {:kind kind :type type :alpha alpha :omega omega :attrs attrs
      :manifested manifested :manifestation manifestation})
@@ -93,25 +97,46 @@
       (u/errorf "Cannot modify a manifested element!"))
     (if (and alpha (not= alpha al))
       (u/errorf "The alpha vertex is already set to %s. Cannot reset to %s." alpha al)
-      (set! alpha al)))
+      (set! alpha al))
+    true)
   (set-tmp-omega [this om]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (if (and omega (not= omega om))
       (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
-      (set! omega om))))
+      (set! omega om))
+    true))
+
+(defn check-tmp-type [type]
+  (or (nil? type)
+      (do
+        (when-not (symbol? type)
+          (u/errorf "Type must be a plain type symbol: %s" type))
+        (let [^String n (name type)]
+          (when (or (.startsWith n "!")
+                    (.endsWith n "!"))
+            (u/errorf "Type must be a plain type symbol (no !): %s" type))))))
 
 (defn make-tmp-element
   ([g]
      (make-tmp-element g nil))
   ([g type]
+     (check-tmp-type type)
      (->TmpElement g nil type nil nil {} false nil)))
 
-(defn make-tmp-vertex [g]
-  (->TmpElement g :vertex nil nil nil {} false nil))
+(defn make-tmp-vertex
+  ([g]
+     (make-tmp-vertex g nil))
+  ([g type]
+     (check-tmp-type type)
+     (->TmpElement g :vertex type nil nil {} false nil)))
 
-(defn make-tmp-edge [g]
-  (->TmpElement g :edge nil nil nil {} false nil))
+(defn make-tmp-edge
+  ([g]
+     (make-tmp-edge g nil))
+  ([g type]
+     (check-tmp-type type)
+     (->TmpElement g :edge type nil nil {} false nil)))
 
 (defn tmp-element? [elem]
   (instance? funnyqt.relational.tmp_elem.TmpElement elem))
