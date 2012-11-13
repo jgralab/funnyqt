@@ -8,6 +8,7 @@
             funnyqt.query
             [funnyqt.utils :as u]
             [funnyqt.relational :as rel]
+            [funnyqt.relational.tmp-elem :as tmp]
             clojure.java.io)
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
@@ -61,20 +62,36 @@
                      (unify a [e t] [elem (p/qname elem)]))
                    (remove not)))))))
 
-(defn vertexo
-  "A relation where `v` is a vertex in graph `g`.
-  `g` has to be ground."
-  [g v]
+(defn ^:private tmp-vertexo [g v]
   (fn [a]
     (let [gv (walk a v)]
       (if (fresh? gv)
         (to-stream
-         (->> (map #(unify a v %) (tg/vseq g))
+         (->> (map #(unify a v %) (concat (tg/vseq g)
+                                          [(tmp/make-tmp-vertex g)]))
               (remove not)))
-        (if (and (tg/vertex? gv)
-                 (tg/contains-vertex? g gv))
+        (if (or (and (tg/vertex? gv)
+                     (tg/contains-vertex? g gv))
+                (tmp/tmp-vertex? gv))
           (succeed a)
           (fail a))))))
+
+(defn vertexo
+  "A relation where `v` is a vertex in graph `g`.
+  `g` has to be ground."
+  [g v]
+  (if tmp/*make-tmp-elements*
+    (tmp-vertexo g v)
+    (fn [a]
+      (let [gv (walk a v)]
+        (if (fresh? gv)
+          (to-stream
+           (->> (map #(unify a v %) (tg/vseq g))
+                (remove not)))
+          (if (and (tg/vertex? gv)
+                   (tg/contains-vertex? g gv))
+            (succeed a)
+            (fail a)))))))
 
 (defn edgeo
   "A relation where `e` is an edge in graph `g` from `alpha` to `omega`."

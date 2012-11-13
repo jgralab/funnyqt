@@ -1,6 +1,17 @@
 (ns funnyqt.relational.tmp-elem
   (:require [funnyqt.tg :as tg]
-            [funnyqt.utils :as u]))
+            [funnyqt.utils :as u])
+  (:use funnyqt.relational.util))
+
+(def ^:dynamic *make-tmp-elements* nil)
+
+(defprotocol TmpElementAccessors
+  (get-graph [this])
+  (get-kind  [this])
+  (get-type  [this])
+  (get-alpha [this])
+  (get-omega [this])
+  (get-attrs [this]))
 
 (defprotocol TmpAEOps
   (set-tmp-kind [this kind])
@@ -21,6 +32,13 @@
                      ^:volatile-mutable attrs
                      ^:volatile-mutable manifested
                      ^:volatile-mutable manifestation]
+  TmpElementAccessors
+  (get-graph [this] graph)
+  (get-kind  [this] kind)
+  (get-type  [this] type)
+  (get-alpha [this] alpha)
+  (get-omega [this] omega)
+  (get-attrs [this] attrs)
   TmpAEOps
   (manifest [this]
     ;; TODO: Note that manifestation can already exist.
@@ -30,21 +48,15 @@
       (when-not type
         (u/errorf "TmpElement type not set!"))
       (condp = kind
-        :vertex (let [v (tg/create-vertex! graph type)]
-                  (doseq [[a val] attrs]
-                    (tg/set-value! v a val))
-                  (set! manifested true)
-                  (set! manifestation v))
-        :edge (do
-                (when-not (tg/vertex? alpha)
-                  (set! alpha (manifest alpha)))
-                (when-not (tg/vertex? omega)
-                  (set! omega (manifest omega)))
-                (let [e (tg/create-edge! graph type alpha omega)]
-                  (doseq [[a val] attrs]
-                    (tg/set-value! e a val))
-                  (set! manifested true)
-                  (set! manifestation e)))))
+        :vertex (set! manifestation
+                      (tg/create-vertex! graph type))
+        :edge   (set! manifestation
+                      (tg/create-edge! graph type
+                                       (manifest alpha)
+                                       (manifest omega)))))
+    (doseq [[a val] attrs]
+      (tg/set-value! manifestation a val))
+    (set! manifested true)
     manifestation)
   (set-tmp-kind [this k]
     (when manifested
@@ -57,6 +69,12 @@
       (u/errorf "Cannot modify a manifested element!"))
     (when (and type (not= type t))
       (u/errorf "Cannot reset type %s to %s." type t))
+    (when (not (symbol? type))
+      (u/errorf "Type must be a plain type: %s" type))
+    (let [^String n (name type)]
+      (when (or (.startsWith n "!")
+                (.endsWith n "!"))
+        (u/errorf "Type must be a plain type (no !): %s" type)))
     (set! type t))
   (add-tmp-attr [this attr val]
     (when manifested
@@ -83,22 +101,26 @@
       (u/errorf "The omega vertex is already set to %s. Cannot reset to %s." omega om)
       (set! omega om))))
 
-(defn make-tmp-element [g]
-  (->TmpElement g nil nil nil nil {} false nil))
+(defn make-tmp-element
+  ([g]
+     (make-tmp-element g nil))
+  ([g type]
+     (->TmpElement g nil type nil nil {} false nil)))
 
-(defn make-tmp-vertex [g type]
-  (let [^String n (name type)]
-    (when (or (.startsWith n "!")
-              (.endsWith n "!"))
-      (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement g :vertex type nil nil {} false nil))
+(defn make-tmp-vertex [g]
+  (->TmpElement g :vertex nil nil nil {} false nil))
 
-(defn make-tmp-edge [g type]
-  (let [^String n (name type)]
-    (when (or (.startsWith n "!")
-              (.endsWith n "!"))
-      (u/errorf "Type must be a plain type (no !): %s" type)))
-  (->TmpElement g :edge type nil nil {} false nil))
+(defn make-tmp-edge [g]
+  (->TmpElement g :edge nil nil nil {} false nil))
 
 (defn tmp-element? [elem]
-  (instance? funnyqt.relational.tg.TmpElement elem))
+  (instance? funnyqt.relational.tmp_elem.TmpElement elem))
+
+(defn tmp-vertex? [elem]
+  (and (tmp-element? elem)
+       (= (get-kind elem) :vertex)))
+
+(defn tmp-edge? [elem]
+  (and (tmp-element? elem)
+       (= (get-kind elem) :edge)))
+
