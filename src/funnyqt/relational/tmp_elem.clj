@@ -14,15 +14,15 @@
   (get-attrs [this]))
 
 (defprotocol TmpAEOps
-  (set-tmp-kind [this kind])
-  (set-tmp-type [this type])
-  (add-tmp-attr [this attr val])
+  (set-kind [this kind])
+  (set-type [this type])
+  (add-attr [this attr val])
   (manifest [this])
   (as-map [this]))
 
 (defprotocol TmpEdgeOps
-  (set-tmp-alpha [this al])
-  (set-tmp-omega [this om]))
+  (set-alpha [this al])
+  (set-omega [this om]))
 
 (deftype TmpElement [graph
                      ^:volatile-mutable kind
@@ -58,14 +58,14 @@
       (tg/set-value! manifestation a val))
     (set! manifested true)
     manifestation)
-  (set-tmp-kind [this k]
+  (set-kind [this k]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (when (and kind (not= kind k))
       (u/errorf "Cannot reset kind %s to %s." kind k))
     (set! kind k)
     true)
-  (set-tmp-type [this t]
+  (set-type [this t]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     ;; TODO: Resetting to a more special class should probably be allowed.
@@ -79,7 +79,7 @@
         (u/errorf "Type must be a plain type symbol (no !): %s" t)))
     (set! type t)
     true)
-  (add-tmp-attr [this attr val]
+  (add-attr [this attr val]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (let [v (get attrs attr ::not-found)]
@@ -92,14 +92,14 @@
     {:kind kind :type type :alpha alpha :omega omega :attrs attrs
      :manifested manifested :manifestation manifestation})
   TmpEdgeOps
-  (set-tmp-alpha [this al]
+  (set-alpha [this al]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (if (and alpha (not= alpha al))
       (u/errorf "The alpha vertex is already set to %s. Cannot reset to %s." alpha al)
       (set! alpha al))
     true)
-  (set-tmp-omega [this om]
+  (set-omega [this om]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
     (if (and omega (not= omega om))

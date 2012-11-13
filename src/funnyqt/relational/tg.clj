@@ -28,11 +28,12 @@
         (u/error "The type given to tmp-typeo must be ground."))
       (tmp/check-tmp-type gt)
       (let [aec (tg/attributed-element-class g gt)
-            vc? (tg/vertex-class? aec)]
+            vc? (tg/vertex-class? aec)
+            gt  (p/qname aec)]  ;; use the FQN no matter what input
         (if (ground? ge)
           (if (or (and (tmp/tmp-element? ge)
-                       (tmp/set-tmp-type ge gt)
-                       (tmp/set-tmp-kind ge (if vc? :vertex :edge)))
+                       (tmp/set-type ge gt)
+                       (tmp/set-kind ge (if vc? :vertex :edge)))
                   (p/has-type? ge t))
             (succeed a)
             (fail a))
@@ -100,7 +101,8 @@
               (remove not)))
         (if (or (and (tg/vertex? gv)
                      (tg/contains-vertex? g gv))
-                (tmp/tmp-vertex? gv))
+                (and (tmp/tmp-element? gv)
+                     (tmp/set-kind gv :vertex)))
           (succeed a)
           (fail a))))))
 
