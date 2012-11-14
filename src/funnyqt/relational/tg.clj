@@ -27,20 +27,19 @@
       (when-not (ground? gt)
         (u/error "The type given to tmp-typeo must be ground."))
       (let [aec (tg/attributed-element-class g gt)
-            vc? (tg/vertex-class? aec)
-            gt  (p/qname aec)]  ;; use the FQN no matter what input
+            vc? (tg/vertex-class? aec)]
         (if (ground? ge)
           (if (or (and (tmp/tmp-element? ge)
                        (tmp/set-type ge gt)
                        (tmp/set-kind ge (if vc? :vertex :edge)))
-                  (p/has-type? ge t))
+                  (p/has-type? ge gt))
             (succeed a)
             (fail a))
           (let [[sfn tefn] (if vc?
-                             [tg/vseq tmp/make-tmp-vertex]
-                             [tg/eseq tmp/make-tmp-edge])]
+                             [(partial tg/vseq g gt) (partial tmp/make-tmp-vertex g gt)]
+                             [(partial tg/eseq g gt) (partial tmp/make-tmp-edge g gt)])]
             (to-stream
-             (->> (map #(unify a e %) (concat (sfn g) [(tefn g gt)]))
+             (->> (map #(unify a e %) (concat (sfn) [(tefn)]))
                   (remove not)))))))))
 
 (defn typeo
@@ -157,7 +156,7 @@
               (remove not)))
         ;; The edge is ground.  All we can do is unifying alpha and omega.
         (cond
-         (tg/edge? ge) (or (unify a [al om] (tg/alpha ge) (tg/omega ge))
+         (tg/edge? ge) (or (unify a [al om] [(tg/alpha ge) (tg/omega ge)])
                            (fail a))
          (tmp/tmp-edge? ge) (succeed a)
          :else (fail a))))))
