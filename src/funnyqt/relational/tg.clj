@@ -122,40 +122,82 @@
             (succeed a)
             (fail a)))))))
 
+(defn ^:private tmp-edgeo [g e al om]
+  (fn [a]
+    (let [ge  (walk a e)
+          gal (walk a al)
+          gom (walk a om)]
+      (println gal gom)
+      (if (fresh? ge)
+        ;; If the edge is fresh, it might be an existing edge or a new tmp edge.
+        (to-stream
+         (->> (map (fn [[ed alp ome]]
+                     ;; ed is always an edge or a TmpElement edge, but alp and
+                     ;; ome might be nil.  In that case, we don't want to unify
+                     ;; with nil.
+                     (cond
+                      (and alp ome) (unify a [e al om] [ed alp ome])
+                      alp           (unify a [e al] [ed alp])
+                      ome           (unify a [e om] [ed ome])
+                      :else         (unify a e ed)))
+                   (concat
+                    (for [edge (cond
+                                (and (ground? gal) (tg/vertex? gal)) (tg/iseq gal nil :out)
+                                (and (ground? gom) (tg/vertex? gom)) (tg/iseq gom nil :in)
+                                :else (tg/eseq g))]
+                      [edge (tg/alpha edge) (tg/omega edge)])
+                    ;; If alpha or omega are ground, set them in the new
+                    ;; TmpElement edge.
+                    [(let [tmp (tmp/make-tmp-edge g)]
+                       (when (ground? gal)
+                         (tmp/set-alpha tmp gal))
+                       (when (ground? gom)
+                         (tmp/set-omega tmp gom))
+                       [tmp (when (ground? gal) gal) (when (ground? gom) gom)])]))
+              (remove not)))
+        ;; The edge is ground.  All we can do is unifying alpha and omega.
+        (cond
+         (tg/edge? ge) (or (unify a [al om] (tg/alpha ge) (tg/omega ge))
+                           (fail a))
+         (tmp/tmp-edge? ge) (succeed a)
+         :else (fail a))))))
+
 (defn edgeo
   "A relation where `e` is an edge in graph `g` from `alpha` to `omega`."
   [g e alpha omega]
-  (fn [a]
-    (let [ge     (walk a e)
-          galpha (walk a alpha)
-          gomega (walk a omega)]
-      (cond
-       (ground? ge)
-       (or (and (tg/edge? ge)
-                (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)]))
+  (if tmp/*make-tmp-elements*
+    (tmp-edgeo g e alpha omega)
+    (fn [a]
+      (let [ge     (walk a e)
+            galpha (walk a alpha)
+            gomega (walk a omega)]
+        (cond
+         (ground? ge)
+         (or (and (tg/edge? ge)
+                  (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)]))
+             (fail a))
+
+         (ground? galpha)
+         (if (tg/vertex? galpha)
+           (to-stream
+            (->> (map #(unify a [e omega] [% (tg/omega %)])
+                      (tg/iseq galpha nil :out))
+                 (remove not)))
            (fail a))
 
-       (ground? galpha)
-       (if (tg/vertex? galpha)
-         (to-stream
-          (->> (map #(unify a [e omega] [% (tg/omega %)])
-                    (tg/iseq galpha nil :out))
-               (remove not)))
-         (fail a))
+         (ground? gomega)
+         (if (tg/vertex? gomega)
+           (to-stream
+            (->> (map #(unify a [e alpha] [% (tg/alpha %)])
+                      (tg/iseq gomega nil :in))
+                 (remove not)))
+           (fail a))
 
-       (ground? gomega)
-       (if (tg/vertex? gomega)
-         (to-stream
-          (->> (map #(unify a [e alpha] [% (tg/alpha %)])
-                    (tg/iseq gomega nil :in))
-               (remove not)))
-         (fail a))
-
-       :else (to-stream
-              (->> (for [edge (tg/eseq g)]
-                     (unify a [e alpha omega]
-                            [edge (tg/alpha edge) (tg/omega edge)]))
-                   (remove not)))))))
+         :else (to-stream
+                (->> (for [edge (tg/eseq g)]
+                       (unify a [e alpha omega]
+                              [edge (tg/alpha edge) (tg/omega edge)]))
+                     (remove not))))))))
 
 (defn valueo
   "A relation where graph `g`s attributed element `ae` has value `val` for its
@@ -284,8 +326,8 @@
        ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
        [~'g ~'e ~'al ~'om]
        (all
-        (edgeo ~'g ~'e ~'al ~'om)
-        (typeo ~'g ~'e '~na)))))
+        (typeo ~'g ~'e '~na)
+        (edgeo ~'g ~'e ~'al ~'om)))))
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."

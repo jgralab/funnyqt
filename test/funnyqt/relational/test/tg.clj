@@ -1,6 +1,6 @@
 (ns funnyqt.relational.test.tg
   (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic :only [run* ==]]
+  (:use [clojure.core.logic :only [run* run ==]]
         clojure.test
         funnyqt.relational.tg
         funnyqt.relational
