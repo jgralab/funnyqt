@@ -26,7 +26,6 @@
       ;; transformations usually should only use the generated +Foo relations.
       (when-not (ground? gt)
         (u/error "The type given to tmp-typeo must be ground."))
-      (tmp/check-tmp-type gt)
       (let [aec (tg/attributed-element-class g gt)
             vc? (tg/vertex-class? aec)
             gt  (p/qname aec)]  ;; use the FQN no matter what input
