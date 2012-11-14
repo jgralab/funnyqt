@@ -127,5 +127,15 @@
     (let [te (tmp/make-tmp-element rg 'City)]
       (is (seq (run* [q]
                  (typeo rg te 'City)
-                 (vertexo rg te)))))))
+                 (vertexo rg te)))))
+    ;; check if type resetting to more special types works
+    (let [te (tmp/make-tmp-element rg 'Locality)
+          r (run* [q]
+              (== q te)
+              (typeo rg q 'City)
+              (vertexo rg q))]
+      (is (= (count r) 1))
+      (is (tmp/tmp-vertex? (first r)))
+      (is (= (tmp/get-type (first r))
+             (tg/attributed-element-class rg 'City))))))
 

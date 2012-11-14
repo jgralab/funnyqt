@@ -83,7 +83,7 @@
           (set-kind this (if (tg/vertex-class? aec) :vertex :edge))
           (set! type aec))
         (when-not (= aec type)
-          (when-not (q/xor (tg/vertex-class? aec) (tg/vertex-class? type))
+          (when (q/xor (tg/vertex-class? aec) (tg/vertex-class? type))
             (u/errorf "Cannot chang from VC to EC or vice versa: %s vs. %s"
                       type aec))
           (when (.isSubClassOf ^GraphElementClass aec type)
