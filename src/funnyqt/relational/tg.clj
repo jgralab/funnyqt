@@ -198,44 +198,77 @@
                               [edge (tg/alpha edge) (tg/omega edge)]))
                      (remove not))))))))
 
-(defn valueo
-  "A relation where graph `g`s attributed element `ae` has value `val` for its
-  `at` attribute."
-  [g ae at val]
+(defn tmp-valueo [g ae at val]
   (fn [a]
     (let [gae  (walk a ae)
           gat  (walk a at)
           gval (walk a val)]
-      (cond
-       (and (ground? gae)
-            (ground? gat))
-       (or (and (tg/attributed-element? gae)
-                (keyword? gat)
-                (.getAttribute ^AttributedElementClass
-                               (tg/attributed-element-class gae)
-                               (name gat))
-                (unify a val (tg/value gae gat)))
+      ;; We assume gat must be given similar to gt in typeo.  gval must also be
+      ;; given.
+      (when-not (or (ground? gat) (not (keyword? gat)))
+        (u/errorf "tmp-valueo's attribute name must be ground and given as keyword!"))
+      (when-not (ground? gval)
+        (u/errorf "attribute value not given. Please declare the element before its attributes."))
+      (if (fresh? gae)
+        (to-stream
+         (->> (concat
+               (for [elem (concat (tg/vseq g) (tg/eseq g))
+                     :when (.containsAttribute (tg/attributed-element-class elem)
+                                               (name gat))
+                     :when (= gval (tg/value elem (name gat)))]
+                 (unify a ae elem))
+               [(unify a ae (doto (tmp/make-tmp-element g)
+                              (tmp/add-attr gat gval)))])
+              (remove not)))
+        (cond
+         (tg/attributed-element? gae) (if (= gval (tg/value gae gat))
+                                        (succeed a)
+                                        (fail a))
+         (tmp/tmp-element? gae) (if (tmp/add-attr gae gat gval)
+                                  (succeed a)
+                                  (fail a))
+         :else (fail a))))))
+
+(defn valueo
+  "A relation where graph `g`s attributed element `ae` has value `val` for its
+  `at` attribute."
+  [g ae at val]
+  (if tmp/*make-tmp-elements*
+    (tmp-valueo g ae at val)
+    (fn [a]
+      (let [gae  (walk a ae)
+            gat  (walk a at)
+            gval (walk a val)]
+        (cond
+         (and (ground? gae)
+              (ground? gat))
+         (or (and (tg/attributed-element? gae)
+                  (keyword? gat)
+                  (.getAttribute ^AttributedElementClass
+                                 (tg/attributed-element-class gae)
+                                 (name gat))
+                  (unify a val (tg/value gae gat)))
+             (fail a))
+
+         (ground? gae)
+         (if (tg/vertex? gae)
+           (to-stream
+            (->> (for [^Attribute attr (seq (.getAttributeList
+                                             ^AttributedElementClass
+                                             (tg/attributed-element-class gae)))
+                       :let [an (keyword (.getName attr))]]
+                   (unify a [at val] [an (tg/value gae an)]))
+                 (remove not)))
            (fail a))
 
-       (ground? gae)
-       (if (tg/vertex? gae)
-         (to-stream
-          (->> (for [^Attribute attr (seq (.getAttributeList
-                                           ^AttributedElementClass
-                                           (tg/attributed-element-class gae)))
-                     :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (tg/value gae an)]))
-               (remove not)))
-         (fail a))
-
-       :else (to-stream
-              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
-                         ^Attribute attr (seq (.getAttributeList
-                                               ^AttributedElementClass
-                                               (tg/attributed-element-class elem)))
-                         :let [an (keyword (.getName attr))]]
-                     (unify a [ae at val] [elem an (tg/value elem an)]))
-                   (remove not)))))))
+         :else (to-stream
+                (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
+                           ^Attribute attr (seq (.getAttributeList
+                                                 ^AttributedElementClass
+                                                 (tg/attributed-element-class elem)))
+                           :let [an (keyword (.getName attr))]]
+                       (unify a [ae at val] [elem an (tg/value elem an)]))
+                     (remove not))))))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
