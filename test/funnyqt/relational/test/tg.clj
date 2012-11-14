@@ -76,13 +76,15 @@
   (binding [tmp/*make-tmp-elements* true]
     ;; In the fresh case, vertexo should return a TmpElement with kind :vertex
     ;; as last answer.
-    (let [v (last (run* [q] (vertexo rg q)))]
-      (is (tmp/tmp-vertex? v)))
+    (let [r (run* [q] (vertexo rg q))]
+      (is (seq r))
+      (is (tmp/tmp-vertex? (last r))))
     ;; If it's a TmpElement, it should set the kind to :vertex
-    (let [v (last (run* [q]
-                    (== q (tmp/make-tmp-element rg))
-                    (vertexo rg q)))]
-      (is (tmp/tmp-vertex? v)))
+    (let [r (run* [q]
+              (== q (tmp/make-tmp-element rg))
+              (vertexo rg q))]
+      (is (seq r))
+      (is (tmp/tmp-vertex? (last r))))
     ;; If it's a TmpElement with kind :vertex, it should simply succeed.
     (is (seq (run* [q] (vertexo rg (tmp/make-tmp-vertex rg)))))))
 
@@ -90,25 +92,40 @@
   (binding [tmp/*make-tmp-elements* true]
     ;; In the fresh case, it should add one TmpElement with preset :kind and
     ;; :type.
-    (let [v (last (run* [q] (typeo rg q 'localities.City)))]
-      (is (tmp/tmp-vertex? v))
-      (is (= (tmp/get-type v) 'localities.City)))
+    (let [r (run* [q] (typeo rg q 'localities.City))]
+      (is (seq r))
+      (let [v (last r)]
+        (is (tmp/tmp-vertex? v))
+        (is (= (tmp/get-type v)
+               (tg/attributed-element-class rg 'localities.City)))))
     ;; ditto if an edge class is given
-    (let [v (last (run* [q] (typeo rg q 'HasCapital)))]
-      (is (tmp/tmp-edge? v))
-      (is (= (tmp/get-type v) 'localities.HasCapital)))
+    (let [r (run* [q] (typeo rg q 'HasCapital))]
+      (is (seq r))
+      (let [v (last r)]
+        (is (tmp/tmp-edge? v))
+        (is (= (tmp/get-type v)
+               (tg/attributed-element-class rg 'localities.HasCapital)))))
     ;; For ground TmpElements it should set :kind and :type
-    (let [v (last (run* [q]
-                    (== q (tmp/make-tmp-element rg))
-                    (typeo rg q 'City)))]
-      (is (tmp/tmp-vertex? v))
-      (is (= (tmp/get-type v) 'localities.City)))
+    (let [r (run* [q]
+              (== q (tmp/make-tmp-element rg))
+              (typeo rg q 'City))]
+      (is (seq r))
+      (let [v (last r)]
+        (is (tmp/tmp-vertex? v))
+        (is (= (tmp/get-type v)
+               (tg/attributed-element-class rg 'localities.City)))))
     ;; ditto for an edge class
-    (let [v (last (run* [q]
-                    (== q (tmp/make-tmp-element rg))
-                    (typeo rg q 'HasCapital)))]
-      (is (tmp/tmp-edge? v))
-      (is (= (tmp/get-type v) 'localities.HasCapital)))
-    ;; TODO: test it simply succeeds on correct TmpElements
-    ))
+    (let [r (run* [q]
+              (== q (tmp/make-tmp-element rg))
+              (typeo rg q 'HasCapital))]
+      (is (seq r))
+      (let [v (last r)]
+        (is (tmp/tmp-edge? v))
+        (is (= (tmp/get-type v)
+               (tg/attributed-element-class rg 'localities.HasCapital)))))
+    ;; It simply succeeds on correct TmpElements
+    (let [te (tmp/make-tmp-element rg 'City)]
+      (is (seq (run* [q]
+                 (typeo rg te 'City)
+                 (vertexo rg te)))))))
 

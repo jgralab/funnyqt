@@ -1,7 +1,10 @@
 (ns funnyqt.relational.tmp-elem
   (:require [funnyqt.tg :as tg]
-            [funnyqt.utils :as u])
-  (:use funnyqt.relational.util))
+            [funnyqt.query :as q]
+            [funnyqt.utils :as u]
+            [funnyqt.protocols :as p])
+  (:use funnyqt.relational.util)
+  (:import (de.uni_koblenz.jgralab.schema GraphElementClass)))
 
 (def ^:dynamic *make-tmp-elements* nil)
 
@@ -49,9 +52,9 @@
         (u/errorf "TmpElement type not set!"))
       (condp = kind
         :vertex (set! manifestation
-                      (tg/create-vertex! graph type))
+                      (tg/create-vertex! graph (p/qname type)))
         :edge   (set! manifestation
-                      (tg/create-edge! graph type
+                      (tg/create-edge! graph (p/qname type)
                                        (manifest alpha)
                                        (manifest omega)))))
     (doseq [[a val] attrs]
@@ -68,16 +71,23 @@
   (set-type [this t]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
-    ;; TODO: Resetting to a more special class should probably be allowed.
-    (when (and type (not= type t))
-      (u/errorf "Cannot reset type %s to %s." type t))
     (when-not (symbol? t)
       (u/errorf "Type must be a plain type symbol: %s" t))
     (let [^String n (name t)]
       (when (or (.startsWith n "!")
                 (.endsWith n "!"))
         (u/errorf "Type must be a plain type symbol (no !): %s" t)))
-    (set! type t)
+    (let [aec (tg/attributed-element-class graph t)]
+      (if (nil? type)
+        (do
+          (set-kind this (if (tg/vertex-class? aec) :vertex :edge))
+          (set! type aec))
+        (when-not (= aec type)
+          (when-not (q/xor (tg/vertex-class? aec) (tg/vertex-class? type))
+            (u/errorf "Cannot chang from VC to EC or vice versa: %s vs. %s"
+                      type aec))
+          (when (.isSubClassOf ^GraphElementClass aec type)
+            (set! type aec)))))
     true)
   (add-attr [this attr val]
     (when manifested
@@ -107,36 +117,29 @@
       (set! omega om))
     true))
 
-(defn check-tmp-type [type]
-  (or (nil? type)
-      (do
-        (when-not (symbol? type)
-          (u/errorf "Type must be a plain type symbol: %s" type))
-        (let [^String n (name type)]
-          (when (or (.startsWith n "!")
-                    (.endsWith n "!"))
-            (u/errorf "Type must be a plain type symbol (no !): %s" type))))))
-
 (defn make-tmp-element
   ([g]
      (make-tmp-element g nil))
   ([g type]
-     (check-tmp-type type)
-     (->TmpElement g nil type nil nil {} false nil)))
+     (let [e (->TmpElement g nil nil nil nil {} false nil)]
+       (when type (set-type e type))
+       e)))
 
 (defn make-tmp-vertex
   ([g]
      (make-tmp-vertex g nil))
   ([g type]
-     (check-tmp-type type)
-     (->TmpElement g :vertex type nil nil {} false nil)))
+     (let [e (->TmpElement g :vertex nil nil nil {} false nil)]
+       (when type (set-type e type))
+       e)))
 
 (defn make-tmp-edge
   ([g]
      (make-tmp-edge g nil))
   ([g type]
-     (check-tmp-type type)
-     (->TmpElement g :edge type nil nil {} false nil)))
+     (let [e (->TmpElement g :edge nil nil nil {} false nil)]
+       (when type (set-type e type))
+       e)))
 
 (defn tmp-element? [elem]
   (instance? funnyqt.relational.tmp_elem.TmpElement elem))
