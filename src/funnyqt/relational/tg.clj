@@ -215,8 +215,10 @@
         (to-stream
          (->> (concat
                (for [elem (concat (tg/vseq g) (tg/eseq g))
-                     :when (.containsAttribute (tg/attributed-element-class elem)
-                                               (name gat))
+                     :when (.containsAttribute
+                            ^AttributedElementClass
+                            (tg/attributed-element-class elem)
+                            (name gat))
                      :when (= gval (tg/value elem (name gat)))]
                  (unify a ae elem))
                [(unify a ae (doto (tmp/make-tmp-element g)
@@ -224,8 +226,10 @@
               (remove not)))
         (cond
          (tg/attributed-element? gae) (if (and
-                                           (.containsAttribute (tg/attributed-element-class gae)
-                                                               (name gat))
+                                           (.containsAttribute
+                                            ^AttributedElementClass
+                                            (tg/attributed-element-class gae)
+                                            (name gat))
                                            (or (fresh? gval)
                                                (= gval (tg/value gae gat))))
                                         (succeed a)
