@@ -208,12 +208,9 @@
     (let [gae  (walk a ae)
           gat  (walk a at)
           gval (walk a val)]
-      ;; We assume gat must be given similar to gt in typeo.  gval must also be
-      ;; given.
+      ;; We assume gat must be given similar to gt in typeo.
       (when-not (or (ground? gat) (not (keyword? gat)))
         (u/errorf "tmp-valueo's attribute name must be ground and given as keyword!"))
-      (when-not (ground? gval)
-        (u/errorf "attribute value not given. Please declare the element before its attributes."))
       (if (fresh? gae)
         (to-stream
          (->> (concat
@@ -226,11 +223,17 @@
                               (tmp/add-attr gat gval)))])
               (remove not)))
         (cond
-         (tg/attributed-element? gae) (if (= gval (tg/value gae gat))
+         (tg/attributed-element? gae) (if (and
+                                           (.containsAttribute (tg/attributed-element-class gae)
+                                                               (name gat))
+                                           (or (fresh? gval)
+                                               (= gval (tg/value gae gat))))
                                         (succeed a)
                                         (fail a))
-         (tmp/tmp-element? gae) (if (tmp/add-attr gae gat gval)
-                                  (succeed a)
+         ;; In case of a tmp element, gval must be ground.
+         (tmp/tmp-element? gae) (if (ground? gval)
+                                  (do (tmp/add-attr gae gat gval)
+                                      (succeed a))
                                   (fail a))
          :else (fail a))))))
 

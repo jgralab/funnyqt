@@ -192,3 +192,26 @@
       ;; The alpha and omega should be set
       (is (= (tmp/get-alpha (last r)) (tg/vertex rg 122)))
       (is (= (tmp/get-omega (last r)) (tg/vertex rg 123))))))
+
+(deftest test-tmp-valueo
+  (binding [tmp/*make-tmp-elements* true]
+    ;; With (valueo g elem attr val), attr and val must be ground already when
+    ;; *make-tmp-elements* is true.
+
+    ;; This should deliver all NamedElement & Plaza vertices.  It doesn't
+    ;; deliver a tmp vertex, because for those the attribute value has to be
+    ;; ground.
+    (let [r (run* [q]
+              (with-fresh
+                (vertexo rg q)
+                (valueo rg q :name _)))]
+      (is (= (count r) (count (tg/vseq rg '[NamedElement Plaza])))))
+    ;; This should deliver the City Mainz + one tmp vertex with name attr set
+    ;; to "Mainz".
+    (let [r (run* [q]
+              (with-fresh
+                (vertexo rg q)
+                (valueo rg q :name "Mainz")))]
+      (is (= (count r) 2))
+      (is (tmp/tmp-vertex? (last r)))
+      (is (= (:name (tmp/get-attrs (last r))) "Mainz"))) ))
