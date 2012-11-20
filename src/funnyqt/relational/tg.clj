@@ -126,7 +126,6 @@
     (let [ge  (walk a e)
           gal (walk a al)
           gom (walk a om)]
-      (println gal gom)
       (if (fresh? ge)
         ;; If the edge is fresh, it might be an existing edge or a new tmp edge.
         (to-stream
@@ -154,11 +153,17 @@
                          (tmp/set-omega tmp gom))
                        [tmp (when (ground? gal) gal) (when (ground? gom) gom)])]))
               (remove not)))
-        ;; The edge is ground.  All we can do is unifying alpha and omega.
+        ;; The edge is ground.  All we can do is unifying alpha and omega if it
+        ;; is a real edge.
         (cond
          (tg/edge? ge) (or (unify a [al om] [(tg/alpha ge) (tg/omega ge)])
                            (fail a))
-         (tmp/tmp-edge? ge) (succeed a)
+         (tmp/tmp-edge? ge) (do
+                              (when (ground? gal)
+                                (tmp/set-alpha ge gal))
+                              (when (ground? gom)
+                                (tmp/set-omega ge gom))
+                              (succeed a))
          :else (fail a))))))
 
 (defn edgeo
@@ -198,7 +203,7 @@
                               [edge (tg/alpha edge) (tg/omega edge)]))
                      (remove not))))))))
 
-(defn tmp-valueo [g ae at val]
+(defn ^:private tmp-valueo [g ae at val]
   (fn [a]
     (let [gae  (walk a ae)
           gat  (walk a at)

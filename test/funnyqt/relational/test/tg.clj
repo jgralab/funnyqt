@@ -139,3 +139,56 @@
       (is (= (tmp/get-type (first r))
              (tg/attributed-element-class rg 'City))))))
 
+(deftest test-tmp-edgeo
+  (binding [tmp/*make-tmp-elements* true]
+    ;; When q, alpha, and omega are fresh, it should deliver all existing edges
+    ;; (with their respective alphas and omegas) plus one tmp edge.
+    (let [r (run* [q]
+              (with-fresh
+                (edgeo rg q _ _)))]
+      (is (= (count r) (inc (tg/ecount rg))))
+      (is (tmp/tmp-edge? (last r))))
+    ;; When alpha or omega is ground, it should deliver all incident existing
+    ;; edges plus one tmp edge.  v122 has 3 outgoing edges.
+    (let [r (run* [q]
+              (with-fresh
+                (edgeo rg q (tg/vertex rg 122) _)))]
+      (is (= (count r)
+             (inc (count (tg/iseq (tg/vertex rg 122) nil :out)))
+             4))
+      (is (tmp/tmp-edge? (last r))))
+    ;; v122 has 2 incoming edges.
+    (let [r (run* [q]
+              (with-fresh
+                (edgeo rg q _ (tg/vertex rg 122))))]
+      (is (= (count r)
+             (inc (count (tg/iseq (tg/vertex rg 122) nil :in)))
+             3))
+      (is (tmp/tmp-edge? (last r))))
+    ;; If the given edge is a ground tmp edge, the given alpha and omega should
+    ;; be set (if they are ground).
+    ;; There are 3 outgoing edges at v122.
+    (let [e (tmp/make-tmp-edge rg)
+          a (tg/vertex rg 122)
+          r (run* [q]
+              (with-fresh
+                (edgeo rg q a _)))]
+      (is (= (count r)
+             (inc (count (tg/iseq (tg/vertex rg 122) nil :out)))
+             4))
+      (is (tmp/tmp-edge? (last r)))
+      ;; The alpha should be set
+      (is (= (tmp/get-alpha (last r)) (tg/vertex rg 122)))
+      ;; The omega should still be nil
+      (is (nil? (tmp/get-omega (last r)))))
+    ;; There is one single edge from v122 to v123.
+    (let [e (tmp/make-tmp-edge rg)
+          a (tg/vertex rg 122)
+          o (tg/vertex rg 123)
+          r (run* [q]
+              (edgeo rg q a o))]
+      (is (= (count r) 2))
+      (is (tmp/tmp-edge? (last r)))
+      ;; The alpha and omega should be set
+      (is (= (tmp/get-alpha (last r)) (tg/vertex rg 122)))
+      (is (= (tmp/get-omega (last r)) (tg/vertex rg 123))))))
