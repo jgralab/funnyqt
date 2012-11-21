@@ -517,6 +517,8 @@
               "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
 (defn ^:private convert-spec [name [args pattern resultform]]
+  (when-not (and (vector? args) (vector? pattern))
+    (errorf "Pattern %s is missing the args or pattern vector." name))
   (let [bf (transform-pattern-vector name pattern args)]
     (verify-pattern-vector bf args)
     `(~args
