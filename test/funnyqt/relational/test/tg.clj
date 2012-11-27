@@ -177,10 +177,10 @@
              (inc (count (tg/iseq (tg/vertex rg 122) nil :out)))
              4))
       (is (tmp/tmp-edge? (last r)))
-      ;; The alpha should be set
+      ;; The alpha & omega should be set
       (is (= (tmp/get-alpha (last r)) (tg/vertex rg 122)))
-      ;; The omega should still be nil
-      (is (nil? (tmp/get-omega (last r)))))
+      ;; The omega should is a new tmp vertex
+      (is (tmp/tmp-vertex? (tmp/get-omega (last r)))))
     ;; There is one single edge from v122 to v123.
     (let [e (tmp/make-tmp-edge rg)
           a (tg/vertex rg 122)
@@ -215,3 +215,15 @@
       (is (= (count r) 2))
       (is (tmp/tmp-vertex? (last r)))
       (is (= (:name (tmp/get-attrs (last r))) "Mainz"))) ))
+
+#_(binding [tmp/*make-tmp-elements* true]
+  (let [r (run* [q]
+            (with-fresh
+              (routemap/+City rg ?city)
+              (routemap/+name rg ?city "Koblenz")
+              ;;(routemap/+ContainsCrossroad rg ?cc ?city ?cr)
+              (typeo rg ?cc 'ContainsCrossroad)
+              (edgeo rg ?cc ?city ?cr)
+              (routemap/+Crossroad rg ?cr)
+              (== q [?city ?cc ?cr])))]
+    (tmp/as-map (second (last r)))))

@@ -344,84 +344,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
    (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
    ^Schema (schema g)))
 
-(defn ^:private type-matcher-1
-  "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
-  [g c]
-  (let [v     (type-with-modifiers (name c))
-        neg   (v 0)
-        qname (v 1)
-        exact (v 2)
-        type  (attributed-element-class g qname)]
-    (if neg
-      (if exact
-        (fn [x] (not (identical? type (attributed-element-class x))))
-        (fn [x] (not (is-instance? x type))))
-      (if exact
-        (fn [x] (identical? type (attributed-element-class x)))
-        (fn [x] (is-instance? x type))))))
-
-(defn type-matcher
-  "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
-  or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
-  the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
-  semantics.
-
-  If `ts` is an AttributedElementClass, then the type-matcher will only accept
-  elements of that class or subclasses."
-  [g ts]
-  (cond
-   (nil? ts)   identity
-   (fn? ts)    ts
-   (qname? ts) (type-matcher-1 g ts)
-   (instance? AttributedElementClass ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
-   (coll? ts)  (if (seq ts)
-                  (let [f (first ts)
-                        [op r] (case f
-                                 :and  [and-fn  (next ts)]
-                                 :nand [nand-fn (next ts)]
-                                 :or   [or-fn   (next ts)]
-                                 :nor  [nor-fn  (next ts)]
-                                 :xor  [xor-fn  (next ts)]
-                                 [or-fn ts])
-                        t-matchers (map #(type-matcher (schema g) %) r)]
-                    (apply op t-matchers))
-                  ;; Empty collection given: (), [], that's also ok
-                  identity)
-   :else (errorf "Don't know how to create a type matcher for %s" ts)))
-
-(defmacro ^:private has-type?-1 [obj spec dc]
-  ;; For simple type specs, we don't need to create a type-matcher.
-  `(if (qname? ~spec)
-     (let [[neg# cls# ex#] (type-with-modifiers (name ~spec))
-           aec# (attributed-element-class ~obj cls#)
-           r# (if ex#
-                (identical? (attributed-element-class ~obj)
-                            aec#)
-                (and (instance? ~dc aec#)
-                     (.isInstanceOf ~obj aec#)))]
-       (if neg# (not r#) r#))
-     ((type-matcher ~obj ~spec) ~obj)))
-
-(extend-protocol InstanceOf
-  Graph
-  (is-instance? [object class]
-    (and (instance? GraphClass class)
-         (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    (has-type?-1 obj spec GraphClass))
-  Vertex
-  (is-instance? [object class]
-    (and (instance? VertexClass class)
-         (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    (has-type?-1 obj spec VertexClass))
-  Edge
-  (is-instance? [object class]
-    (and (instance? EdgeClass class)
-         (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    (has-type?-1 obj spec EdgeClass)))
-
 ;;# Graph Access
 
 (defn graph
@@ -481,6 +403,85 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [ae]
   `(instance? AttributedElementClass ~ae))
 
+;;## Type matchers
+
+(defn ^:private type-matcher-1
+  "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
+  [g c]
+  (let [v     (type-with-modifiers (name c))
+        neg   (v 0)
+        qname (v 1)
+        exact (v 2)
+        type  (attributed-element-class g qname)]
+    (if neg
+      (if exact
+        (fn [x] (not (identical? type (attributed-element-class x))))
+        (fn [x] (not (is-instance? x type))))
+      (if exact
+        (fn [x] (identical? type (attributed-element-class x)))
+        (fn [x] (is-instance? x type))))))
+
+(defn type-matcher
+  "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
+  or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
+  the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
+  semantics.
+
+  If `ts` is an AttributedElementClass, then the type-matcher will only accept
+  elements of that class or subclasses."
+  [g ts]
+  (cond
+   (nil? ts)   identity
+   (fn? ts)    ts
+   (qname? ts) (type-matcher-1 g ts)
+   (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
+   (coll? ts)  (if (seq ts)
+                  (let [f (first ts)
+                        [op r] (case f
+                                 :and  [and-fn  (next ts)]
+                                 :nand [nand-fn (next ts)]
+                                 :or   [or-fn   (next ts)]
+                                 :nor  [nor-fn  (next ts)]
+                                 :xor  [xor-fn  (next ts)]
+                                 [or-fn ts])
+                        t-matchers (map #(type-matcher (schema g) %) r)]
+                    (apply op t-matchers))
+                  ;; Empty collection given: (), [], that's also ok
+                  identity)
+   :else (errorf "Don't know how to create a type matcher for %s" ts)))
+
+(defmacro ^:private has-type?-1 [obj spec dc]
+  ;; For simple type specs, we don't need to create a type-matcher.
+  `(if (qname? ~spec)
+     (let [[neg# cls# ex#] (type-with-modifiers (name ~spec))
+           aec# (attributed-element-class ~obj cls#)
+           r# (if ex#
+                (identical? (attributed-element-class ~obj)
+                            aec#)
+                (and (instance? ~dc aec#)
+                     (.isInstanceOf ~obj aec#)))]
+       (if neg# (not r#) r#))
+     ((type-matcher ~obj ~spec) ~obj)))
+
+(extend-protocol InstanceOf
+  Graph
+  (is-instance? [object class]
+    (and (instance? GraphClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
+    (has-type?-1 obj spec GraphClass))
+  Vertex
+  (is-instance? [object class]
+    (and (instance? VertexClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
+    (has-type?-1 obj spec VertexClass))
+  Edge
+  (is-instance? [object class]
+    (and (instance? EdgeClass class)
+         (.isInstanceOf object class)))
+  (has-type? [obj spec]
+    (has-type?-1 obj spec EdgeClass)))
 
 
 ;;## Containment

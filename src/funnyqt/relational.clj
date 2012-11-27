@@ -5,8 +5,6 @@
         [funnyqt.utils :only [errorf]]
         funnyqt.relational.util))
 
-(def ^:dynamic *make-tmp-elements* false)
-
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
   In addition, all occurences of `_' are replaced with fresh lvars, one per

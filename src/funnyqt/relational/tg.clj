@@ -26,18 +26,33 @@
       ;; transformations usually should only use the generated +Foo relations.
       (when-not (ground? gt)
         (u/error "The type given to tmp-typeo must be ground."))
-      (let [aec (tg/attributed-element-class g gt)
-            vc? (tg/vertex-class? aec)]
+      ;; the +attr relations may contain goals like (typeo elem '[Foo Bar]) if
+      ;; the attribute attr is defined by both Foo and Bar.
+      (let [aecs (map (partial tg/attributed-element-class g)
+                      (if (symbol? gt) [gt] gt))
+            all-vcs? (every? tg/vertex-class? aecs)
+            all-ecs? (every? tg/edge-class? aecs)]
         (if (ground? ge)
           (if (or (and (tmp/tmp-element? ge)
-                       (tmp/set-type ge gt)
-                       (tmp/set-kind ge (if vc? :vertex :edge)))
+                       ;; If the type is just a symbol, we can set it.
+                       (or (vector? gt)  (tmp/set-type ge gt))
+                       ;; Kind can only be set if all given types are either
+                       ;; vertex or edge types.
+                       (or (and all-vcs? (tmp/set-kind ge :vertex))
+                           (and all-ecs? (tmp/set-kind ge :edge))
+                           true))
                   (p/has-type? ge gt))
             (succeed a)
             (fail a))
-          (let [[sfn tefn] (if vc?
-                             [(partial tg/vseq g gt) (partial tmp/make-tmp-vertex g gt)]
-                             [(partial tg/eseq g gt) (partial tmp/make-tmp-edge g gt)])]
+          (let [[sfn tefn] (cond
+                            all-vcs? [(partial tg/vseq g gt)
+                                      (partial tmp/make-tmp-vertex g gt)]
+                            all-ecs? [(partial tg/eseq g gt)
+                                      (partial tmp/make-tmp-edge g gt)]
+                            :else [(fn []
+                                     (concat (tg/vseq (filterv tg/vertex-class? aecs))
+                                             (tg/eseq (filterv tg/edge-class? aecs))))
+                                   (partial tmp/make-tmp-element g)])]
             (to-stream
              (->> (map #(unify a e %) (concat (sfn) [(tefn)]))
                   (remove not)))))))))
@@ -129,15 +144,7 @@
       (if (fresh? ge)
         ;; If the edge is fresh, it might be an existing edge or a new tmp edge.
         (to-stream
-         (->> (map (fn [[ed alp ome]]
-                     ;; ed is always an edge or a TmpElement edge, but alp and
-                     ;; ome might be nil.  In that case, we don't want to unify
-                     ;; with nil.
-                     (cond
-                      (and alp ome) (unify a [e al om] [ed alp ome])
-                      alp           (unify a [e al] [ed alp])
-                      ome           (unify a [e om] [ed ome])
-                      :else         (unify a e ed)))
+         (->> (map #(unify a [e al om] %)
                    (concat
                     (for [edge (cond
                                 (and (ground? gal) (tg/vertex? gal)) (tg/iseq gal nil :out)
@@ -146,23 +153,28 @@
                       [edge (tg/alpha edge) (tg/omega edge)])
                     ;; If alpha or omega are ground, set them in the new
                     ;; TmpElement edge.
-                    [(let [tmp (tmp/make-tmp-edge g)]
-                       (when (ground? gal)
-                         (tmp/set-alpha tmp gal))
-                       (when (ground? gom)
-                         (tmp/set-omega tmp gom))
-                       [tmp (when (ground? gal) gal) (when (ground? gom) gom)])]))
+                    (let [tmp (tmp/make-tmp-edge g)]
+                      (tmp/set-alpha tmp (if (ground? gal)
+                                           gal
+                                           (tmp/make-tmp-vertex g)))
+                      (tmp/set-omega tmp (if (ground? gom)
+                                           gom
+                                           (tmp/make-tmp-vertex g)))
+                      [[tmp (tmp/get-alpha tmp) (tmp/get-omega tmp)]])))
               (remove not)))
         ;; The edge is ground.  All we can do is unifying alpha and omega if it
         ;; is a real edge.
         (cond
          (tg/edge? ge) (or (unify a [al om] [(tg/alpha ge) (tg/omega ge)])
                            (fail a))
-         (tmp/tmp-edge? ge) (do
-                              (when (ground? gal)
-                                (tmp/set-alpha ge gal))
-                              (when (ground? gom)
-                                (tmp/set-omega ge gom))
+         (tmp/tmp-element? ge) (do
+                                 (tmp/set-kind ge :edge)
+                                 (tmp/set-alpha ge (if (ground? gal)
+                                                     gal
+                                                     (tmp/make-tmp-vertex g)))
+                                 (tmp/set-omega ge (if (ground? gom)
+                                                     gom
+                                                     (tmp/make-tmp-vertex g)))
                               (succeed a))
          :else (fail a))))))
 
