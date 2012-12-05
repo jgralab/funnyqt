@@ -237,20 +237,19 @@
                               (tmp/add-attr gat gval)))])
               (remove not)))
         (cond
-         (tg/attributed-element? gae) (if (and
-                                           (.containsAttribute
-                                            ^AttributedElementClass
-                                            (tg/attributed-element-class gae)
-                                            (name gat))
-                                           (or (fresh? gval)
-                                               (= gval (tg/value gae gat))))
-                                        (succeed a)
+         (tg/attributed-element? gae) (if (.containsAttribute
+                                           ^AttributedElementClass
+                                           (tg/attributed-element-class gae)
+                                           (name gat))
+                                        (unify a val (tg/value gae gat))
                                         (fail a))
          ;; In case of a tmp element, gval must be ground.
          (tmp/tmp-element? gae) (if (ground? gval)
                                   (do (tmp/add-attr gae gat gval)
                                       (succeed a))
-                                  (fail a))
+                                  (if-let [tmpval (gat (tmp/get-attrs gae))]
+                                    (unify a val tmpval)
+                                    (fail a)))
          :else (fail a))))))
 
 (defn valueo
