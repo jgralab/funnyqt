@@ -1010,17 +1010,20 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 (defn create-vertex!
   "Creates a new vertex of type `cls` in `g`.
-  `cls` is a qualified name given as string, symbol, or keyword."
+  `cls` is a VertexClass or a qualified name given as string, symbol, or keyword."
   [^Graph g cls]
-  (let [^VertexClass aec (attributed-element-class g cls)]
-    (.createVertex g aec)))
+  (.createVertex g (if (vertex-class? cls)
+                     cls
+                     (attributed-element-class g cls))))
 
 (defn create-edge!
   "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.
-  `cls` is a qualified name given as string, symbol, or keyword."
+  `cls` is an EdgeClass or a qualified name given as string, symbol, or keyword."
   [^Graph g cls ^Vertex from ^Vertex to]
-  (let [^EdgeClass aec (attributed-element-class g cls)]
-    (.createEdge g aec from to)))
+  (.createEdge g (if (edge-class? cls)
+                   cls
+                   (attributed-element-class g cls))
+               from to))
 
 (defn set-alpha!
   "Sets the start vertex of `e` to `v` and returns `e`."

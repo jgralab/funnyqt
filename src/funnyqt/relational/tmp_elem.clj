@@ -50,16 +50,17 @@
         (u/errorf "TmpElement kind not set!"))
       (when-not type
         (u/errorf "TmpElement type not set!"))
-      (condp = kind
-        :vertex (set! manifestation
-                      (tg/create-vertex! graph (p/qname type)))
-        :edge   (set! manifestation
-                      (tg/create-edge! graph (p/qname type)
-                                       (manifest alpha)
-                                       (manifest omega)))))
-    (doseq [[a val] attrs]
-      (tg/set-value! manifestation a val))
-    (set! manifested true)
+      (set! manifestation (condp = kind
+                            :vertex (tg/create-vertex! graph type)
+                            :edge (do
+                                    (when-not (tg/vertex? alpha)
+                                      (set! alpha (manifest alpha)))
+                                    (when-not (tg/vertex? omega)
+                                      (set! omega (manifest omega)))
+                                    (tg/create-edge! graph type alpha omega))))
+      (set! manifested true)
+      (doseq [[a val] attrs]
+        (tg/set-value! manifestation a val)))
     manifestation)
   (set-kind [this k]
     (when manifested
