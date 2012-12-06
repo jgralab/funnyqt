@@ -241,14 +241,15 @@
                                            ^AttributedElementClass
                                            (tg/attributed-element-class gae)
                                            (name gat))
-                                        (unify a val (tg/value gae gat))
+                                        (or (unify a val (tg/value gae gat))
+                                            (fail a))
                                         (fail a))
-         ;; In case of a tmp element, gval must be ground.
          (tmp/tmp-element? gae) (if (ground? gval)
                                   (do (tmp/add-attr gae gat gval)
                                       (succeed a))
                                   (if-let [tmpval (gat (tmp/get-attrs gae))]
-                                    (unify a val tmpval)
+                                    (or (unify a val tmpval)
+                                        (fail a))
                                     (fail a)))
          :else (fail a))))))
 
@@ -270,7 +271,8 @@
                   (.getAttribute ^AttributedElementClass
                                  (tg/attributed-element-class gae)
                                  (name gat))
-                  (unify a val (tg/value gae gat)))
+                  (or (unify a val (tg/value gae gat))
+                      (fail a)))
              (fail a))
 
          (ground? gae)
