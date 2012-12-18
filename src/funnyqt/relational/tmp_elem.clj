@@ -2,7 +2,8 @@
   (:require [funnyqt.tg :as tg]
             [funnyqt.query :as q]
             [funnyqt.utils :as u]
-            [funnyqt.protocols :as p])
+            [funnyqt.protocols :as p]
+            [clojure.core.logic :as ccl])
   (:use funnyqt.relational.util)
   (:import (de.uni_koblenz.jgralab.schema GraphElementClass)))
 
@@ -20,6 +21,7 @@
   (set-kind [this kind])
   (set-type [this type])
   (add-attr [this attr val])
+  (finalize-attrs [this subst])
   (manifest [this])
   (as-map [this]))
 
@@ -102,6 +104,12 @@
   (as-map [this]
     {:kind kind :type type :alpha alpha :omega omega :attrs attrs
      :manifested manifested :manifestation manifestation})
+  (finalize-attrs [this subst]
+    (set! attrs (apply hash-map (mapcat (fn [[a v]]
+                                          [a (if (ccl/lvar? v)
+                                               (ccl/walk subst v)
+                                               v)])
+                                        attrs))))
   TmpEdgeOps
   (set-alpha [this al]
     (when manifested
@@ -153,3 +161,10 @@
   (and (tmp-element? elem)
        (= (get-kind elem) :edge)))
 
+(defn finalize-tmp-elems [& args]
+  (fn [a]
+    (doseq [te (filter tmp-element?
+                       (map (partial ccl/walk a)
+                            args))]
+      (finalize-attrs te a))
+    a))

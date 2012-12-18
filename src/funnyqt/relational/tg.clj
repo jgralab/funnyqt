@@ -244,13 +244,9 @@
                                         (or (unify a val (tg/value gae gat))
                                             (fail a))
                                         (fail a))
-         (tmp/tmp-element? gae) (if (ground? gval)
-                                  (do (tmp/add-attr gae gat gval)
-                                      (succeed a))
-                                  (if-let [tmpval (gat (tmp/get-attrs gae))]
-                                    (or (unify a val tmpval)
-                                        (fail a))
-                                    (fail a)))
+         (tmp/tmp-element? gae) (if (tmp/add-attr gae gat gval)
+                                  (succeed a)
+                                  (fail a))
          :else (fail a))))))
 
 (defn valueo
