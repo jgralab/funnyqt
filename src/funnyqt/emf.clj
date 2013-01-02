@@ -34,9 +34,13 @@
     (doto (->EcoreModel res)
       load-and-register-internal)))
 
-(def save-metamodel save-metamodel-internal)
+(def ^{:arglists '([ecore-model file])
+       :doc "Saves the metamodel `ecore-model` to `file`."}
+  save-metamodel save-metamodel-internal)
 
-(def metamodel-epackages metamodel-epackages-internal)
+(def ^{:arglists '([ecore-model])
+       :doc "Returns a seq of the metamodel `ecore-model`s EPackages."}
+  metamodel-epackages metamodel-epackages-internal)
 
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
