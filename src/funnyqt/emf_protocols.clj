@@ -90,9 +90,9 @@
   RootNsUri
   (eroot-pkg-ns-uri [this]
     (when resource
-      (let [^EList conts (.getContents resource)]
-        (when-not (.isEmpty conts)
-          (eroot-pkg-ns-uri (.get conts 0))))))
+      (let [uris (into #{} (map eroot-pkg-ns-uri (seq (.getContents resource))))]
+        (when (= 1 (count uris))
+          (first uris)))))
   EcoreModelBasics
   (load-and-register-internal [this]
     (.load resource nil)

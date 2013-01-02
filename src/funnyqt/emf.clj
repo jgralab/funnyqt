@@ -718,7 +718,7 @@
             (str n " = \\\"" (eget eo n) "\\\"\\l"))))
 
 (defn ^:private dot-eobject [eo]
-  (when-not (*excluded-eobjects* eo)
+  (when (dot-included? eo)
     (let [h (dot-id eo)]
       (str "  " h
            " [label=\"{{" (qname eo) "}|"
@@ -732,10 +732,11 @@
   (let [h (dot-id eo)
         dist (atom [2.0 4.0])]
     (reduce str
-            (for [^EReference ref (.getEAllContainments (.eClass eo))
+            (for [^EReference ref (seq (.getEAllContainments (.eClass eo)))
                   :let [oref (.getEOpposite ref)
                         n (.getName ref)]
-                  t (eget eo ref)
+                  t (let [x (eget eo ref)]
+                      (if (coll? x) x [x]))
                   :when (dot-included? t)]
               (do
                 (swap! dist (fn [[x y]] [y x]))
@@ -805,10 +806,13 @@
 
 (defn ^:private dot-model [m opts]
   (let [opts (dot-options opts)]
-    (binding [*included-eobjects* (when-let [i (:include (meta opts))]
-                                    (set i))
+    (when (and (:name (meta opts))
+               (re-matches #"\S*(\s|[-])\S*" (:name (meta opts))))
+      (errorf "The :name must not contain whitespace or hyphens: '%s'"
+              (:name (meta opts))))
+    (binding [*included-eobjects* (set (:include (meta opts)))
               *excluded-eobjects* (set (:exclude (meta opts)))
-              *marked-eobjects* (set (:mark (meta opts)))]
+              *marked-eobjects*   (set (:mark (meta opts)))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
             \,
@@ -843,9 +847,12 @@
 
   The :name must be a valid DOT ID.
 
-  Furthermore, an :include and an :exclude option may be given, both being seqs
-  of EObjects to include/exclude from printing.  If :include is nil, everything
-  is included.  :exclude overrides :include."
+  An :include and an :exclude option may be given, both being seqs of EObjects
+  to include/exclude from printing.  If :include is nil, everything is
+  included.  :exclude overrides :include.
+
+  Furthermore, a :mark option is supported.  It is a seq of EObjects that
+  should be highlighted."
   [m f & opts]
   (let [ds (dot-model m opts)
         suffix (second (re-matches #".*\.([^.]+)$" f))
