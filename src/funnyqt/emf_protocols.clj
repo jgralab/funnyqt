@@ -107,6 +107,21 @@
   (metamodel-epackages-internal [this]
     (epks-and-subpgks (seq (.getContents resource)))))
 
+;;## EContents
+
+(defprotocol EContents
+  (eallcontents-internal [this tm]
+    "Returns a seq of all directly and indirectly contained EObjects whose type
+  matches the type spec `ts`.")
+  (econtents-internal [this tm]
+    "Returns a seq of all directly contained EObjects whose type matches the
+  type spec `ts`.")
+  (econtainer-internal [this]
+    "Returns the EObject containing this.")
+  (eallobjects-internal [this tm]
+    "Returns a seq of all objects matching the type specification `ts` (see
+  `eclass-matcher`) that are contained in this EMFModel."))
+
 ;;## Model
 
 (defprotocol EMFModelBasics
@@ -123,10 +138,11 @@
   EMFModelBasics
   (init-model-internal [this]
     (.load resource nil)
-    (let [^EList conts (.getContents resource)]
-      (when-not (.isEmpty conts)
-        (set! root-ns-uri
-              (eroot-pkg-ns-uri (.get conts 0))))))
+    (let [uris (into #{} (map #(eroot-pkg-ns-uri %) (eallobjects-internal this identity)))]
+      (if (= 1 (count uris))
+        (set! root-ns-uri (first uris))
+        (println (format "Model has more than one (%s) root packages."
+                         (count uris))))))
   (add-eobject!-internal [this eo]
     (when-not root-ns-uri
       (set! root-ns-uri
@@ -161,21 +177,6 @@
         (.add nconts o))
       (println "Saving model to" (.toFileString uri))
       (.save nres nil))))
-
-;;## EContents
-
-(defprotocol EContents
-  (eallcontents-internal [this tm]
-    "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the type spec `ts`.")
-  (econtents-internal [this tm]
-    "Returns a seq of all directly contained EObjects whose type matches the
-  type spec `ts`.")
-  (econtainer-internal [this]
-    "Returns the EObject containing this.")
-  (eallobjects-internal [this tm]
-    "Returns a seq of all objects matching the type specification `ts` (see
-  `eclass-matcher`) that are contained in this EMFModel."))
 
 ;;## EReferences
 
