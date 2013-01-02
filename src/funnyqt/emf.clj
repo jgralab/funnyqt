@@ -52,43 +52,26 @@
      ~@body))
 
 (defn epackages
-  "The lazy seq of all registered EPackages.
-  If a `root-ns-uri' is given, returns the this EPackages and all contained
-  packages."
-  ([]
-     (with-system-class-loader
-       (map #(.getEPackage EPackage$Registry/INSTANCE %)
-            (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
-  ([root-ns-uri]
-     (vals (@uri->qname->pkg-map root-ns-uri))))
+  "The lazy seq of all registered EPackages."
+  []
+  (with-system-class-loader
+    (map #(.getEPackage EPackage$Registry/INSTANCE %)
+         (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
 
 (defn epackage
-  "Returns the EPackage with the given (simple or qualified) `name`.
-  If `root-ns-uri` is given, look only in this package and subpackages."
-  ([name]
-     (let [name (clojure.core/name name)
-           ffn (if (.contains name ".")
-                 (fn [^EPackage p] (= (clojure.core/name (qname p)) name))
-                 (fn [^EPackage p] (= (.getName p) name)))
-           qkgs (filter ffn (epackages))]
-       (when-not (seq qkgs)
-         (errorf "No such package %s." name))
-       (when (nnext qkgs)
-         (errorf "Multiple packages named %s: %s\n%s" name qkgs
-                 "Restrict the search space using `with-ns-uris`."))
-       (first qkgs)))
-  ([root-ns-uri name]
-     (let [^String n (clojure.core/name name)]
-       (if (.contains n ".")
-         ((@uri->qname->pkg-map root-ns-uri) n)
-         (let [pkgs (filter (fn [^EPackage p]
-                              (= n (.getName p)))
-                            (epackages root-ns-uri))]
-           (when-not (seq pkgs)
-             (errorf "No such package %s in %s." n root-ns-uri))
-           (when (nnext pkgs)
-             (errorf "Multiple packages named %s in %s: %s" n root-ns-uri pkgs))
-           (first pkgs))))))
+  "Returns the EPackage with the given (simple or qualified) `name`."
+  [name]
+  (let [name (clojure.core/name name)
+        ffn (if (.contains name ".")
+              (fn [^EPackage p] (= (clojure.core/name (qname p)) name))
+              (fn [^EPackage p] (= (.getName p) name)))
+        qkgs (filter ffn (epackages))]
+    (when-not (seq qkgs)
+      (errorf "No such package %s." name))
+    (when (nnext qkgs)
+      (errorf "Multiple packages named %s: %s\n%s" name qkgs
+              "Restrict the search space using `with-ns-uris`."))
+    (first qkgs)))
 
 (extend-protocol Abstractness
   EClass
@@ -96,90 +79,53 @@
     (.isAbstract this)))
 
 (defn eclassifiers
-  "The lazy seq of EClassifiers.
-  May be restricted to all EClassifiers contained below the root package with
-  the given nsURI."
-  ([]
-     (mapcat (fn [^EPackage ep]
-               (.getEClassifiers ep))
-             (epackages)))
-  ([root-ns-uri]
-     (mapcat (fn [^EPackage ep]
-               (.getEClassifiers ep))
-             (epackages root-ns-uri))))
+  "The lazy seq of EClassifiers."
+  []
+  (mapcat (fn [^EPackage ep]
+            (.getEClassifiers ep))
+          (epackages)))
 
 (defn eclasses
-  "The lazy seq of EClasses.
-  May be restricted to all EClasses contained below the root package with
-  the given nsURI."
-  ([]
-     (filter (partial instance? EClass) (eclassifiers)))
-  ([root-ns-uri]
-     (filter (partial instance? EClass) (eclassifiers root-ns-uri))))
+  "The lazy seq of EClasses."
+  []
+  (filter (partial instance? EClass) (eclassifiers)))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
   `name` may be a simple or qualified name.  Throws an exception if no such
   classifier could be found, or if the given simple name is ambiguous."
-  ([name]
-     (let [^String n (clojure.core/name name)
-           ld (.lastIndexOf n ".")]
-       (if (>= ld 0)
-         (if-let [^EPackage ep (epackage (subs n 0 ld))]
-           (or (.getEClassifier ep (subs n (inc ld)))
-               (errorf "No such EClassifier %s in %s." n (print-str ep)))
-           (errorf "No such EPackage %s." (subs n 0 ld)))
-         (let [classifiers (filter (fn [^EClassifier ec]
-                                     (= (.getName ec) n))
-                                   (eclassifiers))]
-           (cond
-            (empty? classifiers) (errorf "No such EClassifier %s." n)
-            (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
-                                         n (print-str classifiers)
-                                         "Restrict the search space using `with-ns-uris`.")
-            :else (first classifiers))))))
-  ([root-ns-uri name]
-     (if-not root-ns-uri
-       (eclassifier name)
-       (let [^String n (clojure.core/name name)
-             ld (.lastIndexOf n ".")]
-         (if (>= ld 0)
-           (if-let [^EPackage ep (epackage root-ns-uri (subs n 0 ld))]
-             (or (.getEClassifier ep (subs n (inc ld)))
-                 (errorf "No such EClassifier %s in %s." n (print-str ep)))
-             (errorf "No such EPackage %s in %s." (subs n 0 ld) root-ns-uri))
-           (let [classifiers (filter (fn [^EClassifier ec]
-                                       (= (.getName ec) n))
-                                     (eclassifiers root-ns-uri))]
-             (cond
-              (empty? classifiers) (errorf "No such EClassifier %s in %s." n root-ns-uri)
-              (next classifiers)   (errorf "EClassifier %s is ambiguous in %s: %s"
-                                           n root-ns-uri classifiers)
-              :else (first classifiers))))))))
+  [name]
+  (let [^String n (clojure.core/name name)
+        ld (.lastIndexOf n ".")]
+    (if (>= ld 0)
+      (if-let [^EPackage ep (epackage (subs n 0 ld))]
+        (or (.getEClassifier ep (subs n (inc ld)))
+            (errorf "No such EClassifier %s in %s." n (print-str ep)))
+        (errorf "No such EPackage %s." (subs n 0 ld)))
+      (let [classifiers (filter (fn [^EClassifier ec]
+                                  (= (.getName ec) n))
+                                (eclassifiers))]
+        (cond
+         (empty? classifiers) (errorf "No such EClassifier %s." n)
+         (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
+                                      n (print-str classifiers)
+                                      "Restrict the search space using `with-ns-uris`.")
+         :else (first classifiers))))))
 
 (defn eallsubclasses
   "Returns the (direct and indirect) sub-EClasses of the given EClass."
-  ([^EClass ecls]
-     (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses)))
-  ([root-ns-uri ^EClass ecls]
-     (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses root-ns-uri))))
+  [^EClass ecls]
+  (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses)))
 
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
-  ([qname]
-     (let [[eenum elit] (split-qname qname)]
-       (if-let [^EEnum enum-cls (eclassifier eenum)]
-         (or (.getEEnumLiteral enum-cls ^String elit)
-             (errorf "%s has no EEnumLiteral with name %s."
-                     (print-str enum-cls) elit))
-         (errorf "No such EEnum %s." eenum))))
-  ([root-ns-uri qname]
-     (let [[eenum elit] (split-qname qname)]
-       (if-let [^EEnum enum-cls (eclassifier root-ns-uri eenum)]
-         (or (.getEEnumLiteral enum-cls ^String elit)
-             (errorf "%s has no EEnumLiteral with name %s."
-                     (print-str enum-cls) elit))
-         (errorf "No such EEnum %s in %s." eenum root-ns-uri)))))
+  [qname]
+  (let [[eenum elit] (split-qname qname)]
+    (if-let [^EEnum enum-cls (eclassifier eenum)]
+      (or (.getEEnumLiteral enum-cls ^String elit)
+          (errorf "%s has no EEnumLiteral with name %s."
+                  (print-str enum-cls) elit))
+      (errorf "No such EEnum %s." eenum))))
 
 ;;# Model
 
@@ -224,9 +170,9 @@
 (defn new-model
   "Creates and returns a new, empty EMFModel."
   ([]
-     (->EMFModel (ResourceImpl.) nil))
+     (->EMFModel (ResourceImpl.)))
   ([metamodel]
-     (->EMFModel (ResourceImpl.) (eroot-pkg-ns-uri metamodel))))
+     (->EMFModel (ResourceImpl.))))
 
 (defn load-model
   "Loads an EMFModel from the XMI file `f`."
@@ -236,21 +182,19 @@
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (->EMFModel res nil)
+    (doto (->EMFModel res)
       init-model-internal)))
 
 ;;## Traversal stuff
 
 (defn ^:private eclass-matcher-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
-  [root-ns-uri c]
+  [c]
   (let [v     (type-with-modifiers (name c))
         neg   (v 0)
         qname (v 1)
         exact (v 2)
-        ^EClassifier type (if root-ns-uri
-                            (eclassifier root-ns-uri qname)
-                            (eclassifier qname))]
+        ^EClassifier type (eclassifier qname)]
     (if neg
       (if exact
         (fn [^EClass x] (not (identical? type (.eClass x))))
@@ -264,28 +208,24 @@
   or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
   the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
   semantics."
-  ([ts]
-     (eclass-matcher nil ts))
-  ([root-ns-uri ts]
-     #_(when-not root-ns-uri
-         (errorf "bang"))
-     (cond
-      (nil? ts)   identity
-      (fn? ts)    ts
-      (qname? ts) (eclass-matcher-1 root-ns-uri ts)
-      (coll? ts)  (if (seq ts)
-                    (let [f (first ts)
-                          [op r] (case f
-                                   :and  [every-pred (next ts)]
-                                   :nand [nand-fn    (next ts)]
-                                   :or   [some-fn    (next ts)]
-                                   :nor  [nor-fn     (next ts)]
-                                   :xor  [xor-fn     (next ts)]
-                                   [some-fn    ts])]
-                      (apply op (map #(eclass-matcher root-ns-uri %) r)))
-                    ;; Empty collection given: (), [], that's also ok
-                    identity)
-      :else (errorf "Don't know how to create a type matcher for %s" ts))))
+  [ts]
+  (cond
+   (nil? ts)   identity
+   (fn? ts)    ts
+   (qname? ts) (eclass-matcher-1 ts)
+   (coll? ts)  (if (seq ts)
+                 (let [f (first ts)
+                       [op r] (case f
+                                :and  [every-pred (next ts)]
+                                :nand [nand-fn    (next ts)]
+                                :or   [some-fn    (next ts)]
+                                :nor  [nor-fn     (next ts)]
+                                :xor  [xor-fn     (next ts)]
+                                [some-fn    ts])]
+                   (apply op (map #(eclass-matcher %) r)))
+                 ;; Empty collection given: (), [], that's also ok
+                 identity)
+   :else (errorf "Don't know how to create a type matcher for %s" ts)))
 
 (extend-protocol InstanceOf
   EObject
@@ -293,33 +233,32 @@
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
   (has-type? [obj spec]
-    (let [root-ns (eroot-pkg-ns-uri obj)]
-      (if (qname? spec)
-        (let [[neg cls ex] (type-with-modifiers (name spec))
-              ^EClass ec (eclassifier root-ns cls)
-              r (if ex
-                  (identical? (.eClass obj) ec)
-                  (.isInstance ec obj))]
-          (if neg (not r) r))
-        ((eclass-matcher root-ns spec) obj)))))
+    (if (qname? spec)
+      (let [[neg cls ex] (type-with-modifiers (name spec))
+            ^EClass ec (eclassifier cls)
+            r (if ex
+                (identical? (.eClass obj) ec)
+                (.isInstance ec obj))]
+        (if neg (not r) r))
+      ((eclass-matcher spec) obj))))
 
 (extend-protocol EContents
   EObject
   (econtents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
+    (filter (eclass-matcher ts)
             (seq (.eContents this))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
+    (filter (eclass-matcher ts)
             (iterator-seq (.eAllContents this))))
   (econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
   (econtents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
+    (filter (eclass-matcher ts)
             (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher (eroot-pkg-ns-uri this) ts)
+    (filter (eclass-matcher ts)
             (iterator-seq (.getAllContents ^Resource (.resource this)))))
   (eallobjects-internal [this ts]
     (eallcontents-internal this ts))

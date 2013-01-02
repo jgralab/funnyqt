@@ -33,27 +33,6 @@
 
 ;;## Metamodel
 
-(defprotocol RootNsUri
-  (eroot-pkg-ns-uri [this]
-    "Returns the nsURI of the root package of `this` metamodel.
-  `this` may be an EObject, EClass, EPackage, EMFModel, or EcoreModel."))
-
-(extend-protocol RootNsUri
-  EPackage
-  (eroot-pkg-ns-uri [p]
-    (if-let [parent (.getESuperPackage p)]
-      (recur parent)
-      (.getNsURI p)))
-  EClass
-  (eroot-pkg-ns-uri [c]
-    (eroot-pkg-ns-uri (.getEPackage c)))
-  EObject
-  (eroot-pkg-ns-uri [eo]
-    (eroot-pkg-ns-uri (.eClass eo))))
-
-;; {baseNsURI -> {qname -> epackage}}
-(defonce uri->qname->pkg-map (atom {}))
-
 (defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
@@ -62,11 +41,6 @@
     (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
-          (let [buri (eroot-pkg-ns-uri p)
-                m (@uri->qname->pkg-map buri)
-                qn (name (qname p))]
-            (when-not (contains? m qn)
-              (swap! uri->qname->pkg-map update-in [buri] assoc qn p)))
           (when-not (.containsKey EPackage$Registry/INSTANCE uri)
             (.put EPackage$Registry/INSTANCE uri p)))))))
 
@@ -87,19 +61,9 @@
   (save-metamodel-internal [this file]))
 
 (deftype EcoreModel [^Resource resource]
-  RootNsUri
-  (eroot-pkg-ns-uri [this]
-    (when resource
-      (let [uris (into #{} (map eroot-pkg-ns-uri (seq (.getContents resource))))]
-        (when (= 1 (count uris))
-          (first uris)))))
   EcoreModelBasics
   (load-and-register-internal [this]
     (.load resource nil)
-    (doseq [^EPackage base-pkg (seq (.getContents resource))]
-      (let [uri (.getNsURI base-pkg)]
-        (when-not (.containsKey EPackage$Registry/INSTANCE uri)
-          (swap! uri->qname->pkg-map assoc uri {}))))
     (register-epackages (metamodel-epackages-internal this)))
   ;; TODO: Implement me.
   (save-metamodel-internal [this file]
@@ -132,29 +96,15 @@
   (clone-model-internal [this])
   (save-model-internal [this] [this file]))
 
-(deftype EMFModel [^Resource resource ^:unsynchronized-mutable root-ns-uri]
-  RootNsUri
-  (eroot-pkg-ns-uri [this] root-ns-uri)
+(deftype EMFModel [^Resource resource]
   EMFModelBasics
   (init-model-internal [this]
-    (.load resource nil)
-    (let [uris (into #{} (map #(eroot-pkg-ns-uri %) (eallobjects-internal this identity)))]
-      (if (= 1 (count uris))
-        (set! root-ns-uri (first uris))
-        (println (format "Model has more than one (%s) root packages."
-                         (count uris))))))
+    (.load resource nil))
   (add-eobject!-internal [this eo]
-    (when-not root-ns-uri
-      (set! root-ns-uri
-            (eroot-pkg-ns-uri eo)))
     (doto (.getContents resource)
       (.add eo))
     eo)
   (add-eobjects!-internal [this eos]
-    (when-not root-ns-uri
-      (when-let [^EObject eo (first eos)]
-        (set! root-ns-uri
-              (eroot-pkg-ns-uri eo))))
     (doto (.getContents resource)
       (.addAll eos))
     eos)
@@ -163,7 +113,7 @@
           nconts (.getContents nres)]
       (doseq [o (EcoreUtil/copyAll (.getContents resource))]
         (.add nconts o))
-      (EMFModel. nres root-ns-uri)))
+      (EMFModel. nres)))
   (save-model-internal [this]
     (if (.getURI resource)
       (.save resource nil)

@@ -31,7 +31,7 @@
   [^EClass ec arch]
   (let [m (@*img* ec)]
     (or (and m (m arch))
-        (loop [subs (eallsubclasses (eroot-pkg-ns-uri ec) ec)]
+        (loop [subs (eallsubclasses ec)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
                 (recur (rest subs)))))
@@ -42,7 +42,7 @@
   [^EClass ec img]
   (let [m (@*arch* ec)]
     (or (and m (m img))
-        (loop [subs (eallsubclasses (eroot-pkg-ns-uri ec) ec)]
+        (loop [subs (eallsubclasses ec)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
                 (recur (rest subs)))))
@@ -55,7 +55,7 @@
 
 (defn create-eobjects!
   [m cls archfn]
-  (let [^EClass vc (eclassifier (eroot-pkg-ns-uri m) cls)]
+  (let [^EClass vc (eclassifier cls)]
     (loop [as (set (archfn))
            im (transient {})
            am (transient {})]
@@ -79,7 +79,7 @@
 (defn ^:private internal-modify-feature-fn
   [m featureqn valfn action]
   (let [[ecname attrname _] (split-qname featureqn)
-        ^EClass ec (eclassifier (eroot-pkg-ns-uri m) ecname)]
+        ^EClass ec (eclassifier ecname)]
     (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String attrname)]
       (let [resolve-target-fn (if (instance? EReference sf)
                                 (partial img-internal (.getEReferenceType ^EReference sf))
