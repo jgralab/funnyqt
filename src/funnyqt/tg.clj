@@ -358,6 +358,11 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [g]
   `(instance? Graph ~g))
 
+(definline schema?
+  "Returns logical true if `s` is a Schema."
+  [g]
+  `(instance? Schema ~g))
+
 (definline vertex?
   "Returns logical true if `v` is a Vertex."
   [v]
@@ -403,9 +408,9 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [ae]
   `(instance? AttributedElementClass ~ae))
 
-;;## Type matchers
+;;## Type Checks
 
-(defn ^:private type-matcher-1
+(defn ^:private type-matcher-tg-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [g c]
   (let [v     (type-with-modifiers (name c))
@@ -421,34 +426,35 @@ See `tgtree`, `show-graph`, and `print-graph`."
         (fn [x] (identical? type (attributed-element-class x)))
         (fn [x] (is-instance? x type))))))
 
-(defn type-matcher
-  "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
-  or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
-  the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
-  semantics.
-
-  If `ts` is an AttributedElementClass, then the type-matcher will only accept
-  elements of that class or subclasses."
+(defn ^:private type-matcher-tg
   [g ts]
   (cond
    (nil? ts)   identity
    (fn? ts)    ts
-   (qname? ts) (type-matcher-1 g ts)
+   (qname? ts) (type-matcher-tg-1 g ts)
    (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
    (coll? ts)  (if (seq ts)
-                  (let [f (first ts)
-                        [op r] (case f
-                                 :and  [and-fn  (next ts)]
-                                 :nand [nand-fn (next ts)]
-                                 :or   [or-fn   (next ts)]
-                                 :nor  [nor-fn  (next ts)]
-                                 :xor  [xor-fn  (next ts)]
-                                 [or-fn ts])
-                        t-matchers (map #(type-matcher (schema g) %) r)]
-                    (apply op t-matchers))
-                  ;; Empty collection given: (), [], that's also ok
-                  identity)
-   :else (errorf "Don't know how to create a type matcher for %s" ts)))
+                 (let [f (first ts)
+                       [op r] (case f
+                                :and  [and-fn  (next ts)]
+                                :nand [nand-fn (next ts)]
+                                :or   [or-fn   (next ts)]
+                                :nor  [nor-fn  (next ts)]
+                                :xor  [xor-fn  (next ts)]
+                                [or-fn ts])
+                       t-matchers (map #(type-matcher-tg g %) r)]
+                   (apply op t-matchers))
+                 ;; Empty collection given: (), [], that's also ok
+                 identity)
+   :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
+
+(extend-protocol TypeMatcher
+  GraphElement
+  (type-matcher [ge ts]
+    (type-matcher-tg (graph ge) ts))
+  Graph
+  (type-matcher [g ts]
+    (type-matcher-tg g ts)))
 
 (defmacro ^:private has-type?-1 [obj spec dc]
   ;; For simple type specs, we don't need to create a type-matcher.

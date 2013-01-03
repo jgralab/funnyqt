@@ -47,6 +47,30 @@
   (has-type? [object spec]
     "Returns true, iff `object`s type matches `spec`."))
 
+;;# Type Matcher
+
+(defprotocol TypeMatcher
+  (type-matcher [model type-spec]
+    "Returns a type-matcher function based on the metamodel of model.
+  A type-matcher function accepts one object and returns true if the object
+  matches the `type-spec`, or false otherwise.
+
+  A type-spec may be composed of:
+
+    - nil                     Every type is accepted
+    - a predicate p           Accepted if (p obj) is true
+    - a qname symbol
+      - Foo                   Accepts objects of type Foo and subtypes
+      - Foo!                  Accepts objects of exact type Foo
+      - !Foo                  Accepts objects not of type Foo or subtypes
+      - !Foo!                 Accepts objects not of exact type Foo
+    - a metamodel type        Accepts instances of that type
+    - a vector of the form    op is a logical operator (:or, :and, :nand, :nor, :xor),
+      [op ts1 ts2 ...]        and ts1, ts2, etc are type-specs.  Accepts objects
+                              whose type matches the individual type-specs ts1, ts2,
+                              etc with the respective semantics of the logical
+                              operator."))
+
 ;;# Deletion
 
 (defprotocol Deletable

@@ -20,6 +20,19 @@
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
     EStructuralFeature]))
 
+;;# Simple type predicates
+
+(definline eobject?
+  "Returns true if `eo` is an EObject."
+  [eo]
+  `(instance? EObject ~eo))
+
+(definline eclass?
+  "Returns true if `eo` is an EClass."
+  [eo]
+  `(instance? EClass ~eo))
+
+
 ;;# Metamodel
 
 (defn load-metamodel
@@ -85,6 +98,11 @@
             (.getEClassifiers ep))
           (epackages)))
 
+(defn eclass
+  "Returns the EClass of the given EObject `eo`."
+  [^EObject eo]
+  (.eClass eo))
+
 (defn eclasses
   "The lazy seq of EClasses."
   []
@@ -135,13 +153,6 @@
 (def clone-model clone-model-internal)
 (def save-model save-model-internal)
 
-;;# Simple type predicates
-
-(definline eobject?
-  "Returns true if `eo` is an EObject."
-  [eo]
-  `(instance? EObject ~eo))
-
 ;;## Qualified Names
 
 (extend-protocol QualifiedName
@@ -185,9 +196,9 @@
     (doto (->EMFModel res)
       init-model-internal)))
 
-;;## Traversal stuff
+;;## Type Checks
 
-(defn ^:private eclass-matcher-1
+(defn ^:private type-matcher-emf-1
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [c]
   (let [v     (type-with-modifiers (name c))
@@ -203,29 +214,35 @@
         (fn [^EClass x] (identical? type (.eClass x)))
         (fn [^EClass x] (.isInstance type x))))))
 
-(defn eclass-matcher
-  "Returns a matcher for either nil, !Foo!, [Foo Bar! !Baz], [:and 'Foo 'Bar],
-  or [:or 'Foo 'Bar].  In a collection spec, the first element may be one of
-  the keywords :or (default), :nor, :and, :nand, or :xor with the usual logic
-  semantics."
+(defn ^:private type-matcher-emf
   [ts]
   (cond
    (nil? ts)   identity
    (fn? ts)    ts
-   (qname? ts) (eclass-matcher-1 ts)
+   (qname? ts) (type-matcher-emf-1 ts)
+   (eclass? ts) (fn [e] (.isInstance ^EClass ts e))
    (coll? ts)  (if (seq ts)
                  (let [f (first ts)
                        [op r] (case f
-                                :and  [every-pred (next ts)]
-                                :nand [nand-fn    (next ts)]
-                                :or   [some-fn    (next ts)]
-                                :nor  [nor-fn     (next ts)]
-                                :xor  [xor-fn     (next ts)]
-                                [some-fn    ts])]
-                   (apply op (map #(eclass-matcher %) r)))
-                 ;; Empty collection given: (), [], that's also ok
-                 identity)
-   :else (errorf "Don't know how to create a type matcher for %s" ts)))
+                                :and  [and-fn  (next ts)]
+                                :nand [nand-fn (next ts)]
+                                :or   [or-fn   (next ts)]
+                                :nor  [nor-fn  (next ts)]
+                                :xor  [xor-fn  (next ts)]
+                                [or-fn ts])
+                       t-matchers (map #(type-matcher-emf %) r)]
+                   (apply op t-matchers))
+                   ;; Empty collection given: (), [], that's also ok
+                   identity)
+     :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
+
+(extend-protocol TypeMatcher
+  EObject
+  (type-matcher [m ts]
+    (type-matcher-emf ts))
+  EMFModel
+  (type-matcher [m ts]
+    (type-matcher-emf ts)))
 
 (extend-protocol InstanceOf
   EObject
@@ -240,25 +257,27 @@
                 (identical? (.eClass obj) ec)
                 (.isInstance ec obj))]
         (if neg (not r) r))
-      ((eclass-matcher spec) obj))))
+      ((type-matcher obj spec) obj))))
+
+;;## Traversal Stuff
 
 (extend-protocol EContents
   EObject
   (econtents-internal [this ts]
-    (filter (eclass-matcher ts)
+    (filter (type-matcher this ts)
             (seq (.eContents this))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher ts)
+    (filter (type-matcher this ts)
             (iterator-seq (.eAllContents this))))
   (econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
   (econtents-internal [this ts]
-    (filter (eclass-matcher ts)
+    (filter (type-matcher this ts)
             (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this ts]
-    (filter (eclass-matcher ts)
+    (filter (type-matcher this ts)
             (iterator-seq (.getAllContents ^Resource (.resource this)))))
   (eallobjects-internal [this ts]
     (eallcontents-internal this ts))

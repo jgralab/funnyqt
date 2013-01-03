@@ -146,7 +146,7 @@
      (let [objs (oset objs)]
        (oset
         (if (seq objs)
-          (let [tm (eclass-matcher ts)]
+          (let [tm (type-matcher (first objs) ts)]
             (filter (every-pred tm pred)
                     objs))
           objs)))))
