@@ -60,7 +60,7 @@
 (defn typeo
   "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
   element class name.  In fact, `t` may be any type specification (see
-  `type-matcher`).  The graph `g` must be ground."
+  `funnyqt.protocols/type-matcher`).  The graph `g` must be ground."
   [g e t]
   (if tmp/*make-tmp-elements*
     (tmp-typeo g e t)

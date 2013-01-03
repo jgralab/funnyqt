@@ -234,7 +234,7 @@
                    (apply op t-matchers))
                    ;; Empty collection given: (), [], that's also ok
                    identity)
-     :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
+     :else (errorf "Don't know how to create an EMF type-matcher for %s" ts)))
 
 (extend-protocol TypeMatcher
   EObject

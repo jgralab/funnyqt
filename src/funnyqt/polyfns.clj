@@ -74,9 +74,9 @@
   The polyfn has to be declared using `declare-polyfn`, and `name` is its name.
   `typespec` is a type specification that is used to check if the polyfn
   implementation is matching the type of `model-elem` (see
-  `funnyqt.emf/eclass-matcher` and `funnyqt.tg/type-matcher`).  The arity of
-  the argument vector has to match the one of the corresponding
-  `declare-polyfn`."
+  `funnyqt.protocols/type-matcher`).  The arity of the argument vector has to
+  match the one of the corresponding `declare-polyfn`."
+
   {:arglists '([name typespec [model-elem & more] & body])}
   [name & more]
   (let [[name more]     (name-with-attributes name more)

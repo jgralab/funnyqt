@@ -17,7 +17,8 @@
 
 (defn eobjecto
   "A relation where EObject `e` has the type `t`, an EClass name in EMFModel `m`.
-  In fact, `t` may be any type specification (see `eclass-matcher`)."
+  In fact, `t` may be any type specification (see
+  `funnyqt.protocols/type-matcher`)."
   ([m eo]
      (fn [a]
        (let [geo (walk a eo)]

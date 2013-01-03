@@ -324,8 +324,8 @@
 
 (defn p-restr
   "Path restriction concerning `ts` and `pred` on each object in `objs`.
-  ts is a type specification (see `type-matcher` and `eclass-matcher`), `pred`
-  a predicate."
+  ts is a type specification (see `funnyqt.protocols/type-matcher`), `pred` a
+  predicate."
   ([objs ts]
      (*p-restr* objs ts identity))
   ([objs ts pred]

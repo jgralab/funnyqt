@@ -65,8 +65,8 @@
 
 (defn <>--
   "Returns the (direct) contents of EObject`obj` restricted by the type
-  specification `ts` (see `eclass-matcher` for details).  `obj` may also be a
-  collection of EObjects."
+  specification `ts` (see `funnyqt.protocols/type-matcher` for details).  `obj`
+  may also be a collection of EObjects."
   ([obj]
      (oset (mapcat econtents (oset obj))))
   ([obj ts]
@@ -139,7 +139,8 @@
 
 (defn ^:private p-restr-emf
   "EObject restriction concerning `ts` and `pred` on each object in `objs`.
-  ts is a type specification (see `eclass-matcher`), `pred` a predicate."
+  ts is a type specification (see `funnyqt.protocols/type-matcher`), `pred` a
+  predicate."
   ([objs ts]
      (p-restr-emf objs ts identity))
   ([objs ts pred]

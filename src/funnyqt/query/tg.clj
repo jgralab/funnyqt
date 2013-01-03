@@ -27,9 +27,9 @@ collection of start vertices.
     -->, --->, <--, <---, <->, <-->         ;; restrict by edge direction
     <>--, <_>--, <*>--, --<>, --<_>, --<*>  ;; restrict by aggregation kind
 
-All of them can be restricted by type (see `type-matcher` in core) and an
-arbitrary predicate on the edges.  These basic path functions can then be
-combined using these generic, regular path expression functions, which are
+All of them can be restricted by type (see `funnyqt.protocols/type-matcher`)
+and an arbitrary predicate on the edges.  These basic path functions can then
+be combined using these generic, regular path expression functions, which are
 provided by the `funnyqt.query` namespace:
 
     p-seq   ;; sequence
@@ -348,7 +348,7 @@ can compute that like so:
 
 (defn- p-restr-tg
   "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
-  ts is a type specification (see `type-matcher`)."
+  ts is a type specification (see `funnyqt.protocols/type-matcher`)."
   ([vs ts]
      (p-restr-tg vs ts identity))
   ([vs ts pred]

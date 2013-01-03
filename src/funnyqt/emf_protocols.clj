@@ -76,15 +76,15 @@
 (defprotocol EContents
   (eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the type spec `ts`.")
+  matches the type spec `ts` (see `funnyqt.protocols/type-matcher`).")
   (econtents-internal [this tm]
     "Returns a seq of all directly contained EObjects whose type matches the
-  type spec `ts`.")
+  type spec `ts` (see `funnyqt.protocols/type-matcher`).")
   (econtainer-internal [this]
     "Returns the EObject containing this.")
   (eallobjects-internal [this tm]
     "Returns a seq of all objects matching the type specification `ts` (see
-  `eclass-matcher`) that are contained in this EMFModel."))
+  `funnyqt.protocols/type-matcher`) that are contained in this EMFModel."))
 
 ;;## Model
 
