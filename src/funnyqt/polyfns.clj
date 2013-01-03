@@ -101,10 +101,11 @@
   (loop [ts [t]]
     (if (seq ts)
       (let [fns (remove nil? (map #(m (qname %)) ts))]
-        (cond
-         (empty? fns) (recur (set (mapcat meta-model-type-super-types ts)))
-         (fnext fns) (errorf "%s polyfns are applicable for type %s" (count fns) t)
-         :else (first fns)))
+        (if (seq fns)
+          (if (fnext fns)
+            (errorf "%s polyfns are applicable for type %s" (count fns) t)
+            (first fns))
+          (recur (set (mapcat meta-model-type-super-types ts)))))
       (errorf "No polyfn implementation defined for type %s" t))))
 
 (defmacro declare-polyfn
