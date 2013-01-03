@@ -1,24 +1,14 @@
 (ns funnyqt.polyfns
-  "Polymorphic functions dispatching on types of model elements."
-  (:use [funnyqt.protocols   :only [has-type?]])
-  (:use [funnyqt.utils       :only [errorf]])
-  (:use [clojure.tools.macro :only [name-with-attributes]])
-  (:require clojure.pprint))
+  "Polymorphic functions dispatching on types of model elements.
+  Every polyfn has to be declared once using `declare-polyfn`, and then
+  implementations with specific type specifications may be provided using
+  `defpolyfn`.  When a polyfn is called, its first argument (the model element)
+  is checked against the type specifications of the provided implementations.
+  The first implementation (definition order) whose type specification matches
+  the type of the model element is invoked.
 
-;; {name {TypeSpec fn}}
-(def *polyfn-dispatch-table* (atom {}))
-
-(defmacro declare-polyfn
-  "Decares a polymorphic function dispatching on a model element type.
-  `name` is the name of the new polyfn, an optional `doc-string` may be
-  provided.  The argument list's first element must be the model element on
-  whose type the dispatch is done.  Polymorphic functions for several metamodel
-  types are provided later using `defpolyfn`.  If an optional `body` is
-  provided, this is executed if no implementation for `model-elem`s type was
-  added using `defpoly`.  The default behavior in that case (i.e., `body`
-  omitted) is to throw an exception.
-
-  Example:
+  Example: Let's consider our metamodel has the types TypeA and TypeB, and a
+  TypeC that extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.
 
     ;; Declare a polyfn
     (declare-polyfn elem2str
@@ -28,8 +18,32 @@
       (str \"Don't know how to handle \" elem))
 
     ;; Define implementations for several types
-    (defpolyfn elem2str TypeA [elem] ...)
-    (defpolyfn elem2str TypeB [elem] ...) "
+    (defpolyfn elem2str [:and TypeA TypeB !TypeD] [elem] ...)
+    (defpolyfn elem2str TypeA! [elem] ...)
+    (defpolyfn elem2str TypeB! [elem] ...)
+
+  Then, (elem2str objOfTypeD) invokes the default behavior, (elem2str
+  objOfTypeC) invokes the first implementation, (elem2str objOfTypeB) invokes
+  the third implementation, and (elem2str objOfTypeA) invokes the second
+  implementation."
+  (:use [funnyqt.protocols   :only [has-type?]])
+  (:use [funnyqt.utils       :only [errorf]])
+  (:use [clojure.tools.macro :only [name-with-attributes]])
+  (:require [ordered.map :as om])
+  (:require clojure.pprint))
+
+;; {name {TypeSpec fn}}
+(def *polyfn-dispatch-table* (atom (om/ordered-map)))
+
+(defmacro declare-polyfn
+  "Decares a polymorphic function dispatching on a model element type.
+  `name` is the name of the new polyfn, an optional `doc-string` may be
+  provided.  The argument list's first element must be the model element on
+  whose type the dispatch is done.  Polymorphic functions for several metamodel
+  types are provided later using `defpolyfn`.  If an optional `body` is
+  provided, this is executed if no implementation for `model-elem`s type was
+  added using `defpoly`.  The default behavior in that case (i.e., `body`
+  omitted) is to throw an exception."
   {:arglists '([name doc-string? [model-elem & more] & body])}
   [name & more]
   (let [[name more] (name-with-attributes name more)
