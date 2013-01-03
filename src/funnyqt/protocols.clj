@@ -71,6 +71,14 @@
                               etc with the respective semantics of the logical
                               operator."))
 
+(defprotocol ModelElementType
+  (model-element-type [model-element]
+    "Returns the given model-element's type."))
+
+(defprotocol MetaModelTypeSuperTypes
+  (meta-model-type-super-types [metamodel-type]
+    "Returns the direct supertypes of metamodel-type."))
+
 ;;# Deletion
 
 (defprotocol Deletable
