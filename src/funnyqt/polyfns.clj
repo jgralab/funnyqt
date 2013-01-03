@@ -30,7 +30,7 @@
   objOfTypeC) invokes the first implementation, (elem2str objOfTypeB) invokes
   the third implementation, and (elem2str objOfTypeA) invokes the second
   implementation."
-  (:use [funnyqt.protocols   :only [has-type?]])
+  (:use [funnyqt.protocols   :only [has-type? type-matcher]])
   (:use [funnyqt.utils       :only [errorf]])
   (:use [clojure.tools.macro :only [name-with-attributes]])
   (:require [ordered.map :as om])
@@ -54,20 +54,28 @@
         argvec      (first more)
         body        (next more)]
     `(do
+       (declare ~name)
+       (when-not (find @polyfn-dispatch-table #'~name)
+         (swap! polyfn-dispatch-table assoc #'~name (om/ordered-map)))
+
        (defn ~name ~(meta name)
          ~argvec
          (loop [dispatch-map# (@polyfn-dispatch-table #'~name)]
            (if (seq dispatch-map#)
-             (let [[ts# f#] (first dispatch-map#)]
-               (if (has-type? ~(first argvec) ts#)
+             (let [[ts# [f# tm#]] (first dispatch-map#)
+                   [existed# tm#] (if tm#
+                                    [true tm#]
+                                    [false (type-matcher ~(first argvec) ts#)])]
+               (when-not existed#
+                 (println "adding tm for" ts#)
+                 (swap! polyfn-dispatch-table update-in [#'~name] assoc
+                        ts# [f# tm#]))
+               (if (tm# ~(first argvec))
                  (f# ~@argvec)
                  (recur (rest dispatch-map#))))
              ~(if (seq body)
                 `(do ~@body)
-                `(errorf "No polyfn for handling '%s'." ~(first argvec))))))
-       (when-not (find @polyfn-dispatch-table #'~name)
-         (swap! polyfn-dispatch-table assoc #'~name (om/ordered-map)))
-       #'~name)))
+                `(errorf "No polyfn for handling '%s'." ~(first argvec)))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for a given type.
@@ -87,7 +95,7 @@
          (errorf "%s is not declared as a polyfn." #'~name))
        (swap! polyfn-dispatch-table update-in [#'~name] assoc
               ~typespec
-              (fn ~argvec ~@body)))))
+              [(fn ~argvec ~@body) nil]))))
 
 (defn reset-polyfn-dispatch-table
   "Resets the polyfn-dispatch-table.  If a polyfn var is given, only resets the
