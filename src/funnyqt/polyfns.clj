@@ -7,6 +7,10 @@
   The first implementation (definition order) whose type specification matches
   the type of the model element is invoked.
 
+  Note that when providing implementations for a polyfn in different
+  namespaces, the actual declaration order of the implementation is determined
+  by the order in which the namespaces are loaded, so it's not advisable.
+
   Example: Let's consider our metamodel has the types TypeA and TypeB, and a
   TypeC that extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.
 
@@ -18,9 +22,9 @@
       (str \"Don't know how to handle \" elem))
 
     ;; Define implementations for several types
-    (defpolyfn elem2str [:and TypeA TypeB !TypeD] [elem] ...)
-    (defpolyfn elem2str TypeA! [elem] ...)
-    (defpolyfn elem2str TypeB! [elem] ...)
+    (defpolyfn elem2str '[:and TypeA TypeB !TypeD] [elem] ...)
+    (defpolyfn elem2str 'TypeA! [elem] ...)
+    (defpolyfn elem2str 'TypeB! [elem] ...)
 
   Then, (elem2str objOfTypeD) invokes the default behavior, (elem2str
   objOfTypeC) invokes the first implementation, (elem2str objOfTypeB) invokes
@@ -33,7 +37,7 @@
   (:require clojure.pprint))
 
 ;; {name {TypeSpec fn}}
-(def *polyfn-dispatch-table* (atom (om/ordered-map)))
+(defonce polyfn-dispatch-table (atom {}))
 
 (defmacro declare-polyfn
   "Decares a polymorphic function dispatching on a model element type.
@@ -52,7 +56,7 @@
     `(do
        (defn ~name ~(meta name)
          ~argvec
-         (loop [dispatch-map# (@*polyfn-dispatch-table* #'~name)]
+         (loop [dispatch-map# (@polyfn-dispatch-table #'~name)]
            (if (seq dispatch-map#)
              (let [[ts# f#] (first dispatch-map#)]
                (if (has-type? ~(first argvec) ts#)
@@ -61,8 +65,8 @@
              ~(if (seq body)
                 `(do ~@body)
                 `(errorf "No polyfn for handling '%s'." ~(first argvec))))))
-       (when-not (find @*polyfn-dispatch-table* #'~name)
-         (swap! *polyfn-dispatch-table* assoc #'~name {}))
+       (when-not (find @polyfn-dispatch-table #'~name)
+         (swap! polyfn-dispatch-table assoc #'~name (om/ordered-map)))
        #'~name)))
 
 (defmacro defpolyfn
@@ -79,13 +83,18 @@
         [typespec more] [(first more) (next more)]
         [argvec body]   [(first more) (next more)]]
     `(do
-       (when-not (find @*polyfn-dispatch-table* #'~name)
+       (when-not (find @polyfn-dispatch-table #'~name)
          (errorf "%s is not declared as a polyfn." #'~name))
-       (swap! *polyfn-dispatch-table* update-in [#'~name] assoc
-              '~typespec
+       (swap! polyfn-dispatch-table update-in [#'~name] assoc
+              ~typespec
               (fn ~argvec ~@body)))))
 
-(defn print-polyfn-dispatch-table
-  "Prints the *polyfn-dispatch-table* for debugging purposes."
-  []
-  (clojure.pprint/pprint @*polyfn-dispatch-table*))
+(defn reset-polyfn-dispatch-table
+  "Resets the polyfn-dispatch-table.  If a polyfn var is given, only resets the
+  impls for that var."
+  ([]
+     (swap! polyfn-dispatch-table (fn [& ignore] {})))
+  ([v]
+     (when-not (find @polyfn-dispatch-table v)
+       (errorf "No such polyfn %s to be resetted." v))
+     (swap! polyfn-dispatch-table update-in [v] (fn [& ign] (om/ordered-map)))))

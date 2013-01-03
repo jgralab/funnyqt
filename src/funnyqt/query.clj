@@ -21,7 +21,14 @@
   A single default-expr may follow the pairs.  If no type-spec matches, the
   return value of type-cond is the value of that default expression.  If there
   is no default expression and no type-spec matches, an
-  IllegalArgumentException is thrown."
+  IllegalArgumentException is thrown.
+
+  Example:
+
+    (type-cond obj
+      'TypeA (do-a-stuff obj)
+      'TypeB (do-b-stuff obj)
+      (do-default-stuff obj))"
   [elem & clauses]
   `(condp (fn [t# e#] (has-type? e# t#)) ~elem
      ~@clauses))
