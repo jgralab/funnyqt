@@ -96,24 +96,33 @@
         retval (if (= (count created) 1)
                  (first created)
                  created)
-        wl-vars (map first (partition 2 (:when-let m)))]
+        wl-vars (map first (partition 2 (:when-let m)))
+        creation-form (when (seq created)
+                        `(let ~create-vec
+                           (swap! *trace* update-in [~(keyword (:name m))]
+                                  assoc ~arg ~retval)
+                           ~@(:body m)
+                           ~retval))
+        wl-and-creation-form (if (:when-let m)
+                               `(let ~(vec (:when-let m))
+                                  (when (and ~@wl-vars)
+                                    ~creation-form))
+                               creation-form)
+        when-wl-and-creation-form (if (:when m)
+                                    `(when ~(or (:when m) true)
+                                       ~wl-and-creation-form)
+                                    wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys m))
                               :name :args :from :to :when :when-let :body :generalizes))]
       (errorf "Unknown keys in declarative rule: %s" uks))
     `(~(:name m) ~(:args m)
       (when ~arg
+        ;; First check if there's already an element created for arg in this
+        ;; rule, or any of its specializing rules.
         (or ~@(make-lookups arg (:name m) (:generalizes m))
             ;; type constraint & :when constraint
             (when ~(type-constr arg (:from m))
-              (when ~(or (:when m) true)
-                (let ~(vec (:when-let m))
-                  (when (and ~@wl-vars)
-                    ~(when (seq created)
-                       `(let ~create-vec
-                          (swap! *trace* update-in [~(keyword (:name m))]
-                                 assoc ~arg ~retval)
-                          ~@(:body m)
-                          ~retval)))))))))))
+              ~when-wl-and-creation-form))))))
 
 (defmacro deftransformation [name & more]
   (let [[name more] (name-with-attributes name more)
@@ -129,7 +138,14 @@
                       (not (vector? o)) (errorf "Error: output models must be a vector.")
                       :else [(apply om/ordered-map i) (apply om/ordered-map o)]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
-                     rules-and-fns)]
+                     rules-and-fns)
+        top-rules   (filter #(:top (meta (first %))) rules)
+        type-spec   (vec (cons :or (remove nil? (map (fn [r]
+                                                       (let [m (rule-as-map r)]
+                                                         (:from m)))
+                                                     top-rules))))]
+    (when-not (seq top-rules)
+      (errorf "At least one rule has to be declared as top-level rule."))
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
        (binding [*deferred-actions* (atom [])
@@ -139,9 +155,9 @@
            ~@(for [m (keys ins)
                    :let [kind (ins m)]]
                `(doseq [elem# ~(if (= :tg kind)
-                                 `(tg/vseq ~m)
-                                 `(emf/eallobjects ~m))]
-                  (doseq [r# ~(mapv first rules)]
+                                 `(tg/vseq ~m ~type-spec)
+                                 `(emf/eallobjects ~m ~type-spec))]
+                  (doseq [r# ~(mapv first top-rules)]
                     (r# elem#))))
            ~(if (= (count outs) 1)
               (first (first outs))
