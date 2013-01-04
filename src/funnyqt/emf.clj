@@ -286,7 +286,8 @@
             (seq (.getContents ^Resource (.resource this)))))
   (eallcontents-internal [this ts]
     (filter (type-matcher this ts)
-            (iterator-seq (.getAllContents ^Resource (.resource this)))))
+            (iterator-seq (EcoreUtil/getAllProperContents
+                           ^Resource (.resource this) true))))
   (eallobjects-internal [this ts]
     (eallcontents-internal this ts))
 
