@@ -180,10 +180,8 @@
 
 (defn new-model
   "Creates and returns a new, empty EMFModel."
-  ([]
-     (->EMFModel (ResourceImpl.)))
-  ([metamodel]
-     (->EMFModel (ResourceImpl.))))
+  []
+  (->EMFModel (ResourceImpl.)))
 
 (defn load-model
   "Loads an EMFModel from the XMI file `f`."
