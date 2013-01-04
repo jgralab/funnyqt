@@ -22,8 +22,10 @@
                      form "or neither of both")
              true)
            (if (contains? m :from)
-             (or (symbol? (:from m))
-                 (errorf "Error in %s: :from must be a symbol."))
+             (or (and (seq (:from m))
+                      (= 2 (count (:from m))) ;; (quote Foo)
+                      (symbol? (first (:from m))))
+                 (errorf "Error in %s: :from must be a quoted symbol." form))
              true)
            (if (contains? m :to)
              (or (vector? (:to m))
@@ -63,7 +65,7 @@
 
 (defn ^:private type-constr [e t]
   (if t
-    `(has-type? ~e '~t)
+    `(has-type? ~e ~t)
     true))
 
 (defn ^:private create-vector [v outs]
@@ -80,13 +82,12 @@
         v (partition 4 v)]
     (vec (mapcat (fn [[sym type mk model]]
                    [sym (if (= mk :tg)
-                          `(tg/create-vertex! ~model '~type)
-                          `(emf/ecreate! ~model '~type))])
+                          `(tg/create-vertex! ~model ~type)
+                          `(emf/ecreate! ~model ~type))])
                  v))))
 
 (defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
-        ;; TODO: must be exactly one arg; check it!
         _ (when (> (count (:args m)) 1)
             (errorf "Error: Rules must have exactly one argument: %s" (:name m)))
         arg (first (:args m))
@@ -94,19 +95,25 @@
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
                  (first created)
-                 created)]
+                 created)
+        wl-vars (map first (partition 2 (:when-let m)))]
+    (when-let [uks (seq (disj (set (keys m))
+                              :name :args :from :to :when :when-let :body :generalizes))]
+      (errorf "Unknown keys in declarative rule: %s" uks))
     `(~(:name m) ~(:args m)
       (when ~arg
         (or ~@(make-lookups arg (:name m) (:generalizes m))
             ;; type constraint & :when constraint
-            (when (and ~(type-constr arg (:from m))
-                       ~(or (:when m) true))
-              ~(when (seq created)
-                 `(let ~create-vec
-                    (swap! *trace* update-in [~(keyword (:name m))]
-                           assoc ~arg ~retval)
-                    ~@(:body m)
-                    ~retval))))))))
+            (when ~(type-constr arg (:from m))
+              (when ~(or (:when m) true)
+                (let ~(vec (:when-let m))
+                  (when (and ~@wl-vars)
+                    ~(when (seq created)
+                       `(let ~create-vec
+                          (swap! *trace* update-in [~(keyword (:name m))]
+                                 assoc ~arg ~retval)
+                          ~@(:body m)
+                          ~retval)))))))))))
 
 (defmacro deftransformation [name & more]
   (let [[name more] (name-with-attributes name more)

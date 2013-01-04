@@ -46,16 +46,16 @@
                         (when-let [ps (seq (parents-of m))]
                           (set-adjs! p :parents (map member2person ps))))
   (member2male [m]
-               :from Member
+               :from 'Member
                :when (male? m)
-               :to   [p Male :model out]
+               :to   [p 'Male :model out]
                (member2person-setter m p)
                (when-let [w (wife m)]
                  (add-adj! p :wife (member2female w))))
   (member2female [m]
-                 :from Member
+                 :from 'Member
                  :when (not (male? m))
-                 :to   [p Female]
+                 :to   [p 'Female]
                  (member2person-setter m p)))
 
 (deftest test-transformation
