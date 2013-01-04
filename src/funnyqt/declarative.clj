@@ -16,16 +16,10 @@
            (if (contains? m :generalizes)
              (or (vector? (:generalizes m))
                  (errorf "Error in %s: :generalizes must be a vector" form))
-         true)
+             true)
            (if (xor (contains? m :from) (contains? m :to))
              (errorf "Error in %s: rules must contain :from and :to, %s."
                      form "or neither of both")
-             true)
-           (if (contains? m :from)
-             (or (and (seq (:from m))
-                      (= 2 (count (:from m))) ;; (quote Foo)
-                      (symbol? (first (:from m))))
-                 (errorf "Error in %s: :from must be a quoted symbol." form))
              true)
            (if (contains? m :to)
              (or (vector? (:to m))
@@ -140,10 +134,21 @@
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
         top-rules   (filter #(:top (meta (first %))) rules)
-        type-spec   (vec (cons :or (remove nil? (map (fn [r]
-                                                       (let [m (rule-as-map r)]
-                                                         (:from m)))
-                                                     top-rules))))]
+        rule-by-name (fn [n]
+                       (let [rs (filter #(= n (first %)) rules)]
+                         (cond
+                          (empty? rs) (errorf "No such rule: %s" n)
+                          (fnext rs)  (errorf "Multiple rules named %s: %s" n rs)
+                          :else (first rs))))
+        collect-type-specs (fn ct [r]
+                             (let [m (rule-as-map r)]
+                               (if-let [grs (:generalizes m)]
+                                 (let [specs (set (map (comp ct rule-by-name) grs))]
+                                   (if (= 1 (count specs))
+                                     (first specs)
+                                     (vec specs)))
+                                 (:from m))))
+        type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs top-rules)))))]
     (when-not (seq top-rules)
       (errorf "At least one rule has to be declared as top-level rule."))
     `(defn ~name ~(meta name)
