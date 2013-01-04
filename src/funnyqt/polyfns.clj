@@ -1,90 +1,89 @@
 (ns funnyqt.polyfns
   "Polymorphic functions dispatching on types of model elements.
-  Every polyfn must be declared first, and then arbitrary many implementations
-  for several metamodel types may be provided.
+Every polyfn must be declared first, and then arbitrary many implementations
+for several metamodel types may be provided.
 
-  There are two kinds of polyfns:
+There are two kinds of polyfns:
 
-    1. polyfns defined for a given type or subtype whose semantics are similar
-       to Java methods, i.e., the most specific polyfn implementation is
-       invoked.  See `declare-polyfn` and `defpolyfn`.
+  1. polyfns defined for a given type or subtype whose semantics are similar to
+     Java methods, i.e., the most specific polyfn implementation is invoked.
+     See `declare-polyfn` and `defpolyfn`.
 
-    2. polyfns dispatching with a funnyqt.protocols/type-matcher.  These are
-       more flexible, but harder to get right.  The first implementation whose
-       type-matcher succeeds is invoked.  See `declare-polyfn*` and
-       `defpolyfn*`.
+  2. polyfns dispatching with a funnyqt.protocols/type-matcher.  These are more
+     flexible, but harder to get right.  The first implementation whose
+     type-matcher succeeds is invoked.  See `declare-polyfn*` and `defpolyfn*`.
 
-  Both kinds of polyfns must have a model element as first argument which is
-  used to dispatch among implementations.
+Both kinds of polyfns must have a model element as first argument which is used
+to dispatch among implementations.
 
-  Polyfns of kind 1
-  =================
+Polyfns of kind 1
+=================
 
-  Every polyfn of kind 1 has to be declared once using `declare-polyfn`, and
-  then implementations for specific types map be provided using `defpolyfn`.
-  When a polyfn of kind 1 is called, the most specific implementation for the
-  model element type is looked up and invoked.
+Every polyfn of kind 1 has to be declared once using `declare-polyfn`, and then
+implementations for specific types map be provided using `defpolyfn`.  When a
+polyfn of kind 1 is called, the most specific implementation for the model
+element type is looked up and invoked.
 
-  Example
-  -------
+Example
+-------
 
-  Let's consider our metamodel has the types TypeA and TypeB, and a TypeC that
-  extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.  Lastly,
-  there's a TypeE with no inheritance relationships.
+Let's consider our metamodel has the types TypeA and TypeB, and a TypeC that
+extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.  Lastly,
+there's a TypeE with no inheritance relationships.
 
-    ;; Declare a polyfn
-    (declare-polyfn foo1 [elem]
-      ;; Optional default behavior
-      (str \"Don't know how to handle \" elem))
+  ;; Declare a polyfn
+  (declare-polyfn foo1 [elem]
+    ;; Optional default behavior
+    (str \"Don't know how to handle \" elem))
 
-    ;; Define implementations for several types
-    (defpolyfn foo1 'TypeA [elem] ...)
-    (defpolyfn foo1 'TypeB [elem] ...)
-    (defpolyfn foo1 'TypeC [elem] ...)
+  ;; Define implementations for several types
+  (defpolyfn foo1 'TypeA [elem] ...)
+  (defpolyfn foo1 'TypeB [elem] ...)
+  (defpolyfn foo1 'TypeC [elem] ...)
 
-  Then, (foo1 objOfTypeA) invokes the first implementation, (foo1 objOfTypeB)
-  invokes the second implementation, both (foo1 objOfTypeC) and (foo1
-  objOfTypeD) invoke the third implementation, and (foo1 objOfTypeE) invokes
-  the default behavior.
+Then, (foo1 objOfTypeA) invokes the first implementation, (foo1 objOfTypeB)
+invokes the second implementation, both (foo1 objOfTypeC) and (foo1 objOfTypeD)
+invoke the third implementation, and (foo1 objOfTypeE) invokes the default
+behavior.
 
-  Polyfns of kind 2
-  =================
+Polyfns of kind 2
+=================
 
-  Every polyfn of kind 2 has to be declared once using `declare-polyfn*`, and
-  then implementations with specific type specifications may be provided using
-  `defpolyfn*`.  When a polyfn of kind 2 is called, its first argument (the
-  model element) is checked against the type specifications of the provided
-  implementations.  The first implementation (in definition order) whose type
-  specification matches the type of the model element is invoked.
+Every polyfn of kind 2 has to be declared once using `declare-polyfn*`, and
+then implementations with specific type specifications may be provided using
+`defpolyfn*`.  When a polyfn of kind 2 is called, its first argument (the model
+element) is checked against the type specifications of the provided
+implementations.  The first implementation (in definition order) whose type
+specification matches the type of the model element is invoked.
 
-  Note that when providing implementations for a polyfn of kind 2 in different
-  namespaces, the actual declaration order of the implementation is determined
-  by the order in which the namespaces are loaded (so you probably don't want
-  to do that).
+Note that when providing implementations for a polyfn of kind 2 in different
+namespaces, the actual declaration order of the implementation is determined by
+the order in which the namespaces are loaded (so you probably don't want to do
+that).
 
-  Example
-  -------
+Example
+-------
 
-  Let's consider our metamodel has the types TypeA and TypeB, and a TypeC that
-  extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.  Lastly,
-  there's a TypeE with no inheritance relationships.
+Let's consider our metamodel has the types TypeA and TypeB, and a TypeC that
+extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.  Lastly,
+there's a TypeE with no inheritance relationships.
 
-    ;; Declare a polyfn
-    (declare-polyfn* foo2
-      \"Returns a string representation of elem\".
-      [elem]
-      ;; Optional default behavior
-      (str \"Don't know how to handle \" elem))
+  ;; Declare a polyfn
+  (declare-polyfn* foo2
+    \"Returns a string representation of elem\".
+    [elem]
+    ;; Optional default behavior
+    (str \"Don't know how to handle \" elem))
 
-    ;; Define implementations for several types
-    (defpolyfn* foo2 '[:and TypeA TypeB !TypeD] [elem] ...)
-    (defpolyfn* foo2 'TypeA! [elem] ...)
-    (defpolyfn* foo2 'TypeB! [elem] ...)
+  ;; Define implementations for several types
+  (defpolyfn* foo2 '[:and TypeA TypeB !TypeD] [elem] ...)
+  (defpolyfn* foo2 'TypeA! [elem] ...)
+  (defpolyfn* foo2 'TypeB! [elem] ...)
 
-  Then, both (foo2 objOfTypeD) and (foo2 objOfTypeE) invoke the default
-  behavior, (foo2 objOfTypeC) invokes the first implementation, (foo2
-  objOfTypeA) invokes the second implementation, and (foo2 objOfTypeB) invokes
-  the third implementation."
+Then, both (foo2 objOfTypeD) and (foo2 objOfTypeE) invoke the default
+behavior, (foo2 objOfTypeC) invokes the first implementation, (foo2 objOfTypeA)
+invokes the second implementation, and (foo2 objOfTypeB) invokes the third
+implementation."
   (:use [funnyqt.protocols   :only [has-type? type-matcher model-element-type
                                     meta-model-type-super-types qname]])
   (:use [funnyqt.utils       :only [errorf]])
