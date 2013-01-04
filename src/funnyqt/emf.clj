@@ -776,7 +776,8 @@
                (re-matches #"\S*(\s|[-])\S*" (:name (meta opts))))
       (errorf "The :name must not contain whitespace or hyphens: '%s'"
               (:name (meta opts))))
-    (binding [*included-eobjects* (set (:include (meta opts)))
+    (binding [*included-eobjects* (when-let [included (:include (meta opts))]
+                                    (set included))
               *excluded-eobjects* (set (:exclude (meta opts)))
               *marked-eobjects*   (set (:mark (meta opts)))]
       (str "digraph " (:name (meta opts)) " {"

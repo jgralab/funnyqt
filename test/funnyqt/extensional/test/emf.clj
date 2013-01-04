@@ -62,7 +62,7 @@
 
 (deftest test-families2genealogy-extensional
   (let [tmm (load-metamodel "test/input/Genealogy.ecore")
-        tm (new-model tmm)
+        tm (new-model)
         _ (load-metamodel "test/input/Families.ecore")
         m (load-model "test/input/example.families")]
     #_(clojure.pprint/pprint (families2genealogy m tm))

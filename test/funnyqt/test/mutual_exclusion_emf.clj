@@ -145,7 +145,7 @@
   "Returns an initial graph for the STS.
   Two Processes connected in a ring by two Next edges."
   []
-  (let [m (new-model mutual-exclusion-mm)
+  (let [m (new-model)
         p1 (ecreate! m 'Process)
         p2 (ecreate! m 'Process)]
     (eset! p1 :name "p1")
@@ -209,7 +209,7 @@
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
   [n]
-  (let [m (new-model mutual-exclusion-mm)]
+  (let [m (new-model)]
     (loop [i n, lp nil]
       (if (pos? i)
         (let [r (ecreate! m 'Resource)
