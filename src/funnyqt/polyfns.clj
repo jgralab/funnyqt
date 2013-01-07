@@ -98,14 +98,13 @@ implementation."
 
 (defn find-polyfn-impl [m t]
   (loop [ts [t]]
-    (if (seq ts)
+    (when (seq ts)
       (let [fns (remove nil? (map #(m (qname %)) ts))]
         (if (seq fns)
           (if (fnext fns)
             (errorf "%s polyfns are applicable for type %s" (count fns) t)
             (first fns))
-          (recur (set (mapcat meta-model-type-super-types ts)))))
-      (errorf "No polyfn implementation defined for type %s" t))))
+          (recur (set (mapcat meta-model-type-super-types ts))))))))
 
 (defmacro declare-polyfn
   "Decares a polymorphic function dispatching on a model element type.
@@ -121,7 +120,8 @@ implementation."
   [name & more]
   (let [[name more] (name-with-attributes name more)
         argvec      (first more)
-        body        (next more)]
+        body        (next more)
+        type-var    (gensym "type__")]
     `(do
        (declare ~name)
        (when-not (find @polyfn-dispatch-table #'~name)
@@ -131,8 +131,13 @@ implementation."
          ~argvec
          (let [dispatch-map# (@polyfn-dispatch-table #'~name)
                elem# ~(first argvec)
-               type# (model-element-type elem#)]
-           ((find-polyfn-impl dispatch-map# type#) elem#))))))
+               ~type-var (model-element-type elem#)]
+           (if-let [f# (find-polyfn-impl dispatch-map# ~type-var)]
+             (f# elem#)
+             (do
+               ~@(or body
+                     [(errorf "No polyfn implementation defined for type %s"
+                              ~type-var)]))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for objects of type `type`.
