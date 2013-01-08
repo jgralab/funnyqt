@@ -605,7 +605,7 @@
 
 (defn ^:private econtents-by-ref
   [^EObject eo rm]
-  (mapcat #(let [o (eget eo %)]
+  (mapcat #(when-let [o (eget eo %)]
              (if (coll? o) o [o]))
           (for [^EReference r (-> eo .eClass .getEAllReferences)
                 :when (and (.isContainment r) (rm r))]
@@ -702,7 +702,7 @@
             (for [^EReference ref (seq (.getEAllContainments (.eClass eo)))
                   :let [oref (.getEOpposite ref)
                         n (.getName ref)]
-                  t (let [x (eget eo ref)]
+                  t (when-let [x (eget eo ref)]
                       (if (coll? x) x [x]))
                   :when (dot-included? t)]
               (do
