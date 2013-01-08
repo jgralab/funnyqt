@@ -679,16 +679,20 @@
   (str "O" (Integer/toString (hash eo) (Character/MAX_RADIX))))
 
 (defn ^:private dot-escape [s]
-  (when s
-    (-> s
-        (clojure.string/replace "<" "&lt;")
-        (clojure.string/replace ">" "&gt;"))))
+  (if s
+    (let [r (-> (str s)
+                (clojure.string/replace "<" "&lt;")
+                (clojure.string/replace ">" "&gt;"))]
+      (if (string? s)
+        (str "\\\"" r "\\\"")
+        r))
+    "null"))
 
 (defn ^:private dot-attributes [^EObject eo]
   (reduce str
           (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
                 :let [n (.getName attr)]]
-            (str n " = \\'" (dot-escape (eget eo n)) "\\'\\l"))))
+            (str n " = " (dot-escape (eget eo n)) "\\l"))))
 
 (defn ^:private dot-eobject [eo]
   (when (dot-included? eo)
