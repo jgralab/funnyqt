@@ -456,16 +456,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (type-matcher [g ts]
     (type-matcher-tg g ts)))
 
-(extend-protocol ModelElementType
-  AttributedElement
-  (model-element-type [this]
-    (.getAttributedElementClass this)))
-
-(extend-protocol MetaModelTypeSuperTypes
-  GraphElementClass
-  (meta-model-type-super-types [this]
-    (seq (.getDirectSuperClasses this))))
-
 (defmacro ^:private has-type?-1 [obj spec dc]
   ;; For simple type specs, we don't need to create a type-matcher.
   `(if (qname? ~spec)

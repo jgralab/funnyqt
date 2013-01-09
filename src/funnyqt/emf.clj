@@ -242,16 +242,6 @@
   (type-matcher [m ts]
     (type-matcher-emf ts)))
 
-(extend-protocol ModelElementType
-  EObject
-  (model-element-type [this]
-    (.eClass this)))
-
-(extend-protocol MetaModelTypeSuperTypes
-  EClass
-  (meta-model-type-super-types [this]
-    (seq (.getESuperTypes this))))
-
 (extend-protocol InstanceOf
   EObject
   (is-instance? [object class]

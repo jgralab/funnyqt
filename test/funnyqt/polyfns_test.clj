@@ -54,4 +54,7 @@
   ;; 1. Execution time mean : 208.373278 ms
   ;;    Execution time mean : 189.096473 ms
   ;;    Execution time mean : 196.353706 ms
-  (c/bench (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg))))))
+  #_(c/bench (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))
+  (dotimes [i 10]
+    (println (format "%s. run:" i))
+    (time (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))))
