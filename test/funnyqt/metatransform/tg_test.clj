@@ -1,10 +1,10 @@
-(ns funnyqt.metatransform.test.tg
+(ns funnyqt.metatransform.tg-test
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
   (:use funnyqt.metatransform.tg)
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
-  (:use funnyqt.test.tg)
+  (:use funnyqt.tg-test)
   (:use funnyqt.query)
   (:use clojure.test)
   (:import

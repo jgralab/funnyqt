@@ -1,12 +1,12 @@
 (ns ^{:pattern-expansion-context :tg}
-  funnyqt.in-place.test.tg
+  funnyqt.in-place.tg-test
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
-  (:use funnyqt.test.tg)
-  (:use [funnyqt.query.test.tg :only (eval-exp)])
+  (:use funnyqt.tg-test)
+  (:use [funnyqt.query.tg-test :only (eval-exp)])
   (:use clojure.test))
 
 

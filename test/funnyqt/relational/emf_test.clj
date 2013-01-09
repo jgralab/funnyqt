@@ -1,9 +1,9 @@
-(ns funnyqt.relational.test.emf
+(ns funnyqt.relational.emf-test
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
         funnyqt.relational.emf
         funnyqt.relational
-        [funnyqt.test.emf :only [family-model]])
+        [funnyqt.emf-test :only [family-model]])
   (:require [funnyqt.emf :as emf]
             [funnyqt.query :as q]
             [clojure.test :as t]))

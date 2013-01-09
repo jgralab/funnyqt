@@ -1,4 +1,4 @@
-(ns funnyqt.test.query
+(ns funnyqt.query-test
   (:use [ordered.set])
   (:use [funnyqt.query])
   (:use [clojure.test]))

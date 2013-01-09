@@ -1,10 +1,10 @@
-(ns funnyqt.query.test.tg
+(ns funnyqt.query.tg-test
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
-  (:use [funnyqt.test.tg :only [rg jg]])
+  (:use [funnyqt.tg-test :only [rg jg]])
   (:use clojure.test)
   (:import
    (de.uni_koblenz.jgralab.schema AttributedElementClass)))

@@ -1,4 +1,4 @@
-(ns funnyqt.test.operational-f2m-tg2
+(ns funnyqt.misc-tests.operational-f2m-tg2
   (:use funnyqt.operational)
   (:use funnyqt.query)
   (:use funnyqt.utils)

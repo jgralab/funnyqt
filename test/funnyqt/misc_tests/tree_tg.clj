@@ -1,5 +1,5 @@
 (ns ^{:pattern-expansion-context :tg}
-  funnyqt.test.tree-tg
+  funnyqt.misc-tests.tree-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)

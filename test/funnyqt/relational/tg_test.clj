@@ -1,10 +1,10 @@
-(ns funnyqt.relational.test.tg
+(ns funnyqt.relational.tg-test
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic :only [run* run ==]]
         clojure.test
         funnyqt.relational.tg
         funnyqt.relational
-        [funnyqt.test.tg :only [rg]])
+        [funnyqt.tg-test :only [rg]])
   (:require [funnyqt.tg :as tg]
             [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]))

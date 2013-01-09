@@ -1,4 +1,4 @@
-(ns funnyqt.test.pmatch
+(ns funnyqt.pmatch-test
   (:use funnyqt.pmatch)
   (:use funnyqt.protocols)
   (:require [funnyqt.tg        :as tg]

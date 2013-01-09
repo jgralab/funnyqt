@@ -1,4 +1,4 @@
-(ns funnyqt.test.utils
+(ns funnyqt.utils-test
   (:use clojure.test)
   (:use funnyqt.utils))
 

@@ -1,5 +1,5 @@
 (ns ^{:pattern-expansion-context :tg}
-    funnyqt.test.mutual-exclusion-tg
+    funnyqt.misc-tests.mutual-exclusion-tg
   (:use funnyqt.tg)
   (:use funnyqt.utils)
   (:use funnyqt.protocols)

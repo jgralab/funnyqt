@@ -1,5 +1,5 @@
 (ns ^{:pattern-expansion-context :emf}
-  funnyqt.test.mutual-exclusion-emf
+  funnyqt.misc-tests.mutual-exclusion-emf
   (:use funnyqt.emf)
   (:use funnyqt.protocols)
   (:use funnyqt.query)

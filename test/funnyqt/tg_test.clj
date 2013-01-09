@@ -1,4 +1,4 @@
-(ns funnyqt.test.tg
+(ns funnyqt.tg-test
   (:use [ordered.set])
   (:use [funnyqt.tg])
   (:use funnyqt.protocols)

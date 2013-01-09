@@ -1,4 +1,4 @@
-(ns funnyqt.extensional.test.tg
+(ns funnyqt.extensional.tg-test
   (:use funnyqt.tg)
   (:require [funnyqt.emf :as emf])
   (:use funnyqt.query.tg)
@@ -6,7 +6,7 @@
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.query)
-  (:use [funnyqt.test.tg :only [rg]])
+  (:use [funnyqt.tg-test :only [rg]])
   (:use clojure.test))
 
 (deftransformation transformation-1-instance-only

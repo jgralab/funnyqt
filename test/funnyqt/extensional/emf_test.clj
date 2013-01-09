@@ -1,4 +1,4 @@
-(ns funnyqt.extensional.test.emf
+(ns funnyqt.extensional.emf-test
   (:use funnyqt.emf)
   (:use funnyqt.query)
   (:use funnyqt.query.emf)

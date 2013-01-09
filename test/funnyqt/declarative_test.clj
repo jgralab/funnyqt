@@ -1,4 +1,4 @@
-(ns funnyqt.test.declarative
+(ns funnyqt.declarative-test
   (:require [funnyqt.emf :as emf])
   (:require [funnyqt.query.emf :as emfq])
   (:use funnyqt.tg)

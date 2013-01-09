@@ -1,4 +1,4 @@
-(ns funnyqt.utils.test.xmltg
+(ns funnyqt.utils.xmltg-test
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
   (:use funnyqt.utils.xmltg)
