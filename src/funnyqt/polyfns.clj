@@ -93,9 +93,6 @@ implementation."
 
 ;;# Type 1 polyfns
 
-;; {PolyFnVar {TypeQName ImplFn}}
-(defonce polyfn-dispatch-table (atom {}))
-
 (defn find-polyfn-impl [m t]
   (loop [ts [t]]
     (when (seq ts)
@@ -127,9 +124,9 @@ implementation."
        (when-not (find @polyfn-dispatch-table #'~name)
          (swap! polyfn-dispatch-table assoc #'~name {}))
 
-       (defn ~name ~(meta name)
+       (defn ~name ~(assoc (meta name) ::polyfn-dispatch-table (atom {}))
          ~argvec
-         (let [dispatch-map# (@polyfn-dispatch-table #'~name)
+         (let [dispatch-map# (deref (::polyfn-dispatch-table (meta #'~name)))
                elem# ~(first argvec)
                ~type-var (model-element-type elem#)]
            (if-let [f# (find-polyfn-impl dispatch-map# ~type-var)]
@@ -152,27 +149,18 @@ implementation."
         [type more]   [(first more) (next more)]
         [argvec body] [(first more) (next more)]]
     `(do
-       (when-not (find @polyfn-dispatch-table #'~name)
+       (when-not (find (meta #'~name) ::polyfn-dispatch-table)
          (errorf "%s is not declared as a polyfn." #'~name))
        (when-not (symbol? ~type)
-         (errorf "The type given to a defpolyfn must be a symbol but was %s." ~type))
-       (let [^String n# (clojure.core/name ~type)]
+         (errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
+                 ~type (class ~type)))
+       (let [^String n# (clojure.core/name ~type)
+             spec-map# (::polyfn-dispatch-table (meta #'~name))]
          (when (or (.startsWith n# "!")
                    (.endsWith n# "!"))
            (errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
-                   ~type)))
-       (swap! polyfn-dispatch-table update-in [#'~name]
-              assoc ~type (fn ~argvec ~@body)))))
-
-(defn reset-polyfn-dispatch-table
-  "Resets the `polyfn-dispatch-table`.
-  If a polyfn var is given, only resets the impls for that var."
-  ([]
-     (swap! polyfn-dispatch-table (fn [& ignore] {})))
-  ([v]
-     (when-not (find @polyfn-dispatch-table v)
-       (errorf "No such polyfn %s to be resetted." v))
-     (swap! polyfn-dispatch-table update-in [v] (fn [& ign] {}))))
+                   ~type))
+         (swap! spec-map# assoc ~type (fn ~argvec ~@body))))))
 
 ;;# Type 2 polyfns
 
