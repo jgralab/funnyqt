@@ -8,7 +8,7 @@
 ;; TODO: Write tests!
 
 (declare-polyfn aec-name [elem]
-                "No impl defined.")
+                "--undefined--")
 
 (defpolyfn aec-name 'containers.CompilationUnit
   [elem]
@@ -58,3 +58,14 @@
   (dotimes [i 10]
     (println (format "%s. run:" i))
     (time (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))))
+
+(deftest test-polyfn-aec-name
+  (doseq [el (tg/vseq jg 'Class)]
+    (is (= "classifiers.Class" (aec-name el))))
+  (doseq [el (tg/vseq jg '[classifiers.Enumeration classifiers.Interface])]
+    (is (= "classifiers.ConcreteClassifier" (aec-name el))))
+  (doseq [el (tg/vseq jg '[:nor expressions.Expression operators.Assignment
+                           classifiers.ConcreteClassifier imports.ClassifierImport
+                           containers.CompilationUnit statements.Conditional
+                           statements.Throw])]
+    (is (= "--undefined--" (aec-name el)))))
