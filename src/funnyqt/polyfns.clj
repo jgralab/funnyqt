@@ -46,7 +46,7 @@ behavior."
 (extend-protocol AllMetaModelClasses
   org.eclipse.emf.ecore.EClass
   (all-meta-model-classes [cls]
-    (emf/eclassifiers))
+    (filter emf/eclass? (emf/eclassifiers)))
   de.uni_koblenz.jgralab.schema.GraphElementClass
   (all-meta-model-classes [aec]
     (let [^de.uni_koblenz.jgralab.schema.GraphClass gc (.getGraphClass aec)]
