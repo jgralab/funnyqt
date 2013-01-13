@@ -22,6 +22,7 @@
   (fn [a]
     (let [ge (walk a e)
           gt (walk a t)]
+      #_(println "tmp-typeo:" ge (ground? ge))
       ;; We assume gt is a ground symbol.  We may assume that since bidi
       ;; transformations usually should only use the generated +Foo relations.
       (when-not (ground? gt)
@@ -107,6 +108,7 @@
 (defn ^:private tmp-vertexo [g v]
   (fn [a]
     (let [gv (walk a v)]
+      #_(println "tmp-vertexo:" gv (ground? gv))
       (if (fresh? gv)
         (to-stream
          (->> (map #(unify a v %) (concat (tg/vseq g)
@@ -141,6 +143,7 @@
     (let [ge  (walk a e)
           gal (walk a al)
           gom (walk a om)]
+      #_(println "tmp-edgeo:" ge (ground? ge))
       (if (fresh? ge)
         ;; If the edge is fresh, it might be an existing edge or a new tmp edge.
         (to-stream
@@ -175,7 +178,7 @@
                                  (tmp/set-omega ge (if (ground? gom)
                                                      gom
                                                      (tmp/make-tmp-vertex g)))
-                              (succeed a))
+                                 (unify a [al om] [(tmp/get-alpha ge) (tmp/get-omega ge)]))
          :else (fail a))))))
 
 (defn edgeo
