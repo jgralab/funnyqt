@@ -7,7 +7,7 @@
   (:use funnyqt.relational.util)
   (:import (de.uni_koblenz.jgralab.schema GraphElementClass)))
 
-(def ^:dynamic *make-tmp-elements* nil)
+(def ^:dynamic *make-tmp-elements* false)
 
 (defprotocol TmpElementAccessors
   (get-graph [this])
