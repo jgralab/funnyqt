@@ -17,6 +17,17 @@
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
+(defn ^:private tmp-has-type? [^AttributedElementClass aec el]
+  ;;(println aec el)
+  (cond
+   (tg/attributed-element? el) (p/is-instance? el aec)
+   (tmp/tmp-element? el)       (do
+                                 (when (nil? (tmp/get-type el))
+                                   (tmp/set-type el (p/qname aec)))
+                                 (or (= aec (tmp/get-type el))
+                                     (.isSuperClassOf aec (tmp/get-type el))))
+   :else                       false))
+
 (defn ^:private tmp-typeo
   [g e t]
   (fn [a]
@@ -41,8 +52,17 @@
                        ;; vertex or edge types.
                        (or (and all-vcs? (tmp/set-kind ge :vertex))
                            (and all-ecs? (tmp/set-kind ge :edge))
-                           true))
-                  (p/has-type? ge gt))
+                           true)
+                       (if (= (tmp/get-kind ge) :edge)
+                         ;; For edges, alpha and omega must have the right types
+                         (let [^AttributedElementClass aec (tmp/get-type ge)
+                               alc (.getVertexClass (.getFrom aec))
+                               omc (.getVertexClass (.getTo aec))]
+                           (and (tmp-has-type? alc (tmp/get-alpha ge))
+                                (tmp-has-type? omc (tmp/get-omega ge))))
+                         true))
+                  (and (tg/attributed-element? ge)
+                       (p/has-type? ge gt)))
             (succeed a)
             (fail a))
           (let [[sfn tefn] (cond
@@ -154,22 +174,23 @@
                                 (and (ground? gom) (tg/vertex? gom)) (tg/iseq gom nil :in)
                                 :else (tg/eseq g))]
                       [edge (tg/alpha edge) (tg/omega edge)])
-                    ;; If alpha or omega are ground, set them in the new
-                    ;; TmpElement edge.
-                    (let [tmp (tmp/make-tmp-edge g)]
-                      (tmp/set-alpha tmp (if (ground? gal)
-                                           gal
-                                           (tmp/make-tmp-vertex g)))
-                      (tmp/set-omega tmp (if (ground? gom)
-                                           gom
-                                           (tmp/make-tmp-vertex g)))
-                      [[tmp (tmp/get-alpha tmp) (tmp/get-omega tmp)]])))
+                    ;; It could be a tmp-edge.  In that case, it could be a
+                    ;; tmp-edge between existing vertices, or a tmp-edge
+                    ;; between completely new tmp-vertices.
+                    (for [tal (concat (tg/vseq g) [(if (ground? gal) gal (tmp/make-tmp-vertex g))])
+                          tom (concat (tg/vseq g) [(if (ground? gom) gom (tmp/make-tmp-vertex g))])
+                          :let [te (tmp/make-tmp-edge g)]]
+                      (do
+                        (tmp/set-alpha te tal)
+                        (tmp/set-omega te tom)
+                        [te tal tom]))))
               (remove not)))
-        ;; The edge is ground.  All we can do is unifying alpha and omega if it
-        ;; is a real edge.
+        ;; The edge is ground.
         (cond
+         ;; All we can do is unifying alpha and omega if it is a real edge.
          (tg/edge? ge) (or (unify a [al om] [(tg/alpha ge) (tg/omega ge)])
                            (fail a))
+         ;; For a tmp edge, we can set and unify alpha and omega.
          (tmp/tmp-element? ge) (do
                                  (tmp/set-kind ge :edge)
                                  (tmp/set-alpha ge (if (ground? gal)
@@ -382,8 +403,9 @@
        ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
        [~'g ~'e ~'al ~'om]
        (all
-        (typeo ~'g ~'e '~na)
-        (edgeo ~'g ~'e ~'al ~'om)))))
+        ;; Here it's important to have edgeo first in order to create enough tmp-edges.
+        (edgeo ~'g ~'e ~'al ~'om)
+        (typeo ~'g ~'e '~na)))))
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."
