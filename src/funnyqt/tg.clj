@@ -151,11 +151,9 @@ See `tgtree`, `show-graph`, and `print-graph`."
                                   (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
                                   (= suffix "png")  GraphVizOutputFormat/PNG
                                   (= suffix "gif")  GraphVizOutputFormat/GIF
-                                  :else             GraphVizOutputFormat/PDF)
-        ary (into-array EdgeClass (map #(attributed-element-class g %)
-                                       reversed-ecs))]
+                                  :else             GraphVizOutputFormat/PDF)]
     (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
-     g file reversed of ary)))
+     g file reversed of)))
 
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
