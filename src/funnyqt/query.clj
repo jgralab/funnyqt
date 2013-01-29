@@ -303,9 +303,9 @@
 
 (defn p-exp
   "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
-  and at most `p` times.
+  and at most `u` times.
   `v` may be a vertex or a seq of vertices.
-  `n` or `l` and `v` are integers with `l` <= `b`.
+  `n` or `l` and `u` are integers with `l` <= `u`.
   `p` is a path description."
   ([v l u p]
      {:pre [(<= l u) (>= l 0) (>= u 0)]}
