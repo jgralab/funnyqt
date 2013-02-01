@@ -343,7 +343,7 @@ can compute that like so:
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
    (prop-name? p) (into (ordered.set/ordered-set)
-                        (r/mapcat #(adjs* % p) v))
+                        (r/mapcat #(adjs* % p) (oset v)))
    :else (errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
