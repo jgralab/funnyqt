@@ -216,6 +216,7 @@
 
 (defn ^:private validate-bf [bf done pg]
   (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
+    ;;(tg/show-graph pg)
     (errorf "Some pattern elements were not reached: %s" missing))
   bf)
 
@@ -373,7 +374,7 @@
                                              (if (tg/vertex? el)
                                                (into r (when-let [t (get-type el)]
                                                          [:when `(has-type? ~ncs ~t)]))
-                                               (into r `[~ncs ~(if-let [t (get-type el)]
+                                               (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(q/adjs* ~cs ~t)
                                                                  `(q/adjs ~cs))]))))
                                     [cs r]))]
