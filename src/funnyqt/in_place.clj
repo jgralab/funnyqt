@@ -27,25 +27,26 @@
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
-            match (transform-pattern-vector name match args)
+            [match tm-vec] (transform-pattern-vector name match args)
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          ~(if forall
-             `(let [triggered# (atom false)]
-                (doseq [~matchsyms (pattern-for ~match ~matchsyms)]
+          (let ~tm-vec
+            ~(if forall
+               `(let [triggered# (atom false)]
+                  (doseq [~matchsyms (pattern-for ~match ~matchsyms)]
+                    (when (every? (complement nil?) ~matchsyms)
+                      (when-not @triggered#
+                        (swap! triggered# (constantly true)))
+                      ~@body))
+                  @triggered#)
+               `(when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
                   (when (every? (complement nil?) ~matchsyms)
-                    (when-not @triggered#
-                      (swap! triggered# (constantly true)))
-                    ~@body))
-                @triggered#)
-             `(when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
-                (when (every? (complement nil?) ~matchsyms)
-                  ~@(when debug
-                      `((when *on-matched-rule-fn*
-                          (*on-matched-rule-fn*
-                           '~name ~args ~matchsyms))))
-                  ~@body)))))
+                    ~@(when debug
+                        `((when *on-matched-rule-fn*
+                            (*on-matched-rule-fn*
+                             '~name ~args ~matchsyms))))
+                    ~@body))))))
       ;; No match given
       `(~args ~@more))))
 

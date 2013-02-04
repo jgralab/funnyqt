@@ -548,7 +548,7 @@
   {:emf pattern-graph-to-pattern-for-bindings-emf
    :tg  pattern-graph-to-pattern-for-bindings-tg})
 
-(defn ^:private transform-pattern-vector
+(defn transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
   supported by `pattern-for`.  (Only for internal use.)"
   [name pattern args]

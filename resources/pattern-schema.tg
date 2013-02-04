@@ -12,6 +12,8 @@ VertexClass PatternVertex : APatternVertex
 
 VertexClass ArgumentVertex : APatternVertex;
 
+VertexClass CallBoundVertex : APatternVertex;
+
 abstract EdgeClass APatternEdge
   from APatternVertex (0,*) role src
   to APatternVertex (0,*) role dst;
