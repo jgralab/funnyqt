@@ -50,8 +50,19 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
+(defn call-binding-vars
+  "Returns the symbols bound by a :call in pattern p."
+  [p]
+  (loop [p p, r []]
+    (if (seq p)
+      (if (= :call (first p))
+        (recur (nnext p) (into r (flatten (map first (partition 2 (fnext p))))))
+        (recur (next p) r))
+      r)))
+
 (defn pattern-to-pattern-graph [pname argvec pattern]
-  (let [argset (into #{} argvec)
+  (let [callbounds (into #{} (call-binding-vars pattern))
+        argset (into #{} argvec)
         pg (let [g (tg/create-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
              g)
@@ -67,11 +78,12 @@
         get-or-make-v (fn [n t]
                         (if-let [v (and n (get-by-name n))]
                           v
-                          (let [v (tg/create-vertex! pg (if (argset n)
-                                                          'ArgumentVertex
-                                                          'PatternVertex))]
+                          (let [v (tg/create-vertex! pg (cond
+                                                         (argset n)     'ArgumentVertex
+                                                         (callbounds n) 'CallBoundVertex
+                                                         :else          'PatternVertex))]
                             (when n (tg/set-value! v :name (name n)))
-                            (when t (argset n) (tg/set-value! v :type (name t)))
+                            (when t (tg/set-value! v :type (name t)))
                             v)))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
@@ -93,10 +105,11 @@
                                            [nvn nvt] (name-and-type nsym)
                                            _ (check-unique nvn nvt)
                                            nv (get-or-make-v nvn nvt)]
-                                       (let [e (apply tg/create-edge! pg (cond
-                                                                          (= '! n)   'NegPatternEdge
-                                                                          (argset n) 'ArgumentEdge
-                                                                          :else      'PatternEdge)
+                                       (let [e (apply tg/create-edge!
+                                                      pg (cond
+                                                          (= '! n)   'NegPatternEdge
+                                                          (argset n) 'ArgumentEdge
+                                                          :else      'PatternEdge)
                                                       (if (= :out (edge-dir sym))
                                                         [lv nv]
                                                         [nv lv]))]
@@ -227,16 +240,18 @@
      [:when `(seq ~(anon-vec-transformer-fn startsym av))]
      ;;---
      (done target-node)
-     [:when
-      `(q/member? ~(get-name target-node)
-                  ~(anon-vec-transformer-fn startsym av))]
+     [:when `(q/member? ~(get-name target-node)
+                        ~(anon-vec-transformer-fn startsym av))]
      ;;---
      ;; Not already done ArgumentVertex, so declare it!
      (has-type? target-node 'ArgumentVertex)
      [:when-let `[~(get-name target-node) ~(get-name target-node)]
-      :when
-      `(q/member? ~(get-name target-node)
-                  ~(anon-vec-transformer-fn startsym av))]
+      :when `(q/member? ~(get-name target-node)
+                        ~(anon-vec-transformer-fn startsym av))]
+     ;;---
+     (has-type? target-node 'CallBoundVertex)
+     [:when `(q/member? ~(get-name target-node)
+                        ~(anon-vec-transformer-fn startsym av))]
      ;;---
      :normal-v
      [(get-name target-node)
@@ -285,6 +300,10 @@
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
+              CallBoundVertex  ;; They're bound by ConstraintOrBinding/Preceedes
+              (recur (enqueue-incs cur (pop stack) done)
+                     (conj-done done cur)
+                     bf)
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -407,6 +426,10 @@
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
                      (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
+              CallBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     bf)
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -454,6 +477,7 @@
       (cond
        ;; Handle :let [x y, [u v] z]
        (or (= :let (first p))
+           (= :call (first p))
            (= :when-let (first p)))
        (recur (rest (rest p))
               (vec (concat l
@@ -469,7 +493,7 @@
        (keyword? (first p)) (recur (rest (rest p)) l)
        ;; A vector destructuring form
        (vector? (first p)) (recur (rest (rest p)) (vec (concat l (first p))))
-       ;; Anothen destructuring form
+       ;; Another destructuring form
        (coll? (first p))
        (errorf "Only vector destructuring is permitted outside :let, got: %s"
                (first p))
@@ -481,6 +505,7 @@
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
   Throws an exception if they overlap, else returns `match`."
   [pattern args]
+  (println pattern)
   (let [blist (bindings-to-arglist pattern)]
     (if-let [double-syms (seq (mapcat (fn [[sym freq]]
                                         (when (> freq 1)
@@ -584,7 +609,7 @@
     [v --> w
      :call [u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]]
 
-  The result of a pattern is a lazy sequence of matchen.  Each match is either
+  The result of a pattern is a lazy sequence of matches.  Each match is either
   defined by `result-spec` if that's given, or it defaults to a vector of
   matched elements in the order of declaration.  For example, the pattern
 
