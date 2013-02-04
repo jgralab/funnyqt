@@ -52,7 +52,7 @@
       :out)
     (errorf "%s is not edge symbol." esym)))
 
-(def ^:private pattern-schema
+(defonce ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
 (defn call-binding-vars
@@ -262,9 +262,11 @@
      [(get-name target-node)
       `(distinct ~(anon-vec-transformer-fn startsym av))])))
 
-(defn ^:private make-type-matchers [pg gsym]
+(defn ^:private make-type-matchers [pg gsym also-edges?]
   (let [types (distinct (remove nil? (map #(tg/value % :type)
-                                          (tg/vseq pg 'PatternVertex))))
+                                          (concat (tg/vseq pg 'PatternVertex)
+                                                  (when also-edges?
+                                                    (tg/eseq pg 'PatternEdge))))))
         tm-map (apply hash-map (mapcat (fn [t]
                                          [(symbol t) (gensym (str "tm-" t))])
                                        types))]
@@ -275,7 +277,7 @@
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
-        [tm-map tm-vec] (make-type-matchers pg gsym)
+        [tm-map tm-vec] (make-type-matchers pg gsym true)
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -288,7 +290,7 @@
                                                (into r `[:let [~ncs (tg/that ~cs)]
                                                          ~@(when-let [t (get-type el)]
                                                              [:when `(~(tm-map t) ~ncs)])])
-                                               (into r `[~ncs (tg/iseq ~cs '~(get-type el)
+                                               (into r `[~ncs (tg/iseq ~cs ~(tm-map (get-type el))
                                                                        ~(if (tg/normal-edge? el)
                                                                           :out :in))]))))
                                     [cs r]))]
@@ -312,7 +314,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (tg/vseq ~gsym '~(get-type cur))]))
+                     (into bf `[~(get-name cur) (tg/vseq ~gsym ~(tm-map (get-type cur)))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
@@ -335,7 +337,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (apply conj bf `~(get-name cur)
-                                `(tg/iseq ~(get-name (tg/this cur)) '~(get-type cur)
+                                `(tg/iseq ~(get-name (tg/this cur)) ~(tm-map (get-type cur))
                                            ~(if (tg/normal-edge? cur) :out :in))
                                 (cond
                                  (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
@@ -377,13 +379,13 @@
                          (conj-done done trg)
                          (into bf `[:when (empty? (filter
                                                    #(= ~(get-name trg) (tg/that %))
-                                                   (tg/iseq ~(get-name src) '~(get-type cur)
+                                                   (tg/iseq ~(get-name src) ~(tm-map (get-type cur))
                                                             ~(if (tg/normal-edge? cur) :out :in))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (tg/vseq ~gsym '~(get-type trg))])
-                                    :when (empty? (tg/iseq ~(get-name src) '~(get-type cur)
+                                        `[~(get-name trg) (tg/vseq ~gsym ~(tm-map (get-type trg)))])
+                                    :when (empty? (tg/iseq ~(get-name src) ~(tm-map (get-type cur))
                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes
               (let [cob (tg/that cur)
@@ -397,7 +399,7 @@
 
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
   (let [gsym (first argvec)
-        [tm-map tm-vec] (make-type-matchers pg gsym)
+        [tm-map tm-vec] (make-type-matchers pg gsym false)
         get-edge-type (fn [e]
                         (keyword (get-type e)))
         anon-vec-to-for (fn [start-sym av]
@@ -439,7 +441,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym '~(get-type cur))]))
+                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym ~(tm-map (get-type cur)))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -471,7 +473,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallobjects ~gsym '~(get-type trg))])
+                                        `[~(get-name trg) (emf/eallobjects ~gsym ~(tm-map (get-type trg)))])
                                     :when (empty? (q/adjs ~(get-name src)
                                                           ~(get-edge-type cur)))]))))
               ArgumentEdge
