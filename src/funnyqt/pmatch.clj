@@ -16,6 +16,11 @@
 ;; Then users can check if their pattern is anchored at the right node, or if
 ;; they should reformulate it to speed up things.
 
+;; TODO: There are several has-type? checks in the resulting comprehensions.
+;; In order to speed things up, it would be better to create all needed type
+;; matchers in advance, bind them to variables, and then use them in the
+;; pattern.
+
 ;;# Pattern to pattern graph
 
 (defn ^:private vertex-sym? [sym]
@@ -505,7 +510,6 @@
   "Ensure that the match vector `match` and the arg vector `args` are disjoint.
   Throws an exception if they overlap, else returns `match`."
   [pattern args]
-  (println pattern)
   (let [blist (bindings-to-arglist pattern)]
     (if-let [double-syms (seq (mapcat (fn [[sym freq]]
                                         (when (> freq 1)
