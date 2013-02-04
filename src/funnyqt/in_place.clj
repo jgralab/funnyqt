@@ -21,7 +21,7 @@
 
 (defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
-  [name debug forall spec]
+  [name debug spec]
   (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
@@ -32,28 +32,20 @@
             body (next more)]
         `(~args
           (let ~tm-vec
-            ~(if forall
-               `(let [triggered# (atom false)]
-                  (doseq [~matchsyms (pattern-for ~match ~matchsyms)]
-                    (when (every? (complement nil?) ~matchsyms)
-                      (when-not @triggered#
-                        (swap! triggered# (constantly true)))
-                      ~@body))
-                  @triggered#)
-               `(when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
-                  (when (every? (complement nil?) ~matchsyms)
-                    ~@(when debug
-                        `((when *on-matched-rule-fn*
-                            (*on-matched-rule-fn*
-                             '~name ~args ~matchsyms))))
-                    ~@body))))))
+            (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
+              (when (every? (complement nil?) ~matchsyms)
+                ~@(when debug
+                    `((when *on-matched-rule-fn*
+                        (*on-matched-rule-fn*
+                         '~name ~args ~matchsyms))))
+                 ~@body)))))
       ;; No match given
       `(~args ~@more))))
 
 (defmacro rule
   "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way as fn
   stands to defn.  Also see `letrule`.
-  :debug and :forall metadata on the rule's local name are supported."
+  :debug metadata on the rule's local name is supported."
   {:arglists '([name? [args] [pattern] & body]
                  [name? ([args] [pattern] & body)+])}
   [& more]
@@ -68,14 +60,14 @@
                                               *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
-             (mapv (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
+             (mapv (partial convert-spec name (:debug (meta name)))
                    more)
-             (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
+             (convert-spec name (:debug (meta name)) more))))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
   Also see `rule` and `defrule`.
-  :debug and :forall metadata on the rule's name are supported."
+  :debug metadata on the rule's name is supported."
   {:arglists '([[rspecs] & body])}
   [rspecs & body]
   (when-not (vector? rspecs)
@@ -85,10 +77,9 @@
                                             *pattern-expansion-context*)]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
-                               (mapv (partial convert-spec n (:debug (meta n))
-                                              (:forall (meta n)))
+                               (mapv (partial convert-spec n (:debug (meta n)))
                                      more)
-                               (convert-spec n (:debug (meta n)) (:forall (meta n)) more))))
+                               (convert-spec n (:debug (meta n)) more))))
                  rspecs)]
        ~@body)))
 
@@ -120,14 +111,6 @@
   means the rule succeeded.  Thus, one should take care to always return
   logical true if the rule was applied.
 
-  If ^:forall metadata was given to the rule name, then applying the rule
-  searches all matches and applies `body` to each of them.  If at least one
-  match could be found, it succeeds automatically.  Note that applying a forall
-  rule is not equivalent to `(iteratively normal-rule)`.  The former searches
-  the model only once while the latter starts a new search every time.  Thus,
-  if `body` produces new matches, they will possibly not be found by the forall
-  rule.
-
   If a defrule form has ^:debug metadata, on every invocation of that rule
   *on-matched-rule-fn* is invoked which you can use to inspect matches."
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
@@ -139,9 +122,9 @@
                                               *pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (mapv (partial convert-spec name (:debug (meta name)) (:forall (meta name)))
+             (mapv (partial convert-spec name (:debug (meta name)))
                    more)
-             (convert-spec name (:debug (meta name)) (:forall (meta name)) more))))))
+             (convert-spec name (:debug (meta name)) more))))))
 
 ;;# Higher order rules
 
