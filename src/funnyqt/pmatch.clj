@@ -212,7 +212,7 @@
 (defn ^:private get-type [elem]
   (when (has-type? elem '[PatternVertex PatternEdge NegPatternEdge])
     (when-let [t (tg/value elem :type)]
-      `'~(symbol t))))
+      (symbol t))))
 
 (defn ^:private anon-vec [startv done]
   (loop [cur startv, done done, vec []]
@@ -262,8 +262,20 @@
      [(get-name target-node)
       `(distinct ~(anon-vec-transformer-fn startsym av))])))
 
+(defn ^:private make-type-matchers [pg gsym]
+  (let [types (distinct (remove nil? (map #(tg/value % :type)
+                                          (tg/vseq pg 'PatternVertex))))
+        tm-map (apply hash-map (mapcat (fn [t]
+                                         [(symbol t) (gensym (str "tm-" t))])
+                                       types))]
+    [tm-map
+     `[~@(mapcat (fn [[t t-gensym]]
+                   [t-gensym `(type-matcher ~gsym '~t)])
+                 tm-map)]]))
+
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
+        [tm-map tm-vec] (make-type-matchers pg gsym)
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -275,8 +287,8 @@
                                              (if (tg/vertex? el)
                                                (into r `[:let [~ncs (tg/that ~cs)]
                                                          ~@(when-let [t (get-type el)]
-                                                             [:when `(has-type? ~ncs ~t)])])
-                                               (into r `[~ncs (tg/iseq ~cs ~(get-type el)
+                                                             [:when `(~(tm-map t) ~ncs)])])
+                                               (into r `[~ncs (tg/iseq ~cs '~(get-type el)
                                                                        ~(if (tg/normal-edge? el)
                                                                           :out :in))]))))
                                     [cs r]))]
@@ -300,7 +312,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (tg/vseq ~gsym ~(get-type cur))]))
+                     (into bf `[~(get-name cur) (tg/vseq ~gsym '~(get-type cur))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
@@ -323,7 +335,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (apply conj bf `~(get-name cur)
-                                `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
+                                `(tg/iseq ~(get-name (tg/this cur)) '~(get-type cur)
                                            ~(if (tg/normal-edge? cur) :out :in))
                                 (cond
                                  (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
@@ -338,7 +350,7 @@
                                  :else (concat
                                         [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                         (when-let [t (get-type trg)]
-                                          `[:when (has-type? ~(get-name trg) ~(get-type trg))])))))))
+                                          `[:when (~(tm-map t) ~(get-name trg))])))))))
               ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
@@ -355,7 +367,7 @@
                                :else (concat
                                       [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                       (when-let [t (get-type trg)]
-                                        `[:when (has-type? ~(get-name trg) ~(get-type trg))]))))))
+                                        `[:when (~(tm-map t) ~(get-name trg))]))))))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -365,14 +377,14 @@
                          (conj-done done trg)
                          (into bf `[:when (empty? (filter
                                                    #(= ~(get-name trg) (tg/that %))
-                                                   (tg/iseq ~(get-name src) ~(get-type cur)
-                                                             ~(if (tg/normal-edge? cur) :out :in))))]))
+                                                   (tg/iseq ~(get-name src) '~(get-type cur)
+                                                            ~(if (tg/normal-edge? cur) :out :in))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))])
-                                    :when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
-                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
+                                        `[~(get-name trg) (tg/vseq ~gsym '~(get-type trg))])
+                                    :when (empty? (tg/iseq ~(get-name src) '~(get-type cur)
+                                                           ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes
               (let [cob (tg/that cur)
                     allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
@@ -381,12 +393,13 @@
                 (recur (pop stack)
                        (apply conj-done done cur (concat allcobs allprecs))
                        (into bf forms))))))
-        (validate-bf bf done pg)))))
+        [(validate-bf bf done pg) tm-vec]))))
 
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
   (let [gsym (first argvec)
+        [tm-map tm-vec] (make-type-matchers pg gsym)
         get-edge-type (fn [e]
-                        (keyword (second (get-type e))))
+                        (keyword (get-type e)))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -397,7 +410,7 @@
                                              (rest av)
                                              (if (tg/vertex? el)
                                                (into r (when-let [t (get-type el)]
-                                                         [:when `(has-type? ~ncs ~t)]))
+                                                         [:when `(~(tm-map t) ~ncs)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(q/adjs* ~cs ~t)
                                                                  `(q/adjs ~cs))]))))
@@ -426,7 +439,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym ~(get-type cur))]))
+                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym '~(get-type cur))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -458,7 +471,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallobjects ~gsym ~(get-type trg))])
+                                        `[~(get-name trg) (emf/eallobjects ~gsym '~(get-type trg))])
                                     :when (empty? (q/adjs ~(get-name src)
                                                           ~(get-edge-type cur)))]))))
               ArgumentEdge
@@ -471,7 +484,7 @@
                 (recur (pop stack)
                        (apply conj-done done cur (concat allcobs allprecs))
                        (into bf forms))))))
-        (validate-bf bf done pg)))))
+        [(validate-bf bf done pg) tm-vec]))))
 
 (defn bindings-to-arglist
   "Rips out the symbols declared in `bindings`.
@@ -507,8 +520,8 @@
       (vec l))))
 
 (defn ^:private verify-pattern-vector
-  "Ensure that the match vector `match` and the arg vector `args` are disjoint.
-  Throws an exception if they overlap, else returns `match`."
+  "Ensure that the pattern vector doesn't declare bindings twice, which would
+  be a bug."
   [pattern args]
   (let [blist (bindings-to-arglist pattern)]
     (if-let [double-syms (seq (mapcat (fn [[sym freq]]
@@ -535,7 +548,7 @@
   {:emf pattern-graph-to-pattern-for-bindings-emf
    :tg  pattern-graph-to-pattern-for-bindings-tg})
 
-(defn transform-pattern-vector
+(defn ^:private transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
   supported by `pattern-for`.  (Only for internal use.)"
   [name pattern args]
@@ -549,11 +562,12 @@
 (defn ^:private convert-spec [name [args pattern resultform]]
   (when-not (and (vector? args) (vector? pattern))
     (errorf "Pattern %s is missing the args or pattern vector." name))
-  (let [bf (transform-pattern-vector name pattern args)]
+  (let [[bf tms] (transform-pattern-vector name pattern args)]
     (verify-pattern-vector bf args)
     `(~args
-      (pattern-for ~bf
-        ~(or resultform (bindings-to-arglist bf))))))
+      (let ~tms
+        (pattern-for ~bf
+                     ~(or resultform (bindings-to-arglist bf)))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
