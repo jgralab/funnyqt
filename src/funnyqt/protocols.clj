@@ -47,6 +47,17 @@
   (has-type? [object spec]
     "Returns true, iff `object`s type matches `spec`."))
 
+;;# Generic Attribute Value Access
+
+(defprotocol AttributeValueAccess
+  "A protocol for generically accessing attributes on some object."
+  (get-val [el attr]
+    "Returns the value of `el`s `attr` attribute.
+  `attr` is the attribute name given as keyword.")
+  (set-val! [el attr val]
+    "Sets the value of `el`s `attr` attribute to `val`.
+  `attr` is the attribute name given as keyword."))
+
 ;;# Type Matcher
 
 (defprotocol TypeMatcher

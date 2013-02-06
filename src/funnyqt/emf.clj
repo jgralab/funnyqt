@@ -513,7 +513,6 @@
 
 (defn eset!
   "Sets `eo`s structural feature `sf` to `value` and returns `eo`.
-  The value is converted to some EMF type (see CljToEmf protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf value]
   (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
@@ -567,6 +566,25 @@
   ([^EMFModel model obj]
      (.remove (.getContents ^Resource (.resource model))
               obj)))
+
+;;### Generic attribute access
+
+(extend-protocol AttributeValueAccess
+  EObject
+  (get-val [this attr]
+    (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
+      (if (instance? EAttribute sf)
+        (emf2clj-internal (.eGet this sf))
+        (if (nil? sf)
+          (errorf "No such attribute %s at object %s." attr this)
+          (errorf "%s is no attribute of object %s." sf this)))))
+  (set-val! [this attr val]
+    (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
+      (cond
+       (nil? sf) (errorf "No such attribute %s at object %s." attr this)
+       (instance? EReference sf) (errorf "%s is no attribute of object %s but a reference." sf this)))
+    (eset! this attr val)))
+
 
 ;;## Edges, i.e., src/trg tuples
 

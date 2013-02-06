@@ -796,6 +796,18 @@ See `tgtree`, `show-graph`, and `print-graph`."
                       ^EnumDomain (domain e enum)
                       ^String constant)))
 
+;;### Generic attribute access
+
+(extend-protocol AttributeValueAccess
+  AttributedElement
+  (get-val [this attr]
+    (value this attr))
+  (set-val! [this attr val]
+    (set-value! this attr val))
+  Record
+  (get-val [this attr]
+    (value this attr)))
+
 ;;## Element Order
 
 (defn before?
