@@ -51,12 +51,18 @@
 
 (defprotocol AttributeValueAccess
   "A protocol for generically accessing attributes on some object."
-  (get-val [el attr]
+  (aval [el attr]
     "Returns the value of `el`s `attr` attribute.
   `attr` is the attribute name given as keyword.")
-  (set-val! [el attr val]
+  (set-aval! [el attr val]
     "Sets the value of `el`s `attr` attribute to `val`.
   `attr` is the attribute name given as keyword."))
+
+;;# Generic Access to Vertices and EObjects
+
+(defprotocol Entities
+  (entities [model] [model type-spec]
+    "Returns the lazy sequence of entities in `model` restricted by `type-spec`."))
 
 ;;# Type Matcher
 

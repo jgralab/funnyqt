@@ -307,6 +307,14 @@
   ([m] (eallobjects-internal m identity))
   ([m ts] (eallobjects-internal m ts)))
 
+(extend-protocol Entities
+  EMFModel
+  (entities
+    ([this]
+       (eallobjects this))
+    ([this ts]
+       (eallobjects this ts))))
+
 ;; TODO: Add :arglists and :doc
 (def econtainer econtainer-internal)
 
@@ -571,14 +579,14 @@
 
 (extend-protocol AttributeValueAccess
   EObject
-  (get-val [this attr]
+  (aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (if (instance? EAttribute sf)
         (emf2clj-internal (.eGet this sf))
         (if (nil? sf)
           (errorf "No such attribute %s at object %s." attr this)
           (errorf "%s is no attribute of object %s." sf this)))))
-  (set-val! [this attr val]
+  (set-aval! [this attr val]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (cond
        (nil? sf) (errorf "No such attribute %s at object %s." attr this)

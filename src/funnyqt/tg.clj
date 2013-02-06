@@ -800,12 +800,12 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 (extend-protocol AttributeValueAccess
   AttributedElement
-  (get-val [this attr]
+  (aval [this attr]
     (value this attr))
-  (set-val! [this attr val]
+  (set-aval! [this attr val]
     (set-value! this attr val))
   Record
-  (get-val [this attr]
+  (aval [this attr]
     (value this attr)))
 
 ;;## Element Order
@@ -993,6 +993,14 @@ See `tgtree`, `show-graph`, and `print-graph`."
      (riseq-internal v (type-matcher v ts) identity))
   ([v ts dir]
      (riseq-internal v (type-matcher v ts) (direction-matcher dir))))
+
+(extend-protocol Entities
+  Graph
+  (entities
+    ([this]
+       (vseq this))
+    ([this ts]
+       (vseq this ts))))
 
 ;;## Vertex, edge counts
 
