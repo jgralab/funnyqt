@@ -74,6 +74,7 @@
 ;;## EContents
 
 (defprotocol EContents
+  "A protocol for getting the contents of EMFModels and EObjects."
   (eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
   matches the type spec `ts` (see `funnyqt.protocols/type-matcher`).")

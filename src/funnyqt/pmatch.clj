@@ -415,7 +415,7 @@
                                                          [:when `(~(tm-map t) ~ncs)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(q/adjs* ~cs ~t)
-                                                                 `(q/adjs ~cs))]))))
+                                                                 `(emf/erefs ~cs))]))))
                                     [cs r]))]
                             `(for ~r ~v)))]
     ;; Check there are only anonymous edges.
@@ -468,14 +468,17 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[:when (not (member? ~(get-name trg)
-                                                        (q/adjs ~(get-name src)
-                                                                ~(get-edge-type cur))))]))
+                                                        ~(if-let [t (get-edge-type cur)]
+                                                                 `(q/adjs* ~(get-name src) ~t)
+                                                                 `(emf/erefs ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallobjects ~gsym ~(tm-map (get-type trg)))])
-                                    :when (empty? (q/adjs ~(get-name src)
-                                                          ~(get-edge-type cur)))]))))
+                                        `[~(get-name trg) (emf/eallobjects
+                                                           ~gsym ~(tm-map (get-type trg)))])
+                                    :when (empty? ~(if-let [t (get-edge-type cur)]
+                                                                 `(q/adjs* ~(get-name src) ~t)
+                                                                 `(emf/erefs ~(get-name src))))]))))
               ArgumentEdge
               (errorf "There mustn't be argument edges for EMF: %s" (describe cur))
               Precedes

@@ -1152,7 +1152,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   [e out]
   (.write ^java.io.Writer out
           (str "#<" (if (normal-edge? e) "+" "-") "e"
-               (Math/abs (id e)) ": " (qname e) ">")))
+               (Math/abs ^int (id e)) ": " (qname e) ">")))
 
 (defmethod print-method Graph
   [^Graph g out]

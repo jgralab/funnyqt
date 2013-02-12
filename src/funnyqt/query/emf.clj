@@ -47,14 +47,11 @@
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (adjs-internal
-    ([this]
-       (erefs this))
-    ([this roles]
-       (if (seq roles)
-         (when-let [a (emf2clj (eget-ref this (first roles) false false))]
-           (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
-         [this])))
+  (adjs-internal [this roles]
+    (if (seq roles)
+      (when-let [a (emf2clj (eget-ref this (first roles) false false))]
+        (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
+      [this]))
   (adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true false))]

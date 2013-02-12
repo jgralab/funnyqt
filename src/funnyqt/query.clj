@@ -232,10 +232,8 @@
   "Traverses `role` and more `roles` starting at `elem`.
   Returns the seq of target objects.
   Errors if a role is undefined or intermediate targets are nil."
-  ([elem]
-     (adjs-internal elem))
-  ([elem role & roles]
-     (adjs-internal elem (cons role roles))))
+  [elem role & roles]
+  (adjs-internal elem (cons role roles)))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
