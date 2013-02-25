@@ -14,8 +14,13 @@
                (contains? m :from)
                (contains? m :to))
            (if (contains? m :generalizes)
-             (or (vector? (:generalizes m))
-                 (errorf "Error in %s: :generalizes must be a vector" form))
+             (and
+               (or (vector? (:generalizes m))
+                   (errorf "Error in %s: :generalizes must be a vector" form))
+               (if (or (contains? m :from) (contains? m :to)
+                         (contains? m :when-let))
+                 (errorf "Error in %s: :generalize rules may have a :when clause but no :from, :to, or :when-let." form)
+                 true))
              true)
            (if (xor (contains? m :from) (contains? m :to))
              (errorf "Error in %s: rules must contain :from and :to, %s."
@@ -111,14 +116,82 @@
       (errorf "Unknown keys in declarative rule: %s" uks))
     `(~(:name m) ~(:args m)
       (when ~arg
-        ;; First check if there's already an element created for arg in this
-        ;; rule, or any of its specializing rules.
-        (or ~@(make-lookups arg (:name m) (:generalizes m))
-            ;; type constraint & :when constraint
-            (when ~(type-constr arg (:from m))
-              ~when-wl-and-creation-form))))))
+        ~(if-let [gens (:generalizes m)]
+           `(when ~(or (:when m) true)
+              (or ~@(make-lookups arg (:name m) gens)))
+           `(or ~@(make-lookups arg (:name m) nil)
+                ;; type constraint & :when constraint
+                (when ~(type-constr arg (:from m))
+                  ~when-wl-and-creation-form)))))))
 
-(defmacro deftransformation [name & more]
+(defmacro deftransformation
+  "Creates a declarative, ATL-like transformation named `name`.
+
+  `args` specifies the transformations input/output models.  It is a vector of
+  input models and output models.  Both input and output are again vectors of
+  model specs.  A model spec is a name followed by a model kind (:emf or :tg).
+  E.g., a transformation receiving two JGraLab TGraphs as input and
+  instantiating objects in an output EMF model would have the args [[in1 :tg,
+  in2 :tg] [out :emf]].
+
+  In the rest of the transformation spec, rules and functions are defined.
+  Functions are to be defined in the syntax of function definitions in
+  `letfn`.
+
+  Rules are defined similarily, but they are identified by several keywords.
+  A plain mapping rule has the form:
+
+    (a2b [a]
+       :from 'InClass
+       :when (some-predicate? a)
+       :when-let [x (some-fn a)]
+       :to [b 'OutClass, c 'OutClass2]
+       (do-stuff-with a b c))
+
+  :from declares the type of elements for which this rule is applicable.
+  :when constraints the input elements to those satisfying some predicate.
+  The :when clause is optional.
+  :when-let receives a vector of variable-expr pairs.  The expressions are
+  evaluated and bound to the respective vars.  The rule may only be applied if
+  the vars are non-nil (which makes the \"when\"-part in :when-let).
+  :to is a vector of output elements (paired with their types) that are to be
+  created.  Following these special keyword-clauses, arbitrary code may follow,
+  e.g., to set attributes and references of the newly created objects.
+
+  If there are multiple output models, the :to spec has to state in which model
+  a given object has to be created, e.g.,
+
+    :to [b 'OutClass :model out1,
+         c 'OutClass2 :model out2]
+
+  A generalizing rule has the form
+
+    (x2y [x]
+      :generalizes [a2b c2d ...])
+
+  Generalizing rules mustn't have :from/:to/:when-let clauses, but :when is
+  supported.  When a generalizing rule is applied, it tries the specializing
+  rules in the declared order.  The first one whose constraints and :from type
+  match gets applied.
+
+  In a rule's body, other rules may be called.  A rule always returns the
+  elements that where created for a given input element.  If the called
+  rule's :to clause creates only one object, the result of a call is this
+  object.  If its :to clause creates multiple objects, the result of a call is
+  a vector of the created objects in the order of their declaration in :to.
+
+  At least one rule has to be declared top-level using ^:top metadata:
+
+    (^:top a2b [a]
+       ;; same as above
+       ...)
+
+  When the transformation gets executed, top-level rules are applied to
+  matching elements automatically.  All other rules have to be called from the
+  top-level rules explicitly."
+
+  {:arglists '([name args & rules-and-fns])}
+  [name & more]
   (let [[name more] (name-with-attributes name more)
         [args rules-and-fns] (if (vector? (first more))
                                [(first more) (next more)]
