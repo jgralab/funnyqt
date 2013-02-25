@@ -686,6 +686,10 @@
        :doc "These objects are printed in color."}
   *marked-eobjects*)
 
+(def ^{:private true, :dynamic true
+       :doc "Print EClass names fully qualified."}
+  *print-qualified-names*)
+
 (defn ^:private dot-included? [eo]
   (and (or (not *included-eobjects*) ;; Not set ==> all are included
            (*included-eobjects* eo))
@@ -710,11 +714,14 @@
                 :let [n (.getName attr)]]
             (str n " = " (dot-escape (eget eo n)) "\\l"))))
 
-(defn ^:private dot-eobject [eo]
+(defn ^:private dot-eobject [^EObject eo]
   (when (dot-included? eo)
     (let [h (dot-id eo)]
       (str "  " h
-           " [label=\"{{" (qname eo) "}|"
+           " [label=\"{{:" (if *print-qualified-names*
+                            (qname eo)
+                            (.getName (.eClass eo)))
+           "}|"
            (dot-attributes eo)
            "}\", shape=record, fontname=Sans, fontsize=14, "
            "color=" (if (*marked-eobjects* eo)
@@ -792,10 +799,14 @@
           ;; ditto for :mark
           mark (:mark m)
           m (dissoc m :mark)
+          ;; ditto for :qualified-names
+          qnames (:qualified-names m)
+          m (dissoc m :qualified-names)
           ;; Add default values
           m (update m :ranksep 1.5)]
       (with-meta m
-        {:name gname, :include include, :exclude exclude, :mark mark}))))
+        {:name gname, :include include, :exclude exclude,
+         :mark mark, :qualified-names qnames}))))
 
 (defn ^:private dot-model [m opts]
   (let [opts (dot-options opts)]
@@ -806,7 +817,8 @@
     (binding [*included-eobjects* (when-let [included (:include (meta opts))]
                                     (set included))
               *excluded-eobjects* (set (:exclude (meta opts)))
-              *marked-eobjects*   (set (:mark (meta opts)))]
+              *marked-eobjects*   (set (:mark (meta opts)))
+              *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
             \,
@@ -846,7 +858,11 @@
   included.  :exclude overrides :include.
 
   Furthermore, a :mark option is supported.  It is a seq of EObjects that
-  should be highlighted."
+  should be highlighted.
+
+  If the option :qualified-names is set to true, the EObject types will be
+  printed as fully qualified EClass names.  The default is false, and only the
+  simple EClass names are printed."
   [m f & opts]
   (let [ds (dot-model m opts)
         suffix (second (re-matches #".*\.([^.]+)$" f))
