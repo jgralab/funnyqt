@@ -153,7 +153,6 @@ See `tgtree`, `show-graph`, and `print-graph`."
                                      (= suffix "png")  GraphVizOutputFormat/PNG
                                      (= suffix "gif")  GraphVizOutputFormat/GIF
                                      :else             GraphVizOutputFormat/PDF)]
-       (println "vcount" (vcount g))
        (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
         g file reversed of))))
 
