@@ -188,7 +188,18 @@
 
   When the transformation gets executed, top-level rules are applied to
   matching elements automatically.  All other rules have to be called from the
-  top-level rules explicitly."
+  top-level rules explicitly.
+
+  The transformation function returns the trace of the transformation as a map
+  of the form:
+
+    {:rule1 {input1 output1, ...}
+     :rule2 {input [output1 output2], ...}
+     ...}
+
+  In that example, it is obvious that rule1 creates just one target element for
+  a given input element, whereas rule2 creates two output elements per input
+  element."
 
   {:arglists '([name args & rules-and-fns])}
   [name & more]
@@ -237,7 +248,5 @@
                                  `(emf/eallobjects ~m ~type-spec))]
                   (doseq [r# ~(mapv first top-rules)]
                     (r# elem#))))
-           ~(if (= (count outs) 1)
-              (first (first outs))
-              (vec (keys outs))))))))
+           @*trace*)))))
 
