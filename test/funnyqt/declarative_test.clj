@@ -63,14 +63,13 @@
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (create-graph out-schema)
-        gen (time (families2genealogy in ng))]
-    #_(show-graph gen)
-    (is gen)
-    (is (== 13 (vcount gen 'Person)))
-    (is (==  7 (vcount gen 'Female)))
-    (is (==  6 (vcount gen 'Male)))
-    (is (==  3 (ecount gen 'HasSpouse)))
-    (is (== 18 (ecount gen 'HasChild)))
-    ;(is (== 3  (count (vseq gen 'Address))))
+        trace (time (families2genealogy in ng))]
+    #_(show-graph ng)
+    (is (== 13 (vcount ng 'Person)))
+    (is (==  7 (vcount ng 'Female)))
+    (is (==  6 (vcount ng 'Male)))
+    (is (==  3 (ecount ng 'HasSpouse)))
+    (is (== 18 (ecount ng 'HasChild)))
+    ;(is (== 3  (count (vseq ng 'Address))))
     ))
 
