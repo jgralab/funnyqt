@@ -139,21 +139,23 @@ See `tgtree`, `show-graph`, and `print-graph`."
   "Generates a visualization of `g` and saves it as `file`.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
   gif, pdf) and defaults to PDF.  If `reversed` it true, the edges will point
-  upwards.  `reversed-ecs` may be a seq of type names (as symbols) for which
-  edges should be vizualized with the opposite of `reversed`s value."
-  [^Graph g ^String file reversed & reversed-ecs]
-  (let [suffix (second (re-matches #".*\.([^.]+)$" file))
-        ^GraphVizOutputFormat of (cond
-                                  (= suffix "dot")  GraphVizOutputFormat/DOT
-                                  (= suffix "xdot") GraphVizOutputFormat/XDOT
-                                  (= suffix "ps")   GraphVizOutputFormat/POSTSCRIPT
-                                  (= suffix "svg")  GraphVizOutputFormat/SVG
-                                  (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
-                                  (= suffix "png")  GraphVizOutputFormat/PNG
-                                  (= suffix "gif")  GraphVizOutputFormat/GIF
-                                  :else             GraphVizOutputFormat/PDF)]
-    (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
-     g file reversed of)))
+  upwards."
+  ([^Graph g ^String file]
+     (print-graph g file false))
+  ([^Graph g ^String file reversed]
+     (let [suffix (second (re-matches #".*\.([^.]+)$" file))
+           ^GraphVizOutputFormat of (cond
+                                     (= suffix "dot")  GraphVizOutputFormat/DOT
+                                     (= suffix "xdot") GraphVizOutputFormat/XDOT
+                                     (= suffix "ps")   GraphVizOutputFormat/POSTSCRIPT
+                                     (= suffix "svg")  GraphVizOutputFormat/SVG
+                                     (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
+                                     (= suffix "png")  GraphVizOutputFormat/PNG
+                                     (= suffix "gif")  GraphVizOutputFormat/GIF
+                                     :else             GraphVizOutputFormat/PDF)]
+       (println "vcount" (vcount g))
+       (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
+        g file reversed of))))
 
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
