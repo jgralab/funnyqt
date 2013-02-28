@@ -6,7 +6,7 @@
   (:use ordered.map)
   (:require clojure.java.shell)
   (:import
-   [org.eclipse.emf.ecore.xmi XMLResource]
+   [org.eclipse.emf.ecore.xmi XMIResource]
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
    [org.eclipse.emf.common.util URI EList]
@@ -94,13 +94,12 @@
   (init-model-internal [this])
   (add-eobject!-internal [this eo])
   (add-eobjects!-internal [this eos])
-  (clone-model-internal [this])
   (save-model-internal [this] [this file]))
 
-(deftype EMFModel [^Resource resource]
+(deftype EMFModel [^XMIResource resource]
   EMFModelBasics
   (init-model-internal [this]
-    (.load resource nil))
+    (.load resource java.util.Collections/EMPTY_MAP))
   (add-eobject!-internal [this eo]
     (doto (.getContents resource)
       (.add eo))
@@ -109,25 +108,17 @@
     (doto (.getContents resource)
       (.addAll eos))
     eos)
-  (clone-model-internal [this]
-    (let [nres (ResourceImpl.)
-          nconts (.getContents nres)]
-      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
-        (.add nconts o))
-      (EMFModel. nres)))
   (save-model-internal [this]
-    (if (.getURI resource)
-      (.save resource nil)
-      (error (str "You tried to save-metamodel-internal a non-file-Resource!\n"
-                  "Use (save-model-internal m \"foo.xmi\") instead."))))
+    (if-let [uri (.getURI resource)]
+      (do
+        (println "Saving model to" (.toFileString uri))
+        (.save resource java.util.Collections/EMPTY_MAP))
+      (error (str "You tried to call save-model an XMIResource not associated with a file!\n"
+                  "Use (save-model m \"foo.xmi\") instead."))))
   (save-model-internal [this file]
-    (let [uri (URI/createFileURI file)
-          nres (XMIResourceImpl. uri)
-          nconts (.getContents nres)]
-      (doseq [o (EcoreUtil/copyAll (.getContents resource))]
-        (.add nconts o))
-      (println "Saving model to" (.toFileString uri))
-      (.save nres nil))))
+    (let [uri (URI/createFileURI file)]
+      (.setURI resource uri)
+      (save-model-internal this))))
 
 ;;## EReferences
 

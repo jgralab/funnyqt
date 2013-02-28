@@ -9,12 +9,10 @@
   (:require clojure.java.shell)
   (:import
    [funnyqt.emf_protocols EMFModel]
-   [org.eclipse.emf.ecore.xmi XMLResource]
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl]
+   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.ecore.util EcoreUtil]
    [org.eclipse.emf.common.util URI EList UniqueEList EMap]
    [org.eclipse.emf.ecore.resource Resource ResourceSet]
-   [org.eclipse.emf.ecore.resource.impl ResourceImpl]
    [org.eclipse.emf.ecore
     EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
@@ -150,7 +148,6 @@
 ;; TODO: Add arglists and docs
 (def add-eobject! add-eobject!-internal)
 (def add-eobjects! add-eobjects!-internal)
-(def clone-model clone-model-internal)
 (def save-model save-model-internal)
 
 ;;## Qualified Names
@@ -179,9 +176,13 @@
   `(instance? EMFModel ~m))
 
 (defn new-model
-  "Creates and returns a new, empty EMFModel."
-  []
-  (->EMFModel (ResourceImpl.)))
+  "Creates and returns a new, empty EMFModel.
+  If `xmifile` is given (a file name as string), set it as file URI used by
+  `save-model`."
+  ([]
+     (->EMFModel (XMIResourceImpl.)))
+  ([^String xmifile]
+     (->EMFModel (XMIResourceImpl. xmifile))))
 
 (defn load-model
   "Loads an EMFModel from the XMI file `f`."
