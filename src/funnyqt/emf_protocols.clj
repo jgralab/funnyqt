@@ -63,7 +63,7 @@
 (deftype EcoreModel [^Resource resource]
   EcoreModelBasics
   (load-and-register-internal [this]
-    (.load resource nil)
+    (.load resource (.getDefaultLoadOptions resource))
     (register-epackages (metamodel-epackages-internal this)))
   ;; TODO: Implement me.
   (save-metamodel-internal [this file]
@@ -99,7 +99,7 @@
 (deftype EMFModel [^XMIResource resource]
   EMFModelBasics
   (init-model-internal [this]
-    (.load resource java.util.Collections/EMPTY_MAP))
+    (.load resource (.getDefaultLoadOptions resource)))
   (add-eobject!-internal [this eo]
     (doto (.getContents resource)
       (.add eo))
@@ -110,9 +110,16 @@
     eos)
   (save-model-internal [this]
     (if-let [uri (.getURI resource)]
-      (do
+      ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
+      ;; http://www.eclipse.org/forums/index.php/m/405881/
+      (let [l (.getContents resource)
+            ^java.util.ListIterator li (.listIterator l)]
+        (while (.hasNext li)
+          (let [^EObject o (.next li)]
+            (when (.eContainer o)
+              (.remove li))))
         (println "Saving model to" (.toFileString uri))
-        (.save resource java.util.Collections/EMPTY_MAP))
+        (.save resource (.getDefaultSaveOptions resource)))
       (error (str "You tried to call save-model an XMIResource not associated with a file!\n"
                   "Use (save-model m \"foo.xmi\") instead."))))
   (save-model-internal [this file]
