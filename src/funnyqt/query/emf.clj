@@ -28,13 +28,6 @@
       nil
       (errorf "No such structural feature '%s' at %s." ref eo))))
 
-(defn ^:private zero-or-one [s]
-  (if-not (coll? s)
-    s
-    (if (next s)
-      (errorf "More than one adjacent element found: %s" s)
-      (first s))))
-
 (extend-protocol Adjacencies
   EObject
   (adj-internal [this roles]
@@ -49,13 +42,15 @@
       this))
   (adjs-internal [this roles]
     (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) false false))]
-        (mapcat #(adjs-internal % (rest roles)) (if (coll? a) a [a])))
+      (when-let [a (eget-ref this (first roles) false false)]
+        (mapcat #(adjs-internal % (rest roles))
+                (if (instance? java.util.Collection a) a [a])))
       [this]))
   (adjs*-internal [this roles]
     (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) true false))]
-        (mapcat #(adjs*-internal % (rest roles)) (if (coll? a) a [a])))
+      (when-let [a (eget-ref this (first roles) true false)]
+        (mapcat #(adjs*-internal % (rest roles))
+                (if (instance? java.util.Collection a) a [a])))
       [this])))
 
 ;;# Regular Path Descriptions
