@@ -176,17 +176,17 @@ can compute that like so:
         (recur target (rest roles)))
       this))
   (adjs-internal [this roles]
-    (loop [r [this], roles roles]
-      (if (and (seq roles) (seq r))
-        (recur (mapcat #(maybe-traverse % (first roles) false false) r)
-               (rest roles))
-        r)))
+    (if (seq roles)
+      (when-let [a (maybe-traverse this (first roles) false false)]
+        (r/mapcat #(adjs-internal % (rest roles))
+                  (if (instance? java.util.Collection a) a [a])))
+      [this]))
   (adjs*-internal [this roles]
-    (loop [r [this], roles roles]
-      (if (and (seq roles) (seq r))
-        (recur (mapcat #(maybe-traverse % (first roles) true false) r)
-               (rest roles))
-        r))))
+    (if (seq roles)
+      (when-let [a (maybe-traverse this (first roles) true false)]
+        (r/mapcat #(adjs-internal % (rest roles))
+                  (if (instance? java.util.Collection a) a [a])))
+      [this])))
 
 
 ;;# Traversal Context

@@ -3,7 +3,8 @@
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:require funnyqt.emf-protocols)
+  (:require funnyqt.emf-protocols
+            [clojure.core.reducers :as r])
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf)
@@ -24,8 +25,7 @@
                     sf ub)))
         (.eGet eo sf))
       (errorf "'%s' at %s is no EReference." sf eo))
-    (if allow-unknown-ref
-      nil
+    (when-not allow-unknown-ref
       (errorf "No such structural feature '%s' at %s." ref eo))))
 
 (extend-protocol Adjacencies
@@ -43,14 +43,14 @@
   (adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) false false)]
-        (mapcat #(adjs-internal % (rest roles))
-                (if (instance? java.util.Collection a) a [a])))
+        (r/mapcat #(adjs-internal % (rest roles))
+                  (if (instance? java.util.Collection a) a [a])))
       [this]))
   (adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) true false)]
-        (mapcat #(adjs*-internal % (rest roles))
-                (if (instance? java.util.Collection a) a [a])))
+        (r/mapcat #(adjs*-internal % (rest roles))
+                  (if (instance? java.util.Collection a) a [a])))
       [this])))
 
 ;;# Regular Path Descriptions

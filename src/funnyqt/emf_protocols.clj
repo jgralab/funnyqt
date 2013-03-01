@@ -60,7 +60,7 @@
   (metamodel-epackages-internal [this])
   (save-metamodel-internal [this file]))
 
-(deftype EcoreModel [^Resource resource]
+(deftype EcoreModel [^XMIResource resource]
   EcoreModelBasics
   (load-and-register-internal [this]
     (.load resource (.getDefaultLoadOptions resource))
