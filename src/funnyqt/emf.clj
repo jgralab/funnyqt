@@ -540,7 +540,9 @@
   "Unsets `eo`s structural feature `sf` and returns `eo`.
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
-  (if-let [sfeat (.getEStructuralFeature (.eClass eo) (name sf))]
+  (if-let [sfeat (if (instance? EStructuralFeature sf)
+                   sf
+                   (.getEStructuralFeature (.eClass eo) (name sf)))]
     (doto eo
       (.eUnset sfeat))
     (errorf "No such structural feature %s for %s." sf (print-str eo))))
@@ -679,8 +681,24 @@
        this)
     ([this recursive]
        ;; Gotta provide a real boolean, not just a truthy thingy
-       (EcoreUtil/delete this (if recursive true false))
+       (EcoreUtil/delete this (boolean recursive))
        this)))
+
+(defn edelete!
+  "Unsets all references of `eo` and removes it from its containing resource.
+  If `recursively` is truthy, first edelete! all contents of `eo`.
+  If `eo` isn't referenced unidirectional, this is equivalent to `(delete! eo)`
+  but faster."
+  ([^EObject eo]
+     (edelete! eo true))
+  ([^EObject eo recursively]
+     (when recursively
+       (doseq [ceo (.eContents eo)]
+         (edelete! ceo)))
+     (doseq [ref (.getEAllReferences (.eClass eo))]
+       (eunset! eo ref))
+     (when-let [^Resource res (.eResource eo)]
+       (.remove (.getContents res) eo))))
 
 ;;## Visualization
 
