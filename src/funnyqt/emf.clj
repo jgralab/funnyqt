@@ -559,6 +559,17 @@
      (.add (.getContents ^Resource (.resource model))
            obj)))
 
+(defn eaddall!
+  "Adds all values in `coll` to `eo`s `sf` structural feature.
+  In the arity 2 variant, adds all EObjects in `coll` to `model`."
+  ([eo sf coll]
+     (let [^EList l (eget-raw eo sf)]
+       (.addAll l coll)
+       eo))
+  ([^EMFModel model coll]
+     (.addAll (.getContents ^Resource (.resource model))
+              coll)))
+
 (defn eremove!
   "Removes `value` and `more` values from `eo`s list of attribute/reference
   values denoted by `sf` and returns `eo`.  Throws an exception, if there's no
