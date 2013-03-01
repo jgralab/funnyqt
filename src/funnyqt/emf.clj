@@ -145,10 +145,12 @@
 
 ;;# Model
 
-;; TODO: Add arglists and docs
-(def add-eobject! add-eobject!-internal)
-(def add-eobjects! add-eobjects!-internal)
-(def save-model save-model-internal)
+(def ^{:arglists '([model] [model file])}
+  save-model
+  "In the arity 1 version, saves `model` which has to be associated with a file
+  already.  In the arity 2 version, saves `model` to `file` (a string denoting
+  a file name)."
+  save-model-internal)
 
 ;;## Qualified Names
 
@@ -548,7 +550,7 @@
   denoted by `sf` and returns `eo`.  Throws an exception, if there's no
   EStructuralFeature `sf`.
 
-  In the arity-2 version, adds `obj` to `model` and returns `model`."
+  In the arity-2 version, adds `obj` to `model` and returns `obj`."
   ([eo sf value & more]
      (let [^EList l (eget-raw eo sf)]
        (.add l value)
@@ -557,7 +559,8 @@
        eo))
   ([^EMFModel model obj]
      (.add (.getContents ^Resource (.resource model))
-           obj)))
+           obj)
+     obj))
 
 (defn eaddall!
   "Adds all values in `coll` to `eo`s `sf` structural feature.
@@ -664,7 +667,7 @@
                          ecls
                          (eclassifier ecls))))
   ([model ecls]
-     (add-eobject! model (ecreate! ecls))))
+     (eadd! model (ecreate! ecls))))
 
 ;;## EObject Deletion
 

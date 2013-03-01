@@ -92,22 +92,12 @@
 (defprotocol EMFModelBasics
   "A protocol for basid EMFModel operations."
   (init-model-internal [this])
-  (add-eobject!-internal [this eo])
-  (add-eobjects!-internal [this eos])
   (save-model-internal [this] [this file]))
 
 (deftype EMFModel [^XMIResource resource]
   EMFModelBasics
   (init-model-internal [this]
     (.load resource (.getDefaultLoadOptions resource)))
-  (add-eobject!-internal [this eo]
-    (doto (.getContents resource)
-      (.add eo))
-    eo)
-  (add-eobjects!-internal [this eos]
-    (doto (.getContents resource)
-      (.addAll eos))
-    eos)
   (save-model-internal [this]
     (if-let [uri (.getURI resource)]
       ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
