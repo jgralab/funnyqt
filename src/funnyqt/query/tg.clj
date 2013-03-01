@@ -91,13 +91,13 @@ can compute that like so:
     (let [locs (vseq (rg) 'localities.Locality)]
       (/ (reduce-values + 0 locs :foundingDate :year)
          (count locs)))"
+  (:require clojure.string
+            [clojure.core.reducers :as r])
   (:use funnyqt.tg)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
   (:use ordered.set)
   (:use funnyqt.query)
-  (:require clojure.string
-            [clojure.core.reducers :as r])
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
    (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)

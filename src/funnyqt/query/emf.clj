@@ -1,10 +1,10 @@
 (ns funnyqt.query.emf
   "More sophisticated constructs for querying EMF models."
+  (:require [clojure.core.reducers :as r])
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:require funnyqt.emf-protocols
-            [clojure.core.reducers :as r])
+  (:require funnyqt.emf-protocols)
   (:use ordered.set)
   (:use ordered.map)
   (:use funnyqt.emf)

@@ -1,10 +1,10 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
+  (:require [clojure.core.reducers :as r])
   (:use [funnyqt.utils :only [error errorf oset into-oset]]
         [funnyqt.protocols :only [adj-internal adjs-internal
                                   adj*-internal adjs*-internal
-                                  has-type?]])
-  (:require [clojure.core.reducers :as r]))
+                                  has-type?]]))
 
 ;;# Type Cond
 
