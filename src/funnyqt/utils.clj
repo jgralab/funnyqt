@@ -53,7 +53,7 @@
   "Returns true, iff `n` is possibly a element qualified name.
   Qualified names are denoted as symbols."
   [n]
-  (and (symbol? n) (re-matches #"!?(?:(?:\w|[.])+\.)?[A-Z]\w*!?" (name n))))
+  (and (symbol? n) (re-matches #"!?(?:(?:\w|[.])+\.)?[a-zA-Z]\w*!?" (name n))))
 
 (defn prop-name?
   "Returns true, iff `n` is possibly a property name.
