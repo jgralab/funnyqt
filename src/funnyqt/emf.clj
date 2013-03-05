@@ -685,16 +685,22 @@
        this)))
 
 (defn edelete!
-  "Unsets all references of `eo` and removes it from its containing resource.
-  If `recursively` is truthy, first edelete! all contents of `eo`.
-  If `eo` isn't referenced unidirectional, this is equivalent to `(delete! eo)`
-  but faster."
+  "Unsets all references of `eo` and removes it from its containing resource
+  and containing EObject.  If `recursively` is true, first edelete! all
+  contents of `eo`.
+
+  If `eo` isn't cross-referenced unidirectional, this is equivalent
+  to `(delete! eo)` but faster.  If `eo` is cross-referenced unidirectional,
+  these objects will still reference `eo` after the call, so use `delete!`
+  instead of `edelete!` in that case."
   ([^EObject eo]
      (edelete! eo true))
   ([^EObject eo recursively]
      (when recursively
        (doseq [ceo (.eContents eo)]
          (edelete! ceo)))
+     (when-let [^EReference cf (.eContainmentFeature eo)]
+       (eremove! (.eContainer eo) cf eo))
      (doseq [ref (.getEAllReferences (.eClass eo))]
        (eunset! eo ref))
      (when-let [^Resource res (.eResource eo)]
