@@ -7,6 +7,7 @@
   (:use ordered.set)
   (:use ordered.map)
   (:require clojure.java.shell)
+  (:require [clojure.core.cache :as cache])
   (:import
    [funnyqt.emf_protocols EMFModel]
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
@@ -33,10 +34,19 @@
 
 ;;# Metamodel
 
+(def eclassifier-cache
+  "A cache from EClassifier names to EClassifiers."
+  (cache/soft-cache-factory {}))
+
 (defn load-metamodel
   "Loads the EcoreModel from the ecore file `f`.
   All EPackages are registered."
   [f]
+  ;; Reset the eclassifier-cache, since now the names might not be unique
+  ;; anymore.
+  (alter-var-root #'eclassifier-cache
+                  (constantly (cache/soft-cache-factory {})))
+
   (let [f (if (instance? java.io.File f)
             (.getPath ^java.io.File f)
             f)
@@ -111,22 +121,28 @@
   `name` may be a simple or qualified name.  Throws an exception if no such
   classifier could be found, or if the given simple name is ambiguous."
   [name]
-  (let [^String n (clojure.core/name name)
-        ld (.lastIndexOf n ".")]
-    (if (>= ld 0)
-      (if-let [^EPackage ep (epackage (subs n 0 ld))]
-        (or (.getEClassifier ep (subs n (inc ld)))
-            (errorf "No such EClassifier %s in %s." n (print-str ep)))
-        (errorf "No such EPackage %s." (subs n 0 ld)))
-      (let [classifiers (filter (fn [^EClassifier ec]
-                                  (= (.getName ec) n))
-                                (eclassifiers))]
-        (cond
-         (empty? classifiers) (errorf "No such EClassifier %s." n)
-         (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
-                                      n (print-str classifiers)
-                                      "Restrict the search space using `with-ns-uris`.")
-         :else (first classifiers))))))
+  (if (cache/has? eclassifier-cache name)
+    (do
+      (cache/hit eclassifier-cache name)
+      (cache/lookup eclassifier-cache name))
+    (let [^String n (clojure.core/name name)
+          ld (.lastIndexOf n ".")]
+      (if (>= ld 0)
+        (if-let [^EPackage ep (epackage (subs n 0 ld))]
+          (or (.getEClassifier ep (subs n (inc ld)))
+              (errorf "No such EClassifier %s in %s." n (print-str ep)))
+          (errorf "No such EPackage %s." (subs n 0 ld)))
+        (let [classifiers (filter (fn [^EClassifier ec]
+                                    (= (.getName ec) n))
+                                  (eclassifiers))]
+          (cond
+           (empty? classifiers) (errorf "No such EClassifier %s." n)
+           (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
+                                        n (print-str classifiers)
+                                        "Restrict the search space using `with-ns-uris`.")
+           :else (let [ecls (first classifiers)]
+                   (cache/miss eclassifier-cache name ecls)
+                   ecls)))))))
 
 (defn eallsubclasses
   "Returns the (direct and indirect) sub-EClasses of the given EClass."
