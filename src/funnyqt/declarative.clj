@@ -1,11 +1,10 @@
 (ns funnyqt.declarative
-  (:use [funnyqt.protocols   :only [has-type? type-matcher]])
+  (:use [funnyqt.protocols   :only [has-type?]])
   (:use [funnyqt.utils       :only [errorf]])
   (:use [funnyqt.query       :only [member? xor]])
   (:require [ordered.map     :as om])
   (:require [funnyqt.emf     :as emf])
   (:require [funnyqt.tg      :as tg])
-  (:require [clojure.string  :as str])
   (:use [clojure.tools.macro :only [name-with-attributes macrolet mexpand-all]]))
 
 (defn ^:private rule? [form]
@@ -63,9 +62,9 @@
         (map (fn [w] `(~w ~arg))
              gens)))
 
-(defn ^:private type-constr [e t tm-map]
+(defn ^:private type-constr [e t]
   (if t
-    `(~(tm-map t) ~e)
+    `(has-type? ~e ~t)
     true))
 
 (defn ^:private create-vector [v outs]
@@ -86,7 +85,7 @@
                           `(emf/ecreate! ~model ~type))])
                  v))))
 
-(defn ^:private convert-rule [outs tm-map rule]
+(defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
         _ (when (> (count (:args m)) 1)
             (errorf "Error: Rules must have exactly one argument: %s" (:name m)))
@@ -122,22 +121,8 @@
               (or ~@(make-lookups arg (:name m) gens)))
            `(or ~@(make-lookups arg (:name m) nil)
                 ;; type constraint & :when constraint
-                (when ~(type-constr arg (:from m) tm-map)
+                (when ~(type-constr arg (:from m))
                   ~when-wl-and-creation-form)))))))
-
-(defn ^:private make-type-matcher-symbol [ts]
-  (gensym (str "tm-" (str/replace (str/replace (str/replace (str (eval ts))
-                                                            #"\s" "-")
-                                               "[" "<")
-                                  "]" ">"))))
-
-(defn ^:private make-type-matcher-bindings [tm-map ins]
-  (mapcat (fn [[ts sym]]
-            [sym `(or ~@(map (fn [in]
-                               `(try (type-matcher ~in ~ts)
-                                     (catch Exception _#)))
-                             ins))])
-          tm-map))
 
 (defmacro deftransformation
   "Creates a declarative, ATL-like transformation named `name`.
@@ -169,7 +154,7 @@
   :when-let receives a vector of variable-expr pairs.  The expressions are
   evaluated and bound to the respective vars.  The rule may only be applied if
   the vars are non-nil (which makes the \"when\"-part in :when-let).
-  :to is a vector of output elements (paired with their top-type-specs) that are to be
+  :to is a vector of output elements (paired with their types) that are to be
   created.  Following these special keyword-clauses, arbitrary code may follow,
   e.g., to set attributes and references of the newly created objects.
 
@@ -247,29 +232,21 @@
                                      (first specs)
                                      (vec specs)))
                                  (:from m))))
-        top-type-specs (distinct (remove nil? (map collect-type-specs top-rules)))
-        global-type-spec (if (= 1 (count top-type-specs))
-                           (first top-type-specs)
-                           (vec (cons :or top-type-specs)))
-        all-type-specs (distinct (remove nil? (map collect-type-specs rules)))
-        type-matcher-map (apply hash-map (mapcat (fn [ts]
-                                                   [ts (make-type-matcher-symbol ts)])
-                                                 all-type-specs))]
+        type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs top-rules)))))]
     (when-not (seq top-rules)
       (errorf "At least one rule has to be declared as top-level rule."))
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
        (binding [*deferred-actions* (atom [])
                  *trace*            (atom {})]
-         (let [~@(make-type-matcher-bindings type-matcher-map (keys ins))]
-           (letfn [~@fns
-                   ~@(map (partial convert-rule outs type-matcher-map) rules)]
-             ~@(for [m (keys ins)
-                     :let [kind (ins m)]]
-                 `(doseq [elem# (vec ~(if (= :tg kind)
-                                        `(tg/vseq ~m ~global-type-spec)
-                                        `(emf/eallobjects ~m ~global-type-spec)))]
-                    (doseq [r# ~(mapv first top-rules)]
-                      (r# elem#))))
-             @*trace*))))))
+         (letfn [~@fns
+                 ~@(map (partial convert-rule outs) rules)]
+           ~@(for [m (keys ins)
+                   :let [kind (ins m)]]
+               `(doseq [elem# ~(if (= :tg kind)
+                                 `(tg/vseq ~m ~type-spec)
+                                 `(emf/eallobjects ~m ~type-spec))]
+                  (doseq [r# ~(mapv first top-rules)]
+                    (r# elem#))))
+           @*trace*)))))
 
