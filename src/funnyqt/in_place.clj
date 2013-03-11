@@ -27,18 +27,17 @@
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
-            [match tm-vec] (transform-pattern-vector name match args)
+            match (transform-pattern-vector name match args)
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          (let ~tm-vec
-            (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
-              (when (every? (complement nil?) ~matchsyms)
-                ~@(when debug
-                    `((when *on-matched-rule-fn*
-                        (*on-matched-rule-fn*
-                         '~name ~args ~matchsyms))))
-                 ~@body)))))
+          (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
+            (when (every? (complement nil?) ~matchsyms)
+              ~@(when debug
+                  `((when *on-matched-rule-fn*
+                      (*on-matched-rule-fn*
+                       '~name ~args ~matchsyms))))
+              ~@body))))
       ;; No match given
       `(~args ~@more))))
 

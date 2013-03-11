@@ -17,7 +17,7 @@
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)))
 
-(defn ^:private tmp-has-type? [^AttributedElementClass aec el]
+(defn ^:private tmp-has-type? [^GraphElementClass aec el]
   ;;(println aec el)
   (cond
    (tg/attributed-element? el) (p/is-instance? el aec)
@@ -55,7 +55,7 @@
                            true)
                        (if (= (tmp/get-kind ge) :edge)
                          ;; For edges, alpha and omega must have the right types
-                         (let [^AttributedElementClass aec (tmp/get-type ge)
+                         (let [^EdgeClass aec (tmp/get-type ge)
                                alc (.getVertexClass (.getFrom aec))
                                omc (.getVertexClass (.getTo aec))]
                            (and (tmp-has-type? alc (tmp/get-alpha ge))
