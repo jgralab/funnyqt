@@ -14,7 +14,7 @@
                  [org.clojure/core.logic "0.8.0-rc2"]
                  [ordered "1.3.2"]
                  [org.clojure/tools.macro "0.1.2"]
-                 [emf-xsd-sdk "2.8.0"]]
+                 [emf-xsd-sdk "2.8.3"]]
   :profiles {:dev
              {:dependencies
               [[criterium "0.3.1"] ;; Benchmarking
