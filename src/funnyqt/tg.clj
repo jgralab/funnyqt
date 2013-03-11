@@ -44,6 +44,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
+  (:require [clojure.core.cache :as cache])
   (:import
    (java.awt.event KeyEvent KeyListener)
    (java.util Collection)
@@ -63,6 +64,20 @@ See `tgtree`, `show-graph`, and `print-graph`."
    (de.uni_koblenz.jgralab.utilities.tg2dot.dot GraphVizProgram GraphVizOutputFormat)
    (de.uni_koblenz.jgralab.impl ConsoleProgressFunction)
    (org.pcollections ArrayPMap ArrayPSet ArrayPVector)))
+
+;;# Caches
+
+(def type-matcher-cache
+  "A cache from type-specs to type-matchers."
+  (cache/soft-cache-factory (hash-map)))
+
+(defn reset-all-tg-caches
+  "Resets all EMF specific caches:
+
+    1. the type-matcher-cache"
+  []
+  (alter-var-root #'type-matcher-cache
+                  (constantly (cache/soft-cache-factory (hash-map)))))
 
 
 ;;# Utility Functions and Macros
@@ -409,7 +424,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Type Checks
 
-(defn ^:private type-matcher-tg-1
+(defn ^:private type-matcher-tg-2
   "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [g c]
   (let [v     (type-with-modifiers (name c))
@@ -425,12 +440,12 @@ See `tgtree`, `show-graph`, and `print-graph`."
         (fn [x] (identical? type (attributed-element-class x)))
         (fn [x] (is-instance? x type))))))
 
-(defn ^:private type-matcher-tg
+(defn ^:private type-matcher-tg-1
   [g ts]
   (cond
    (nil? ts)   identity
    (fn? ts)    ts
-   (qname? ts) (type-matcher-tg-1 g ts)
+   (qname? ts) (type-matcher-tg-2 g ts)
    (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
    (coll? ts)  (if (seq ts)
                  (let [f (first ts)
@@ -441,32 +456,32 @@ See `tgtree`, `show-graph`, and `print-graph`."
                                 :nor  [nor-fn  (next ts)]
                                 :xor  [xor-fn  (next ts)]
                                 [or-fn ts])
-                       t-matchers (map #(type-matcher-tg g %) r)]
+                       t-matchers (map #(type-matcher-tg-1 g %) r)]
                    (apply op t-matchers))
                  ;; Empty collection given: (), [], that's also ok
                  identity)
    :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
 
+(defn ^:private type-matcher-tg
+  [^Schema s ^Graph g ts]
+  (if (.isFinished s)
+    (if-let [tm (cache/lookup type-matcher-cache [g ts])]
+      (do (cache/hit type-matcher-cache [g ts]) tm)
+      (let [tm (type-matcher-tg-1 g ts)]
+        (cache/miss type-matcher-cache [g ts] tm)
+        tm))
+    (type-matcher-tg-1 g ts)))
+
 (extend-protocol TypeMatcher
   GraphElement
   (type-matcher [ge ts]
-    (type-matcher-tg (graph ge) ts))
+    (let [^Schema s (schema ge)
+          g (graph ge)]
+      (type-matcher-tg s g ts)))
   Graph
   (type-matcher [g ts]
-    (type-matcher-tg g ts)))
-
-(defmacro ^:private has-type?-1 [obj spec dc]
-  ;; For simple type specs, we don't need to create a type-matcher.
-  `(if (qname? ~spec)
-     (let [[neg# cls# ex#] (type-with-modifiers (name ~spec))
-           aec# (attributed-element-class ~obj cls#)
-           r# (if ex#
-                (identical? (attributed-element-class ~obj)
-                            aec#)
-                (and (instance? ~dc aec#)
-                     (.isInstanceOf ~obj aec#)))]
-       (if neg# (not r#) r#))
-     ((type-matcher ~obj ~spec) ~obj)))
+    (let [^Schema s (schema g)]
+      (type-matcher-tg s g ts))))
 
 (extend-protocol InstanceOf
   Graph
@@ -474,19 +489,19 @@ See `tgtree`, `show-graph`, and `print-graph`."
     (and (instance? GraphClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    (has-type?-1 obj spec GraphClass))
+    ((type-matcher obj spec) obj))
   Vertex
   (is-instance? [object class]
     (and (instance? VertexClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    (has-type?-1 obj spec VertexClass))
+    ((type-matcher obj spec) obj))
   Edge
   (is-instance? [object class]
     (and (instance? EdgeClass class)
          (.isInstanceOf object class)))
   (has-type? [obj spec]
-    (has-type?-1 obj spec EdgeClass)))
+    ((type-matcher obj spec) obj)))
 
 
 ;;## Containment

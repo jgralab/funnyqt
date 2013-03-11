@@ -34,18 +34,31 @@
 
 ;;# Metamodel
 
-(def eclassifier-cache
+(def ^:private eclassifier-cache
   "A cache from EClassifier names to EClassifiers."
-  (cache/soft-cache-factory {}))
+  (cache/soft-cache-factory (hash-map)))
+
+(def ^:private type-matcher-cache
+  "A cache from type-specs to type-matchers."
+  (cache/soft-cache-factory (hash-map)))
+
+(defn reset-all-emf-caches
+  "Resets all EMF specific caches:
+
+    1. the eclassifier-cache
+    2. the type-matcher-cache"
+  []
+  (alter-var-root #'eclassifier-cache
+                  (constantly (cache/soft-cache-factory (hash-map))))
+  (alter-var-root #'type-matcher-cache
+                  (constantly (cache/soft-cache-factory (hash-map)))))
 
 (defn load-metamodel
   "Loads the EcoreModel from the ecore file `f`.
   All EPackages are registered."
   [f]
-  ;; Reset the eclassifier-cache, since now the names might not be unique
-  ;; anymore.
-  (alter-var-root #'eclassifier-cache
-                  (constantly (cache/soft-cache-factory {})))
+  ;; Reset the caches, since now the names might not be unique anymore.
+  (reset-all-emf-caches)
 
   (let [f (if (instance? java.io.File f)
             (.getPath ^java.io.File f)
@@ -121,10 +134,8 @@
   `name` may be a simple or qualified name.  Throws an exception if no such
   classifier could be found, or if the given simple name is ambiguous."
   [name]
-  (if (cache/has? eclassifier-cache name)
-    (do
-      (cache/hit eclassifier-cache name)
-      (cache/lookup eclassifier-cache name))
+  (if-let [ecls (cache/lookup eclassifier-cache name)]
+    (do (cache/hit eclassifier-cache name) ecls)
     (let [^String n (clojure.core/name name)
           ld (.lastIndexOf n ".")]
       (if (>= ld 0)
@@ -256,10 +267,18 @@
 (extend-protocol TypeMatcher
   EObject
   (type-matcher [m ts]
-    (type-matcher-emf ts))
+    (if-let [tm (cache/lookup type-matcher-cache ts)]
+      (do (cache/hit type-matcher-cache ts) tm)
+      (let [tm (type-matcher-emf ts)]
+        (cache/miss type-matcher-cache ts tm)
+        tm)))
   EMFModel
   (type-matcher [m ts]
-    (type-matcher-emf ts)))
+    (if-let [tm (cache/lookup type-matcher-cache ts)]
+      (do (cache/hit type-matcher-cache ts) tm)
+      (let [tm (type-matcher-emf ts)]
+        (cache/miss type-matcher-cache ts tm)
+        tm))))
 
 (extend-protocol InstanceOf
   EObject
@@ -267,14 +286,7 @@
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
   (has-type? [obj spec]
-    (if (qname? spec)
-      (let [[neg cls ex] (type-with-modifiers (name spec))
-            ^EClass ec (eclassifier cls)
-            r (if ex
-                (identical? (.eClass obj) ec)
-                (.isInstance ec obj))]
-        (if neg (not r) r))
-      ((type-matcher obj spec) obj))))
+    ((type-matcher obj spec) obj)))
 
 ;;## Traversal Stuff
 

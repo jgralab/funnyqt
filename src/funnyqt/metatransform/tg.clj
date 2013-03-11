@@ -21,7 +21,8 @@
    (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
                                         InternalAttributesArrayAccess$OnAttributesFunction)))
 
-
+;; TODO: When finishing a schema, we need to make sure to remove all previously
+;; cached type-matchers in funnyqt.tg/type-matcher-cache.
 
 ;;# Utility functions
 
