@@ -1,7 +1,9 @@
 (ns funnyqt.relational
   "Generic relations"
   (:refer-clojure :exclude [==])
+  (:require clojure.walk)
   (:use clojure.core.logic
+        [clojure.core.logic.protocols :only [walk]]
         [funnyqt.utils :only [errorf]]
         funnyqt.relational.util))
 

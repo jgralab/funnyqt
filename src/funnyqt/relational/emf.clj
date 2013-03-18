@@ -1,6 +1,7 @@
 (ns funnyqt.relational.emf
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
+        [clojure.core.logic.protocols :only [walk]]
         funnyqt.relational.util)
   (:require funnyqt.protocols
             funnyqt.emf

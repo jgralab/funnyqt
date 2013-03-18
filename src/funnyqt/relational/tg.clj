@@ -1,6 +1,7 @@
 (ns funnyqt.relational.tg
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic
+        [clojure.core.logic.protocols :only [walk]]
         funnyqt.relational.util)
   (:require [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]

@@ -3,7 +3,8 @@
             [funnyqt.query :as q]
             [funnyqt.utils :as u]
             [funnyqt.protocols :as p]
-            [clojure.core.logic :as ccl])
+            [clojure.core.logic :as ccl]
+            [clojure.core.logic.protocols :as cclp])
   (:use funnyqt.relational.util)
   (:import (de.uni_koblenz.jgralab.schema GraphElementClass)))
 
@@ -107,7 +108,7 @@
   (finalize-attrs [this subst]
     (set! attrs (apply hash-map (mapcat (fn [[a v]]
                                           [a (if (ccl/lvar? v)
-                                               (ccl/walk subst v)
+                                               (cclp/walk subst v)
                                                v)])
                                         attrs))))
   TmpEdgeOps
@@ -164,7 +165,7 @@
 (defn finalize-tmp-elems [& args]
   (fn [a]
     (doseq [te (filter tmp-element?
-                       (map (partial ccl/walk a)
+                       (map (partial cclp/walk a)
                             args))]
       (finalize-attrs te a))
     a))
