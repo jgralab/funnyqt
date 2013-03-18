@@ -54,7 +54,7 @@
   (binding [*target-graph* (create-graph
                             (load-schema
                              "test/input/genealogy-schema.tg"))]
-    (mapv #(type-cond %
+    (mapv #(type-case %
              'Member (member2person %)
              'Family (family2address %))
           (vseq in '[Member Family]))

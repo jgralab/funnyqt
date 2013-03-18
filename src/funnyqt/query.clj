@@ -6,26 +6,26 @@
                                   adj*-internal adjs*-internal
                                   has-type?]]))
 
-;;# Type Cond
+;;# Type Case
 
-(defmacro type-cond
+(defmacro type-case
   "Takes an element `elem` (a GraphElement or EObject) and a set of `clauses`.
   Every clause is a pair of the form:
 
     type-spec result-expr
 
   The type-specs are tested one after the other, and if a type-spec matches the
-  type of `elem`, the return value of type-cond is the result-expr paired with
+  type of `elem`, the return value of type-case is the result-expr paired with
   the succeeding type-spec.
 
   A single default-expr may follow the pairs.  If no type-spec matches, the
-  return value of type-cond is the value of that default expression.  If there
+  return value of type-case is the value of that default expression.  If there
   is no default expression and no type-spec matches, an
   IllegalArgumentException is thrown.
 
   Example:
 
-    (type-cond obj
+    (type-case obj
       'TypeA (do-a-stuff obj)
       'TypeB (do-b-stuff obj)
       (do-default-stuff obj))"
