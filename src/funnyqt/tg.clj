@@ -52,7 +52,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
    (javax.swing JFrame JScrollPane JLabel ImageIcon JOptionPane WindowConstants)
    (de.uni_koblenz.jgralab AttributedElement Graph GraphElement Vertex Edge
 			   EdgeDirection GraphIO Record
-                           ImplementationType)
+                           ImplementationType ProgressFunction)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
                                   ListDomain SetDomain MapDomain
                                   AttributedElementClass NamedElement
@@ -169,7 +169,7 @@ See `tgtree`, `show-graph`, and `print-graph`."
                                      (= suffix "gif")  GraphVizOutputFormat/GIF
                                      :else             GraphVizOutputFormat/PDF)]
        (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
-        g file reversed of))))
+        g file (boolean reversed) of))))
 
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
@@ -202,19 +202,16 @@ See `tgtree`, `show-graph`, and `print-graph`."
 (defn load-graph
   "Loads a graph from `file` using ImplementationType `impl`,
   defauling to :generic.  The schema will be compiled automagically if needed.
-  Supported impl types are :generic, :standard, :transaction, and :database."
+  Supported impl types are :generic and :standard."
   ([file]
      (load-graph file ImplementationType/GENERIC))
   ([file impl]
-     (with-open [is (clojure.java.io/input-stream file)]
-       (GraphIO/loadGraphFromStream
-        (if (and (string? file)
-                 (.endsWith ^String file ".gz"))
-          (java.util.zip.GZIPInputStream. is)
-          is)
-        nil nil
-        ^ImplementationType (impl-type impl)
-        (ConsoleProgressFunction. "Loading")))))
+     (let [^String filename (if (instance? java.io.File file)
+                              (.getPath ^java.io.File file)
+                              file)
+           ^ImplementationType impl (impl-type impl)
+           ^ProgressFunction pg (ConsoleProgressFunction. "Loading")]
+       (GraphIO/loadGraphFromFile filename impl pg))))
 
 (defn save-graph
   "Saves `g` to `file`."
@@ -1037,8 +1034,8 @@ See `tgtree`, `show-graph`, and `print-graph`."
 ;; TODO: Basically, the impl should be determined by the schema.  Ask Volker!
 (defn create-graph
   "Creates a graph with id `gid` of the given `schema` using implementation type `impl`.
-  Supported impl types are :generic, :standard, :transaction, and :database.
-  The graph id defaults to a creation timestamp, and the impl type to GENERIC."
+  Supported impl types are :generic and :standard.  The graph id defaults to a
+  creation timestamp, and the impl type to GENERIC."
   ([schema]
      (create-graph schema (format "Created: %s" (str (java.util.Date.)))))
   ([schema gid]
