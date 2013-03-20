@@ -129,8 +129,8 @@ behavior."
              (f# ~(first argvec))
              (do
                ~@(or body
-                     [(errorf "No polyfn implementation defined for type %s"
-                              ~type-var)]))))))))
+                     `[(errorf "No polyfn implementation defined for type %s"
+                               (print-str ~type-var))]))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for objects of type `type`.
