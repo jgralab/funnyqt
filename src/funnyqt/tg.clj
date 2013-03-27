@@ -35,12 +35,7 @@ To access attribute values or record components, use the function `value`.  To
 set them, use `set-value!`.  All clojure collections and maps are automatically
 converted to JGraLab's pcollections.  In case of RecordDomains and EnumDomains,
 whose values are instances of generated classes, there are the constructor
-functions `record` and `enum`.
-
-Visualization
-=============
-
-See `tgtree`, `show-graph`, and `print-graph`."
+functions `record` and `enum`."
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
@@ -97,79 +92,10 @@ See `tgtree`, `show-graph`, and `print-graph`."
 
 ;;## Graph utilities
 
-(defn show-graph
-  "Show graph `g` in a JFrame, possibly with `reversed` edges (default false).
-  Does nothing except printing a warning message for too large graphs."
-  ([^Graph g]
-     (show-graph g false))
-  ([^Graph g reversed]
-     (if (> (+ (.getVCount g) (.getECount g)) 600)
-       (do (println "Graph too big for visualizing!") nil)
-       (let [img (.convertToGraphVizImageIcon
-                  (doto ^Tg2Dot (Tg2Dot.)
-                        (.setGraph ^Graph g)
-                        (.setReversedEdges reversed)
-                        (.setPrintEdgeAttributes true))
-              (.outputFormat (GraphVizProgram.) GraphVizOutputFormat/PNG))
-             label (JLabel. img)
-             frame (JFrame. (str "Graph: " (.getId g)))
-             scale (atom 1.0)]
-         (doto frame
-           (-> (.getContentPane)
-               (.add (JScrollPane. label)))
-           (.setDefaultCloseOperation WindowConstants/DISPOSE_ON_CLOSE)
-           (.addKeyListener
-            (proxy [KeyListener] []
-              (keyPressed [^KeyEvent e]
-                (try
-                  (let [kc (.getKeyCode e)
-                        sf (cond
-                            (== kc KeyEvent/VK_PLUS)   0.1
-                            (== kc KeyEvent/VK_MINUS) -0.1
-                            :default 0)
-                        i  (.getImage img)
-                        io (.getImageObserver img)]
-                    (when-not (zero? sf)
-                      (swap! scale + sf)
-                      (.setIcon label (ImageIcon. (.getScaledInstance
-                                                   i
-                                                   (int (* @scale (.getWidth i io)))
-                                                   (int (* @scale (.getHeight i io)))
-                                                   (int java.awt.Image/SCALE_SMOOTH))))
-                      (.repaint frame)))
-                  (catch Throwable ex
-                    (JOptionPane/showMessageDialog frame (.getMessage ex)))))
-              (keyReleased [e])
-              (keyTyped [e])))
-           (.show)
-           (.pack))))))
-
 (defn tgtree
   "Shows a simple Swing tree view representation of the graph `g`."
   [g]
   (.setVisible (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g) true))
-
-(declare attributed-element-class)
-(defn print-graph
-  "Generates a visualization of `g` and saves it as `file`.
-  The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
-  gif, pdf) and defaults to PDF.  If `reversed` it true, the edges will point
-  upwards."
-  ([^Graph g ^String file]
-     (print-graph g file false))
-  ([^Graph g ^String file reversed]
-     (let [suffix (second (re-matches #".*\.([^.]+)$" file))
-           ^GraphVizOutputFormat of (cond
-                                     (= suffix "dot")  GraphVizOutputFormat/DOT
-                                     (= suffix "xdot") GraphVizOutputFormat/XDOT
-                                     (= suffix "ps")   GraphVizOutputFormat/POSTSCRIPT
-                                     (= suffix "svg")  GraphVizOutputFormat/SVG
-                                     (= suffix "svgz") GraphVizOutputFormat/SVG_ZIPPED
-                                     (= suffix "png")  GraphVizOutputFormat/PNG
-                                     (= suffix "gif")  GraphVizOutputFormat/GIF
-                                     :else             GraphVizOutputFormat/PDF)]
-       (de.uni_koblenz.jgralab.utilities.tg2dot.Tg2Dot/convertGraph
-        g file (boolean reversed) of))))
 
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
