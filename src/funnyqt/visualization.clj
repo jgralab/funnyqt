@@ -17,20 +17,28 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
 ;;** Generic stuff
 
-(def ^{:private true, :dynamic true
-       :doc "Only these objects (minus excluded ones) are printed."}
+(def ^{:dynamic true
+       :doc "A set of elements to be included in the visualization.  This is
+  not to be used directly but set by `print-model` according to its :include
+  option."}
   *included*)
 
-(def ^{:private true, :dynamic true
-       :doc "Objects to be skipped from printing."}
+(def ^{:dynamic true
+       :doc "A set of elements to be excluded in the visualization.  This is
+  not to be used directly but set by `print-model` according to its :exclude
+  option."}
   *excluded*)
 
-(def ^{:private true, :dynamic true
-       :doc "These objects are printed in color."}
+(def ^{:dynamic true
+       :doc "A set of elements to be printed in red instead of black.  It might
+  also be a predicate receiving a model element.  This is not to be used
+  directly but set by `print-model` according to its :mark option."}
   *marked*)
 
-(def ^{:private true, :dynamic true
-       :doc "Print class names fully qualified."}
+(def ^{:dynamic true
+       :doc "A boolean determining if class names should be printed fully
+  qualified or not.  This is not to be used directly but set by `print-model`
+  according to its :qualified-names option."}
   *print-qualified-names*)
 
 (defn ^:private dot-included? [o]
@@ -158,7 +166,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (str (emf-dot-contentrefs eo)
          (emf-dot-crossrefs eo))))
 
-(defn emf-dot-model [m]
+(defn ^:private emf-dot-model [m]
   (str
    (reduce str
            (map emf-dot-eobject
@@ -170,13 +178,13 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
 ;;** TGraph stuff
 
-(defn tg-dot-attributes [^AttributedElement elem]
+(defn ^:private tg-dot-attributes [^AttributedElement elem]
     (reduce str
             (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
                   :let [n (.getName attr)]]
               (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
 
-(defn tg-dot-vertex [^Vertex v]
+(defn ^:private tg-dot-vertex [^Vertex v]
   (when (dot-included? v)
     (str "  v" (tg/id v)
          " [label=\"{{v" (tg/id v) ": "
@@ -189,7 +197,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          "color=" (if (*marked* v) "red" "black")
          "];\n")))
 
-(defn tg-dot-edge [^Edge e]
+(defn ^:private tg-dot-edge [^Edge e]
   (when (and (not (*excluded* e))
              (dot-included? (tg/alpha e))
              (dot-included? (tg/omega e)))
@@ -220,7 +228,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
              AggregationKind/NONE      ", arrowtail=none")
            "];\n"))))
 
-(defn tg-dot-model [g]
+(defn ^:private tg-dot-model [g]
   (str
    (reduce str
            (map tg-dot-vertex
@@ -232,6 +240,27 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 ;;** Main
 
 (def dot-model-fns
+  "A map from model representation class to function creating a DOT string with
+  all elements of this model.  The function accepts the model as its only
+  argument.  It should produce a DOT string of the form:
+
+    el1 [<dot-attributes>];
+    ...
+    elN [<dot-attributes>];
+    el1 -> el2 [<dot-attributes>];
+    ...
+    elI -> elJ [<dot-attributes>];
+
+  That is, it should contain all edges and vertices to be visualized.
+  The DOT syntax is described at http://www.graphviz.org/Documentation.php.
+
+  The surrounding
+
+    digraph SomeName { <dot-attributes>; ... }
+
+  is added automatically.
+
+  By default, there is an entry for EMFModel and one for Graph."
   {EMFModel emf-dot-model
    Graph    tg-dot-model})
 
