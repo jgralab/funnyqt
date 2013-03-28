@@ -50,7 +50,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (if s
     (let [r (-> (str s)
                 (clojure.string/replace "<" "&lt;")
-                (clojure.string/replace ">" "&gt;"))]
+                (clojure.string/replace ">" "&gt;")
+                (clojure.string/replace "\"" "\\\""))]
       (if (string? s)
         (str "\\\"" r "\\\"")
         r))
@@ -104,8 +105,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (let [h (emf-dot-id eo)]
       (str "  " h
            " [label=\"{{:" (if *print-qualified-names*
-                            (qname eo)
-                            (.getName (.eClass eo)))
+                             (qname eo)
+                             (.getName (.eClass eo)))
            "}|"
            (emf-dot-attributes eo)
            "}\", shape=record, fontname=Sans, fontsize=14, "
@@ -273,12 +274,13 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (binding [*included* (when-let [included (:include (meta opts))]
                            (set included))
               *excluded* (set (:exclude (meta opts)))
-              *marked*   (when-let [mark (:mark (meta opts))]
+              *marked*   (if-let [mark (:mark (meta opts))]
                            (cond
                             (fn? mark)   mark
                             (coll? mark) (set mark)
                             :else (errorf ":mark must be a function or collection but was a %s: %s."
-                                          (class mark) mark)))
+                                          (class mark) mark))
+                           (constantly false))
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
