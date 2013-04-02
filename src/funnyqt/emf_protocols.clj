@@ -6,16 +6,17 @@
   (:use ordered.map)
   (:require clojure.java.shell)
   (:import
-   [org.eclipse.emf.ecore.xmi XMIResource]
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.ecore.util EcoreUtil]
-   [org.eclipse.emf.common.util URI EList]
-   [org.eclipse.emf.ecore.resource Resource]
-   [org.eclipse.emf.ecore.resource.impl ResourceImpl]
-   [org.eclipse.emf.ecore
+   (org.eclipse.emf.ecore.xmi XMIResource)
+   (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
+   (org.eclipse.emf.ecore.util EcoreUtil)
+   (org.eclipse.emf.common.util URI EList)
+   (org.eclipse.emf.ecore.resource Resource)
+   (org.eclipse.emf.ecore.resource.impl ResourceImpl)
+   (org.eclipse.emf.ecore
     EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier EClass
     EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
-    EStructuralFeature]))
+    EStructuralFeature)
+   (org.eclipse.emf.ecore.impl EPackageImpl)))
 
 ;;# Code
 
@@ -38,10 +39,11 @@
   Skips packages that are already registered."
   [pkgs]
   (with-system-class-loader
-    (doseq [^EPackage p pkgs]
+    (doseq [^EPackageImpl p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
           (when-not (.containsKey EPackage$Registry/INSTANCE uri)
+            (.freeze p)
             (.put EPackage$Registry/INSTANCE uri p)))))))
 
 (defn ^:private epks-and-subpgks
