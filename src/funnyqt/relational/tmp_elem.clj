@@ -38,6 +38,15 @@
                      ^:volatile-mutable attrs
                      ^:volatile-mutable manifested
                      ^:volatile-mutable manifestation]
+  java.lang.Comparable
+  (compareTo [this that]
+    (if (= this that)
+      0
+      (let [hd (- (hash this) (hash that))]
+        (if (zero? hd)
+          (u/errorf "Compare to zero but are different: %s, %s"
+                    this that)
+          hd))))
   TmpElementAccessors
   (get-graph [this] graph)
   (get-kind  [this] kind)
