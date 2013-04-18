@@ -18,29 +18,37 @@
          :right [(+County g2 ?c2)
                  (+name g2 ?c2 ?n)
                  (+tags g1 ?c2 ?t)]
-         :where [(loc2loc :?county1 ?c1 :?county2 ?c2)])
-  (loc2loc
-   :left [(+ContainsLocality g1 ?hc1 ?county1 ?c1)
-          (+Locality g1 ?c1)
-          (rtg/typeo g1 ?c1 ?ct)
-          (+name g1 ?c1 ?n)
-          (+foundingDate g1 ?c1 ?fd)
-          (+inhabitants g1 ?c1 ?inh)]
-   :right [(+ContainsLocality g2 ?hc2 ?county2 ?c2)
-           (+Locality g2 ?c2)
-           (rtg/typeo g1 ?c2 ?ct)
-           (+name g2 ?c2 ?n)
-           (+foundingDate g2 ?c2 ?fd)
-           (+inhabitants g2 ?c2 ?inh)]
-   :where [(plaza2plaza :?loc1 ?c1 :?loc2 ?c2)])
-  (plaza2plaza
-   :left [(+ContainsCrossroad g1 ?cc1 ?loc1 ?plaza1)
-          (+Plaza g1 ?plaza1)
-          (+name g1 ?plaza1 ?n)]
-   :right [(+ContainsCrossroad g2 ?cc2 ?loc2 ?plaza2)
-           (+Plaza g2 ?plaza2)
-           (+name g2 ?plaza2 ?n)]))
+         :where [(locality2locality :?county1 ?c1 :?county2 ?c2)
+                 (capital2capital :?county1 ?c1 :?county2 ?c2)])
+  (locality2locality
+   :left [(+ContainsLocality g1 ?hc1 ?county1 ?loc1)
+          (rtg/typeo g1 ?loc1 ?ct)
+          (+name g1 ?loc1 ?n)
+          (+foundingDate g1 ?loc1 ?fd)
+          (+inhabitants g1 ?loc1 ?inh)]
+   :right [(+ContainsLocality g2 ?hc2 ?county2 ?loc2)
+           (rtg/typeo g1 ?loc2 ?ct)
+           (+name g2 ?loc2 ?n)
+           (+foundingDate g2 ?loc2 ?fd)
+           (+inhabitants g2 ?loc2 ?inh)]
+   :where [(crossroad2crossroad :?loc1 ?loc1 :?loc2 ?loc2)])
+  (capital2capital
+   :left [(+HasCapital g1 ?has-cap1 ?county1 ?cap1)
+          (+name g1 ?cap1 ?n)]
+   :right [(+HasCapital g2 ?has-cap2 ?county2 ?cap2)
+           (+name g2 ?cap2 ?n)])
+  (crossroad2crossroad
+   :left [(+ContainsCrossroad g1 ?cc1 ?loc1 ?cr1)
+          (rtg/typeo g1 ?cr1 ?ct)]
+   :right [(+ContainsCrossroad g2 ?cc2 ?loc2 ?cr2)
+           (rtg/typeo g2 ?cr2 ?ct)]
+   :optional [(maybe-plaza-names :?cr1 ?cr1 :?cr2 ?cr2)])
+  (maybe-plaza-names
+   :left [(+name g1 ?cr1 ?n)]
+   :right [(+name g2 ?cr2 ?n)]))
 
 #_(route-map2route-map rm1 rm2 :right)
 #_(viz/print-model rm2 ".gtk")
+#_(tg/save-graph rm2 "/home/horn/copy.tg")
+
 

@@ -941,6 +941,16 @@ functions `record` and `enum`."
     ([this ts]
        (vseq this ts))))
 
+(defn container
+  "Returns the vertex containing `v`.
+  That is, returns the vertex x where there is a composition edge x <*>-- v."
+  [v]
+  (loop [^Edge inc (first-inc v)]
+    (when inc
+      (if (= AggregationKind/COMPOSITE (.getThisAggregationKind inc))
+        (that inc)
+        (recur (next-inc inc))))))
+
 ;;## Vertex, edge counts
 
 (defn vcount

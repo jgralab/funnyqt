@@ -6,7 +6,7 @@
             [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp])
   (:use funnyqt.relational.util)
-  (:import (de.uni_koblenz.jgralab.schema GraphElementClass)))
+  (:import (de.uni_koblenz.jgralab.schema GraphElementClass AggregationKind EdgeClass)))
 
 (def ^:dynamic *make-tmp-elements* false)
 
@@ -179,3 +179,75 @@
                             args))]
       (finalize-attrs te a))
     a))
+
+(defn valid-match? [match]
+  (let [tmp-edges (filter tmp-edge? (vals match))
+        contained-vertices (loop [tes tmp-edges, cm {}]
+                             ;; cm is {vertex compoEdgeContainingVertex}
+                             (if (seq tes)
+                               (let [edge (first tes)
+                                     ^EdgeClass ec (get-type edge)
+                                     from-kind (-> ec .getFrom .getAggregationKind)
+                                     to-kind   (-> ec .getTo .getAggregationKind)]
+                                 (cond
+                                  (= from-kind AggregationKind/COMPOSITE)
+                                  (let [al (get-alpha edge)]
+                                    (if (cm al)
+                                      false
+                                      (recur (rest tes) (assoc cm al edge))))
+                                  ;;;------
+                                  (= to-kind AggregationKind/COMPOSITE)
+                                  (let [om (get-omega edge)]
+                                    (if (cm om)
+                                      false
+                                      (recur (rest tes) (assoc cm om edge))))))
+                               (keys cm)))]
+    (if (seq contained-vertices)
+      (every? (fn [v]
+                (or (tmp-vertex? v)
+                    (nil? (tg/container v))))
+              contained-vertices)
+      true)))
+
+#_(defn valid-match? [match]
+  (or
+   (every? (complement tmp-element?) (vals match))
+   (let [tmp-edges (filter tmp-edge? (vals match))
+         cont-el-mm (loop [t-e tmp-edges, mm {}]
+                      (if (seq t-e)
+                        (let [edge (first t-e)
+                              ^EdgeClass ec (get-type edge)
+                              from-kind (-> ec .getFrom .getAggregationKind)
+                              to-kind   (-> ec .getTo .getAggregationKind)]
+                          (if (= from-kind AggregationKind/COMPOSITE)
+                            (let [alpha (get-alpha edge)]
+                              (if (mm alpha)
+                                false
+                                (recur (rest t-e) (assoc mm alpha edge))))
+                            (if (= to-kind AggregationKind/COMPOSITE)
+                              (let [omega (get-omega edge)]
+                                (if (mm omega)
+                                  false
+                                  (recur (rest t-e) (assoc mm omega edge)))))))
+                        mm))]
+     (if cont-el-mm
+       (every?
+        #(if (tmp-vertex? %)
+           true
+           (let [edges (tg/iseq %)]
+             (loop [e-l edges]
+               (if (empty? e-l)
+                 true
+                 (let [x (first e-l)
+                       ^EdgeClass ec (tg/attributed-element-class x)
+                       from-kind (-> ec .getFrom .getAggregationKind)
+                       to-kind   (-> ec .getTo .getAggregationKind)]
+                   (if (tg/normal-edge? x)
+                     (if (= from-kind AggregationKind/COMPOSITE)
+                       false
+                       (recur (rest e-l)))
+                     (if (= to-kind AggregationKind/COMPOSITE)
+                       false
+                       (recur (rest e-l)))))))) )
+        (keys cont-el-mm))
+       true))))

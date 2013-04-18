@@ -3,7 +3,8 @@
   (:use clojure.core.logic)
   (:use funnyqt.relational.util)
   (:require [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.utils :as u]))
+            [funnyqt.utils :as u]
+            [funnyqt.tg :as tg]))
 
 ;; Either :left or :right
 (def ^:dynamic *target-direction*)
@@ -19,7 +20,7 @@
         matches))
 
 (defn select-best-match [matches]
-  (first (sort-matches matches)))
+  (first (sort-matches (filter tmp/valid-match? matches))))
 
 (defn enforce-match [match]
   (let [tmps (filter tmp/tmp-element? (vals match))]
@@ -63,13 +64,13 @@
                       ~@(get map src)
                       (== q# ~(make-kw-result-map src-syms))))]
        (let [~(make-destr-map trg-syms tm)
-             (select-best-match
-              (binding [tmp/*make-tmp-elements* true]
-                (doall
-                 (run* [q#]
-                   ~@(:when map)
-                   ~@(get map trg)
-                   (== q# ~(make-kw-result-map trg-syms))))))]
+             (binding [tmp/*make-tmp-elements* true]
+               (select-best-match
+                (run* [q#]
+                  ~@(:when map)
+                  ~@(get map trg)
+                  (== q# ~(make-kw-result-map trg-syms)))))]
+         ~@(:optional map)
          (enforce-match ~tm)
          ~@(:where map)))))
 
@@ -80,6 +81,10 @@
         lsyms (distinct (filter qmark-sym? (flatten (:left map))))
         rsyms (distinct (filter qmark-sym? (flatten (:right map))))
         syms (distinct (concat lsyms rsyms))]
+    (when-let [unknown-keys (seq (disj (set (keys map))
+                                       :left :right :when :where
+                                       :optional))]
+      (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~name [& ~(make-destr-map syms)]
             (let ~(make-relation-binding-vector syms)
               (if (= *target-direction* :right)
