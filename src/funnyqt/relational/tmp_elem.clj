@@ -16,7 +16,8 @@
   (get-type  [this])
   (get-alpha [this])
   (get-omega [this])
-  (get-attrs [this]))
+  (get-attrs [this])
+  (get-manifestation [this]))
 
 (defprotocol TmpAEOps
   (set-kind [this kind])
@@ -54,6 +55,7 @@
   (get-alpha [this] alpha)
   (get-omega [this] omega)
   (get-attrs [this] attrs)
+  (get-manifestation [this] manifestation)
   TmpAEOps
   (manifest [this]
     ;; TODO: Note that manifestation can already exist.

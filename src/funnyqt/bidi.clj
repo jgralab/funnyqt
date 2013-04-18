@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic)
   (:use funnyqt.relational.util)
+  (:use [clojure.core.logic.protocols :only [walk]])
   (:require [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]))
@@ -58,27 +59,35 @@
    (symbol? sym)
    (= (first (clojure.core/name sym)) \?)))
 
-(defn ^:private do-rel-body [trg map wsyms src-syms trg-syms]
+(defn ^:private do-rel-body [relkw trg map wsyms src-syms trg-syms]
   (let [src (if (= trg :right) :left :right)
+        sm (gensym "src-match")
         tm (gensym "trg-match")]
-    `(doseq [~(make-destr-map (concat wsyms src-syms))
+    `(doseq [~(make-destr-map (concat wsyms src-syms) sm)
              (doall (run* [q#]
                       ~@(:when map)
                       ~@(get map src)
-                      (== q# ~(make-kw-result-map src-syms))))]
+                      (== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
        (let [~(make-destr-map trg-syms tm)
              (binding [tmp/*make-tmp-elements* true]
                (select-best-match
                 (run* [q#]
-                  ~@(:when map)
                   ~@(get map trg)
                   (== q# ~(make-kw-result-map trg-syms)))))]
          ~@(:optional map)
          (enforce-match ~tm)
+         (swap! *relation-bindings* update-in [~relkw]
+                conj (merge ~sm (apply hash-map
+                                       (mapcat (fn [[k# v#]]
+                                                 [k# (if (tmp/tmp-element? v#)
+                                                       (tmp/get-manifestation v#)
+                                                       v#)])
+                                               ~tm))))
          ~@(:where map)))))
 
 (defn convert-relation [[name & more]]
-  (let [map (apply hash-map more)
+  (let [relkw (keyword (clojure.core/name name))
+        map (apply hash-map more)
         body (concat (:left map) (:right map))
         wsyms (distinct (filter qmark-sym? (flatten (:when map))))
         lsyms (distinct (filter qmark-sym? (flatten (:left map))))
@@ -91,8 +100,24 @@
     `(~name [& ~(make-destr-map syms)]
             (let ~(make-relation-binding-vector syms)
               (if (= *target-direction* :right)
-                ~(do-rel-body :right map wsyms lsyms rsyms)
-                ~(do-rel-body :left  map wsyms rsyms lsyms))))))
+                ~(do-rel-body relkw :right map wsyms lsyms rsyms)
+                ~(do-rel-body relkw :left  map wsyms rsyms lsyms))))))
+
+(def ^:dynamic *relation-bindings*)
+
+(defn relateo [relation kw1 val1 kw2 val2]
+  (fn [a]
+    (let [bindings (@*relation-bindings* relation)]
+      (to-stream
+       (->> (map (fn [b]
+                   (let [v1 (get b kw1 ::not-found)
+                         v2 (get b kw2 ::not-found)]
+                     (when (= v1 ::not-found)
+                       (u/errorf "Unbound key %s" kw1))
+                     (when (= v2 ::not-found)
+                       (u/errorf "Unbound key %s" kw2))
+                     (unify a [val1 val2] [v1 v2]))) bindings)
+            (remove not))))))
 
 (defmacro deftransformation [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]
@@ -103,6 +128,8 @@
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
        (letfn [~@(map convert-relation relations)]
-         (binding [*target-direction* dir#]
-           ~@(map (fn [r] `(~(first r))) top-rels))))))
+         (binding [*target-direction* dir#
+                   *relation-bindings* (atom {})]
+           ~@(map (fn [r] `(~(first r))) top-rels)
+           @*relation-bindings*)))))
 

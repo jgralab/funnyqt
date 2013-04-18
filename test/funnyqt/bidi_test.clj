@@ -45,10 +45,18 @@
    :optional [(maybe-names :?cr1 ?cr1 :?cr2 ?cr2)])
   (maybe-names
    :left [(+name g1 ?cr1 ?n)]
-   :right [(+name g2 ?cr2 ?n)]))
+   :right [(+name g2 ?cr2 ?n)])
+  (^:top connection2connection
+         :when [(relateo :crossroad2crossroad
+                         :?cr1 ?start1 :?cr2 ?start2)
+                (relateo :crossroad2crossroad
+                         :?cr1 ?end1 :?cr2 ?end2)]
+         :left [(+Connection g1 ?con1 ?start1 ?end1)
+                (rtg/typeo g1 ?con1 ?con-type)]
+         :right [(+Connection g2 ?con2 ?start2 ?end2)
+                 (rtg/typeo g2 ?con2 ?con-type)]))
 
 #_(route-map2route-map rm1 rm2 :right)
 #_(viz/print-model rm2 ".gtk")
 #_(tg/save-graph rm2 "/home/horn/copy.tg")
-
 
