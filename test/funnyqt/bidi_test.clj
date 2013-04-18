@@ -42,8 +42,8 @@
           (rtg/typeo g1 ?cr1 ?ct)]
    :right [(+ContainsCrossroad g2 ?cc2 ?loc2 ?cr2)
            (rtg/typeo g2 ?cr2 ?ct)]
-   :optional [(maybe-plaza-names :?cr1 ?cr1 :?cr2 ?cr2)])
-  (maybe-plaza-names
+   :optional [(maybe-names :?cr1 ?cr1 :?cr2 ?cr2)])
+  (maybe-names
    :left [(+name g1 ?cr1 ?n)]
    :right [(+name g2 ?cr2 ?n)]))
 

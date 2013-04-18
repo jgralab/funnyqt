@@ -20,12 +20,15 @@
         matches))
 
 (defn select-best-match [matches]
-  (first (sort-matches (filter tmp/valid-match? matches))))
+  (or
+   ;; Do we have an optimal match?
+   (first (filter #(every? (complement tmp/tmp-element?) (vals %)) matches))
+   ;; If not, select the match with the fewest elements.
+   (first (sort-matches (filter tmp/valid-match? matches)))))
 
 (defn enforce-match [match]
-  (let [tmps (filter tmp/tmp-element? (vals match))]
-    (doseq [el tmps]
-      (tmp/manifest el))))
+  (doseq [el (filter tmp/tmp-element? (vals match))]
+    (tmp/manifest el)))
 
 (defmacro checkonly
   ([] `clojure.core.logic/s#)
