@@ -91,6 +91,7 @@
                 (.endsWith n "!"))
         (u/errorf "Type must be a plain type symbol (no !): %s" t)))
     (let [aec (tg/attributed-element-class graph t)]
+      #_(println "Set type of" this "to" aec)
       (if (nil? type)
         (do
           (set-kind this (if (tg/vertex-class? aec) :vertex :edge))

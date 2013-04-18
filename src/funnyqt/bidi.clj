@@ -2,9 +2,7 @@
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic)
   (:use funnyqt.relational.util)
-  (:require [funnyqt.relational.tg :as rtg]
-            [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.tg :as tg]
+  (:require [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.utils :as u]))
 
 ;; Either :left or :right
@@ -99,36 +97,4 @@
        (letfn [~@(map convert-relation relations)]
          (binding [*target-direction* dir#]
            ~@(map (fn [r] `(~(first r))) top-rels))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(rtg/generate-schema-relations "test/input/greqltestgraph.tg")
-(def g1 (tg/load-graph "test/input/greqltestgraph.tg"))
-(def g2 (tg/create-graph (tg/load-schema "test/input/greqltestgraph.tg")))
-
-(deftransformation route-map2route-map [g1 g2]
-  (^:top county2county
-         :left [(+County g1 ?c1)
-                (+name g1 ?c1 ?n)]
-         :right [(+County g2 ?c2)
-                 (+name g2 ?c2 ?n)]
-         :where [(city2city :?county1 ?c1 :?county2 ?c2)])
-  (city2city
-   :left [(+ContainsLocality g1 ?hc1 ?county1 ?c1)
-          (+City g1 ?c1)
-          (+name g1 ?c1 ?n)]
-   :right [(+ContainsLocality g2 ?hc2 ?county2 ?c2)
-           (+City g2 ?c2)
-           (+name g2 ?c2 ?n)]
-   :where [(plaza2plaza :?loc1 ?c1 :?loc2 ?c2)])
-  (plaza2plaza
-   :left [(+ContainsCrossroad g1 ?cc1 ?loc1 ?plaza1)
-          (+Plaza g1 ?plaza1)
-          (+name g1 ?plaza1 ?n)]
-   :right [(+ContainsCrossroad g2 ?cc2 ?loc2 ?plaza2)
-           (+Plaza g2 ?plaza2)
-           (+name g2 ?plaza2 ?n)]))
-
-;(route-map2route-map g1 g2 :right)
-
 

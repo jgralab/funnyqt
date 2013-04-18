@@ -34,7 +34,7 @@
   (fn [a]
     (let [ge (walk a e)
           gt (walk a t)]
-      #_(println "tmp-typeo:" ge (ground? ge))
+      #_(println "tmp-typeo:" ge gt)
       ;; We assume gt is a ground symbol.  We may assume that since bidi
       ;; transformations usually should only use the generated +Foo relations.
       (when-not (ground? gt)
@@ -48,7 +48,9 @@
         (if (ground? ge)
           (if (or (and (tmp/tmp-element? ge)
                        ;; If the type is just a symbol, we can set it.
-                       (or (vector? gt)  (tmp/set-type ge gt))
+                       (or (vector? gt)
+                           #_(println "setting tmp type of" ge "to" gt)
+                           (tmp/set-type ge gt))
                        ;; Kind can only be set if all given types are either
                        ;; vertex or edge types.
                        (or (and all-vcs? (tmp/set-kind ge :vertex))
