@@ -386,8 +386,8 @@ functions `record` and `enum`."
    :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-tg
-  [^Schema s ^Graph g ts]
-  (if (.isFinished s)
+  [^Graph g ts]
+  (if (.isFinished (schema g))
     (if-let [tm (cache/lookup type-matcher-cache [g ts])]
       (do (cache/hit type-matcher-cache [g ts]) tm)
       (let [tm (type-matcher-tg-1 g ts)]
@@ -398,13 +398,10 @@ functions `record` and `enum`."
 (extend-protocol TypeMatcher
   GraphElement
   (type-matcher [ge ts]
-    (let [^Schema s (schema ge)
-          g (graph ge)]
-      (type-matcher-tg s g ts)))
+    (type-matcher-tg (graph ge) ts))
   Graph
   (type-matcher [g ts]
-    (let [^Schema s (schema g)]
-      (type-matcher-tg s g ts))))
+    (type-matcher-tg g ts)))
 
 (extend-protocol InstanceOf
   Graph

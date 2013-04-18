@@ -54,7 +54,14 @@
          :left [(+Connection g1 ?con1 ?start1 ?end1)
                 (rtg/typeo g1 ?con1 ?con-type)]
          :right [(+Connection g2 ?con2 ?start2 ?end2)
-                 (rtg/typeo g2 ?con2 ?con-type)]))
+                 (rtg/typeo g2 ?con2 ?con-type)])
+  (^:top airroute2airroute
+         :when [(relateo :locality2locality
+                         :?loc1 ?start1 :?loc2 ?start2)
+                (relateo :locality2locality
+                         :?loc1 ?end1 :?loc2 ?end2)]
+         :left [(+AirRoute g1 ?ar1 ?start1 ?end1)]
+         :right [(+AirRoute g2 ?ar2 ?start2 ?end2)]))
 
 #_(route-map2route-map rm1 rm2 :right)
 #_(viz/print-model rm2 ".gtk")
