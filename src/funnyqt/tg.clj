@@ -200,32 +200,19 @@ functions `record` and `enum`."
       (domain-vector-qname qn)
       (name qn))))
 
-;; TODO: We need to think about this.  Unlimited caching definitively isn't the
-;; right thing, and it'll become wrong when metatransforms rename/delete/create
-;; classes (can be disabled, see *allow-class-access-by-simple-name* below).
-;; Or maybe access by simple name should be moved into jgralab itself...
-(def ^:private aec-simple-name-map
+(def ^:private aec-simple-to-qname-map
   (memoize
    (fn [^Schema s]
      (let [m (atom {})
            gc (.getGraphClass s)]
-       (doseq [^GraphElementClass
-               gec (concat (.getVertexClasses gc)
-                           (.getEdgeClasses gc))]
-         (swap! m update-in [(.getSimpleName gec)] conj gec))
+       (doseq [^GraphElementClass gec (concat (.getVertexClasses gc)
+                                              (.getEdgeClasses gc))]
+         (swap! m update-in [(.getSimpleName gec)] conj (.getQualifiedName gec)))
        (apply hash-map (mapcat (fn [[k v]]
                                  (if (> (count v) 1)
                                    []
                                    [k (first v)]))
                                @m))))))
-
-(def ^:dynamic *allow-class-access-by-simple-name*
-  "If locical true, graph element classes may be retrieved by their simple
-  names if they are unique.  That is, if there's only a vertex class `foo.Bar`,
-  then `(vseq g 'Bar)` will work just fine.  If there are classes `foo.Bar` and
-  `baz.Bar` you'll get an error that the name is not unique, and you need to
-  use the qualified name anyway."
-  true)
 
 (defn attributed-element-class
   "Returns `ae`s AttributedElementClass or the AttributedElementClass with the
@@ -238,20 +225,20 @@ functions `record` and `enum`."
        AttributedElement
        (let [^AttributedElement ae elem]
          (or (-> ae .getSchema (.getAttributedElementClass (name qname)))
-             (and *allow-class-access-by-simple-name*
-                  ((aec-simple-name-map (.getSchema ae)) (name qname)))
+             (let [qn ((aec-simple-to-qname-map (.getSchema ae)) (name qname))]
+               (-> ae .getSchema (.getAttributedElementClass qn)))
              (errorf "No such attributed element class %s" (name qname))))
        AttributedElementClass
        (let [^AttributedElementClass aec elem]
          (or (-> aec .getSchema (.getAttributedElementClass (name qname)))
-             (and *allow-class-access-by-simple-name*
-                  ((aec-simple-name-map (.getSchema aec)) (name qname)))
+             (let [qn ((aec-simple-to-qname-map (.getSchema aec)) (name qname))]
+               (-> aec .getSchema (.getAttributedElementClass qn)))
              (errorf "No such attributed element class %s" (name qname))))
        Schema
        (let [^Schema s elem]
          (or (.getAttributedElementClass s (name qname))
-             (and *allow-class-access-by-simple-name*
-                  ((aec-simple-name-map s) (name qname)))
+             (let [qn ((aec-simple-to-qname-map s) (name qname))]
+               (.getAttributedElementClass s qn))
              (errorf "No such attributed element class %s" (name qname)))))))
 
 (defn schema
@@ -385,15 +372,16 @@ functions `record` and `enum`."
                  identity)
    :else (errorf "Don't know how to create a TG type-matcher for %s" ts)))
 
-(defn ^:private type-matcher-tg
-  [^Graph g ts]
-  (if (.isFinished (schema g))
-    (if-let [tm (cache/lookup type-matcher-cache [g ts])]
-      (do (cache/hit type-matcher-cache [g ts]) tm)
-      (let [tm (type-matcher-tg-1 g ts)]
-        (cache/miss type-matcher-cache [g ts] tm)
-        tm))
-    (type-matcher-tg-1 g ts)))
+(defn ^:private type-matcher-tg [^Graph g ts]
+  (let [^Schema s (schema g)
+        gh (hash g)]
+    (if (.isFinished s)
+      (if-let [tm (cache/lookup type-matcher-cache [s gh ts])]
+        (do (cache/hit type-matcher-cache [s gh ts]) tm)
+        (let [tm (type-matcher-tg-1 g ts)]
+          (cache/miss type-matcher-cache [s gh ts] tm)
+          tm))
+      (type-matcher-tg-1 g ts))))
 
 (extend-protocol TypeMatcher
   GraphElement

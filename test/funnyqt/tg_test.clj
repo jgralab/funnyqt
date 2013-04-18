@@ -112,9 +112,4 @@
     (is (= (attributed-element-class g 'localities.Locality)
            (attributed-element-class g 'Locality)))
     (is (= (attributed-element-class g 'connections.AirRoute)
-           (attributed-element-class g 'AirRoute)))
-    (binding [*allow-class-access-by-simple-name* false]
-      (is (thrown-with-msg? Exception #"No such attributed element class"
-            (attributed-element-class g 'Locality)))
-      (is (thrown-with-msg? Exception #"No such attributed element class"
-            (attributed-element-class g 'AirRoute))))))
+           (attributed-element-class g 'AirRoute)))))
