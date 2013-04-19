@@ -74,14 +74,15 @@
                   ~@(get map trg)
                   (== q# ~(make-kw-result-map trg-syms)))))]
          ~@(:optional map)
-         (enforce-match ~tm)
-         (swap! *relation-bindings* update-in [~relkw]
-                conj (merge ~sm (apply hash-map
-                                       (mapcat (fn [[k# v#]]
-                                                 [k# (if (tmp/tmp-element? v#)
-                                                       (tmp/get-manifestation v#)
-                                                       v#)])
-                                               ~tm))))
+         (let [ef# (enforce-match ~tm)
+               new-binding# (merge ~sm (apply hash-map
+                                              (mapcat (fn [[k# v#]]
+                                                        [k# (if (tmp/tmp-element? v#)
+                                                              (tmp/get-manifestation v#)
+                                                              v#)])
+                                                      ~tm)))]
+           (swap! *relation-bindings* update-in [~relkw]
+                  conj new-binding#))
          ~@(:where map)))))
 
 (defn convert-relation [[name & more]]

@@ -67,3 +67,18 @@
 #_(viz/print-model rm2 ".gtk")
 #_(tg/save-graph rm2 "/home/horn/copy.tg")
 
+;; New matches after rerunning the transformation for a second time.  What's
+;; their cause?
+
+;; |                      :?con2 |                     :?con1 |                  :?start1 |                :?start2 |           :?con-type |                     :?end2 |                    :?end1 |
+;; |-----------------------------+----------------------------+---------------------------+-------------------------+----------------------+----------------------------+---------------------------|
+;; |  +e341: connections.Highway |  +e55: connections.Highway |  v29: junctions.Crossroad | v3: junctions.Crossroad |  connections.Highway |  v132: junctions.Crossroad |  v35: junctions.Crossroad |
+;; |  +e342: connections.Highway |  +e54: connections.Highway |  v30: junctions.Crossroad | v3: junctions.Crossroad |  connections.Highway |    v3: junctions.Crossroad |  v29: junctions.Crossroad |
+;; |  +e343: connections.Highway |  +e42: connections.Highway |  v27: junctions.Crossroad | v3: junctions.Crossroad |  connections.Highway |  v141: junctions.Crossroad |  v41: junctions.Crossroad |
+;; |   +e344: connections.Street |  +e110: connections.Street |      v16: junctions.Plaza |   v120: junctions.Plaza |   connections.Street |      v120: junctions.Plaza |      v17: junctions.Plaza |
+;; |   +e345: connections.Street |   +e95: connections.Street |      v18: junctions.Plaza |   v120: junctions.Plaza |   connections.Street |    v3: junctions.Crossroad |  v87: junctions.Crossroad |
+;; |  +e346: connections.Highway |  +e37: connections.Highway | v132: junctions.Crossroad | v3: junctions.Crossroad |  connections.Highway | v117: junctions.Roundabout | v14: junctions.Roundabout |
+;; | +e347: connections.Footpath | +e16: connections.Footpath | v127: junctions.Crossroad | v3: junctions.Crossroad | connections.Footpath |    v3: junctions.Crossroad | v128: junctions.Crossroad |
+;; |   +e348: connections.Street |  +e217: connections.Street | v124: junctions.Crossroad | v3: junctions.Crossroad |   connections.Street |      v120: junctions.Plaza |      v20: junctions.Plaza |
+;; | +e349: connections.Footpath |  +e4: connections.Footpath |  v81: junctions.Crossroad | v3: junctions.Crossroad | connections.Footpath |      v120: junctions.Plaza |      v15: junctions.Plaza |
+
