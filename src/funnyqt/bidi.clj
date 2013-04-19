@@ -104,19 +104,22 @@
 
 (def ^:dynamic *relation-bindings*)
 
-(defn relateo [relation kw1 val1 kw2 val2]
-  (fn [a]
-    (let [bindings (@*relation-bindings* relation)]
-      (to-stream
-       (->> (map (fn [b]
-                   (let [v1 (get b kw1 ::not-found)
-                         v2 (get b kw2 ::not-found)]
-                     (when (= v1 ::not-found)
-                       (u/errorf "Unbound key %s" kw1))
-                     (when (= v2 ::not-found)
-                       (u/errorf "Unbound key %s" kw2))
-                     (unify a [val1 val2] [v1 v2]))) bindings)
-            (remove not))))))
+(defn relateo [relation & keyvals]
+  (let [m (apply hash-map keyvals)]
+    (fn [a]
+      (let [bindings (@*relation-bindings* relation)]
+        (to-stream
+         (->> (map (fn [b]
+                     (let [vs (mapv #(get b % ::not-found) (keys m))]
+                       (when (funnyqt.query/member? ::not-found vs)
+                         (u/errorf "Unbound keys: %s"
+                                   (pr-str
+                                    (filter #(= (get b % ::not-found)
+                                                ::not-found)
+                                            (keys m)))))
+                       (unify a (vec (vals m)) vs)))
+                   bindings)
+              (remove not)))))))
 
 (defmacro deftransformation [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]
