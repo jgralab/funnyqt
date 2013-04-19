@@ -11,13 +11,12 @@
 (def ^:dynamic *target-direction*)
 
 (defn sort-matches [matches]
-  (into (sorted-set-by
-         (fn [a b]
-           (let [diff (- (count (filter tmp/tmp-element? (vals a)))
-                         (count (filter tmp/tmp-element? (vals b))))]
-             (if (zero? diff)
-               (compare (vec a) (vec b))
-               diff))))
+  (sort (fn [a b]
+          (let [diff (- (count (filter tmp/tmp-element? (vals a)))
+                        (count (filter tmp/tmp-element? (vals b))))]
+            (if (zero? diff)
+              (compare (vec a) (vec b))
+              diff)))
         matches))
 
 (defn select-best-match [matches]
