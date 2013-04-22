@@ -71,31 +71,35 @@
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
         etm (gensym "enforced-trg-match")]
-    `(doseq [~(make-destr-map (concat wsyms src-syms) sm)
-             (run* [q#]
-               ~@(:when map)
-               ~@(get map src)
-               (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
-       (let [~(make-destr-map trg-syms tm)
-             (binding [tmp/*make-tmp-elements* true]
-               (select-best-match
-                (run* [q#]
-                  ~@(get map trg)
-                  (== q# ~(make-kw-result-map trg-syms)))))]
-         ~@(:optional map)
-         (enforce-match ~tm)
-         (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
-           (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
-           ~@(:where map))))))
+    `(let [wfns#
+           (doall
+            (for [~(make-destr-map (concat wsyms src-syms) sm)
+                  (run* [q#]
+                    ~@(:when map)
+                    ~@(get map src)
+                    (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
+              (let [~(make-destr-map trg-syms tm)
+                    (binding [tmp/*make-tmp-elements* true]
+                      (select-best-match
+                       (run* [q#]
+                         ~@(get map trg)
+                         (== q# ~(make-kw-result-map trg-syms)))))]
+                ~@(:optional map)
+                (enforce-match ~tm)
+                (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
+                  (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
+                  (fn [] ~@(:where map))))))]
+       (doseq [wfn# wfns#]
+         (wfn#)))))
 
 (defn convert-relation [[name & more]]
   (let [relkw (keyword (clojure.core/name name))
-        map (apply hash-map more)
-        body (concat (:left map) (:right map))
+        map   (apply hash-map more)
+        body  (concat (:left map) (:right map))
         wsyms (distinct (filter qmark-sym? (flatten (:when map))))
         lsyms (distinct (filter qmark-sym? (flatten (:left map))))
         rsyms (distinct (filter qmark-sym? (flatten (:right map))))
-        syms (distinct (concat lsyms rsyms))]
+        syms  (distinct (concat lsyms rsyms))]
     (when-let [unknown-keys (seq (disj (set (keys map))
                                        :left :right :when :where
                                        :optional))]
