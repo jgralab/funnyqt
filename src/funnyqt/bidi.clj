@@ -23,7 +23,7 @@
   (or
    ;; Do we have an optimal match?
    (first (filter #(every? (complement tmp/tmp-element?) (vals %)) matches))
-   ;; If not, select the match with the fewest elements.
+   ;; If not, select the match with the fewest temporary elements.
    (first (sort-matches (filter tmp/valid-match? matches)))))
 
 (defn enforce-match [match]
@@ -58,15 +58,24 @@
    (symbol? sym)
    (= (first (clojure.core/name sym)) \?)))
 
+(defn untempify-trg-match [trg-match]
+  (apply hash-map
+         (mapcat (fn [[k v]]
+                   [k (if (tmp/tmp-element? v)
+                        (tmp/get-manifestation v)
+                        v)])
+                 trg-match)))
+
 (defn ^:private do-rel-body [relkw trg map wsyms src-syms trg-syms]
   (let [src (if (= trg :right) :left :right)
-        sm (gensym "src-match")
-        tm (gensym "trg-match")]
+        sm  (gensym "src-match")
+        tm  (gensym "trg-match")
+        etm (gensym "enforced-trg-match")]
     `(doseq [~(make-destr-map (concat wsyms src-syms) sm)
-             (doall (run* [q#]
-                      ~@(:when map)
-                      ~@(get map src)
-                      (== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
+             (run* [q#]
+               ~@(:when map)
+               ~@(get map src)
+               (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
        (let [~(make-destr-map trg-syms tm)
              (binding [tmp/*make-tmp-elements* true]
                (select-best-match
@@ -74,16 +83,10 @@
                   ~@(get map trg)
                   (== q# ~(make-kw-result-map trg-syms)))))]
          ~@(:optional map)
-         (let [ef# (enforce-match ~tm)
-               new-binding# (merge ~sm (apply hash-map
-                                              (mapcat (fn [[k# v#]]
-                                                        [k# (if (tmp/tmp-element? v#)
-                                                              (tmp/get-manifestation v#)
-                                                              v#)])
-                                                      ~tm)))]
-           (swap! *relation-bindings* update-in [~relkw]
-                  conj new-binding#))
-         ~@(:where map)))))
+         (enforce-match ~tm)
+         (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
+           (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
+           ~@(:where map))))))
 
 (defn convert-relation [[name & more]]
   (let [relkw (keyword (clojure.core/name name))
