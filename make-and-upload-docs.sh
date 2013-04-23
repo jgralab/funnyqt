@@ -3,7 +3,7 @@
 echo "Deleting the old docs"
 rm docs/*
 
-lein marg && lein html5-docs
+lein with-profile docs marg && lein with-profile docs html5-docs
 
 if [[ $? -eq 0 ]]; then
     ssh horn@helena.uni-koblenz.de 'rm /home/horn/public_html/funnyqt-docs/*'

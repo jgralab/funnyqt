@@ -17,8 +17,8 @@
                  [emf-xsd-sdk "2.8.3"]]
   :profiles {:dev
              {:dependencies
-              [[criterium "0.3.1"] ;; Benchmarking
-               [clj-ns-browser "1.3.1"]]}}
+              ;; Benchmarking
+              [[criterium "0.3.1"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
