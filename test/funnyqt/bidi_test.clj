@@ -65,6 +65,8 @@
          :left [(rm/+AirRoute g1 ?ar1 ?start1 ?end1)]
          :right [(rm/+AirRoute g2 ?ar2 ?start2 ?end2)]))
 
+#_(do (time (route-map2route-map rm1 rm2 :right))
+      ((juxt tg/vcount tg/ecount) rm2))
 
 #_(route-map2route-map rm1 rm2 :right)
 #_(viz/print-model rm2 ".gtk")

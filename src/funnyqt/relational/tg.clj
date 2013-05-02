@@ -180,8 +180,12 @@
                     ;; It could be a tmp-edge.  In that case, it could be a
                     ;; tmp-edge between existing vertices, or a tmp-edge
                     ;; between completely new tmp-vertices.
-                    (for [tal (concat (tg/vseq g) [(if (ground? gal) gal (tmp/make-tmp-vertex g))])
-                          tom (concat (tg/vseq g) [(if (ground? gom) gom (tmp/make-tmp-vertex g))])
+                    (for [tal (if (ground? gal)
+                                [gal]
+                                (concat (tg/vseq g) [(tmp/make-tmp-vertex g)]))
+                          tom (if (ground? gom)
+                                [gom]
+                                (concat (tg/vseq g) [(tmp/make-tmp-vertex g)]))
                           :let [te (tmp/make-tmp-edge g)]]
                       (do
                         (tmp/set-alpha te tal)
