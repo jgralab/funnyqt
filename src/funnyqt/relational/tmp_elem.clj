@@ -11,25 +11,22 @@
 (def ^:dynamic *make-tmp-elements* false)
 
 (defprotocol TmpElementAccessors
-  (get-graph [this])
+  (get-model [this])
   (get-kind  [this])
-  (get-type  [this])
-  (get-alpha [this])
-  (get-omega [this])
-  (get-attrs [this])
-  (get-manifestation [this]))
-
-(defprotocol TmpAEOps
   (set-kind [this kind])
+  (get-type  [this])
   (set-type [this type])
-  (add-attr [this attr val])
-  (finalize-attrs [this subst])
-  (manifest [this])
-  (as-map [this]))
-
-(defprotocol TmpEdgeOps
+  (get-alpha [this])
   (set-alpha [this al])
-  (set-omega [this om]))
+  (get-omega [this])
+  (set-omega [this om])
+  (get-attrs [this])
+  (add-attr [this attr val])
+  (get-manifestation [this])
+  (set-manifestation [this m])
+  (manifest [this])
+  (finalize-attrs [this subst])
+  (as-map [this]))
 
 (deftype TmpElement [graph
                      ^:volatile-mutable kind
@@ -41,7 +38,7 @@
                      ^:volatile-mutable manifestation]
   java.lang.Comparable
   (compareTo [this that]
-    (if (= this that)
+    (if (identical? this that)
       0
       (let [hd (- (hash this) (hash that))]
         (if (zero? hd)
@@ -49,16 +46,19 @@
                     this that)
           hd))))
   TmpElementAccessors
-  (get-graph [this] graph)
+  (get-model [this] graph)
   (get-kind  [this] kind)
   (get-type  [this] type)
   (get-alpha [this] alpha)
   (get-omega [this] omega)
   (get-attrs [this] attrs)
   (get-manifestation [this] manifestation)
-  TmpAEOps
+  (set-manifestation [this m]
+    (when-not (identical? m manifestation)
+      (when manifestation
+        (u/errorf "Can't reset manifestation from %s to %s." manifestation m))
+      (set! manifestation m)))
   (manifest [this]
-    ;; TODO: Note that manifestation can already exist.
     (when-not manifested
       (when-not kind
         (u/errorf "TmpElement kind not set!"))
@@ -123,7 +123,6 @@
                                                (cclp/walk subst v)
                                                v)])
                                         attrs))))
-  TmpEdgeOps
   (set-alpha [this al]
     (when manifested
       (u/errorf "Cannot modify a manifested element!"))
@@ -174,7 +173,7 @@
   (and (tmp-element? elem)
        (= (get-kind elem) :edge)))
 
-(defn finalize-tmp-elems [& args]
+(defn finalize-tmp-elements [& args]
   (fn [a]
     (doseq [te (filter tmp-element?
                        (map (partial cclp/walk a)

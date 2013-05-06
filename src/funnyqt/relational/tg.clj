@@ -322,60 +322,66 @@
                        (unify a [ae at val] [elem an (tg/value elem an)]))
                      (remove not))))))))
 
+(defn tmp-adjo [g v role rv]
+  ;; FIXME: Implement me!
+  (u/error "tmp-adjo isn't implemented yet!"))
+
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
   `g`."
   [g v role rv]
-  (fn [a]
-    (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
-                             (remove empty? (.getAllRoles (if (= :to from-or-to)
-                                                            (.getTo ec)
-                                                            (.getFrom ec)))))
-          gv    (walk a v)
-          grole (walk a role)
-          grv   (walk a rv)]
-      (cond
-       (and (ground? gv) (ground? grole))
-       (if (and (tg/vertex? gv) (keyword? grole))
-         (to-stream
-          (->> (for [refed (funnyqt.query/adjs* gv grole)]
-                 (unify a [rv] [refed]))
-               (remove not)))
-         (fail a))
+  (if tmp/*make-tmp-elements*
+    (tmp-adjo g v role rv)
+    (fn [a]
+      (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
+                               (remove empty? (.getAllRoles (if (= :to from-or-to)
+                                                              (.getTo ec)
+                                                              (.getFrom ec)))))
+            gv    (walk a v)
+            grole (walk a role)
+            grv   (walk a rv)]
+        (cond
+         (and (ground? gv) (ground? grole))
+         (if (and (tg/vertex? gv) (keyword? grole))
+           (to-stream
+            (->> (for [refed (funnyqt.query/adjs* gv grole)]
+                   (unify a [rv] [refed]))
+                 (remove not)))
+           (fail a))
 
-       (ground? gv)
-       (if (tg/vertex? gv)
-         (to-stream
-          (->> (for [e (tg/iseq gv)
-                     rn (edge-class-roles (tg/attributed-element-class e)
-                                          (if (tg/normal-edge? e) :to :from))
-                     :when rn
-                     :let [rn (keyword rn)]]
-                 (unify a [role rv] [rn (tg/that e)]))
-               (remove not)))
-         (fail a))
+         (ground? gv)
+         (if (tg/vertex? gv)
+           (to-stream
+            (->> (for [e (tg/iseq gv)
+                       rn (edge-class-roles (tg/attributed-element-class e)
+                                            (if (tg/normal-edge? e) :to :from))
+                       :when rn
+                       :let [rn (keyword rn)]]
+                   (unify a [role rv] [rn (tg/that e)]))
+                 (remove not)))
+           (fail a))
 
-       (ground? grv)
-       (if (tg/vertex? grv)
-         (to-stream
-          (->> (for [e (tg/iseq grv)
-                     rn (edge-class-roles (tg/attributed-element-class e)
-                                          (if (tg/normal-edge? e) :from :to))
-                     :when rn
-                     :let [rn (keyword rn)]]
-                 (unify a [v role] [(tg/that e) rn]))
-               (remove not)))
-         (fail a))
+         (ground? grv)
+         (if (tg/vertex? grv)
+           (to-stream
+            (->> (for [e (tg/iseq grv)
+                       rn (edge-class-roles (tg/attributed-element-class e)
+                                            (if (tg/normal-edge? e) :from :to))
+                       :when rn
+                       :let [rn (keyword rn)]]
+                   (unify a [v role] [(tg/that e) rn]))
+                 (remove not)))
+           (fail a))
 
-       :else (to-stream
-              (->> (for [s (tg/vseq g)
-                         e (tg/iseq s)
-                         rn (edge-class-roles (tg/attributed-element-class e)
-                                              (if (tg/normal-edge? e) :to :from))
-                         :when rn
-                         :let [rn (keyword rn)]]
-                     (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
-                   (remove not)))))))
+         :else (to-stream
+                (->> (for [s (tg/vseq g)
+                           e (tg/iseq s)
+                           rn (edge-class-roles (tg/attributed-element-class e)
+                                                (if (tg/normal-edge? e) :to :from))
+                           :when rn
+                           :let [rn (keyword rn)]]
+                       (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
+                     (remove not))))))))
 
 ;;# Metamodel specific
 
