@@ -18,7 +18,7 @@
   :profiles {:dev
              {:dependencies
               ;; Benchmarking
-              [[criterium "0.3.1"]]}}
+              [[criterium "0.4.1"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
