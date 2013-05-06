@@ -430,21 +430,11 @@
   "Creates a relation for the given role name."
   [rn owners]
   (let [role-rel-sym (symbol (str "+->" rn))
-        make-one   (fn [[^EdgeClass ec dir]]
-                     (let [ec-rel-sym (symbol (str "+" (.getUniqueName ec)))]
-                       (if (= dir :omega)
-                          `(~ec-rel-sym ~'g ~'ign ~'sv ~'tv)
-                          `(~ec-rel-sym ~'g ~'ign ~'tv ~'sv))))
-        make (fn [tups]
-               (if (> (count tups) 1)
-                 `(conde
-                   ~@(mapv (fn [t] [(make-one t)]) tups))
-                 (make-one (first tups))))]
+        role-rel-kw  (keyword rn)]
     `(defn ~role-rel-sym
        ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
        [~'g ~'sv ~'tv]
-       (fresh [~'ign]
-         ~(make owners)))))
+       (adjo ~'g ~'sv ~role-rel-kw ~'tv))))
 
 (defmacro generate-schema-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
