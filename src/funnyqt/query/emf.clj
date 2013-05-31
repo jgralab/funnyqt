@@ -5,8 +5,8 @@
   (:use funnyqt.query)
   (:use funnyqt.protocols)
   (:require funnyqt.emf-protocols)
-  (:use ordered.set)
-  (:use ordered.map)
+  (:use flatland.ordered.set)
+  (:use flatland.ordered.map)
   (:use funnyqt.emf)
   (:import
    [org.eclipse.emf.ecore EObject EReference EStructuralFeature]))

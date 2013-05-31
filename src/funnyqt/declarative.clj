@@ -1,11 +1,11 @@
 (ns funnyqt.declarative
-  (:use [funnyqt.protocols   :only [has-type?]])
-  (:use [funnyqt.utils       :only [errorf]])
-  (:use [funnyqt.query       :only [member? xor]])
-  (:require [ordered.map     :as om])
-  (:require [funnyqt.emf     :as emf])
-  (:require [funnyqt.tg      :as tg])
-  (:use [clojure.tools.macro :only [name-with-attributes macrolet mexpand-all]]))
+  (:use [funnyqt.protocols        :only [has-type?]])
+  (:use [funnyqt.utils            :only [errorf]])
+  (:use [funnyqt.query            :only [member? xor]])
+  (:require [flatland.ordered.map :as om])
+  (:require [funnyqt.emf          :as emf])
+  (:require [funnyqt.tg           :as tg])
+  (:use [clojure.tools.macro      :only [name-with-attributes macrolet mexpand-all]]))
 
 (defn ^:private rule? [form]
   (if-let [[name args & body] form]

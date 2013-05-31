@@ -1,5 +1,5 @@
 (ns funnyqt.query-test
-  (:use [ordered.set])
+  (:use [flatland.ordered.set])
   (:use [funnyqt.query])
   (:use [clojure.test]))
 

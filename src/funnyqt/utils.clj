@@ -2,7 +2,7 @@
   "Generic utility functions."
   (:require clojure.pprint)
   (:require [clojure.string :as str])
-  (:use ordered.set))
+  (:use flatland.ordered.set))
 
 ;;# Conversion to OrderedSet
 
@@ -11,7 +11,7 @@
     "Converts this into an ordered set."))
 
 (extend-protocol OrderedSetConvertible
-  ordered.set.OrderedSet
+  flatland.ordered.set.OrderedSet
   (oset [this]
     this)
 
@@ -43,7 +43,7 @@
   [obj]
   `(assert
     (let [s# ~obj]
-      (and (instance? ordered.set.OrderedSet s#)
+      (and (instance? flatland.ordered.set.OrderedSet s#)
            (every? (complement coll?) s#)))
     "The given object is no OrderedSet, or it is but is not flat."))
 

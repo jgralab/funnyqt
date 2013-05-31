@@ -274,12 +274,12 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varags seq of the alternative path descriptions."
   [v & p]
-  (into (ordered.set/ordered-set)
+  (into (flatland.ordered.set/ordered-set)
         (r/mapcat #(*p-apply* (oset v) %) p)))
 
 (defn ^:private p-*-or-+
   [v p ret]
-  (let [n (into (ordered.set/ordered-set)
+  (let [n (into (flatland.ordered.set/ordered-set)
                 (r/remove ret (oset (*p-apply* v p))))]
     (if (seq n)
       (recur n p (into-oset ret n))
@@ -297,7 +297,7 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   [v p]
-  (p-*-or-+ v p (ordered.set/ordered-set)))
+  (p-*-or-+ v p (flatland.ordered.set/ordered-set)))
 
 (defn p-exp
   "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`

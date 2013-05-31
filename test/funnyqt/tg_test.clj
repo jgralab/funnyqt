@@ -1,5 +1,5 @@
 (ns funnyqt.tg-test
-  (:use [ordered.set])
+  (:use [flatland.ordered.set])
   (:use [funnyqt.tg])
   (:use funnyqt.protocols)
   (:use [clojure.test])

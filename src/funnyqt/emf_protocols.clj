@@ -2,8 +2,8 @@
   "EMF specific protocols and types"
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
-  (:use ordered.set)
-  (:use ordered.map)
+  (:use flatland.ordered.set)
+  (:use flatland.ordered.map)
   (:require clojure.java.shell)
   (:import
    (org.eclipse.emf.ecore.xmi XMIResource)

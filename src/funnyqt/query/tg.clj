@@ -96,7 +96,7 @@ can compute that like so:
   (:use funnyqt.tg)
   (:use funnyqt.protocols)
   (:use funnyqt.utils)
-  (:use ordered.set)
+  (:use flatland.ordered.set)
   (:use funnyqt.query)
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
@@ -339,7 +339,7 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (prop-name? p) (into (ordered.set/ordered-set)
+   (prop-name? p) (into (ordered-set)
                         (r/mapcat #(adjs* % p) (oset v)))
    :else (errorf "Don't know how to apply %s." p)))
 
@@ -353,7 +353,7 @@ can compute that like so:
        (oset
         (if (seq vs)
           (let [tm (type-matcher (first vs) ts)]
-            (into (ordered.set/ordered-set)
+            (into (ordered-set)
                   (r/filter (every-pred tm pred) vs)))
           vs)))))
 

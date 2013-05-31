@@ -2,8 +2,8 @@
   (:use funnyqt.emf)
   (:use funnyqt.query)
   (:use funnyqt.protocols)
-  (:use ordered.set)
-  (:use ordered.map)
+  (:use flatland.ordered.set)
+  (:use flatland.ordered.map)
   (:use clojure.test)
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
@@ -57,7 +57,7 @@
   ;; UniqueEList -> OrderedSet
   (let [uel (make-uniqueelist)
         clj-uel (emf2clj uel)]
-    (is (instance? ordered.set.OrderedSet clj-uel))
+    (is (instance? flatland.ordered.set.OrderedSet clj-uel))
     (is (== (count uel) (count clj-uel)))
     (is (= (seq uel) (seq clj-uel))))
   ;; EList -> vector

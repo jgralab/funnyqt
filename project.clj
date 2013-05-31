@@ -12,7 +12,7 @@
                  [org.clojure/core.cache "0.6.3"]
                  [de.uni-koblenz.ist/jgralab "7.6.3"]
                  [org.clojure/core.logic "0.8.3"]
-                 [ordered "1.3.2"]
+                 [org.flatland/ordered "1.5.1"]
                  [org.clojure/tools.macro "0.1.2"]
                  [emf-xsd-sdk "2.8.3"]]
   :profiles {:dev
@@ -22,7 +22,7 @@
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
-  :warn-on-reflection true
+  :global-vars {*warn-on-reflection* true}
   :jvm-opts ["-Xmx1G"]
   :license {:name "GNU General Public License, Version 3"
             :url "http://www.gnu.org/licenses/gpl.html"

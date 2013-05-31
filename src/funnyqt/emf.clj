@@ -4,8 +4,8 @@
   (:use funnyqt.emf-protocols)
   (:use funnyqt.utils)
   (:use funnyqt.query)
-  (:use ordered.set)
-  (:use ordered.map)
+  (:use flatland.ordered.set)
+  (:use flatland.ordered.map)
   (:require clojure.java.shell)
   (:require [clojure.core.cache :as cache])
   (:import
