@@ -40,9 +40,11 @@
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
-        v4 (create-vertex! g 'junctions.Crossroad)
+        ;; Also test the generic create function...
+        v4 (create-element! g 'junctions.Crossroad)
         e1 (create-edge! g 'localities.ContainsCrossroad v1 v2)
-        e2 (create-edge! g 'localities.ContainsCrossroad v3 v4)
+        ;; Also test the generic adj setter function...
+        e2 (add-adj! v3 :crossroads v4)
         e3 (create-edge! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
     (is (== 3 (.getECount g)) "Wrong edge count")))

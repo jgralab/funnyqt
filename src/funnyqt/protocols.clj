@@ -64,6 +64,12 @@
   (elements [model] [model type-spec]
     "Returns the lazy sequence of elements in `model` restricted by `type-spec`."))
 
+;;# Generic creation of model elements
+
+(defprotocol CreateElement
+  (create-element! [model cls]
+    "Creates a new element of type `cls` in `model`."))
+
 ;;# Type Matcher
 
 (defprotocol TypeMatcher
@@ -126,3 +132,8 @@
     "Gets all adjacent elements of `this` navigating `roles`.
   Doesn't error on intermediate unset roles."))
 
+(defprotocol ModifyAdjacencies
+  (set-adj!  [obj role obj])
+  (set-adjs! [obj role objs])
+  (add-adj!  [obj role obj])
+  (add-adjs! [obj role objs]))

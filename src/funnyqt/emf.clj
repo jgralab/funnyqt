@@ -689,15 +689,35 @@
 
 (defn ecreate!
   "Creates an EObject of EClass `ecls`.
-  `ecls` may be either an EClass or just an EClass name given as symbol,
-  string, or keyword.  If a `model` is provided, then add the new EObject to
-  it."
+  `ecls` may be either an EClass or just an EClass name given as symbol.  If a
+  `model` is provided and non-nil, then add the new EObject to it."
   ([ecls]
      (EcoreUtil/create (if (instance? EClass ecls)
                          ecls
                          (eclassifier ecls))))
   ([model ecls]
      (eadd! model (ecreate! ecls))))
+
+(extend-protocol CreateElement
+  EList
+  (create-element! [lst cls]
+    (ecreate! lst cls))
+  EMFModel
+  (create-element! [model cls]
+    (ecreate! model cls)))
+
+;;## Generic setting of props
+
+(extend-protocol ModifyAdjacencies
+  EObject
+  (set-adjs! [o role os]
+    (eset! o role os))
+  (set-adj! [o1 role o2]
+    (eset! o1 role o2))
+  (add-adjs! [o role os]
+    (apply eadd! o role (first os) (rest os)))
+  (add-adj! [o1 role o2]
+    (eadd! o1 (name role) o2)))
 
 ;;## EObject Deletion
 

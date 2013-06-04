@@ -974,6 +974,11 @@ functions `record` and `enum`."
                      cls
                      (attributed-element-class g cls))))
 
+(extend-protocol CreateElement
+  Graph
+  (create-element! [g cls]
+    (create-vertex! g cls)))
+
 (defn create-edge!
   "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.
   `cls` is an EdgeClass or a qualified name given as string, symbol, or keyword."
@@ -1003,12 +1008,6 @@ functions `record` and `enum`."
   [^Edge i ^Vertex v]
   (doto i (.setThat v)))
 
-(defn add-adj!
-  "Creates an edge matching `role` between `v` and every vertex in `adjs`."
-  [^Vertex v role & adjs]
-  (doseq [a adjs]
-    (.addAdjacence v (name role) a)))
-
 (defn unlink!
   "Unlinks the given vertex, i.e., deletes all incident edges matching `ts` and
   `ds`."
@@ -1022,21 +1021,25 @@ functions `record` and `enum`."
        (while (when-let [e (first-inc v tm dm)]
                 (delete! e))))))
 
-(defn set-adjs!
-  "Sets the `role` adjacency list of `v` to `adjvs`.
-  This means, first all incident edges of that role are deleted, and then new
-  edges are created."
-  [^Vertex v role adjvs]
-  (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
-        dec (.getDirectedEdgeClassForFarEndRole
-             ^VertexClass (attributed-element-class v)
-             (name role))
-        ec (.getEdgeClass dec)
-        ed (.getDirection dec)]
-    (unlink! v #(is-instance? % ec) ed))
-  (doseq [av adjvs]
-    (add-adj! v role av)))
-
+(extend-protocol ModifyAdjacencies
+  Vertex
+  (set-adjs! [v role vs]
+    (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+          dec (.getDirectedEdgeClassForFarEndRole
+               ^VertexClass (attributed-element-class v)
+               (name role))
+          _  (when-not dec (errorf "No %s role at vertex %s." role v))
+          ec (.getEdgeClass dec)
+          ed (.getDirection dec)]
+      (unlink! v #(is-instance? % ec) ed))
+    (add-adjs! v role vs))
+  (set-adj! [v1 role v2]
+    (set-adjs! v1 role [v2]))
+  (add-adjs! [v role vs]
+    (doseq [av vs]
+      (add-adj! v role av)))
+  (add-adj! [v1 role v2]
+    (.addAdjacence v1 (name role) v2)))
 
 ;;## Deletions
 

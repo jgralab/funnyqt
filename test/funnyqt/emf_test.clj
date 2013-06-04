@@ -223,11 +223,12 @@
          [:father :sons]
          [:mother :daughters])))
 
-(defn  make-test-familymodel
+(defn make-test-familymodel
   "Creates a more or less random FamilyModel with `fnum` families and `mnum`
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
-  (let [fm (ecreate! 'FamilyModel)
+  (let [m (new-model) ;; Also test the generic creation function...
+        fm (create-element! m 'FamilyModel)
         make-family (fn [i]
                       (doto (ecreate! 'Family)
                         (eset! :lastName (str "Family" i))
@@ -264,17 +265,16 @@
             (eset! fam :father    (random-free-member mems :familyFather))
             (eset! fam :mother    (random-free-member mems :familyMother))
             (eset! fam :sons      (random-members mems))
-            (eset! fam :daughters (random-members mems))
+            ;; Also try the generic version...
+            (set-adjs! fam :daughters (random-members mems))
             (recur (rest fams) (conj r fam))))))
-    fm))
+    m))
 
 (deftest test-ecreate
-  (let [fm (make-test-familymodel 100 1000)]
-    (are [c s] (== c
-                   (count (eallcontents fm s)))
-         ;; Note: The FamilyModel itself is not a content
-         1100 nil
-         0    'FamilyModel
+  (let [m (make-test-familymodel 100 1000)]
+    (are [c s] (== c (count (eallobjects m s)))
+         1101 nil
+         1    'FamilyModel
          100  'Family
          1000 'Member
          1100 '[Family Member])
@@ -282,7 +282,7 @@
     (is (forall? (fn [f]
                    (and (eget f :father)
                         (eget f :mother)))
-                 (econtents fm 'Family)))))
+                 (eallobjects m 'Family)))))
 
 (deftest test-eget-raw
   (let [i 1000

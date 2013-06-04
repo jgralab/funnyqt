@@ -1,5 +1,6 @@
 (ns funnyqt.misc-tests.operational-f2m-tg
   (:use funnyqt.operational)
+  (:use funnyqt.protocols)
   (:use funnyqt.query)
   (:use funnyqt.utils)
   (:use clojure.test)
