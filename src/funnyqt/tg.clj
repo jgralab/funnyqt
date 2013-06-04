@@ -918,9 +918,9 @@ functions `record` and `enum`."
   ([v ts dir]
      (riseq-internal v (type-matcher v ts) (direction-matcher dir))))
 
-(extend-protocol Entities
+(extend-protocol Elements
   Graph
-  (entities
+  (elements
     ([this]
        (vseq this))
     ([this ts]

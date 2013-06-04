@@ -338,9 +338,9 @@
   ([m] (eallobjects-internal m identity))
   ([m ts] (eallobjects-internal m ts)))
 
-(extend-protocol Entities
+(extend-protocol Elements
   EMFModel
-  (entities
+  (elements
     ([this]
        (eallobjects this))
     ([this ts]

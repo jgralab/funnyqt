@@ -60,9 +60,9 @@
 
 ;;# Generic Access to Vertices and EObjects
 
-(defprotocol Entities
-  (entities [model] [model type-spec]
-    "Returns the lazy sequence of entities in `model` restricted by `type-spec`."))
+(defprotocol Elements
+  (elements [model] [model type-spec]
+    "Returns the lazy sequence of elements in `model` restricted by `type-spec`."))
 
 ;;# Type Matcher
 
