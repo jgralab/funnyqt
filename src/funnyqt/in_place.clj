@@ -125,7 +125,27 @@
                    more)
              (convert-spec name (:debug (meta name)) more))))))
 
-;;# Higher order rules
+;;# Higher order rule application functions
+
+(defn any
+  "Applies the first matching rule in `rules` with `args` and returns its
+  result.  If no rule matches, returns nil."
+  [rules & args]
+  (loop [rs rules]
+    (when (seq rs)
+      (let [r (apply (first rs) args)]
+        (or r (recur (rest rs)))))))
+
+(defn all
+  "Applies all `rules` with `args` in sequence and returns the value of the
+  last rule, but only if all rules matched.  If at least one rule fails, nil is
+  returned."
+  [rules & args]
+  (loop [rs rules, ret true]
+    (if (seq rs)
+      (let [r (apply (first rs) args)]
+        (recur (rest rs) (and ret r)))
+      ret)))
 
 (defn iteratively
   "Applies the rule `r` with `args` as long as it returns logical true.
@@ -159,9 +179,11 @@
       succs)))
 
 (defn choose
-  "Randomly chooses one of the given `rules` and applies it.
+  "Randomly chooses one of the given `rules` and applies it with `args`.
   Returns that fun's return value or nil, if no fun was applicable."
-  [& rules]
-  (let [r (rand-nth rules)
-        v (r)]
-    (or v (recur (remove #(= r %) rules)))))
+  [rules & args]
+  (loop [rs (set rules)]
+    (when (seq rs)
+      (let [r (rand-nth rules)
+            v (apply r args)]
+        (or v (recur (disj rs r)))))))

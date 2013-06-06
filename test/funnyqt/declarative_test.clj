@@ -35,10 +35,8 @@
     (the w)))
 
 
-(deftransformation families2genealogy [[in :emf]
-                                       [out :tg]]
-  (^:top member2person [m]
-         :generalizes [member2male member2female])
+(deftransformation families2genealogy [[in :emf] [out :tg]]
+  (^:top member2person [m] :generalizes [member2male member2female])
   (member2person-setter [m p]
                         (set-value! p :fullName
                                     (str (emf/eget m :firstName)
