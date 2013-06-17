@@ -55,8 +55,8 @@
                       (m/name-with-attributes name more)
                       [name more])]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*
+                                              (:pattern-expansion-context (meta *ns*)))]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
              (mapv (partial convert-spec name (:debug (meta name)))
@@ -72,8 +72,8 @@
   (when-not (vector? rspecs)
     (errorf "No rspec vector in letmapping!"))
   (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                            (:pattern-expansion-context (meta *ns*))
-                                            *pattern-expansion-context*)]
+                                            *pattern-expansion-context*
+                                            (:pattern-expansion-context (meta *ns*)))]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
                                (mapv (partial convert-spec n (:debug (meta n)))
@@ -117,8 +117,8 @@
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*
+                                              (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
              (mapv (partial convert-spec name (:debug (meta name)))
