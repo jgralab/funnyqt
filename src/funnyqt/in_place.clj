@@ -38,9 +38,10 @@
           (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
             (when (and (every? (complement nil?) ~matchsyms)
                        ~@(if debug
-                           `((when *on-matched-rule-fn*
+                           `((if *on-matched-rule-fn*
                                (*on-matched-rule-fn*
-                                '~name ~args ~matchsyms)))
+                                '~name ~args ~matchsyms)
+                               true))
                            [true]))
               ~@body))))
       ;; No match given
