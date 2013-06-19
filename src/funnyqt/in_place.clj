@@ -14,9 +14,13 @@
        :doc "A function that is invoked when a rule matches,
   mainly for debugging purposes.
   The function gets the following arguments: [r args match]
+
     - r is a symbol denoting the current matched rule
     - args is the vector of the rule's input arguments
-    - match is the vector of the elements matched by the rule"}
+    - match is the vector of the elements matched by the rule
+
+  If the function returns logical true, then the rule becomes executed.  If it
+  returns logical false, then it won't be executed."}
   *on-matched-rule-fn* nil)
 
 (defn ^:private convert-spec
@@ -32,11 +36,12 @@
             body (next more)]
         `(~args
           (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
-            (when (every? (complement nil?) ~matchsyms)
-              ~@(when debug
-                  `((when *on-matched-rule-fn*
-                      (*on-matched-rule-fn*
-                       '~name ~args ~matchsyms))))
+            (when (and (every? (complement nil?) ~matchsyms)
+                       ~@(if debug
+                           `((when *on-matched-rule-fn*
+                               (*on-matched-rule-fn*
+                                '~name ~args ~matchsyms)))
+                           [true]))
               ~@body))))
       ;; No match given
       `(~args ~@more))))
