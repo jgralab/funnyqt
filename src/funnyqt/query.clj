@@ -119,32 +119,70 @@
 
 ;;# Logical (higher-order) funs
 
-(defn xor
-  "Logical XOR: returns true iff exactly one argument is true.
-  (xor) returns false."
+(defmacro xor
+  "Logical XOR: returns logical true iff an odd number of arguments is true."
   ([] false)
-  ([f & r]
-     (loop [t false, f (conj r f)]
-       (if(seq f)
-         (let [fv (first f)]
-           (cond
-            (and t fv)       false
-            (and (not t) fv) (recur true (rest f))
-            :else            (recur t (rest f))))
-         t))))
+  ([x] x)
+  ([x y & more]
+     (if (seq more)
+       `(xor ~(last more)
+             (xor ~@(butlast more) ~x ~y))
+       `(let [x# ~x, y# ~y]
+          (if x#
+            (if y# false x#)
+            (if y# y# false))))))
+
+(defn xor*
+  "Logical XOR: returns true iff an odd number of arguments is true.
+  Implemented as a function, so not short-cirquiting, but you can pass it to
+  higher-order functions."
+  ([& xs]
+     (reduce #(xor %1 %2) false xs)))
+
+(defn and*
+  "Logical AND, implemented as a function, so not short-cirquiting, but you can
+  pass it to higher-order functions."
+  [& xs]
+  (reduce #(and %1 %2) true xs))
+
+(defmacro nand
+  "Logical NAND."
+  [& xs]
+  `(not (and ~@xs)))
+
+(defn nand*
+  "Logical NAND, implemented as a function, so not short-cirquiting, but you
+  can pass it to higher-order functions."
+  [& xs]
+  (not (apply and* xs)))
+
+(defn or*
+  "Logical AND, implemented as a function, so not short-cirquiting, but you can
+  pass it to higher-order functions."
+  [& xs]
+  (reduce #(or %1 %2) nil xs))
+
+(defmacro nor
+  "Logical NOR."
+  [& xs]
+  `(not (or ~@xs)))
+
+(defn nor*
+  "Logical NOR, implemented as a function, so not short-cirquiting, but you
+  can pass it to higher-order functions."
+  [& xs]
+  (not (apply or* xs)))
 
 (defn xor-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns
-  logical true iff exactly one of the predicates returns true."
+  logical true iff an odd number of the predicates returns true."
   [& ps]
   (fn [& args]
-    (loop [good false, p ps]
+    (loop [good 0, p ps]
       (if (seq p)
         (let [r (apply (first p) args)]
-          (if (and good r)
-            false  ;; second true value, so stop it!
-            (recur (or r good) (rest p))))
-        good))))
+          (recur (if r (inc good) good) (rest p)))
+        (odd? good)))))
 
 (defn and-fn
   "Takes a seq of predicates `ps` and returns a varargs function that returns

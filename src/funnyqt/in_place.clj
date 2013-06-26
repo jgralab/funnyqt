@@ -1,6 +1,6 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
-  (:use [funnyqt.utils :only [errorf pr-identity]])
+  (:use [funnyqt.utils :only [errorf pr-identity prewalk]])
   (:use [funnyqt.query :only [the]])
   (:use [funnyqt.pmatch])
   (:use funnyqt.protocols)
@@ -15,17 +15,61 @@
   mainly for debugging purposes.
   The function gets the following arguments: [r args match]
 
-    - r is a symbol denoting the current matched rule
+    - r is a symbol denoting the current matching rule
     - args is the vector of the rule's input arguments
-    - match is the vector of the elements matched by the rule
-
-  If the function returns logical true, then the rule becomes executed.  If it
-  returns logical false, then it won't be executed."}
+    - match is the vector of the elements matched by the rule"}
   *on-matched-rule-fn* nil)
+
+(def ^{:dynamic true
+       :doc "Only used internally.  See `as-pattern' macro."}
+  *as-pattern* false)
+
+(defmacro as-pattern
+  "Performs the given rule application `rule-app` as a pattern.
+  That is, returns the lazy sequence of matches without applying the rule's
+  actions."
+  [rule-app]
+  `(binding [*as-pattern* true]
+     ~rule-app))
+
+(def ^{:dynamic true
+       :doc "Only used internally.  See `as-test' macro."}
+  *as-test* false)
+
+(defmacro as-test
+  "Performs the given rule application `rule-app` as a test.
+  That is, lets the rule find a match and returns a thunk that can be applied
+  later to perform the rule's actions.  If there's no match, returns nil.
+
+  Note that if the actions of the rule `recur` to this rule, when called with
+  `as-test` you'll get a plain, stack-consuming recursion instead because
+  `recur` would recur to the thunk, not to the rule."
+  [rule-app]
+  `(binding [*as-test* true]
+     ~rule-app))
+
+(defn ^:private unrecur
+  "Replaces (recur ...) forms with (fnname ...) forms where *as-test* in bound to false.
+  Existing (fnname ...) forms are also wrapped by bindings of *as-test* to
+  false.  Doesn't replace in nested `loop` or `fn` forms."
+  [fnname form]
+  (prewalk (fn [el]
+             (if (and (seq? el)
+                      (or (= (first el) 'recur)
+                          (= (first el) fnname)))
+               `(binding [*as-test* false]
+                  (~fnname ~@(next el)))
+               el))
+           (fn [el]
+             (and (seq? el)
+                  (let [x (first el)]
+                    (or (= x `clojure.core/loop)
+                        (= x `clojure.core/fn)))))
+           form))
 
 (defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
-  [name debug spec]
+  [name spec]
   (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
@@ -35,22 +79,25 @@
             matchsyms (bindings-to-arglist match)
             body (next more)]
         `(~args
-          (when-let [~matchsyms (first (pattern-for ~match ~matchsyms))]
-            (when (and (every? (complement nil?) ~matchsyms)
-                       ~@(if debug
-                           `((if *on-matched-rule-fn*
-                               (*on-matched-rule-fn*
-                                '~name ~args ~matchsyms)
-                               true))
-                           [true]))
-              ~@body))))
+          (let [matches# (pattern-for ~match ~matchsyms)]
+            (if *as-pattern*
+              matches#
+              (when-let [~matchsyms (first matches#)]
+                (when *on-matched-rule-fn*
+                  (*on-matched-rule-fn* '~name ~args ~matchsyms))
+                (if *as-test*
+                  (fn [] ~@(unrecur name body))
+                  (do ~@body)))))))
       ;; No match given
-      `(~args ~@more))))
+      `(~args
+        (cond
+         *as-pattern* (errorf "Can't apply rule %s without pattern as pattern!" name)
+         *as-test*    (fn [] ~@(unrecur name more))
+         :else        (do ~@more))))))
 
 (defmacro rule
-  "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way as fn
-  stands to defn.  Also see `letrule`.
-  :debug metadata on the rule's local name is supported."
+  "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way
+  as `fn` stands to `defn`.  Also see `letrule`."
   {:arglists '([name? [args] [pattern] & body]
                  [name? ([args] [pattern] & body)+])}
   [& more]
@@ -65,14 +112,12 @@
                                               (:pattern-expansion-context (meta *ns*)))]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
-             (mapv (partial convert-spec name (:debug (meta name)))
-                   more)
-             (convert-spec name (:debug (meta name)) more))))))
+             (mapv (partial convert-spec name) more)
+             (convert-spec name more))))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
-  Also see `rule` and `defrule`.
-  :debug metadata on the rule's name is supported."
+  Also see `rule` and `defrule`."
   {:arglists '([[rspecs] & body])}
   [rspecs & body]
   (when-not (vector? rspecs)
@@ -82,9 +127,8 @@
                                             (:pattern-expansion-context (meta *ns*)))]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
-                               (mapv (partial convert-spec n (:debug (meta n)))
-                                     more)
-                               (convert-spec n (:debug (meta n)) more))))
+                               (mapv (partial convert-spec n) more)
+                               (convert-spec n more))))
                  rspecs)]
        ~@body)))
 
@@ -109,15 +153,16 @@
         (action3 c)
         (action4 a c)))
 
-  `body` is applied on the match.
+  The `body` may contain arbitrary code acting upon `args` and the elements
+  matched by `pattern`.
 
-  Applying a rule means finding a single match and applying `body` on it.  It
-  returns the value of the last form in `body`, and any logical true value
-  means the rule succeeded.  Thus, one should take care to always return
-  logical true if the rule was applied.
+  Rules expand to plain Clojure functions.  When a rule gets applied, it tries
+  to find a match.  If it can't find one, it returns logical false.  If it
+  finds one, it applies its `body` returning the value of the last form in
+  `body`, which should be logical true by convention.
 
-  If a defrule form has ^:debug metadata, on every invocation of that rule
-  *on-matched-rule-fn* is invoked which you can use to inspect matches."
+  When a rule matches, *on-matched-rule-fn* is invoked which you can use to
+  inspect matches."
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
                  [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
@@ -127,33 +172,82 @@
                                               (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
-             (mapv (partial convert-spec name (:debug (meta name)))
-                   more)
-             (convert-spec name (:debug (meta name)) more))))))
+             (mapv (partial convert-spec name) more)
+             (convert-spec name more))))))
 
 ;;# Higher order rule application functions
 
-(defn any
+(defn apply-first
   "Applies the first matching rule in `rules` with `args` and returns its
   result.  If no rule matches, returns nil."
   [rules & args]
   (loop [rs rules]
     (when (seq rs)
-      (let [r (apply (first rs) args)]
-        (or r (recur (rest rs)))))))
+      (or (apply (first rs) args)
+          (recur (rest rs))))))
 
-(defn all
-  "Applies all `rules` with `args` in sequence and returns the value of the
-  last rule, but only if all rules matched.  If at least one rule fails, nil is
-  returned."
+(defn apply-all
+  "Applies all `rules` with `args` in sequence and returns the value of
+  applying the given `combfn` to the results of all applications.
+
+  Useful combining functions are `and*`, `or*`, `nand*`, `nor*` and `xor*`
+  defined in the funnyqt.query namespace."
+  [rules combfn & args]
+  (loop [rs rules, rets []]
+    (if (seq rs)
+      (let [r (apply (first rs) args)]
+        (recur (rest rs) (conj rets r)))
+      (apply combfn rets))))
+
+(defn apply-all:and
+  "Applies all `rules` with `args` and returns logical true iff all rules could
+  be applied.  This is identical to `apply-all` with `funnyqt.query/and*` as
+  combfn."
+  [rules & args]
+  (apply-all rules funnyqt.query/and* args))
+
+(defn apply-all:or
+  "Applies all `rules` with `args` and returns logical true iff at least one
+  rule could be applied.  This is identical to `apply-all` with
+  `funnyqt.query/or*` as combfn."
+  [rules & args]
+  (apply-all rules funnyqt.query/or* args))
+
+(defn apply-sequentially
+  "Applies `rules` in sequence with `args` until one rule returns logical
+  false.  Returns the value of the last rule application iff all rules could be
+  applied.  Else, it returns logical false.
+
+  Thus,            (apply-sequentially [r1 r2 r3 r4 r5] x y)
+  is equivalent to (and (r1 x y) (r2 x y) (r3 x y) (r4 x y) (r5 x y))"
   [rules & args]
   (loop [rs rules, ret true]
     (if (seq rs)
-      (let [r (apply (first rs) args)]
-        (recur (rest rs) (and ret r)))
+      (when-let [v (apply (first rs) args)]
+        (recur (rest rs) v))
       ret)))
 
-(defn iteratively
+(defn apply-sequentially*
+  "Applies `rules` in sequence until one rule returns logical false.  Returns
+  the value of the last rule application iff all rules could be applied.  Else,
+  it returns logical false.  The first rule is applied with `args`, all others
+  are applied with the result of the previous rule application.
+
+  Thus,            (apply-sequentially [r1 r2 r3 r4 r5] x y)
+  is equivalent to (when-let [r (r1 x y)]
+                     (when-let [r (apply r2 x)]
+                       (when-let [r (apply r3 x)]
+                         (when-let [r (apply r4 x)]
+                           (when-let [r (apply r5 x)]
+                             r)))))."
+  [rules & args]
+  (loop [rs rules, ret (or args true)]
+    (if (seq rs)
+      (when-let [v (apply (first rs) ret)]
+        (recur (rest rs) v))
+      ret)))
+
+(defn apply-repeatedly
   "Applies the rule `r` with `args` as long as it returns logical true.
   Returns the number of successful applications or nil if it couldn't be
   applied at least once."
@@ -163,7 +257,7 @@
       (recur (apply r args) (inc i))
       (when-not (zero? i) i))))
 
-(defn iteratively*
+(defn apply-repeatedly*
   "Applies the rule `r` as long as it returns logical true.
   On the first application, `r` receives `args`.  The second till last
   application receive the value of the previous successful application.
@@ -175,21 +269,34 @@
       (recur (apply r val) (inc i))
       (when-not (zero? i) i))))
 
-(defn ntimes
+(defn apply-ntimes
   "Applies the rule `r` at most `n` times and returns the number of successfull
   applications.  Stops as soon as `r` fails."
   [n r & args]
-  (loop [n n, succs 0]
-    (if (and (pos? n) (apply r args))
-      (recur (dec n) (inc succs))
-      succs)))
+  (loop [i n]
+    (if (and (pos? i) (apply r args))
+      (recur (dec i))
+      (- n i))))
 
-(defn choose
-  "Randomly chooses one of the given `rules` and applies it with `args`.
-  Returns that fun's return value or nil, if no fun was applicable."
+(defn apply-ntimes*
+  "Applies the rule `r` at most `n` times and returns the number of successfull
+  applications.  Stops as soon as `r` fails.  On the first application, `r`
+  receives `args`.  The second to last application receives the results of the
+  previous application."
+  [n r & args]
+  (loop [i n, val args]
+    (if (pos? i)
+      (if-let [val (apply r val)]
+        (recur (dec i) val)
+        (- n i))
+      (- n i))))
+
+(defn apply-randomly
+  "Randomly chooses one applicable rule in `rules` and applies it with `args`.
+  Returns that rule's return value or nil if no rule was applicable."
   [rules & args]
   (loop [rs (set rules)]
     (when (seq rs)
-      (let [r (rand-nth rules)
+      (let [r (rand-nth rs)
             v (apply r args)]
         (or v (recur (disj rs r)))))))

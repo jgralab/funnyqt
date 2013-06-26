@@ -44,14 +44,14 @@
 
 (deftest test-replace-binops
   (let [tree (bin-tree)]
-    (is (== 4 (iteratively replace-binaryop tree)))
+    (is (== 4 (apply-repeatedly replace-binaryop tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
     (is (== 1.65 (value (the (vseq tree)) :value)))))
 
 (deftest test-replace-binops2
   (let [tree (bin-tree)]
-    (is (== 4 (iteratively
+    (is (== 4 (apply-repeatedly
                ;; Also try with an anonymous rule
                (rule [g]
                      [b<BinaryOp> -<HasArg>-> a1<Const>
@@ -68,7 +68,7 @@
 
 (deftest test-replace-binops3
   (let [tree (bin-tree)]
-    (is (== 4 (iteratively
+    (is (== 4 (apply-repeatedly
                ;; Also try with an anonymous rule with a label and more than
                ;; one sig.
                (rule foo
@@ -97,7 +97,7 @@
                  (set-value! c :value (eval-exp b))
                  (relink! b c nil :in))
                (delete! [b a1 a2]))]
-             (is (== 4 (iteratively repl-bin-op tree)))
+             (is (== 4 (apply-repeatedly repl-bin-op tree)))
              (is (== 1 (vcount tree)))
              (is (== 0 (ecount tree)))
              (is (== 1.65 (value (the (vseq tree)) :value))))))
@@ -114,7 +114,7 @@
                     (set-value! c :value (eval-exp b))
                     (relink! b c nil :in))
                   (delete! [b a1 a2])))]
-      (is (== 4 (iteratively repl-bin-op tree)))
+      (is (== 4 (apply-repeatedly repl-bin-op tree)))
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))
       (is (== 1.65 (value (the (vseq tree)) :value))))))

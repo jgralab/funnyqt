@@ -43,9 +43,9 @@
   (is (= [[1 2] [2 3] [3 4] [4 nil]]
          (succ-seq [1 2 3 4]))))
 
-(deftest test-xor-and-xor-fn
+(deftest test-xor*-and-xor-fn
   (are [expected in] (= expected
-                        (apply xor in)
+                        (apply xor* in)
                         ((apply xor-fn (map constantly in))))
        false []
        true  [true]
@@ -56,7 +56,8 @@
        false [false false]
        true  [true false false false false]
        true  [false false false false true]
-       false [true false false false false true]))
+       false [true false false false false true]
+       true  [true false false false true true]))
 
 (deftest test-xor-fn
   (are [expected in] (= expected ((apply xor-fn in) 15))
@@ -64,10 +65,56 @@
        true  [#(== 13 %) #(== 15 %) #(== 17 %)]
        ;; No pred matches
        false [#(== 13 %) #(== 151 %) #(== 17 %)]
-       ;; More than one matches
+       ;; 2 preds match
        false [#(== 13 %) #(== 15 %) #(== 17 %) #(== 0 (mod % 5))]
+       ;; 3 preds match
+       true  [#(< % 20) #(== 13 %) #(== 15 %) #(== 17 %) #(== 0 (mod % 5))]
        ;; No pred given
        false []))
+
+(deftest test-logicals
+  ;; AND
+  (are [expected in] (= expected (apply and* in) (reduce #(and %1 %2) true in))
+       3     [1 2 3]
+       true  []
+       false [1 false]
+       nil   [nil 1 2 3 4])
+  (is (= (and) (and*)))
+  (is (= (and 1 2 3) (and* 1 2 3)))
+  (is (= (and 1 2 nil 3) (and* 1 2 nil 3)))
+  ;; NAND
+  (are [expected in] (= expected (apply nand* in) (not (reduce #(and %1 %2) true in)))
+       false [1 2 3]
+       false []
+       true  [1 false]
+       true  [nil 1 2 3 4])
+  ;; OR
+  (are [expected in] (= expected (apply or* in) (reduce #(or %1 %2) nil in))
+       1     [1 2 3]
+       nil   []
+       1     [1 false]
+       1     [nil 1 2 3 4]
+       false [nil nil false])
+  (is (= (or) (or*)))
+  (is (= (or 1 2 3) (or* 1 2 3)))
+  (is (= (or nil false nil) (or* nil false nil)))
+  (is (= (or nil 1 false 2 nil) (or* nil 1 false 2 nil)))
+  ;; NOR
+  (are [expected in] (= expected (apply nor* in) (not (reduce #(or %1 %2) nil in)))
+       false [1 2 3]
+       true  []
+       false [1 false]
+       false [nil 1 2 3 4]
+       true  [nil nil false])
+  ;; XOR
+  (are [expected in] (= expected (apply xor* in) (reduce #(xor %1 %2) false in))
+       3     [1 2 3]
+       false []
+       1     [1 false]
+       false [nil 1 2 3 4]
+       false [nil nil false])
+  (is (= (xor) (xor*)))
+  (is (= (xor 1 2 3) (xor* 1 2 3))))
 
 (deftest test-and-fn-nand-fn
   (are [expected in] (= expected

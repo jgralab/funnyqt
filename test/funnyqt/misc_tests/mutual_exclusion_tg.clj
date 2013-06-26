@@ -128,11 +128,11 @@
     (request-rule g))
   ;; Handle the requests...
   (if param-pass
-    (iteratively #(apply give-rule g (apply release-rule g (take-rule g))))
-    (iteratively #(do
-                    (take-rule g)
-                    (release-rule g)
-                    (give-rule g)))))
+    (apply-repeatedly #(apply give-rule g (apply release-rule g (take-rule g))))
+    (apply-repeatedly #(do
+                         (take-rule g)
+                         (release-rule g)
+                         (give-rule g)))))
 
 (defn g-sts
   "Returns an initial graph for the STS.
@@ -177,13 +177,13 @@
   (unlock-rule g)
   (blocked-rule g)
   (if param-pass
-    (iteratively #(or (iteratively* waiting-rule g)
-                      (waiting-rule g)))
-    (iteratively #(waiting-rule g)))
+    (apply-repeatedly #(or (apply-repeatedly* waiting-rule g)
+                           (waiting-rule g)))
+    (apply-repeatedly #(waiting-rule g)))
   (ignore-rule g)
   (if param-pass
-    (iteratively #(apply release-star-rule % (apply take-rule % (give-rule %))) g)
-    (iteratively #(do (give-rule g) (take-rule g) (release-star-rule g))))
+    (apply-repeatedly #(apply release-star-rule % (apply take-rule % (give-rule %))) g)
+    (apply-repeatedly #(do (give-rule g) (take-rule g) (release-star-rule g))))
   (give-rule g)
   (take-rule g))
 

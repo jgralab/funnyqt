@@ -56,7 +56,7 @@
   ;;    Execution time mean : 196.353706 ms
   #_(c/bench (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))
   (dotimes [i 10]
-    (println (format "%s. run:" i))
+    (print (format "%s. run: " i))
     (time (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))))
 
 (deftest test-polyfn-aec-name
