@@ -351,11 +351,9 @@
       (.add bp (JButton. (action "View model" #(viz/print-model model ".gtk"))))
       (.add bp (JButton. (deliver-action "Cancel" nil)))
       (.pack d)
-      (let [pnt (-> (java.awt.MouseInfo/getPointerInfo) .getLocation)
-            x (.x pnt)
-            y (.y pnt)]
-        (.setLocation d (or pos (java.awt.Point. (- x (/ (.getWidth d) 2))
-                                                 (- y (/ (.getHeight d) 2))))))
+      (if pos
+        (.setLocation d pos)
+        (.setLocationRelativeTo d nil))
       (.setVisible d true))))
 
 (defn apply-interactively
