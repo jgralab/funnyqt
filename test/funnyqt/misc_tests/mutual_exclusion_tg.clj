@@ -65,7 +65,8 @@
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
   releases that resource."
-  ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>]
+  ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>
+        :when (empty? (iseq p 'Request))]
      (release-rule g r hb p))
   ([g r hb p]
      (when (empty? (iseq p 'Request))

@@ -70,7 +70,8 @@
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
-  ([model] [r<Resource> -<holder>-> p]
+  ([model] [r<Resource> -<holder>-> p
+            :when (empty? (eget p :requested))]
      (release-rule model r p))
   ([model r p]
      (when (empty? (eget p :requested))

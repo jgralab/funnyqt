@@ -5,7 +5,12 @@
   (:use [funnyqt.pmatch])
   (:use funnyqt.protocols)
   (:use [funnyqt.query :only [member?]])
-  (:require [clojure.tools.macro :as m]))
+  (:require [clojure.tools.macro :as m])
+  (:require [funnyqt.visualization :as viz])
+  (:import (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
+                        JPanel JLabel JScrollPane)
+           (java.awt.event ActionEvent)
+           (java.awt Container GridLayout)))
 
 
 ;;# Rules
@@ -86,7 +91,9 @@
                 (when *on-matched-rule-fn*
                   (*on-matched-rule-fn* '~name ~args ~matchsyms))
                 (if *as-test*
-                  (fn [] ~@(unrecur name body))
+                  (with-meta (fn [] ~@(unrecur name body))
+                    {:args ~args
+                     :match ~matchsyms})
                   (do ~@body)))))))
       ;; No match given
       `(~args
@@ -300,3 +307,71 @@
       (let [r (rand-nth rs)
             v (apply r args)]
         (or v (recur (disj rs r)))))))
+
+(defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
+  (let [d  (javax.swing.JDialog.)
+        cp (.getContentPane d)
+        rp (JPanel.)
+        sp (JScrollPane. rp)
+        bp (JPanel.)]
+    (letfn [(action ^javax.swing.Action [name f]
+              (proxy [AbstractAction] [name]
+                (actionPerformed [ev]
+                  (f))))
+            (deliver-action ^javax.swing.Action [name val]
+              (proxy [AbstractAction] [name]
+                (actionPerformed [ev]
+                  (deliver thunkp val)
+                  (.dispose d))))]
+      (.setTitle d "Select a rule to apply")
+      ;; Deliver nil if the window is closed.
+      (.addWindowListener d (proxy [java.awt.event.WindowAdapter] []
+                              (windowClosed [ev]
+                                (when-not (instance? java.awt.Point)
+                                  (deliver posp (.getLocation d)))
+                                (deliver thunkp nil))))
+      (.setLayout cp (BoxLayout. cp BoxLayout/Y_AXIS))
+      (.setLayout rp (GridLayout. (count rule-var-thunk-tups) 3))
+      (.add cp sp)
+      (.add cp bp)
+      (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
+      ;; The rule panel rp
+      (doseq [[rvar thunk] rule-var-thunk-tups
+              :let [panel (JPanel.)]]
+        (.add panel (JLabel. (str (:name (meta rvar)) ":")))
+        (.add panel (JButton. (action
+                               "Show Match"
+                               #(viz/print-model
+                                 model ".gtk"
+                                 :mark (concat (:args (meta thunk))
+                                               (:match (meta thunk)))))))
+        (.add panel (JButton. (deliver-action "Apply Rule" thunk)))
+        (.add rp panel))
+      ;; The button panel bp
+      (.add bp (JButton. (action "View model" #(viz/print-model model ".gtk"))))
+      (.add bp (JButton. (deliver-action "Cancel" nil)))
+      (.pack d)
+      (let [pnt (-> (java.awt.MouseInfo/getPointerInfo) .getLocation)
+            x (.x pnt)
+            y (.y pnt)]
+        (.setLocation d (or pos (java.awt.Point. (- x (/ (.getWidth d) 2))
+                                                 (- y (/ (.getHeight d) 2))))))
+      (.setVisible d true))))
+
+(defn apply-interactively
+  "Interactively applies the rules being the values of `rule-vars`."
+  [model rule-vars & args]
+  (loop [pos nil, posp (promise)]
+    (let [rule-thunk-tups (mapcat (fn [rv]
+                                    (let [thunk (as-test (apply @rv args))]
+                                      (when thunk
+                                        [[rv thunk]])))
+                                  rule-vars)
+          t   (promise)]
+      (if (seq rule-thunk-tups)
+        (select-rule-dialog model rule-thunk-tups t pos posp)
+        (println "None of the rules is applicable."))
+      (when-let [thunk @t]
+        (let [pos @posp]
+          (thunk)
+          (recur pos (promise)))))))
