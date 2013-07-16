@@ -8,9 +8,9 @@
   (:require [clojure.tools.macro :as m])
   (:require [funnyqt.visualization :as viz])
   (:import (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
-                        JPanel JLabel JScrollPane)
-           (java.awt.event ActionEvent)
-           (java.awt Container GridLayout)))
+                        JPanel JLabel JScrollPane JComboBox Action)
+           (java.awt.event ActionEvent ItemEvent ItemListener)
+           (java.awt Container GridBagLayout GridBagConstraints)))
 
 
 ;;# Rules
@@ -91,9 +91,13 @@
                 (when *on-matched-rule-fn*
                   (*on-matched-rule-fn* '~name ~args ~matchsyms))
                 (if *as-test*
-                  (with-meta (fn [] ~@(unrecur name body))
-                    {:args ~args
-                     :match ~matchsyms})
+                  (let [curmatch# (atom ~matchsyms)]
+                    (with-meta (fn []
+                                 (let [~matchsyms @curmatch#]
+                                   ~@(unrecur name body)))
+                      {:current-match-atom curmatch#
+                       :args ~args
+                       :all-matches matches#}))
                   (do ~@body)))))))
       ;; No match given
       `(~args
@@ -313,12 +317,14 @@
         cp (.getContentPane d)
         rp (JPanel.)
         sp (JScrollPane. rp)
-        bp (JPanel.)]
-    (letfn [(action ^javax.swing.Action [name f]
+        bp (JPanel.)
+        gridbag (GridBagLayout.)
+        gridbagconsts (GridBagConstraints.)]
+    (letfn [(action ^Action [name f]
               (proxy [AbstractAction] [name]
                 (actionPerformed [ev]
                   (f))))
-            (deliver-action ^javax.swing.Action [name val]
+            (deliver-action ^Action [name val]
               (proxy [AbstractAction] [name]
                 (actionPerformed [ev]
                   (deliver thunkp val)
@@ -331,23 +337,33 @@
                                   (deliver posp (.getLocation d)))
                                 (deliver thunkp nil))))
       (.setLayout cp (BoxLayout. cp BoxLayout/Y_AXIS))
-      (.setLayout rp (GridLayout. (count rule-var-thunk-tups) 3))
+      (.setLayout rp gridbag)
       (.add cp sp)
       (.add cp bp)
       (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
       ;; The rule panel rp
+      (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
       (doseq [[rvar thunk] rule-var-thunk-tups
-              :let [panel (JPanel.)]]
-        (.add panel (JLabel. (str (:name (meta rvar)) ":")))
-        (.add panel (JButton. (action
-                               "Show Match"
-                               #(viz/print-model
-                                 model ".gtk"
-                                 :mark (concat (:args (meta thunk))
-                                               (:match (meta thunk)))))))
-        (.add panel (JButton. (deliver-action "Apply Rule" thunk)))
-        (.add rp panel))
-      ;; The button panel bp
+              :let [label (JLabel. (str (:name (meta rvar)) ":"))
+                    cb (JComboBox. ^objects (to-array (:all-matches (meta thunk))))
+                    viewb (JButton. (action
+                                     "Show Match"
+                                     #(viz/print-model
+                                       model ".gtk"
+                                       :mark (concat (:args (meta thunk))
+                                                     @(:current-match-atom (meta thunk))))))
+                    applyb (JButton. (deliver-action "Apply Rule" thunk))]]
+        (.addItemListener cb (reify ItemListener
+                               (itemStateChanged [this ev]
+                                 (when (== (.getStateChange ev) ItemEvent/SELECTED)
+                                   (reset! (:current-match-atom (meta thunk))
+                                           (.getItem ev))))))
+        (.add rp label)
+        (.add rp cb)
+        (.add rp viewb)
+        (.add rp applyb)
+        (.setConstraints gridbag applyb gridbagconsts))
+      ;; The button rp bp
       (.add bp (JButton. (action "View model" #(viz/print-model model ".gtk"))))
       (.add bp (JButton. (deliver-action "Cancel" nil)))
       (.pack d)
