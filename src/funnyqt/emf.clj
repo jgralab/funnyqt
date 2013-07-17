@@ -834,7 +834,7 @@
             (str eo)
             ;; Custom toString() for the others
             (str "#<"
-                 (qname eo)
+                 (.getName (.eClass eo))
                  "@" (or (EcoreUtil/getID eo)
                          (Integer/toHexString (hash eo)))
                  ">"))))

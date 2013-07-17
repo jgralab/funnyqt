@@ -343,29 +343,45 @@
       (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
       ;; The rule panel rp
       (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
+      (doto (javax.swing.ToolTipManager/sharedInstance)
+        (.setEnabled true))
       (doseq [[rvar thunk] rule-var-thunk-tups
               :let [label (JLabel. (str (:name (meta rvar)) ":"))
-                    cb (JComboBox. ^objects (to-array (:all-matches (meta thunk))))
-                    viewb (JButton. (action
+                    cb (JComboBox. (to-array (:all-matches (meta thunk))))
+                    viewb (JButton. ^Action
+                                    (action
                                      "Show Match"
                                      #(viz/print-model
-                                       model ".gtk"
+                                       model :gtk
                                        :mark (concat (:args (meta thunk))
                                                      @(:current-match-atom (meta thunk))))))
-                    applyb (JButton. (deliver-action "Apply Rule" thunk))]]
+                    applyb (JButton. ^Action (deliver-action "Apply Rule" thunk))
+                    tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
+                    tooltip! (fn []
+                               (viz/print-model
+                                model (.getPath tmpfile)
+                                :include (concat (:args (meta thunk))
+                                                 @(:current-match-atom (meta thunk))))
+                               (.setToolTipText
+                                cb
+                                (str "<html><img src=\"file://"
+                                     (.getPath tmpfile)
+                                     "\"></html>")))]]
         (.addItemListener cb (reify ItemListener
                                (itemStateChanged [this ev]
                                  (when (== (.getStateChange ev) ItemEvent/SELECTED)
                                    (reset! (:current-match-atom (meta thunk))
-                                           (.getItem ev))))))
+                                           (.getItem ev))
+                                   (tooltip!)))))
+        (tooltip!)
         (.add rp label)
         (.add rp cb)
         (.add rp viewb)
         (.add rp applyb)
         (.setConstraints gridbag applyb gridbagconsts))
       ;; The button rp bp
-      (.add bp (JButton. (action "View model" #(viz/print-model model ".gtk"))))
-      (.add bp (JButton. (deliver-action "Cancel" nil)))
+      (.add bp (JButton. ^Action (action "View model" #(viz/print-model model ".gtk"))))
+      (.add bp (JButton. ^Action (deliver-action "Cancel" nil)))
       (.pack d)
       (if pos
         (.setLocation d pos)
