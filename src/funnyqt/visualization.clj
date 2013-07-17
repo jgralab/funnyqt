@@ -11,7 +11,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (:import (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
            (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
            (org.eclipse.emf.ecore EObject EAttribute EReference)
-           (funnyqt.emf_protocols EMFModel)))
+           (funnyqt.emf_protocols EMFModel)
+           (java.awt Image)
+           (javax.swing ImageIcon)))
 
 ;;* Visualization
 
@@ -298,9 +300,12 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn print-model
   "Prints a visualization of model `m` (a TGraph or EMFModel) to the file `f`.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
-  gif, pdf) and defaults to PDF.  The extension `gtk` has a special meaning: in
-  that case, no file is actually printed, but instead a GTK+ window showing the
-  model is created.
+  gif, pdf).
+
+  `f` may also be the keyword :gtk.  In that case, no file is actually printed,
+  but instead a GTK+ window showing the model is created.  `f` may also be the
+  keyword :image, in which nothing is shown or printed, but the visualization
+  is returned as a java.awt.Image.
 
   Additional `opts` may be specified.  Those are usually DOT Graph
   Attributes (http://www.graphviz.org/content/attrs), e.g.,
@@ -330,13 +335,27 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   class names are printed."
   [m f & opts]
   (let [ds (dot-model m opts)
-        suffix (second (re-matches #".*\.([^.]+)$" f))
-        ;; Fallback to pdf on unknown extensions.
-        lang (get #{"dot" "xdot" "ps" "svg" "svgz" "png" "gif" "pdf" "eps" "gtk"}
-                  suffix "pdf")]
-    (if (= lang "gtk")
-      (println "Showing model in a GTK+ window.")
-      (println "Printing model to" f))
-    (let [r (clojure.java.shell/sh "dot" (str "-T" lang) "-o" f :in ds)]
-      (when-not (zero? (:exit r))
-        (errorf "Dotting failed: %s" (:err r))))))
+        dot (fn
+              ([fmt]
+                 (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) :in ds)]
+                   (or (zero? (:exit r))
+                       (errorf "Dotting failed: %s" (:err r)))))
+              ([fmt f]
+                 (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) "-o" f :in ds)]
+                   (or (zero? (:exit r))
+                       (errorf "Dotting failed: %s" (:err r))))))
+        exts #{"dot" "xdot" "ps" "svg" "svgz" "png" "gif" "pdf" "eps"}
+        fmt (if (string? f)
+              (get exts (second (re-matches #".*\.([^.]+)$" f)))
+              f)]
+    (when-not fmt
+      (errorf "Unknown file format: %s. Supported extensions are %s." f exts))
+    (when (string? f)
+      (println (format "Printing visualization to %s." f)))
+    (condp = fmt
+      :gtk   (dot "gtk")
+      :image (let [tmp (java.io.File/createTempFile "img" "png")
+                   path (.getPath tmp)]
+               (when (dot "png" path)
+                 (.getImage (ImageIcon. path))))
+      (dot fmt f))))
