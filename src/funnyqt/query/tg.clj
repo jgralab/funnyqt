@@ -1,19 +1,6 @@
 (ns funnyqt.query.tg
   "Functional TGraph querying.
 
-Adjacences
-==========
-
-To traverse the neighboring vertices of some given vertex by role names, there
-is the adjacences function `adjs`.  Here are some examples:
-
-    ;; Returns all Localities contained in the County my-county-vertex.
-    (adjs my-county-vertex :localities)
-
-    ;; Returns all Crossroad vertices that are contained in Localities that are
-    ;; contained in the County my-county-vertex
-    (adjs my-county-vertex :localities :crossroads)
-
 Regular Path Expressions
 ========================
 
@@ -60,24 +47,6 @@ reachable vertices thru.  Here's an example:
                     [--> 'IsClassBlockOf]
                     [p-restr nil #(not (= c %1))]])
 
-Traversal Contexts
-==================
-
-The graph traversal (using the sequence functions above, or the basic accessors
-from core) can be restricted by traversal contexts.  There are the functions
-`vsubgraph` and `esubgraph` for creating traversal contexts corresponding to
-vertex or edge induced subgraphs.
-
-To set the traversal contexts, use the macro `on-subgraph`.  In its body, the
-traversal context is set, and when leaving the body, the traversal context is
-set to what it was before automatically, even if the body is left because an
-exception is thrown.  Here's an example (taken from the tests):
-
-    (on-subgraph [my-route-graph
-                  (vsubgraph my-route-graph 'junctions.Airport)]
-      (is (== 3 (vcount my-route-graph)))
-      (is (== 3 (ecount my-route-graph))))
-
 Aggregating Attribute Values
 ============================
 
@@ -113,221 +82,6 @@ can compute that like so:
    (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)))
 
 (def ^:private iseq-internal (ns-resolve (find-ns 'funnyqt.tg) 'iseq-internal))
-
-;;# Funlib
-
-(defn reduce-values
-  "Reduces `f` thru the `a`-attribute values of the elements in `coll`.
-  `f` must be a function of 2 args (see `clojure.core/reduce').  `val` is a
-  starting value.  `s` may be additional accessors, if `a` is a composite
-  attribute.  Each additional accessor may be either a function (which is
-  simply applied) or another keyword, string, or symbol denoting a record
-  component."
-  [f val coll a & as]
-  (reduce f val (map (if as
-                       #(loop [v (value % a), r as]
-                          (if (seq r)
-                            (let [acc (first r)]
-                              (recur (if (fn? acc)
-                                       (acc v)
-                                       (value v acc))
-                                     (rest r)))
-                            v))
-                       #(value % a))
-                     coll)))
-
-;;# Adjancencies
-
-(defn- maybe-traverse [^Vertex v role allow-unknown-ref single-valued]
-  (let [role (name role)]
-    (if-let [^DirectedSchemaEdgeClass dec
-             (.getDirectedEdgeClassForFarEndRole
-              ^VertexClass (attributed-element-class v)
-              role)]
-      (if single-valued
-        (let [^EdgeClass ec (.getEdgeClass dec)
-              dir (.getDirection dec)
-              ub (if (= dir EdgeDirection/OUT)
-                   (-> ec .getTo .getMax)
-                   (-> ec .getFrom .getMax))]
-          (if (= ub 1)
-            (seq (.adjacences v role))
-            (errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
-                    role ec ub)))
-        (seq (.adjacences v role)))
-      (when-not allow-unknown-ref
-        (errorf "No %s role at vertex %s" role v)))))
-
-(defn- zero-or-one [s]
-  (if (next s)
-    (errorf "More than one adjacent vertex found: %s" s)
-    (first s)))
-
-(extend-protocol Adjacencies
-  Vertex
-  (adj-internal [this roles]
-    (if (seq roles)
-      (when-let [target (zero-or-one (maybe-traverse this (first roles) false true))]
-        (recur target (rest roles)))
-      this))
-  (adj*-internal [this roles]
-    (if (seq roles)
-      (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
-        (recur target (rest roles)))
-      this))
-  (adjs-internal [this roles]
-    (if (seq roles)
-      (when-let [a (maybe-traverse this (first roles) false false)]
-        (r/mapcat #(adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this]))
-  (adjs*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (maybe-traverse this (first roles) true false)]
-        (r/mapcat #(adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this])))
-
-
-;;# Traversal Context
-
-(defmacro on-graph
-  "Disables the graph `g`s current traversal context for the execution of
-  `body`.  Guaranteed to restore the old traversal context after `body`
-  finished (even if it errored).
-
-  Also see `on-subgraph`, and `on-subgraph-intersection`."
-  [[g] & body]
-  `(on-subgraph [~g nil]
-     ~@body))
-
-(defmacro on-subgraph
-  "Sets the TraversalContext of `g` to `tc` and then executes `body`.
-  Guaranteed to restore the old TraversalContext after `body` finished (even if
-  it errored).
-
-  Also see `vsubgraph`, `esubgraph`, and `on-subgraph-intersection`."
-  [[g tc] & body]
-  `(let [^Graph g# ~g
-         ^TraversalContext old-tc# (.getTraversalContext g#)]
-     (try
-       (.setTraversalContext g# ~tc)
-       ~@body
-       (finally (.setTraversalContext g# old-tc#)))))
-
-(defn merge-traversal-contexts
-  "Returns a TraversalContext that accepts only elements that are accepted by
-  both `tc1' and `tc2'.
-  (Don't use this direcly, but use `on-subgraph-intersection`.)"
-  [^TraversalContext tc1 ^TraversalContext tc2]
-  (cond
-   (nil? tc1) tc2
-   (nil? tc2) tc1
-   :else (reify TraversalContext
-           (containsVertex [_ v]
-             (and (.containsVertex tc1 v)
-                  (.containsVertex tc2 v)))
-           (containsEdge [_ e]
-             (and (.containsEdge tc1 e)
-                  (.containsEdge tc2 e))))))
-
-(defmacro on-subgraph-intersection
-  "Sets the TraversalContext of `g` to a new TraversalContext that accepts only
-  elements which both `tc` and `g`s current TraversalContext accept and then
-  executes `body`.  Guaranteed to restore the old TraversalContext.
-
-  Also see `vsubgraph`, `esubgraph`, and `on-subgraph`."
-  [[g tc] & body]
-  `(let [^Graph g# ~g
-         ^TraversalContext old-tc# (.getTraversalContext g#)]
-     (try
-       (.setTraversalContext g# (merge-traversal-contexts old-tc# ~tc))
-       ~@body
-       (finally (.setTraversalContext g# old-tc#)))))
-
-(defn- vsubgraph-tc
-  "Returns a TraversalContext of a vertex induced subgraph restricted by `pred`
-  on the vertices.  All vertices satisfying `pred` are accepted plus all edges
-  between accepted vertices."
-  [g pred precalc]
-  (let [vp #(boolean (pred %))
-        ep #(boolean (and (vp (alpha %))
-                          (vp (omega %))))]
-    (if precalc
-      (let [^SubGraphMarker sgm (SubGraphMarker. g)]
-        (doseq [^Vertex v (filter vp (vseq g))]
-          (.mark sgm v))
-        (doseq [^Edge e (filter #(and (.containsVertex sgm (alpha %))
-                                      (.containsVertex sgm (omega %)))
-                                (eseq g))]
-          (.mark sgm e))
-        sgm)
-      (reify TraversalContext
-        (containsVertex [_ v]
-          (vp v))
-        (containsEdge [_ e]
-          (ep e))))))
-
-(defn vsubgraph
-  "Returns a vertex induced subgraph of `g` restricted by `pred` in terms of a
-  TraversalContext.  `pred` may be a predicate that is used to filter the
-  vertices of `g`, a type specification (see `type-spec`) or a collection of
-  vertices.  The subgraph contains all vertices matching the predicate, and all
-  edges/incidences that are connected to vertices that are both in the
-  subgraph.  If `precalc` is true (the default), then pre-calculate the
-  accepted elements beforehand as a SubGraphMarker.  That speeds up the
-  procedure enormously, but doesn't allow for using the returned traversal
-  context on a graph that changes in between.
-
-  Also see `esubgraph` and `on-subgraph`."
-  ([g pred]
-     (vsubgraph g pred true))
-  ([g pred precalc]
-     (cond
-      (fn? pred)        (vsubgraph-tc g pred precalc)
-      (type-spec? pred) (vsubgraph-tc g (type-matcher g pred) precalc)
-      (coll? pred)      (vsubgraph-tc g #(member? % pred) precalc)
-      :default          (error (str "Don't know how to handle predicate " pred)))))
-
-(defn- esubgraph-tc
-  "Returns a TraversalContext of an edge induced subgraph restricted by `pred`
-  on the edges.  All edges satisfying `pred` are accepted plus all vertices
-  that are connected to at least one accepted edge.  If `precalc` is non-nil,
-  precalculate accepted elements before, which is much faster."
-  [g pred precalc]
-  (let [ep #(boolean (pred %))
-        vp #(boolean (some ep (iseq %)))]
-    (if precalc
-      (let [^SubGraphMarker sgm (SubGraphMarker. g)]
-        (doseq [^Edge e (filter ep (eseq g))]
-          (.mark sgm e))
-        sgm)
-      (reify TraversalContext
-        (containsVertex [_ v]
-          (vp v))
-        (containsEdge [_ e]
-          (ep e))))))
-
-(defn esubgraph
-  "Returns an edge induced subgraph of `g` restricted by `pred` in terms of a
-  TraversalContext.  `pred` may be a predicate that is used to filter the edges
-  of `g`, a type specification (see `type-spec`) or a collection of edges.  The
-  subgraph contains all edges matching the predicate including their start and
-  end vertices.  If `precalc` is true (the default), then pre-calculate the
-  accepted elements beforehand as a SubGraphMarker.  That speeds up the
-  procedure enormously, but doesn't allow for using the returned traversal
-  context on a graph that changes in between.
-
-  Also see `vsubgraph` and `on-subgraph`."
-  ([g pred]
-     (esubgraph g pred true))
-  ([g pred precalc]
-     (cond
-      (fn? pred)        (esubgraph-tc g pred precalc)
-      (type-spec? pred) (esubgraph-tc g (type-matcher g pred) precalc)
-      (coll? pred)      (esubgraph-tc g #(member? % pred) precalc)
-      :default          (error (str "Don't know how to handle predicate " pred)))))
-
 
 ;;# Path Functions
 
@@ -526,105 +280,27 @@ can compute that like so:
           [AggregationKind/COMPOSITE] nil
           ts pred)))
 
-;;# Describe Schema and Graph Elements
-
-(defn- attr-desc
-  "Returns a map of aec's own attributes as name-domain pairs."
-  [^AttributedElementClass aec]
-  (into (sorted-map)
-        (for [^Attribute attr (.getOwnAttributeList aec)]
-          [(keyword (.getName attr)) (describe (.getDomain attr))])))
-
-(defn- slot-desc
-  [^AttributedElement e]
-  (let [aec (.getAttributedElementClass e)]
-    (into (sorted-map)
-          (for [^Attribute attr (.getAttributeList aec)]
-            (let [n (.getName attr)]
-              [(keyword n) (value e n)])))))
-
-(defn- super-classes
-  [^GraphElementClass gec]
-  (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
-            (.getDirectSuperClasses gec))))
-
-(defn- sub-classes
-  [^GraphElementClass gec]
-  (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
-            (.getDirectSubClasses gec))))
-
-(extend-protocol Describable
-  Graph
-  (describe [this]
-    {:type 'Graph
-     :qname (symbol (qname this))
-     :slots (slot-desc this)})
-  Vertex
-  (describe [this]
-    {:type 'Vertex
-     :qname (symbol (qname this))
-     :slots (slot-desc this)})
-  Edge
-  (describe [this]
-    {:type 'Edge
-     :qname (symbol (qname this))
-     :slots (slot-desc this)
-     :alpha (.getAlpha this)
-     :omega (.getOmega this)})
-  GraphClass
-  (describe [this]
-    {:type 'GraphClass
-     :qname (symbol (.getQualifiedName this))
-     :attributes (attr-desc this)})
-  VertexClass
-  (describe [this]
-    {:type 'VertexClass
-     :qname (symbol (.getQualifiedName this))
-     :attributes (attr-desc this)
-     :super-classes (super-classes this)
-     :sub-classes (sub-classes this)})
-  EdgeClass
-  (describe [this]
-    {:type 'EdgeClass
-     :qname (symbol (.getQualifiedName this))
-     :attributes (attr-desc this)
-     :from-vc (-> this .getFrom .getVertexClass .getQualifiedName symbol)
-     :to-vc (-> this .getTo .getVertexClass .getQualifiedName symbol)
-     :super-classes (super-classes this)
-     :sub-classes (sub-classes this)})
-  de.uni_koblenz.jgralab.schema.BasicDomain
-  (describe [this]
-    (-> this .getQualifiedName symbol))
-  RecordDomain
-  (describe [this]
-    {:type 'Record
-     :qname (symbol (.getQualifiedName this))
-     :components (into (sorted-map)
-                       (for [^de.uni_koblenz.jgralab.schema.RecordDomain$RecordComponent
-                             c (.getComponents this)]
-                         [(keyword (.getName c)) (describe (.getDomain c))]))})
-  de.uni_koblenz.jgralab.schema.EnumDomain
-  (describe [this]
-    {:type 'Enum
-     :qname (symbol (.getQualifiedName this))
-     :constants (vec (.getConsts this))})
-  de.uni_koblenz.jgralab.schema.CollectionDomain
-  (describe [this]
-    (symbol (.getQualifiedName this)))
-  de.uni_koblenz.jgralab.schema.MapDomain
-  (describe [this]
-    (symbol (-> this
-                .getQualifiedName
-                (clojure.string/replace #"\s" "")
-                (clojure.string/replace "," "=>")))))
-
 ;;# Funlib
 
-(defn degree
-  "Returns the degree of vertex `v`, optionally restricted by `ts` and `dir`."
-  ([^Vertex v]         (.getDegree v))
-  ([^Vertex v ts]     (count (iseq v ts)))
-  ([^Vertex v ts dir] (count (iseq v ts dir))))
+(defn reduce-values
+  "Reduces `f` thru the `a`-attribute values of the elements in `coll`.
+  `f` must be a function of 2 args (see `clojure.core/reduce').  `val` is a
+  starting value.  `s` may be additional accessors, if `a` is a composite
+  attribute.  Each additional accessor may be either a function (which is
+  simply applied) or another keyword, string, or symbol denoting a record
+  component."
+  [f val coll a & as]
+  (reduce f val (map (if as
+                       #(loop [v (value % a), r as]
+                          (if (seq r)
+                            (let [acc (first r)]
+                              (recur (if (fn? acc)
+                                       (acc v)
+                                       (value v acc))
+                                     (rest r)))
+                            v))
+                       #(value % a))
+                     coll)))
 
 (defn- topological-sort-clj
   "Returns a vector of `g`s vertices in topological order.

@@ -250,7 +250,7 @@
 
 ;;# Adjacencies
 
-;; Those are defined in funnyqt.query.tg and funnyqt.query.emf
+;; Those are implemented in funnyqt.tg and funnyqt.emf
 
 (defn adj
   "Traverses single-valued `role` and more `roles` starting at `elem`.

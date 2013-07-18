@@ -11,48 +11,6 @@
   (:import
    [org.eclipse.emf.ecore EObject EReference EStructuralFeature]))
 
-
-;;# Adjancencies
-
-(defn ^:private eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
-  (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
-    (if (instance? EReference sf)
-      (if single-valued
-        (let [ub (.getUpperBound sf)]
-          (if (== 1 ub)
-            (.eGet eo sf)
-            (errorf "Must not call adj on EReference '%s' with upper bound %s."
-                    sf ub)))
-        (.eGet eo sf))
-      (errorf "'%s' at %s is no EReference." sf eo))
-    (when-not allow-unknown-ref
-      (errorf "No such structural feature '%s' at %s." ref eo))))
-
-(extend-protocol Adjacencies
-  EObject
-  (adj-internal [this roles]
-    (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) false true))]
-        (recur a (rest roles)))
-      this))
-  (adj*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) true true))]
-        (recur a (rest roles)))
-      this))
-  (adjs-internal [this roles]
-    (if (seq roles)
-      (when-let [a (eget-ref this (first roles) false false)]
-        (r/mapcat #(adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this]))
-  (adjs*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (eget-ref this (first roles) true false)]
-        (r/mapcat #(adjs*-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this])))
-
 ;;# Regular Path Descriptions
 
 (defn <>--
@@ -151,37 +109,4 @@
   (binding [*p-apply* p-apply-emf
             *p-restr* p-restr-emf]
     (*p-apply* obj p)))
-
-
-;;# Describing EObjects and EClasses
-
-(extend-protocol Describable
-  org.eclipse.emf.ecore.EClass
-  (describe [this]
-    {:name (qname this)
-     :abstract (.isAbstract this)
-     :interface (.isInterface this)
-     :superclasses (seq (.getESuperTypes this))
-     :attributes (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
-                              [(keyword (.getName attr)) (.getEType attr)])
-                            (seq (.getEAttributes this))))
-     :references (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
-                              [(keyword (.getName ref)) (.getEReferenceType ref)])
-                            (seq (.getEReferences this))))})
-  org.eclipse.emf.ecore.EObject
-  (describe [this]
-    {:eclass (qname this)
-     :container (econtainer this)
-     :attr-slots (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
-                              (let [kw (keyword (.getName attr))]
-                                [kw (eget this kw)]))
-                            (seq (.getEAllAttributes (.eClass this)))))
-     :ref-slots (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
-                              (let [kw (keyword (.getName ref))]
-                                [kw (eget this kw)]))
-                            (seq (.getEAllReferences (.eClass this)))))}))
 

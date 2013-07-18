@@ -3,13 +3,9 @@
   (:use clojure.core.logic
         [clojure.core.logic.protocols :only [walk]]
         funnyqt.relational.util)
-  (:require funnyqt.protocols
+  (:require [funnyqt.protocols :as p]
             [funnyqt.emf :as emf]
-            funnyqt.query
-            funnyqt.query.emf
-            [funnyqt.utils :as u]
-            [funnyqt.relational :as rel]
-            clojure.java.io)
+            [funnyqt.relational :as rel])
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
@@ -39,12 +35,12 @@
           (fail a)
 
           (and (ground? ge) (ground? gt))
-          (if (funnyqt.protocols/has-type? ge gt)
+          (if (p/has-type? ge gt)
             (succeed a)
             (fail a))
 
           (ground? ge)
-          (unify a t (funnyqt.protocols/qname ge))
+          (unify a t (p/qname ge))
 
           (ground? gt)
           (to-stream
@@ -53,7 +49,7 @@
 
           :else (to-stream
                  (->> (for [elem (emf/eallobjects m t)]
-                        (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
+                        (unify a [e t] [elem (p/qname elem)]))
                       (remove not))))))))
 
 (defn ^:private attribute-list [eo]
@@ -142,7 +138,7 @@
   "Returns a relation symbol for the eclass `c`."
   [^EClass c]
   (let [dup (emf/eclassifier (symbol (.getName c)))
-        fqn (funnyqt.protocols/qname c)
+        fqn (p/qname c)
         n (if (= dup c)
             (.getName c)
             fqn)]
@@ -165,7 +161,7 @@
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
   [[eref ecls]]
-  (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
+  (let [ts (mapv #(p/qname %) ecls)]
     `(defn ~(symbol (str "+->" (name eref)))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
        [~'m ~'eo ~'reo]
@@ -177,7 +173,7 @@
   "Creates relations for the given EAttribute."
   [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
                 ;; such an attr
-  (let [ts (mapv #(funnyqt.protocols/qname %) ecls)]
+  (let [ts (mapv #(p/qname %) ecls)]
     `(defn ~(symbol (str "+" (name attr)))
        ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
        [~'m ~'eo ~'val]

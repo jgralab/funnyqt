@@ -8,7 +8,7 @@
   (:use funnyqt.query)
   (:use clojure.test)
   (:import
-   [de.uni_koblenz.jgralab.schema AttributedElementClass]))
+   [de.uni_koblenz.jgralab.schema Attribute AttributedElementClass]))
 
 ;;* Tests
 
@@ -22,27 +22,27 @@
 
   (create-attribute! g {:qname 'Person.name :domain 'String :default "\"Fritz\""}
                      (fn [] {(resolve-element 1) "Hugo"
-                            (resolve-element 2) "Peter"
-                            (resolve-element 3) "August"}))
+                             (resolve-element 2) "Peter"
+                             (resolve-element 3) "August"}))
   (create-attribute! g {:qname 'Person.birthday :domain 'String}
                      (fn [] {(resolve-element 3) "1980-11-01"
-                            (resolve-element 4) "1970-06-22"
-                            (resolve-element 5) "1975-01-01"}))
+                             (resolve-element 4) "1970-06-22"
+                             (resolve-element 5) "1975-01-01"}))
 
   (create-vertex-class! g {:qname 'SpecialPerson}
                         (fn [] [:a :b]))
   (create-attribute! g {:qname 'SpecialPerson.lastName :domain 'String}
                      (fn [] {(resolve-element :a) "Müller"
-                            (resolve-element :b) "Meier"}))
+                             (resolve-element :b) "Meier"}))
 
   (add-sub-classes! g 'Person 'SpecialPerson)
 
   (create-edge-class!
    g {:qname 'Knows :from 'Person :to 'Person}
    (fn [] (map (fn [[arch a o]]
-                [arch (resolve-alpha a) (resolve-omega o)])
-              [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
-               [6 1 :a] [7 2 :b]]))))
+                 [arch (resolve-alpha a) (resolve-omega o)])
+               [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
+                [6 1 :a] [7 2 :b]]))))
 
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
@@ -165,9 +165,9 @@
 
 ;;** Attribute deletions
 
-(defn- attr-seq
+(defn ^:private attr-seq
   [ae]
-  (map #(.getName %1)
+  (map #(.getName ^Attribute %1)
        (.getAttributeList (attributed-element-class ae))))
 
 (deftransformation delete-attr-1-setup

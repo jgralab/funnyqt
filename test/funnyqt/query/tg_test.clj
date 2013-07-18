@@ -17,25 +17,14 @@
 ;;* The tests themselves
 
 (deftest test-adjs
-  (is (member?(vertex rg 6)
-	      (adjs (vertex rg 12)
-                    :localities)))
+  (is (member? (vertex rg 6)
+	       (adjs (vertex rg 12)
+                     :localities)))
   (is (= 131 (count (adjs (vertex rg 12)
                           :localities :crossroads))))
   (is (member? (vertex rg 39)
 	       (adjs (vertex rg 12)
                      :localities :crossroads))))
-
-(deftest test-average-inhabitants
-  (let [locs (vseq rg 'localities.Locality)]
-    (is (< 0.00000000000000000001 ;; epsilon
-	   (- 91079.63636363637   ;; the GReQL computed val
-	      (/ (reduce + (map #(value %1 :inhabitants)
-				locs))))))))
-(deftest test-this
-  (doseq [v (vseq rg)
-	  e (iseq v)]
-    (is (= v (this e)))))
 
 (deftest test-avg-founding-year
   (is (== 13480/11
@@ -70,88 +59,6 @@
   (is (= (eseq rg) (reverse (reseq rg))))
   (is (= (iseq (first-vertex rg)) (reverse (riseq (first-vertex rg))))))
 
-
-;;** Traversal Context
-
-(deftest test-vsubgraph-tc
-  (let [vcnt (vcount rg)
-        ecnt (ecount rg)]
-    (testing "vertex induced TraversalContext by set"
-      (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
-                                                   [1 12 7])))]
-        (is (== 3 (vcount rg)))
-        (is (== 2 (ecount rg)))
-        (testing "on-graph 1"
-          (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))
-        (testing "vertex/edge on subgraph"
-          ;; These are all in
-          (is (= [1 7 12] (map id (vseq rg))))
-          (is (= [17 22]  (map id (eseq rg)))))))
-    (testing "vertex induced TraversalContext by type"
-      (on-subgraph [rg (vsubgraph rg 'junctions.Airport)]
-        (is (== 3 (vcount rg)))
-        (is (== 3 (ecount rg)))
-        (testing "on-graph 2"
-          (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
-    (testing "vertex induced TraversalContext by predicate"
-      ;; Subgraph of all Locality vertices with more than 10 inhabitants.
-      (let [locality? (type-matcher rg 'localities.Locality)]
-        (on-subgraph [rg (vsubgraph rg
-                                      #(and (locality? %)
-                                            (> (value % :inhabitants) 10)))]
-          (is (== 9 (vcount rg)))
-          (testing "on-graph 3"
-            (on-graph [rg nil]
-              (is (== vcnt) (vcount rg))
-              (is (== ecnt) (ecount rg))))
-          (is (== 0 (ecount rg))))))))
-
-
-(deftest test-esubgraph-tc
-  (let [vcnt (vcount rg)
-        ecnt (ecount rg)]
-    (testing "edge induced TraversalContext by set"
-      (on-subgraph [rg (esubgraph rg (set (map #(edge rg %)
-                                                   [17 22])))]
-        (is (== 3 (vcount rg)))
-        (is (== 2 (ecount rg)))
-        (testing "on-graph 4"
-          (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
-    (testing "edge induced TraversalContext by type"
-      (on-subgraph [rg (esubgraph rg 'connections.AirRoute)]
-        (is (== 3 (vcount rg)))
-        (is (== 3 (ecount rg)))
-        (testing "on-graph 5"
-          (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
-    (testing "edge induced TraversalContext by predicate"
-      (let [airroute? (type-matcher rg 'connections.AirRoute)]
-        (on-subgraph [rg (esubgraph rg #(and (airroute? %)
-                                                 (== (value (alpha  %) :inhabitants) 0)))]
-          (testing "on-graph 5"
-            (on-graph [rg]
-              (is (== vcnt) (vcount rg))
-              (is (== ecnt) (ecount rg))))
-          (is (== 2 (vcount rg)))
-          (is (== 1 (ecount rg))))))))
-
-(deftest test-subgraph-intersection-tcs
-  (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
-                                                          [1 12 7])))]
-    (on-subgraph-intersection [rg (esubgraph rg (set (map #(edge rg %)
-                                                                   [22 17])))]
-      (is (== 3 (vcount rg)))
-      (is (== 2 (ecount rg)))
-      (on-subgraph-intersection [rg (esubgraph rg #{(edge rg 22)})]
-        (is (== 2 (vcount rg)))
-        (is (== 1 (ecount rg)))))))
 
 ;;** Path expression tests
 
