@@ -70,34 +70,3 @@
          (run* [q]
            (routemap/+->capital rg (tg/vertex rg 12) q)))))
 
-;;* Tmp elements
-
-(def tmpg (doto (tg/create-graph (tg/schema rg))
-            (tg/create-vertex! 'County)
-            (tg/create-vertex! 'City)
-            (tg/create-vertex! 'City)))
-
-(deftest test-tmp-vc-rels
-  (binding [tmp/*make-tmp-elements* true]
-    ;; In the fresh case, vertexo should return a TmpElement with kind :vertex
-    ;; as last answer.
-    (let [r (doall (run* [q] (routemap/+City tmpg q)))]
-      (is (seq r))
-      (is (= (inc (count (tg/vseq tmpg 'City))) (count r)))
-      (is (tmp/tmp-vertex? (last r))))))
-
-(deftest test-tmp-ec-rels
-  (binding [tmp/*make-tmp-elements* true]
-    ;; For ECs, q might be an existing edge, an edge from an existing to a
-    ;; tmp-edge or vice versa, or a tmp-edge
-    (let [r (doall (run* [q]
-                     (with-fresh
-                       (routemap/+HasCapital tmpg q ?al ?om))))]
-      (is (= (+ (tg/ecount tmpg 'HasCapital)  ;; existing edges
-                (* (tg/vcount tmpg 'County)   ;; new edges between existing vertices
-                   (tg/vcount tmpg 'City))
-                (tg/vcount tmpg 'County)      ;; existing alpha / new omega
-                (tg/vcount tmpg 'City)        ;; new alpha / existing omega
-                1)                            ;; new alpha / new omega
-             (count r))))))
-

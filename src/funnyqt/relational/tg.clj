@@ -26,18 +26,15 @@
     (let [ge (walk a e)
           gt (walk a t)]
       (cond
-       (and (ground? ge)
-            (ground? gt))
-       (if (and (tg/attributed-element? ge)
-                (or (coll? gt) (symbol? gt))
-                (p/has-type? ge gt))
-         (succeed a)
-         (fail a))
+       (or (and (ground? ge) (not (tg/attributed-element? ge)))
+           (and (ground? gt) (not (or (symbol? gt) (coll? gt)))))
+       (fail a)
+
+       (and (ground? ge) (ground? gt))
+       (if (p/has-type? ge gt) (succeed a) (fail a))
 
        (ground? ge)
-       (or (and (tg/attributed-element? ge)
-                (unify a t (p/qname ge)))
-           (fail a))
+       (unify a t (p/qname ge))
 
        (ground? gt)
        (if (symbol? gt)
@@ -68,43 +65,42 @@
   [g v]
   (fn [a]
     (let [gv (walk a v)]
-      (if (fresh? gv)
+      (if (ground? gv)
+        (if (and (tg/vertex? gv) (tg/contains-vertex? g gv))
+          (succeed a)
+          (fail a))
         (to-stream
          (->> (map #(unify a v %) (tg/vseq g))
-              (remove not)))
-        (if (and (tg/vertex? gv)
-                 (tg/contains-vertex? g gv))
-          (succeed a)
-          (fail a))))))
+              (remove not)))))))
 
 (defn edgeo
-  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`."
+  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
+  `g` has to be ground."
   [g e alpha omega]
   (fn [a]
     (let [ge     (walk a e)
           galpha (walk a alpha)
           gomega (walk a omega)]
       (cond
+       (or (and (ground? ge) (not (tg/edge? ge)))
+           (and (ground? galpha) (not (tg/vertex? galpha)))
+           (and (ground? gomega) (not (tg/vertex? gomega))))
+       (fail a)
+
        (ground? ge)
-       (or (and (tg/edge? ge)
-                (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)]))
-           (fail a))
+       (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)])
 
        (ground? galpha)
-       (if (tg/vertex? galpha)
-         (to-stream
-          (->> (map #(unify a [e omega] [% (tg/omega %)])
-                    (tg/iseq galpha nil :out))
-               (remove not)))
-         (fail a))
+       (to-stream
+        (->> (map #(unify a [e omega] [% (tg/omega %)])
+                  (tg/iseq galpha nil :out))
+             (remove not)))
 
        (ground? gomega)
-       (if (tg/vertex? gomega)
-         (to-stream
-          (->> (map #(unify a [e alpha] [% (tg/alpha %)])
-                    (tg/iseq gomega nil :in))
-               (remove not)))
-         (fail a))
+       (to-stream
+        (->> (map #(unify a [e alpha] [% (tg/alpha %)])
+                  (tg/iseq gomega nil :in))
+             (remove not)))
 
        :else (to-stream
               (->> (for [edge (tg/eseq g)]
@@ -121,27 +117,23 @@
           gat  (walk a at)
           gval (walk a val)]
       (cond
-       (and (ground? gae)
-            (ground? gat))
-       (or (and (tg/attributed-element? gae)
-                (keyword? gat)
-                (.getAttribute ^AttributedElementClass
-                               (tg/attributed-element-class gae)
-                               (name gat))
-                (or (unify a val (tg/value gae gat))
-                    (fail a)))
-           (fail a))
+       (or (and (ground? gae) (not (tg/attributed-element? gae)))
+           (and (ground? gat) (not (keyword? gat)))
+           (and (ground? gae) (ground? gat)
+                (not (.getAttribute (tg/attributed-element-class gae)
+                                    (name gat)))))
+       (fail a)
+
+       (and (ground? gae) (ground? gat))
+       (unify a val (tg/value gae gat))
 
        (ground? gae)
-       (if (tg/vertex? gae)
-         (to-stream
-          (->> (for [^Attribute attr (seq (.getAttributeList
-                                           ^AttributedElementClass
-                                           (tg/attributed-element-class gae)))
-                     :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (tg/value gae an)]))
-               (remove not)))
-         (fail a))
+       (to-stream
+        (->> (for [^Attribute attr (seq (.getAttributeList
+                                         (tg/attributed-element-class gae)))
+                   :let [an (keyword (.getName attr))]]
+               (unify a [at val] [an (tg/value gae an)]))
+             (remove not)))
 
        :else (to-stream
               (->> (for [elem (concat (tg/vseq g) (tg/eseq g))

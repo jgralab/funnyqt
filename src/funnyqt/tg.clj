@@ -218,9 +218,9 @@ functions `record` and `enum`."
   "Returns `ae`s AttributedElementClass or the AttributedElementClass with the
   given `qname` in the schema of `ae`.  In the arity 2 version, `ae` may be an
   attributed element, an attributed element class, or a schema."
-  ([^AttributedElement ae]
+  (^AttributedElementClass [^AttributedElement ae]
      (.getAttributedElementClass ae))
-  ([elem qname]
+  (^AttributedElementClass [elem qname]
      (condp instance? elem
        AttributedElement
        (let [^AttributedElement ae elem]
