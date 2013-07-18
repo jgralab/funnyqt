@@ -4,7 +4,7 @@
         [clojure.core.logic.protocols :only [walk]]
         funnyqt.relational.util)
   (:require funnyqt.protocols
-            funnyqt.emf
+            [funnyqt.emf :as emf]
             funnyqt.query
             funnyqt.query.emf
             [funnyqt.utils :as u]
@@ -24,38 +24,40 @@
      (fn [a]
        (let [geo (walk a eo)]
          (if (ground? geo)
-           (if (funnyqt.emf/eobject? geo) (succeed a) (fail a))
+           (if (emf/eobject? geo) (succeed a) (fail a))
            (to-stream
             (->> (map #(unify a eo %)
-                      (funnyqt.emf/eallobjects m))
+                      (emf/eallobjects m))
                  (remove not)))))))
   ([m e t]
      (fn [a]
        (let [ge (walk a e)
              gt (walk a t)]
          (cond
+          (or (and (ground? ge) (not (emf/eobject? ge)))
+              (and (ground? gt) (not (or (symbol? gt) (coll? gt)))))
+          (fail a)
+
           (and (ground? ge) (ground? gt))
-          (if (and (funnyqt.emf/eobject? ge)
-                   (or (coll? gt) (symbol? gt))
-                   (funnyqt.protocols/has-type? ge gt))
+          (if (funnyqt.protocols/has-type? ge gt)
             (succeed a)
             (fail a))
 
           (ground? ge)
-          (or (and (funnyqt.emf/eobject? ge)
-                   (unify a t (funnyqt.protocols/qname ge)))
-              (fail a))
+          (unify a t (funnyqt.protocols/qname ge))
 
           (ground? gt)
           (to-stream
-           (->> (map #(unify a e %)
-                     (funnyqt.emf/eallobjects m t))
+           (->> (map #(unify a e %) (emf/eallobjects m t))
                 (remove not)))
 
           :else (to-stream
-                 (->> (for [elem (funnyqt.emf/eallobjects m t)]
+                 (->> (for [elem (emf/eallobjects m t)]
                         (unify a [e t] [elem (funnyqt.protocols/qname elem)]))
                       (remove not))))))))
+
+(defn ^:private attribute-list [eo]
+  (seq (.getEAllAttributes (.eClass ^EObject eo))))
 
 (defn valueo
   "A relation where EObject `eo` has value `val` for its `at` attribute in
@@ -66,31 +68,33 @@
           gat  (walk a at)
           gval (walk a val)]
       (cond
-       (and (ground? geo)
-            (ground? gat))
-       (or (and (funnyqt.emf/eobject? geo)
-                (keyword? gat)
-                (when-let [sf (.getEStructuralFeature (.eClass ^EObject geo)
-                                                       ^String (name gat))]
-                  (instance? EAttribute sf))
-                (unify a val (funnyqt.emf/eget geo gat)))
-           (fail a))
+       (or (and (ground? geo) (not (emf/eobject? geo)))
+           (and (ground? gat) (not (keyword? gat)))
+           (and (ground? geo) (ground? gat)
+                (not (when-let [sf (.getEStructuralFeature
+                                    (.eClass ^EObject geo) ^String (name gat))]
+                       (instance? EAttribute sf)))))
+       (fail a)
+
+       (and (ground? geo) (ground? gat))
+       (unify a val (emf/eget geo gat))
 
        (ground? geo)
-       (if (funnyqt.emf/eobject? geo)
-         (to-stream
-          (->> (for [^EAttribute attr (seq (.getEAllAttributes (.eClass ^EObject geo)))
-                     :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (funnyqt.emf/eget geo an)]))
-               (remove not)))
-         (fail a))
+       (to-stream
+        (->> (for [^EAttribute attr (attribute-list geo)
+                   :let [an (keyword (.getName attr))]]
+               (unify a [at val] [an (emf/eget geo an)]))
+             (remove not)))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects m)
-                         ^EAttribute attr (seq (.getEAllAttributes (.eClass elem)))
+              (->> (for [^EObject elem (emf/eallobjects m)
+                         ^EAttribute attr (attribute-list elem)
                          :let [an (keyword (.getName attr))]]
-                     (unify a [eo at val] [elem an (funnyqt.emf/eget elem an)]))
+                     (unify a [eo at val] [elem an (emf/eget elem an)]))
                    (remove not)))))))
+
+(defn ^:private reference-list [eo]
+  (seq (.getEAllReferences (.eClass ^EObject eo))))
 
 (defn adjo
   "A relation where `eo` references `reo` with its `ref` reference in EMFModel
@@ -101,32 +105,32 @@
           gref (walk a ref)
           greo (walk a reo)]
       (cond
-       (and (ground? geo)
-            (ground? gref))
-       (if (and (funnyqt.emf/eobject? geo)
-                (keyword? gref)
-                (when-let [sf (.getEStructuralFeature (.eClass ^EObject geo)
-                                                       ^String (name gref))]
-                  (instance? EReference sf)))
-         (to-stream
-          (->> (for [refed (funnyqt.query/adjs* geo gref)]
-                 (unify a [reo] [refed]))
-               (remove not)))
-         (fail a))
+       (or (and (ground? geo) (not (emf/eobject? geo)))
+           (and (ground? gref) (not (keyword? gref)))
+           (and (ground? greo) (not (emf/eobject? greo)))
+           (and (ground? geo) (ground? gref)
+                (not (when-let [sf (.getEStructuralFeature
+                                    (.eClass ^EObject geo) ^String (name gref))]
+                       (instance? EReference sf)))))
+       (fail a)
+
+       (and (ground? geo) (ground? gref))
+       (to-stream
+        (->> (for [refed (funnyqt.query/adjs* geo gref)]
+               (unify a [reo] [refed]))
+             (remove not)))
 
        (ground? geo)
-       (if (funnyqt.emf/eobject? geo)
-         (to-stream
-          (->> (for [^EReference reference (seq (.getEAllReferences (.eClass ^EObject geo)))
-                     :let [rn (keyword (.getName reference))]
-                     refed (funnyqt.query/adjs* geo rn)]
-                 (unify a [ref reo] [rn refed]))
-               (remove not)))
-         (fail a))
+       (to-stream
+        (->> (for [^EReference reference (reference-list geo)
+                   :let [rn (keyword (.getName reference))]
+                   refed (funnyqt.query/adjs* geo rn)]
+               (unify a [ref reo] [rn refed]))
+             (remove not)))
 
        :else (to-stream
-              (->> (for [^EObject elem (funnyqt.emf/eallobjects m)
-                         ^EReference reference (seq (.getEAllReferences (.eClass elem)))
+              (->> (for [^EObject elem (emf/eallobjects m)
+                         ^EReference reference (reference-list elem)
                          :let [rn (keyword (.getName reference))]
                          refed (funnyqt.query/adjs* elem rn)]
                      (unify a [eo ref reo] [elem rn refed]))
@@ -137,7 +141,7 @@
 (defn ^:private class->rel-symbols
   "Returns a relation symbol for the eclass `c`."
   [^EClass c]
-  (let [dup (funnyqt.emf/eclassifier (symbol (.getName c)))
+  (let [dup (emf/eclassifier (symbol (.getName c)))
         fqn (funnyqt.protocols/qname c)
         n (if (= dup c)
             (.getName c)
@@ -190,7 +194,7 @@
   `ecore-file` is the ecore file containing the metamodel."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     (let [ecore-model (funnyqt.emf/load-metamodel
+     (let [ecore-model (emf/load-metamodel
                         (if (.exists (clojure.java.io/file ecore-file))
                           ecore-file
                           (clojure.java.io/resource ecore-file)))
@@ -202,8 +206,8 @@
               `[(ns ~nssym
                   (:refer-clojure :exclude [~'==]))])
           ;; Metamodel specific relations
-          ~@(funnyqt.emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                            (funnyqt.emf/metamodel-epackages ecore-model))
+          ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                    (emf/metamodel-epackages ecore-model))
               (concat
                (doall
                 (mapcat
@@ -219,7 +223,7 @@
                             #(update-in %1 [%2] conj ecl)
                             r))
                    (create-eclass-relations ecl))
-                 (funnyqt.emf/eclassifiers)))
+                 (emf/eclassifiers)))
                (for [^EAttribute a @atts]
                  (create-eattribute-relation a))
                (for [^EReference r @refs]

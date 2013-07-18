@@ -108,6 +108,11 @@
                             [edge (tg/alpha edge) (tg/omega edge)]))
                    (remove not)))))))
 
+(defn ^:private attribute-list
+  "Gets the list of all attributes of ae's attributed element class."
+  [ae]
+  (seq (.getAttributeList (tg/attributed-element-class ae))))
+
 (defn valueo
   "A relation where graph `g`s attributed element `ae` has value `val` for its
   `at` attribute."
@@ -129,17 +134,14 @@
 
        (ground? gae)
        (to-stream
-        (->> (for [^Attribute attr (seq (.getAttributeList
-                                         (tg/attributed-element-class gae)))
+        (->> (for [^Attribute attr (attribute-list gae)
                    :let [an (keyword (.getName attr))]]
                (unify a [at val] [an (tg/value gae an)]))
              (remove not)))
 
        :else (to-stream
               (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
-                         ^Attribute attr (seq (.getAttributeList
-                                               ^AttributedElementClass
-                                               (tg/attributed-element-class elem)))
+                         ^Attribute attr (attribute-list elem)
                          :let [an (keyword (.getName attr))]]
                      (unify a [ae at val] [elem an (tg/value elem an)]))
                    (remove not)))))))
