@@ -32,7 +32,7 @@
   `(instance? EClass ~eo))
 
 
-;;# Metamodel
+;;# Metamodel Access
 
 (def ^:private eclassifier-cache
   "A cache from EClassifier names to EClassifiers."
@@ -169,6 +169,24 @@
           (errorf "%s has no EEnumLiteral with name %s."
                   (print-str enum-cls) elit))
       (errorf "No such EEnum %s." eenum))))
+
+;;# Generic Metamodel Access
+
+(extend-protocol MMClasses
+  EClass
+  (mm-classes [cls]
+    (filter eclass? (eclassifiers))))
+
+(extend-protocol MMClass
+  EObject
+  (mm-class [this]
+    (.eClass this)))
+
+(extend-protocol MMDirectSuperClasses
+  EClass
+  (mm-direct-super-classes [this]
+    (seq (.getESuperTypes this))))
+
 
 ;;# Model
 

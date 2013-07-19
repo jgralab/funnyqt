@@ -1,5 +1,5 @@
 (ns funnyqt.bidi-test
-  (:use funnyqt.bidi)
+  #_(:use funnyqt.bidi)
   (:refer-clojure :exclude [==])
   (:use clojure.core.logic)
   (:require [funnyqt.relational.tg :as rtg]

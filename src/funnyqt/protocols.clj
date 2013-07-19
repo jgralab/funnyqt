@@ -137,3 +137,17 @@
   (set-adjs! [obj role objs])
   (add-adj!  [obj role obj])
   (add-adjs! [obj role objs]))
+
+;;# Metamodel Protocols
+
+(defprotocol MMClasses
+  (mm-classes [cls]
+    "Returns all classes in the metamodel containing `cls`."))
+
+(defprotocol MMClass
+  (mm-class [model-element]
+    "Returns the given model-element's metamodel class."))
+
+(defprotocol MMDirectSuperClasses
+  (mm-direct-super-classes [metamodel-type]
+    "Returns the direct superclasses of metamodel-type."))

@@ -30,7 +30,8 @@ Then, (foo objOfTypeA) invokes the first implementation, (foo objOfTypeB)
 invokes the second implementation, both (foo objOfTypeC) and (foo objOfTypeD)
 invoke the third implementation, and (foo objOfTypeE) invokes the default
 behavior."
-  (:use [funnyqt.protocols        :only [qname]])
+  (:use [funnyqt.protocols        :only [qname mm-classes mm-class
+                                         mm-direct-super-classes]])
   (:use [funnyqt.utils            :only [errorf]])
   (:use [clojure.tools.macro	  :only [name-with-attributes]])
   (:require [funnyqt.tg           :as tg]
@@ -40,43 +41,6 @@ behavior."
 
 ;;# Utility protocols
 
-(defprotocol AllMetaModelClasses
-  (all-meta-model-classes [cls]))
-
-(extend-protocol AllMetaModelClasses
-  org.eclipse.emf.ecore.EClass
-  (all-meta-model-classes [cls]
-    (filter emf/eclass? (emf/eclassifiers)))
-  de.uni_koblenz.jgralab.schema.GraphElementClass
-  (all-meta-model-classes [aec]
-    (let [^de.uni_koblenz.jgralab.schema.GraphClass gc (.getGraphClass aec)]
-      (concat (.getVertexClasses gc)
-	      (.getEdgeClasses gc)))))
-
-(defprotocol ModelElementType
-  (model-element-type [model-element]
-    "Returns the given model-element's type."))
-
-(extend-protocol ModelElementType
-  org.eclipse.emf.ecore.EObject
-  (model-element-type [this]
-    (.eClass this))
-  de.uni_koblenz.jgralab.AttributedElement
-  (model-element-type [this]
-    (.getAttributedElementClass this)))
-
-(defprotocol MetaModelTypeSuperTypes
-  (meta-model-type-super-types [metamodel-type]
-    "Returns the direct supertypes of metamodel-type."))
-
-(extend-protocol MetaModelTypeSuperTypes
-  org.eclipse.emf.ecore.EClass
-  (meta-model-type-super-types [this]
-    (seq (.getESuperTypes this)))
-  de.uni_koblenz.jgralab.schema.GraphElementClass
-  (meta-model-type-super-types [this]
-    (seq (.getDirectSuperClasses this))))
-
 (defn find-polyfn-impl [m t]
   (loop [ts [t]]
     (when (seq ts)
@@ -85,7 +49,7 @@ behavior."
 	  (if (fnext fns)
 	    (errorf "%s polyfns are applicable for type %s" (count fns) t)
 	    (first fns))
-	  (recur (set (mapcat meta-model-type-super-types ts))))))))
+	  (recur (set (mapcat mm-direct-super-classes ts))))))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
   (let [meta-map (meta polyfn-var)
@@ -95,7 +59,7 @@ behavior."
     (time (let [dm (apply hash-map (mapcat (fn [c]
 					     (when-let [pfn (find-polyfn-impl spec-map c)]
 					       [c pfn]))
-					   (all-meta-model-classes cls)))]
+					   (mm-classes cls)))]
 	    (swap! dispatch-map-atom (constantly dm))))))
 
 ;;# Polyfns
@@ -121,7 +85,7 @@ behavior."
 		   ::polyfn-dispatch-table (atom nil))
        ~argvec
        (let [meta-map# (meta #'~name)
-	     ~type-var (model-element-type ~(first argvec))]
+	     ~type-var (mm-class ~(first argvec))]
 	 (when-not (deref (::polyfn-dispatch-table meta-map#))
 	   (build-polyfn-dispatch-table #'~name ~type-var))
 	 (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]

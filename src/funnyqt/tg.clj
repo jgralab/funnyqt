@@ -271,6 +271,25 @@ functions `record` and `enum`."
    (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
    ^Schema (schema g)))
 
+;;# Generic Metamodel Access
+
+(extend-protocol MMClasses
+  GraphElementClass
+  (mm-classes [aec]
+    (let [^GraphClass gc (.getGraphClass aec)]
+      (concat (.getVertexClasses gc)
+	      (.getEdgeClasses gc)))))
+
+(extend-protocol MMClass
+  AttributedElement
+  (mm-class [this]
+    (.getAttributedElementClass this)))
+
+(extend-protocol MMDirectSuperClasses
+  GraphElementClass
+  (mm-direct-super-classes [this]
+    (seq (.getDirectSuperClasses this))))
+
 ;;# Graph Access
 
 (defn graph
@@ -1403,3 +1422,4 @@ functions `record` and `enum`."
   [gc out]
   (.write ^java.io.Writer out
           (str "#<GraphClass " (qname gc) ">")))
+
