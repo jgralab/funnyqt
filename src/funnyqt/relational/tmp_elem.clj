@@ -77,7 +77,10 @@
   (set-kind [this k]
     (when-not (#{:vertex :edge :eobject} k)
       (u/errorf "kind must be any of :vertex, :edge, :eobject but was %s." k))
-    ))
+    (cond
+     (nil? kind) (do (set! kind k) true)
+     (= kind k) true
+     :else (u/errorf "Cannot reset kind from %s to %s." kind k))))
 
 (comment
   (run* [q]

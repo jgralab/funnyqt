@@ -9,15 +9,15 @@
   (:require [clojure.core.cache :as cache]
             [clojure.core.reducers :as r])
   (:import
-   (funnyqt.emf_protocols EMFModel)
+   (funnyqt.emf_protocols EMFModel EcoreModel)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
    (org.eclipse.emf.ecore.util EcoreUtil)
    (org.eclipse.emf.common.util URI EList UniqueEList EMap)
    (org.eclipse.emf.ecore.resource Resource ResourceSet)
    (org.eclipse.emf.ecore
-    EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier EClass
-    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
-    EStructuralFeature)))
+    EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier
+    EClass EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation
+    EAttribute EReference EStructuralFeature)))
 
 ;;# Simple type predicates
 
@@ -179,14 +179,30 @@
 
 (extend-protocol MMClass
   EObject
-  (mm-class [this]
-    (.eClass this)))
+  (mm-class
+    ([this]
+       (.eClass this))
+    ([this qn]
+       (eclassifier qn)))
+  EMFModel
+  (mm-class
+    ([this qn]
+       (eclassifier qn)))
+  EcoreModel
+  (mm-class
+    ([this qn]
+       (eclassifier qn))))
 
 (extend-protocol MMDirectSuperClasses
   EClass
   (mm-direct-super-classes [this]
     (seq (.getESuperTypes this))))
 
+(extend-protocol MMSuperClassOf
+  EClass
+  (mm-super-class? [this sub]
+    (and (not (identical? this sub))
+         (.isSuperTypeOf this sub))))
 
 ;;# Model
 

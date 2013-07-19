@@ -145,9 +145,15 @@
     "Returns all classes in the metamodel containing `cls`."))
 
 (defprotocol MMClass
-  (mm-class [model-element]
-    "Returns the given model-element's metamodel class."))
+  (mm-class [model-element] [model mm-class-sym]
+    "Returns the given model-element's metamodel class,
+  or the metamodel class named mm-class-sym (a symbol)."))
 
 (defprotocol MMDirectSuperClasses
   (mm-direct-super-classes [metamodel-type]
     "Returns the direct superclasses of metamodel-type."))
+
+(defprotocol MMSuperClassOf
+  (mm-super-class? [super sub]
+    "Return true iff super is a direct or indirect super class of sub.
+  (mm-super-class? c c) is false."))

@@ -282,13 +282,29 @@ functions `record` and `enum`."
 
 (extend-protocol MMClass
   AttributedElement
-  (mm-class [this]
-    (.getAttributedElementClass this)))
+  (mm-class
+    ([this]
+       (.getAttributedElementClass this))
+    ([this qn]
+       (if-let [cls (.getAttributedElementClass (.getSchema this) (name qn))]
+         cls
+         (errorf "No such AttributedElementClass: %s." qn))))
+  Schema
+  (mm-class
+    ([this qn]
+       (if-let [cls (.getAttributedElementClass this (name qn))]
+         cls
+         (errorf "No such AttributedElementClass: %s." qn)))))
 
 (extend-protocol MMDirectSuperClasses
   GraphElementClass
   (mm-direct-super-classes [this]
     (seq (.getDirectSuperClasses this))))
+
+(extend-protocol MMSuperClassOf
+  GraphElementClass
+  (mm-super-class? [this sub]
+    (.isSuperClassOf this sub)))
 
 ;;# Graph Access
 
