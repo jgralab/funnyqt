@@ -46,12 +46,12 @@
       (cond
        (= cur val) true
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
-       :else false)))
+       :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
   IRef
   (add-ref [this ref target]
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
-    (let [cur (q/adjs wrapped-element ref)]
+    (let [cur (q/adjs wrapped-element ref)] ;; Throws if ref is no valid role name
       (cond
        (q/member? target cur) true
        :else (do
@@ -95,7 +95,28 @@
        ;; type, so succeed without changing anything.
        (or (= mm-class type)
            (p/mm-super-class? mm-class type)) true
-       :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
+       :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t))))
+  IAttr
+  (add-attr [this attr val]
+    (when-not (keyword? attr)
+      (u/errorf "attr must be given as keyword but was %s." attr))
+    (let [cur (get attrs attr)]
+      (cond
+       (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
+       (= cur val) true
+       :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
+  IRef
+  (add-ref [this ref target]
+    (when-not (keyword? ref)
+      (u/errorf "ref must be given as keyword but was %s." ref))
+    (let [cur (get refs ref)]
+      (cond
+       (q/member? target cur) true
+       :else (do
+               (set! refs (update-in refs [ref]
+                                     #(conj (vec %1) %2)
+                                     target))
+               true)))))
 
 (comment
   (run* [q]

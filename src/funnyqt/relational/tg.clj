@@ -225,8 +225,8 @@
        ~(format "A relation where `v` is a %s vertex of graph `g`." na)
        [~'g ~'v]
        (all
-        (vertexo ~'g ~'v)
-        (typeo ~'g ~'v '~na)))))
+        (typeo ~'g ~'v '~na)
+        (vertexo ~'g ~'v)))))
 
 (defn ^:private create-ec-relations
   "Creates relations for the given edge class."
@@ -236,8 +236,8 @@
        ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
        [~'g ~'e ~'al ~'om]
        (all
-        (edgeo ~'g ~'e ~'al ~'om)
-        (typeo ~'g ~'e '~na)))))
+        (typeo ~'g ~'e '~na)
+        (edgeo ~'g ~'e ~'al ~'om)))))
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."
