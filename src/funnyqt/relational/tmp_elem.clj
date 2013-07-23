@@ -80,7 +80,22 @@
     (cond
      (nil? kind) (do (set! kind k) true)
      (= kind k) true
-     :else (u/errorf "Cannot reset kind from %s to %s." kind k))))
+     :else (u/errorf "Cannot reset kind from %s to %s." kind k)))
+  IType
+  (set-type [this t]
+    (when-not (symbol? t)
+      (u/errorf "type must be a symbol but was %s." t))
+    (let [mm-class (p/mm-class model t)]
+      (cond
+       (nil? type) (do (set! type mm-class) true)
+       ;; The current type is a superclass of mm-class, so set to the more
+       ;; specific.
+       (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
+       ;; The given type is a superclass of or identical to the currently set
+       ;; type, so succeed without changing anything.
+       (or (= mm-class type)
+           (p/mm-super-class? mm-class type)) true
+       :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
 
 (comment
   (run* [q]
