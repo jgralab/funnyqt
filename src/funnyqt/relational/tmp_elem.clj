@@ -15,16 +15,43 @@
   (as-map [this]))
 
 (defprotocol IAttr
-  (add-attr [this attr val]))
+  (add-attr [this attr val])
+  (finalize-attrs [this subst]))
 
 (defprotocol IRef
-  (add-ref [this ref target]))
+  (add-ref [this ref target])
+  (finalize-refs [this subst]))
 
 (defprotocol IKind
   (set-kind [this k]))
 
 (defprotocol IType
   (set-type [this t]))
+
+;;# Helpers
+
+(defn groundify-attrs [attrs subst]
+  (apply hash-map (mapcat (fn [[a v]]
+                            (let [v (if (ccl/lvar? v)
+                                      (cclp/walk subst v)
+                                      v)]
+                              (when (ccl/lvar? v)
+                                (u/errorf "Attribute %s can't be grounded." a))
+                              [a v]))
+                          attrs)))
+
+(defn groundify-refs [refs subst]
+  (apply hash-map
+         (mapcat (fn [[r vs]]
+                   (let [vs (mapv (fn [v]
+                                    (let [v (if (ccl/lvar? v)
+                                              (cclp/walk subst v)
+                                              v)]
+                                      (when (ccl/lvar? v)
+                                        (u/errorf "Reference %s can't be grounded." r))))
+                                  vs)]
+                     [r vs]))
+                 refs)))
 
 ;;# Types
 
@@ -47,6 +74,8 @@
        (= cur val) true
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
        :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
+  (finalize-attrs [this subst]
+    (set! attrs (groundify-attrs attrs subst)))
   IRef
   (add-ref [this ref target]
     (when-not (keyword? ref)
@@ -58,7 +87,9 @@
                (set! refs (update-in refs [ref]
                                      #(conj (vec %1) %2)
                                      target))
-               true)))))
+               true))))
+  (finalize-refs [this subst]
+    (groundify-refs refs subst)))
 
 (defn make-wrapper [model element]
   (->WrapperElement model element {} {}))
@@ -105,6 +136,8 @@
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
        (= cur val) true
        :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
+  (finalize-attrs [this subst]
+    (set! attrs (groundify-attrs attrs subst)))
   IRef
   (add-ref [this ref target]
     (when-not (keyword? ref)
@@ -116,7 +149,20 @@
                (set! refs (update-in refs [ref]
                                      #(conj (vec %1) %2)
                                      target))
-               true)))))
+               true))))
+  (finalize-refs [this subst]
+    (groundify-refs refs subst)))
+
+(defn make-tmp-element [model kind type]
+  (->TmpElement model kind type))
+
+;;# Finalization
+
+(defn finalizeo [& tmps]
+  (fn [a]
+    (doseq [tmp tmps]
+      (finalize-attrs tmp a)
+      (finalize-refs  tmp a))))
 
 (comment
   (run* [q]

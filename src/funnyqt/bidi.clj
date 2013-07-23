@@ -83,7 +83,7 @@
                       (select-best-match
                        (run* [q#]
                          ~@(get map trg)
-                         (tmp/finalize-tmp-elements ~@trg-syms)
+                         (tmp/finalizeo ~@trg-syms)
                          (== q# ~(make-kw-result-map trg-syms)))))]
                 ~@(:optional map)
                 (enforce-match ~tm)
