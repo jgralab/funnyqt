@@ -5,59 +5,95 @@
         funnyqt.relational.util)
   (:require [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]
-            funnyqt.query.tg
-            funnyqt.query
             [funnyqt.utils :as u]
             [funnyqt.relational :as rel]
+            [funnyqt.relational.tmp-elem :as tmp]
             clojure.java.io)
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain
                                   AttributedElementClass NamedElement
                                   GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass IncidenceClass)))
+                                  GraphElementClass IncidenceClass)
+   (funnyqt.relational.tmp_elem WrapperElement TmpElement)))
+
+(defn tmp-typeo [g e t]
+  (fn [a]
+    (let [ge (walk a e)
+          gt (walk a t)]
+      (cond
+       (not (ground? gt))
+       (u/errorf "tmp-typeo: type must be ground.")
+
+       (not (or (fresh? ge)
+                (instance? WrapperElement ge)
+                (instance? TmpElement ge)))
+       (u/errorf "tmp-typeo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." ge)
+
+       (ground? ge)
+       (let [aec (tg/attributed-element-class g gt)
+             kind (if (tg/vertex-class? aec) :vertex :edge)]
+         (if (and (tmp/set-type ge gt)
+                  (tmp/set-kind ge kind))
+           (succeed a)
+           (fail a)))
+
+       :else (let [aec (tg/attributed-element-class g gt)
+                   kind (if (tg/vertex-class? aec) :vertex :edge)
+                   seqfn (if (= kind :vertex) tg/vseq tg/eseq)]
+               (to-stream
+                (->> (map #(unify a e %)
+                          (concat
+                           ;; Existing vertices/edges wrapped
+                           (map (partial tmp/make-wrapper g)
+                                (seqfn g gt))
+                           ;; One new vertex/edge tmp element
+                           [(tmp/make-tmp-element g kind gt)]))
+                     (remove not))))))))
 
 (defn typeo
   "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
   element class name.  In fact, `t` may be any type specification (see
   `funnyqt.protocols/type-matcher`).  The graph `g` must be ground."
   [g e t]
-  (fn [a]
-    (let [ge (walk a e)
-          gt (walk a t)]
-      (cond
-       (or (and (ground? ge) (not (tg/attributed-element? ge)))
-           (and (ground? gt) (not (or (symbol? gt) (coll? gt)))))
-       (fail a)
+  (if tmp/*make-tmp-elements*
+    (tmp-typeo g e t)
+    (fn [a]
+      (let [ge (walk a e)
+            gt (walk a t)]
+        (cond
+         (or (and (ground? ge) (not (tg/attributed-element? ge)))
+             (and (ground? gt) (not (or (symbol? gt) (coll? gt)))))
+         (fail a)
 
-       (and (ground? ge) (ground? gt))
-       (if (p/has-type? ge gt) (succeed a) (fail a))
+         (and (ground? ge) (ground? gt))
+         (if (p/has-type? ge gt) (succeed a) (fail a))
 
-       (ground? ge)
-       (unify a t (p/qname ge))
+         (ground? ge)
+         (unify a t (p/qname ge))
 
-       (ground? gt)
-       (if (symbol? gt)
-         ;; Ok, here we can determine if its a vertex or an edge class
-         (let [[_ tn _] (u/type-with-modifiers (name gt))
-               aec      (tg/attributed-element-class g tn)]
-           (if (tg/vertex-class? aec)
-             (to-stream
-              (->> (map #(unify a e %) (tg/vseq g gt))
-                   (remove not)))
-             (to-stream
-              (->> (map #(unify a e %) (tg/eseq g gt))
-                   (remove not)))))
-         (to-stream
-          (->> (map #(unify a e %)
-                    (concat (tg/vseq g gt)
-                            (tg/eseq g gt)))
-               (remove not))))
+         (ground? gt)
+         (if (symbol? gt)
+           ;; Ok, here we can determine if its a vertex or an edge class
+           (let [[_ tn _] (u/type-with-modifiers (name gt))
+                 aec      (tg/attributed-element-class g tn)]
+             (if (tg/vertex-class? aec)
+               (to-stream
+                (->> (map #(unify a e %) (tg/vseq g gt))
+                     (remove not)))
+               (to-stream
+                (->> (map #(unify a e %) (tg/eseq g gt))
+                     (remove not)))))
+           (to-stream
+            (->> (map #(unify a e %)
+                      (concat (tg/vseq g gt)
+                              (tg/eseq g gt)))
+                 (remove not))))
 
-       :else (to-stream
-              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
-                     (unify a [e t] [elem (p/qname elem)]))
-                   (remove not)))))))
+         :else (to-stream
+                (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
+                       (unify a [e t] [elem (p/qname elem)]))
+                     (remove not))))))))
 
 (defn vertexo
   "A relation where `v` is a vertex in graph `g`.

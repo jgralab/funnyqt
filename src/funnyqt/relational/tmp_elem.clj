@@ -28,6 +28,31 @@
 (defprotocol IType
   (set-type [this t]))
 
+;;# Containment check protocol
+
+(defprotocol ContainmentRef
+  (containment-ref? [mm-class ref-kw]))
+
+(extend-protocol ContainmentRef
+  de.uni_koblenz.jgralab.schema.VertexClass
+  (containment-ref? [this ref-kw]
+    (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+             dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
+      (let [ec  (.getEdgeClass dec)
+            dir (.getDirection dec)
+            ic  (if (= dir de.uni_koblenz.jgralab.EdgeDirection/OUT)
+                  (.getTo ec)
+                  (.getFrom ec))]
+        (= (.getAggregationKind ic)
+           de.uni_koblenz.jgralab.schema.AggregationKind/COMPOSITE))
+      (u/errorf "No such role %s at metamodel class %s." ref-kw this)))
+  org.eclipse.emf.ecore.EClass
+  (containment-ref? [this ref-kw]
+    (if-let [^org.eclipse.emf.ecore.EReference
+             er (.getEStructuralFeature this (name ref-kw))]
+      (.isContainment er)
+      (u/errorf "No such reference %s at metamodel class %s." ref-kw this))))
+
 ;;# Helpers
 
 (defn groundify-attrs [attrs subst]
@@ -53,6 +78,13 @@
                      [r vs]))
                  refs)))
 
+(defn enforce-single-containers [refs subst]
+  (doseq [[r ts] refs]
+    (when (containment-ref? type r)
+      (doseq [t ts]
+        (when (p/container t)
+          (ccl/fail subst))))))
+
 ;;# Types
 
 ;;## WrapperElement
@@ -65,6 +97,23 @@
   (as-map [this]
     {:model model :wrapped-element wrapped-element
      :attrs attrs :refs refs})
+  IKind
+  (set-kind [this k]
+    (when-not (#{:vertex :edge :eobject} k)
+      (u/errorf "kind must be any of :vertex, :edge, :eobject but was %s." k))
+    (let [cur (condp instance? wrapped-element
+                de.uni_koblenz.jgralab.Vertex :vertex
+                de.uni_koblenz.jgralab.Edge   :edge
+                org.eclipse.emf.ecore.EObject :eobject)]
+      (= k cur)))
+  IType
+  (set-type [this t]
+    (when-not (symbol? t)
+      (u/errorf "type must be a symbol but was %s." t))
+    (let [mm-class (p/mm-class model t)
+          cur-class (p/mm-class wrapped-element)]
+      (or (= mm-class cur-class)
+          (p/mm-super-class? mm-class cur-class))))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
@@ -89,7 +138,8 @@
                                      target))
                true))))
   (finalize-refs [this subst]
-    (groundify-refs refs subst)))
+    (groundify-refs refs subst)
+    (enforce-single-containers refs subst)))
 
 (defn make-wrapper [model element]
   (->WrapperElement model element {} {}))
@@ -151,10 +201,13 @@
                                      target))
                true))))
   (finalize-refs [this subst]
-    (groundify-refs refs subst)))
+    (groundify-refs refs subst)
+    (enforce-single-containers refs subst)))
 
 (defn make-tmp-element [model kind type]
-  (->TmpElement model kind type))
+  (doto (->TmpElement model nil nil {} {})
+    (set-kind kind)
+    (set-type type)))
 
 ;;# Finalization
 

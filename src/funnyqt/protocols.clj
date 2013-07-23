@@ -138,6 +138,14 @@
   (add-adj!  [obj role obj])
   (add-adjs! [obj role objs]))
 
+;;# Container
+
+(defprotocol Container
+  (container [this]
+    "Returns the container of this element.
+  A container is an element that references this element by some link with
+  composition semantics."))
+
 ;;# Metamodel Protocols
 
 (defprotocol MMClasses

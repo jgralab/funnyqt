@@ -10,7 +10,7 @@
   (:import (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                         JPanel JLabel JScrollPane JComboBox Action)
            (java.awt.event ActionEvent ItemEvent ItemListener)
-           (java.awt Container GridBagLayout GridBagConstraints)))
+           (java.awt GridBagLayout GridBagConstraints)))
 
 
 ;;# Rules

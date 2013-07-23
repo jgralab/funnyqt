@@ -380,8 +380,14 @@
     ([this ts]
        (eallobjects this ts))))
 
-;; TODO: Add :arglists and :doc
-(def econtainer econtainer-internal)
+(def ^{:doc "Returns the EObject containing `eo`."
+       :arglists '([eo])}
+  econtainer econtainer-internal)
+
+(extend-protocol Container
+  EObject
+  (container [this]
+    (econtainer-internal this)))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
