@@ -204,10 +204,13 @@
     (groundify-refs refs subst)
     (enforce-single-containers refs subst)))
 
-(defn make-tmp-element [model kind type]
-  (doto (->TmpElement model nil nil {} {})
-    (set-kind kind)
-    (set-type type)))
+(defn make-tmp-element
+  ([model kind]
+     (doto (->TmpElement model nil nil {} {})
+       (set-kind kind)))
+  ([model kind type]
+     (doto (make-tmp-element model kind)
+       (set-type type))))
 
 ;;# Finalization
 

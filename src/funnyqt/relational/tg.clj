@@ -95,19 +95,45 @@
                        (unify a [e t] [elem (p/qname elem)]))
                      (remove not))))))))
 
+(defn tmp-vertexo [g v]
+  (fn [a]
+    (let [gv (walk a v)]
+      (cond
+       (not (or (fresh? gv)
+                (instance? WrapperElement gv)
+                (instance? TmpElement gv)))
+       (u/errorf "tmp-vertexo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." gv)
+
+       (ground? gv)
+       (if (tmp/set-kind gv :vertex)
+         (succeed a)
+         (fail a))
+
+       :else (to-stream
+              (->> (map #(unify a v %)
+                        (concat
+                         ;; Existing vertices wrapped
+                         (map (partial tmp/make-wrapper g)
+                              (tg/vseq g))
+                         ;; One new vertex tmp element
+                         [(tmp/make-tmp-element g :vertex)]))
+                   (remove not)))))))
+
 (defn vertexo
   "A relation where `v` is a vertex in graph `g`.
   `g` has to be ground."
   [g v]
-  (fn [a]
-    (let [gv (walk a v)]
-      (if (ground? gv)
-        (if (and (tg/vertex? gv) (tg/contains-vertex? g gv))
-          (succeed a)
-          (fail a))
-        (to-stream
-         (->> (map #(unify a v %) (tg/vseq g))
-              (remove not)))))))
+  (if tmp/*make-tmp-elements*
+    (tmp-vertexo g v)
+    (fn [a]
+      (let [gv (walk a v)]
+        (if (ground? gv)
+          (if (and (tg/vertex? gv) (tg/contains-vertex? g gv))
+            (succeed a)
+            (fail a))
+          (to-stream
+           (->> (map #(unify a v %) (tg/vseq g))
+                (remove not))))))))
 
 (defn edgeo
   "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
@@ -149,38 +175,58 @@
   [ae]
   (seq (.getAttributeList (tg/attributed-element-class ae))))
 
-(defn valueo
-  "A relation where graph `g`s attributed element `ae` has value `val` for its
-  `at` attribute."
-  [g ae at val]
+(defn tmp-valueo [g ae at val]
   (fn [a]
     (let [gae  (walk a ae)
           gat  (walk a at)
           gval (walk a val)]
       (cond
-       (or (and (ground? gae) (not (tg/attributed-element? gae)))
-           (and (ground? gat) (not (keyword? gat)))
-           (and (ground? gae) (ground? gat)
-                (not (.getAttribute (tg/attributed-element-class gae)
-                                    (name gat)))))
-       (fail a)
+       (not (or (instance? WrapperElement gae)
+                (instance? TmpElement gae)))
+       (u/errorf "tmp-valueo: the element has to be a ground Tmp- or WrapperElement but was %s."
+               gae)
 
-       (and (ground? gae) (ground? gat))
-       (unify a val (tg/value gae gat))
+       (not (keyword? gat))
+       (u/errorf "tmp-valueo: the attribute must be a ground keyword but was %s." gat)
 
-       (ground? gae)
-       (to-stream
-        (->> (for [^Attribute attr (attribute-list gae)
-                   :let [an (keyword (.getName attr))]]
-               (unify a [at val] [an (tg/value gae an)]))
-             (remove not)))
+       :else (if (tmp/add-attr gae gat gval)
+               (succeed a)
+               (fail a))))))
 
-       :else (to-stream
-              (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
-                         ^Attribute attr (attribute-list elem)
-                         :let [an (keyword (.getName attr))]]
-                     (unify a [ae at val] [elem an (tg/value elem an)]))
-                   (remove not)))))))
+(defn valueo
+  "A relation where graph `g`s attributed element `ae` has value `val` for its
+  `at` attribute."
+  [g ae at val]
+  (if tmp/*make-tmp-elements*
+    (tmp-valueo g ae at val)
+    (fn [a]
+      (let [gae  (walk a ae)
+            gat  (walk a at)
+            gval (walk a val)]
+        (cond
+         (or (and (ground? gae) (not (tg/attributed-element? gae)))
+             (and (ground? gat) (not (keyword? gat)))
+             (and (ground? gae) (ground? gat)
+                  (not (.getAttribute (tg/attributed-element-class gae)
+                                      (name gat)))))
+         (fail a)
+
+         (and (ground? gae) (ground? gat))
+         (unify a val (tg/value gae gat))
+
+         (ground? gae)
+         (to-stream
+          (->> (for [^Attribute attr (attribute-list gae)
+                     :let [an (keyword (.getName attr))]]
+                 (unify a [at val] [an (tg/value gae an)]))
+               (remove not)))
+
+         :else (to-stream
+                (->> (for [elem (concat (tg/vseq g) (tg/eseq g))
+                           ^Attribute attr (attribute-list elem)
+                           :let [an (keyword (.getName attr))]]
+                       (unify a [ae at val] [elem an (tg/value elem an)]))
+                     (remove not))))))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
