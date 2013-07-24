@@ -13,10 +13,7 @@
   occurence.  That means, that in `forms` all occurences of ?foo will be
   unified, but all occurences of `_' are not."
   [& forms]
-  (let [qmark-symbol? (fn [sym]
-                        (and (symbol? sym)
-                             (= (first (name sym)) \?)))
-        fs (clojure.walk/postwalk #(if (= '_ %) (gensym "?") %) forms)
+  (let [fs (clojure.walk/postwalk #(if (= '_ %) (gensym "?") %) forms)
         qsyms (vec (distinct (filter qmark-symbol? (flatten fs))))]
     `(fresh ~qsyms
        ~@fs)))

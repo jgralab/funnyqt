@@ -9,7 +9,7 @@ RecordDomain Date ( day: Integer, month: Month, year: Integer );
 EnumDomain Month ( JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC );
 abstract VertexClass NamedElement { name: String };
 Package connections;
-EdgeClass AirRoute: Connection from junctions.Airport (0,*) to junctions.Airport (0,*) { routeName: String };
+EdgeClass AirRoute: Connection from junctions.Airport (0,*) role srcAirport to junctions.Airport (0,*) role dstAirport { routeName: String };
 abstract EdgeClass Connection from junctions.Junction (0,*) role src to junctions.Junction (0,*) role dst { length: Double };
 EdgeClass Footpath: Way from junctions.Crossroad (0,*) to junctions.Crossroad (0,*);
 EdgeClass Highway: Street from junctions.Crossroad (0,*) to junctions.Crossroad (0,*) { lanes: Integer };

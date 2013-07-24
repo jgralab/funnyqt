@@ -273,6 +273,14 @@ functions `record` and `enum`."
 
 ;;# Generic Metamodel Access
 
+(extend-protocol MetaModelObject
+  AttributedElementClass
+  (meta-model-object? [this] true)
+  Object
+  (meta-model-object? [this] false)
+  nil
+  (meta-model-object? [this] false))
+
 (extend-protocol MMClasses
   GraphElementClass
   (mm-classes [aec]
@@ -972,6 +980,14 @@ functions `record` and `enum`."
         (if (= AggregationKind/COMPOSITE (.getThisAggregationKind inc))
           (that inc)
           (recur (next-inc inc)))))))
+
+(extend-protocol ModelObject
+  GraphElement
+  (model-object? [this] true)
+  Object
+  (model-object? [this] false)
+  nil
+  (model-object? [this] false))
 
 ;;## Vertex, edge counts, degree
 

@@ -146,6 +146,16 @@
   A container is an element that references this element by some link with
   composition semantics."))
 
+;;# (Meta-)Model Object predicates
+
+(defprotocol ModelObject
+  (model-object? [this]
+    "Returns true if `this` is a supported model object."))
+
+(defprotocol MetaModelObject
+  (meta-model-object? [this]
+    "Returns true if `this` is a supported meta model object."))
+
 ;;# Metamodel Protocols
 
 (defprotocol MMClasses

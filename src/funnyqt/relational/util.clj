@@ -3,6 +3,10 @@
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic]))
 
+(defn qmark-symbol? [sym]
+  (and
+   (symbol? sym)
+   (= (first (clojure.core/name sym)) \?)))
 
 (defn fresh?
   "Returns true, if `x` is fresh.

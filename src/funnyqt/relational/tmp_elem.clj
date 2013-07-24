@@ -31,6 +31,10 @@
 (defprotocol IType
   (set-type [this t]))
 
+(defprotocol IManifestation
+  (manifest [this])
+  (manifestation [this]))
+
 ;;# Containment check protocol
 
 (defprotocol ContainmentRef
@@ -76,17 +80,27 @@
                                               (cclp/walk subst v)
                                               v)]
                                       (when (ccl/lvar? v)
-                                        (u/errorf "Reference %s can't be grounded." r))))
+                                        (u/errorf "Reference %s can't be grounded." r))
+                                      v))
                                   vs)]
                      [r vs]))
                  refs)))
 
-(defn enforce-single-containers [refs subst]
-  (doseq [[r ts] refs]
-    (when (containment-ref? type r)
-      (doseq [t ts]
-        (when (p/container t)
-          (ccl/fail subst))))))
+(defn single-containers? [type refs]
+  (loop [rs refs, ok true]
+    (if (seq rs)
+      (let [[r ts] (first rs)]
+        (if (containment-ref? type r)
+          (recur (rest rs) (and ok (funnyqt.query/forall?
+                                    #(cond
+                                      (instance? WrapperElement %)
+                                      (not (p/container (.wrapped-element %)))
+
+                                      (instance? TmpElement %)
+                                      true)
+                                    ts)))
+          (recur (rest rs) ok)))
+      ok)))
 
 ;;# Types
 
@@ -95,11 +109,12 @@
 (deftype WrapperElement [model
                          wrapped-element
                          ^:unsynchronized-mutable attrs
-                         ^:unsynchronized-mutable refs]
+                         ^:unsynchronized-mutable refs
+                         ^:unsynchronized-mutable manifested]
   IAsMap
   (as-map [this]
     {:model model :wrapped-element wrapped-element
-     :attrs attrs :refs refs})
+     :attrs attrs :refs refs :manifested manifested})
   IKind
   (set-kind [this k]
     (if (set? k)
@@ -127,7 +142,8 @@
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
        :else false)))
   (finalize-attrs [this subst]
-    (set! attrs (groundify-attrs attrs subst)))
+    (set! attrs (groundify-attrs attrs subst))
+    true)
   IRef
   (add-ref [this ref target]
     (when-not (keyword? ref)
@@ -141,11 +157,23 @@
                                      target))
                true))))
   (finalize-refs [this subst]
-    (groundify-refs refs subst)
-    (enforce-single-containers refs subst)))
+    (set! refs (groundify-refs refs subst))
+    (single-containers? (p/mm-class wrapped-element) refs))
+  IManifestation
+  (manifest [this]
+    (if manifested
+      wrapped-element
+      (do
+        (set! manifested true)
+        (doseq [[at val] attrs]
+          (p/set-aval! wrapped-element at val))
+        (doseq [[role rs] refs]
+          (doseq [r rs]
+            (p/add-adj! wrapped-element role (manifest r)))))))
+  (manifestation [this] wrapped-element))
 
 (defn make-wrapper [model element]
-  (->WrapperElement model element {} {}))
+  (->WrapperElement model element {} {} false))
 
 ;;## TmpElement
 
@@ -153,10 +181,12 @@
                      ^:unsynchronized-mutable kind
                      ^:unsynchronized-mutable type
                      ^:unsynchronized-mutable attrs
-                     ^:unsynchronized-mutable refs]
+                     ^:unsynchronized-mutable refs
+                     ^:unsynchronized-mutable manifested-element]
   IAsMap
   (as-map [this]
-    {:model model :kind kind :type type :attrs attrs :refs refs})
+    {:model model :kind kind :type type :attrs attrs :refs refs
+     :manifested-element manifested-element})
   IKind
   (set-kind [this k]
     (if (set? k)
@@ -181,7 +211,7 @@
          ;; specific.
          (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
          ;; The given type is a superclass of or identical to the currently set
-         ;; type, so succeed without changing anything.
+         ;; type, so ccl/succeed without changing anything.
          (or (= mm-class type)
              (p/mm-super-class? mm-class type)) true
              :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
@@ -195,7 +225,8 @@
        (= cur val) true
        :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
   (finalize-attrs [this subst]
-    (set! attrs (groundify-attrs attrs subst)))
+    (set! attrs (groundify-attrs attrs subst))
+    true)
   IRef
   (add-ref [this ref target]
     (when-not (keyword? ref)
@@ -209,24 +240,49 @@
                                      target))
                true))))
   (finalize-refs [this subst]
-    (groundify-refs refs subst)
-    (enforce-single-containers refs subst)))
+    (set! refs (groundify-refs refs subst))
+    (single-containers? type refs))
+  IManifestation
+  (manifest [this]
+    (or manifested-element
+        (do
+          (set! manifested-element (p/create-element! model type))
+          (doseq [[at val] attrs]
+            (p/set-aval! manifested-element at val))
+          (doseq [[role rs] refs]
+            (doseq [r rs]
+              (p/add-adj! manifested-element role r)))
+          manifested-element)))
+  (manifestation [this] manifested-element))
 
 (defn make-tmp-element
   ([model kind]
-     (doto (->TmpElement model nil nil {} {})
+     (doto (->TmpElement model nil nil {} {} nil)
        (set-kind kind)))
   ([model kind type]
      (doto (make-tmp-element model kind)
        (set-type type))))
 
+;;## Type predicates
+
+(defn tmp-or-wrapper-element? [el]
+  (or (instance? WrapperElement el)
+      (instance? TmpElement el)))
+
 ;;# Finalization
 
-(defn finalizeo [& tmps]
+(defn finalizeo [& els]
   (fn [a]
-    (doseq [tmp tmps]
-      (finalize-attrs tmp a)
-      (finalize-refs  tmp a))))
+    (let [all-ok
+          (loop [els (filter tmp-or-wrapper-element? els), ok true]
+            (if (and ok (seq els))
+              (recur (rest els) (and ok
+                                     (finalize-attrs (first els) a)
+                                     (finalize-refs  (first els) a)))
+              ok))]
+      (if all-ok
+        (ccl/succeed a)
+        (ccl/fail a)))))
 
 (comment
   (run* [q]

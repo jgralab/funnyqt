@@ -37,8 +37,7 @@
        (u/errorf "tmp-typeo: type must be ground.")
 
        (not (or (fresh? ge)
-                (instance? WrapperElement ge)
-                (instance? TmpElement ge)))
+                (tmp/tmp-or-wrapper-element? ge)))
        (u/errorf "tmp-typeo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." ge)
 
        (ground? ge)
@@ -113,8 +112,7 @@
     (let [gv (walk a v)]
       (cond
        (not (or (fresh? gv)
-                (instance? WrapperElement gv)
-                (instance? TmpElement gv)))
+                (tmp/tmp-or-wrapper-element? gv)))
        (u/errorf "tmp-vertexo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." gv)
 
        (ground? gv)
@@ -194,8 +192,7 @@
           gat  (walk a at)
           gval (walk a val)]
       (cond
-       (not (or (instance? WrapperElement gae)
-                (instance? TmpElement gae)))
+       (not (tmp/tmp-or-wrapper-element? gae))
        (u/errorf "tmp-valueo: the element has to be a ground Tmp- or WrapperElement but was %s."
                gae)
 
@@ -241,10 +238,7 @@
                        (unify a [ae at val] [elem an (tg/value elem an)]))
                      (remove not))))))))
 
-(defn adjo
-  "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
-  `g`."
-  [g v role rv]
+(defn tmp-adjo [g v role rv]
   (fn [a]
     (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
                              (remove empty? (.getAllRoles (if (= :to from-or-to)
@@ -254,49 +248,75 @@
           grole (walk a role)
           grv   (walk a rv)]
       (cond
-       ;; Ground lvars must have the expected types
-       (or (and (ground? gv) (not (tg/vertex? gv)))
-           (and (ground? grole) (not (keyword? grole)))
-           (and (ground? grv)   (not (tg/vertex? grv))))
-       (fail a)
+       (not (tmp/tmp-or-wrapper-element? gv))
+       (u/errorf "tmp-adjo: the source element has to be a ground Tmp- or WrapperElement but was %s."
+                 gv)
 
-       (and (ground? gv) (ground? grole))
-       (to-stream
-        (->> (for [refed (funnyqt.query/adjs* gv grole)]
-               (unify a [rv] [refed]))
-             (remove not)))
+       (not (keyword? grole))
+       (u/errorf "tmp-adjo: the attribute must be a ground keyword but was %s." grole)
 
-       (ground? gv)
-       (to-stream
-        (->> (for [e (tg/iseq gv)
-                   rn (edge-class-roles (tg/attributed-element-class e)
-                                        (if (tg/normal-edge? e) :to :from))
-                   :when rn
-                   :let [rn (keyword rn)]]
-               (unify a [role rv] [rn (tg/that e)]))
-             (remove not)))
+       :else (if (tmp/add-ref gv grole grv)
+               (succeed a)
+               (fail a))))))
 
-       (ground? grv)
-       (to-stream
-        (->> (for [e (tg/iseq grv)
-                   rn (edge-class-roles (tg/attributed-element-class e)
-                                        (if (tg/normal-edge? e) :from :to))
-                   :when rn
-                   :let [rn (keyword rn)]]
-               (unify a [v role] [(tg/that e) rn]))
-             (remove not)))
+(defn adjo
+  "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
+  `g`."
+  [g v role rv]
+  (if tmp/*make-tmp-elements*
+    (tmp-adjo g v role rv)
+    (fn [a]
+      (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
+                               (remove empty? (.getAllRoles (if (= :to from-or-to)
+                                                              (.getTo ec)
+                                                              (.getFrom ec)))))
+            gv    (walk a v)
+            grole (walk a role)
+            grv   (walk a rv)]
+        (cond
+         ;; Ground lvars must have the expected types
+         (or (and (ground? gv) (not (tg/vertex? gv)))
+             (and (ground? grole) (not (keyword? grole)))
+             (and (ground? grv)   (not (tg/vertex? grv))))
+         (fail a)
 
-       :else (to-stream
-              (->> (for [s (tg/vseq g)
-                         e (tg/iseq s)
-                         rn (if (ground? grole)
-                              [grole]
-                              (edge-class-roles (tg/attributed-element-class e)
-                                                (if (tg/normal-edge? e) :to :from)))
-                         :when rn
-                         :let [rn (keyword rn)]]
-                     (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
-                   (remove not)))))))
+         (and (ground? gv) (ground? grole))
+         (to-stream
+          (->> (for [refed (funnyqt.query/adjs* gv grole)]
+                 (unify a [rv] [refed]))
+               (remove not)))
+
+         (ground? gv)
+         (to-stream
+          (->> (for [e (tg/iseq gv)
+                     rn (edge-class-roles (tg/attributed-element-class e)
+                                          (if (tg/normal-edge? e) :to :from))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [role rv] [rn (tg/that e)]))
+               (remove not)))
+
+         (ground? grv)
+         (to-stream
+          (->> (for [e (tg/iseq grv)
+                     rn (edge-class-roles (tg/attributed-element-class e)
+                                          (if (tg/normal-edge? e) :from :to))
+                     :when rn
+                     :let [rn (keyword rn)]]
+                 (unify a [v role] [(tg/that e) rn]))
+               (remove not)))
+
+         :else (to-stream
+                (->> (for [s (tg/vseq g)
+                           e (tg/iseq s)
+                           rn (if (ground? grole)
+                                [grole]
+                                (edge-class-roles (tg/attributed-element-class e)
+                                                  (if (tg/normal-edge? e) :to :from)))
+                           :when rn
+                           :let [rn (keyword rn)]]
+                       (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
+                     (remove not))))))))
 
 (comment
   (def g (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg"))
