@@ -58,7 +58,7 @@
                          :?cr1 ?start1 :?cr2 ?start2)
                 (relateo :crossroad2crossroad
                          :?cr1 ?end1 :?cr2 ?end2)]
-         :left [(rm/+->dst g1 ?con1 ?start1 ?end1)
+         :left [(rm/+Connection g1 ?con1 ?start1 ?end1)
                 (rtg/typeo g1 ?con1 ?con-type)]
          :right [(rm/+Connection g2 ?con2 ?start2 ?end2)
                  (rtg/typeo g2 ?con2 ?con-type)])
@@ -79,15 +79,13 @@
     (test/is (= 355 (tg/ecount rm1)))
     (test/is (= 146 (tg/vcount rm2)))
     (test/is (= 340 (tg/ecount rm2)))
-    (viz/print-model rm2 :gtk)
-    ))
+    (viz/print-model rm2 :gtk)))
 
 (test/deftest routemap-sync
   (let [rm1 (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg")
         rm2 (let [g (tg/create-graph (tg/load-schema "test/input/greqltestgraph-with-cr-ids.tg"))
                   eh (tg/create-vertex! g 'Village)
-                  rlp (tg/create-vertex! g 'County)
-                  ]
+                  rlp (tg/create-vertex! g 'County)]
               ;; During the :left transformation, the new Village Ebernhahn +
               ;; the new ContainsLocality edge should be propagated back to the
               ;; rm1 graph.

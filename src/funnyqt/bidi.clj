@@ -97,12 +97,11 @@
                          ~@(get map trg)
                          (tmp/finalizeo ~@trg-syms)
                          (== q# ~(make-kw-result-map trg-syms)))))]
-                (println "source match:" ~sm)
-                (println "target match:" ~tm)
                 ~@(:optional map)
                 (enforce-match ~tm)
                 (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
-                  (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
+                  (swap! *relation-bindings* update-in [~relkw] conj
+                         {~src ~sm, ~trg ~etm})
                   (fn [] ~@(:where map))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
@@ -120,28 +119,46 @@
                                        :optional))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~name [& ~(make-destr-map syms)]
-            (println "Executing" ~(clojure.core/name name))
             (let ~(make-relation-binding-vector syms)
               (if (= *target-direction* :right)
                 ~(do-rel-body relkw :right map wsyms lsyms rsyms)
                 ~(do-rel-body relkw :left  map wsyms rsyms lsyms))))))
 
-(def ^:dynamic *relation-bindings*)
+(def ^{:dynamic true
+       :doc "A map with the following structure:
+
+    {:relname1 bindings, :relname2 bindings, ...}
+
+  where bindings is:
+
+    ({:left  {:?lsym1 val1...}
+      :right {:?rsym1 rval2 ...}}
+     ...)"}
+  *relation-bindings*)
 
 (defn relateo [relation & keyvals]
-  (let [m (apply hash-map keyvals)]
+  (let [m (apply flatland.ordered.map/ordered-map keyvals)]
     (fn [a]
       (let [bindings (@*relation-bindings* relation)]
         (to-stream
          (->> (map (fn [b]
-                     (let [vs (mapv #(get b % ::not-found) (keys m))]
-                       (when (funnyqt.query/member? ::not-found vs)
-                         (u/errorf "Unbound keys: %s"
-                                   (pr-str
-                                    (filter #(= (get b % ::not-found)
-                                                ::not-found)
-                                            (keys m)))))
-                       (unify a (vec (vals m)) vs)))
+                     (let [lefts (:left b)
+                           rights (:right b)
+                           trgs (if (= *target-direction* :right) rights lefts)
+                           srcs (if (= *target-direction* :right) lefts rights)]
+                       (unify a (vec (vals m))
+                              (mapv
+                               (fn [k]
+                                 (let [v (get trgs k ::not-found)]
+                                   (if (= ::not-found v)
+                                     (let [v (get srcs k ::not-found)]
+                                       (if (= ::not-found v)
+                                         (u/errorf "Unbound key %s." k)
+                                         v))
+                                     (if (p/model-object? v)
+                                       (tmp/make-wrapper *target-model* v)
+                                       v))))
+                               (keys m)))))
                    bindings)
               (remove not)))))))
 

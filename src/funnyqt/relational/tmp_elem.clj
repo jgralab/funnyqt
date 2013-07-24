@@ -169,7 +169,8 @@
           (p/set-aval! wrapped-element at val))
         (doseq [[role rs] refs]
           (doseq [r rs]
-            (p/add-adj! wrapped-element role (manifest r)))))))
+            (p/add-adj! wrapped-element role (manifest r))))
+        wrapped-element)))
   (manifestation [this] wrapped-element))
 
 (defn make-wrapper [model element]
