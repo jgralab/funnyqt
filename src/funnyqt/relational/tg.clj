@@ -17,6 +17,17 @@
                                   GraphElementClass IncidenceClass)
    (funnyqt.relational.tmp_elem WrapperElement TmpElement)))
 
+(defn kind-aec-tup-from-spec [g spec]
+  (let [aecfn (partial tg/attributed-element-class g)
+        kindfn #(if (tg/vertex-class? %) :vertex :edge)]
+    (cond
+     (symbol? spec) (let [aec (aecfn spec)]
+                      [(kindfn aec) aec])
+     (vector? spec) (let [aecs  (set (map aecfn spec))
+                          kinds (set (map kindfn aecs))]
+                      [kinds aecs])
+     :else (u/errorf "Unknown spec %s." spec))))
+
 (defn tmp-typeo [g e t]
   (fn [a]
     (let [ge (walk a e)
@@ -31,16 +42,18 @@
        (u/errorf "tmp-typeo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." ge)
 
        (ground? ge)
-       (let [aec (tg/attributed-element-class g gt)
-             kind (if (tg/vertex-class? aec) :vertex :edge)]
+       (let [[kind aec] (kind-aec-tup-from-spec g gt)]
          (if (and (tmp/set-type ge gt)
                   (tmp/set-kind ge kind))
            (succeed a)
            (fail a)))
 
-       :else (let [aec (tg/attributed-element-class g gt)
-                   kind (if (tg/vertex-class? aec) :vertex :edge)
-                   seqfn (if (= kind :vertex) tg/vseq tg/eseq)]
+       :else (let [[kind aec] (kind-aec-tup-from-spec g gt)
+                   seqfn (cond
+                          (= kind :vertex) tg/vseq
+                          (= kind :edge)   tg/eseq
+                          :else (fn [g gt]
+                                  (concat (tg/vseq g gt) (tg/eseq g gt))))]
                (to-stream
                 (->> (map #(unify a e %)
                           (concat
@@ -284,6 +297,14 @@
                          :let [rn (keyword rn)]]
                      (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
                    (remove not)))))))
+
+(comment
+  (def g (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg"))
+  (generate-schema-relations "test/input/greqltestgraph-with-cr-ids.tg" rm)
+  (binding [tmp/*make-tmp-elements* true]
+    (doall (run* [q]
+             (rm/+City g q)
+             (rm/+name g q "Koblenz")))))
 
 ;;# Metamodel specific
 

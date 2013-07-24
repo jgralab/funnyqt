@@ -9,6 +9,9 @@
 
 (def ^:dynamic *make-tmp-elements* false)
 
+;; TODO: Add Unset protocol with unset? function instead of using nil? checks
+;; for attributes.
+
 ;;# Protocols
 
 (defprotocol IAsMap
@@ -99,21 +102,21 @@
      :attrs attrs :refs refs})
   IKind
   (set-kind [this k]
-    (when-not (#{:vertex :edge :eobject} k)
-      (u/errorf "kind must be any of :vertex, :edge, :eobject but was %s." k))
-    (let [cur (condp instance? wrapped-element
-                de.uni_koblenz.jgralab.Vertex :vertex
-                de.uni_koblenz.jgralab.Edge   :edge
-                org.eclipse.emf.ecore.EObject :eobject)]
-      (= k cur)))
+    (if (set? k)
+      true ;; Kind ambiguous as result of attr relation, so simply succeed.
+      (let [cur (condp instance? wrapped-element
+                  de.uni_koblenz.jgralab.Vertex :vertex
+                  de.uni_koblenz.jgralab.Edge   :edge
+                  org.eclipse.emf.ecore.EObject :eobject)]
+        (= k cur))))
   IType
   (set-type [this t]
-    (when-not (symbol? t)
-      (u/errorf "type must be a symbol but was %s." t))
-    (let [mm-class (p/mm-class model t)
-          cur-class (p/mm-class wrapped-element)]
-      (or (= mm-class cur-class)
-          (p/mm-super-class? mm-class cur-class))))
+    (let [cur-class (p/mm-class wrapped-element)
+          super-or-eq-to-cur? #(or (= % cur-class)
+                                   (p/mm-super-class? % cur-class))]
+      (if (vector? t)
+        (q/exists? super-or-eq-to-cur? (map (partial p/mm-class model) t))
+        (super-or-eq-to-cur? (p/mm-class model t)))))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
@@ -122,7 +125,7 @@
       (cond
        (= cur val) true
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
-       :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
+       :else false)))
   (finalize-attrs [this subst]
     (set! attrs (groundify-attrs attrs subst)))
   IRef
@@ -156,27 +159,32 @@
     {:model model :kind kind :type type :attrs attrs :refs refs})
   IKind
   (set-kind [this k]
-    (when-not (#{:vertex :edge :eobject} k)
-      (u/errorf "kind must be any of :vertex, :edge, :eobject but was %s." k))
-    (cond
-     (nil? kind) (do (set! kind k) true)
-     (= kind k) true
-     :else (u/errorf "Cannot reset kind from %s to %s." kind k)))
+    (if (set? k)
+      true ;; Kind ambiguous as result of attr relation, so simply succeed.
+      (cond
+       (nil? kind) (do (set! kind k) true)
+       (= kind k) true
+       :else (u/errorf "Cannot reset kind from %s to %s." kind k))))
   IType
   (set-type [this t]
-    (when-not (symbol? t)
-      (u/errorf "type must be a symbol but was %s." t))
-    (let [mm-class (p/mm-class model t)]
-      (cond
-       (nil? type) (do (set! type mm-class) true)
-       ;; The current type is a superclass of mm-class, so set to the more
-       ;; specific.
-       (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
-       ;; The given type is a superclass of or identical to the currently set
-       ;; type, so succeed without changing anything.
-       (or (= mm-class type)
-           (p/mm-super-class? mm-class type)) true
-       :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t))))
+    (if (vector? t)
+      true ;; Many types given as a result of an attribute relation.  Simply
+           ;; succeed.  TODO: We could handle that more restrictively, i.e.,
+           ;; the current type must be a subclass or equal to one of the given
+           ;; types, and if there's no current type, it must be a subclass or
+           ;; equal to one of the given classes in the future.
+      (let [mm-class (p/mm-class model t)]
+        (cond
+         ;; No type set already.
+         (nil? type) (do (set! type mm-class) true)
+         ;; The current type is a superclass of mm-class, so set to the more
+         ;; specific.
+         (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
+         ;; The given type is a superclass of or identical to the currently set
+         ;; type, so succeed without changing anything.
+         (or (= mm-class type)
+             (p/mm-super-class? mm-class type)) true
+             :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
