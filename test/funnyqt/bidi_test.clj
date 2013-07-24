@@ -53,7 +53,7 @@
   (maybe-names
    :left [(rm/+name g1 ?cr1 ?n)]
    :right [(rm/+name g2 ?cr2 ?n)])
-  #_(^:top connection2connection
+  (^:top connection2connection
          :when [(relateo :crossroad2crossroad
                          :?cr1 ?start1 :?cr2 ?start2)
                 (relateo :crossroad2crossroad

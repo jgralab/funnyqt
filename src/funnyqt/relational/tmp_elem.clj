@@ -35,6 +35,10 @@
   (manifest [this])
   (manifestation [this]))
 
+(defprotocol IAlphaOmega
+  (set-alpha [this a])
+  (set-omega [this o]))
+
 ;;# Containment check protocol
 
 (defprotocol ContainmentRef
@@ -111,6 +115,16 @@
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested]
+  #_clojure.core.logic.protocols/IUnifyTerms
+  #_(unify-terms [u v s]
+    (when (instance? WrapperElement v)
+      (= (.wrapped-element u) (.wrapped-element v))))
+  Object
+  (hashCode [this]
+    (.hashCode wrapped-element))
+  (equals [this that]
+    (and (instance? WrapperElement that)
+         (= wrapped-element (.wrapped-element that))))
   IAsMap
   (as-map [this]
     {:model model :wrapped-element wrapped-element
@@ -146,11 +160,17 @@
     true)
   IRef
   (add-ref [this ref target]
+    ;; target is either fresh or a wrapper or tmp element
+    (when (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
+      (u/errorf "Can't add ref to an edge."))
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
     (let [cur (q/adjs wrapped-element ref)] ;; Throws if ref is no valid role name
       (cond
-       (q/member? target cur) true
+       (and (instance? WrapperElement target)
+            (q/member? (.wrapped-element target) cur))
+       true
+
        :else (do
                (set! refs (update-in refs [ref]
                                      #(conj (vec %1) %2)
@@ -159,6 +179,23 @@
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst))
     (single-containers? (p/mm-class wrapped-element) refs))
+  IAlphaOmega
+  (set-alpha [this a]
+    ;; a is either fresh or a wrapper or tmp element
+    (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
+      (u/errorf "Can't set alpha of non-edge %s." wrapped-element))
+    (cond
+     (instance? WrapperElement a) (= (tg/alpha wrapped-element) (.wrapped-element a))
+     (instance? TmpElement a)     false
+     :else                        true))
+  (set-omega [this o]
+    ;; o is either fresh or a wrapper or tmp element
+    (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
+      (u/errorf "Can't set omega of non-edge %s." wrapped-element))
+    (cond
+     (instance? WrapperElement o) (= (tg/omega wrapped-element) (.wrapped-element o))
+     (instance? TmpElement o)     false
+     :else                        true))
   IManifestation
   (manifest [this]
     (if manifested
@@ -183,6 +220,8 @@
                      ^:unsynchronized-mutable type
                      ^:unsynchronized-mutable attrs
                      ^:unsynchronized-mutable refs
+                     ^:unsynchronized-mutable alpha
+                     ^:unsynchronized-mutable omega
                      ^:unsynchronized-mutable manifested-element]
   IAsMap
   (as-map [this]
@@ -243,6 +282,23 @@
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst))
     (single-containers? type refs))
+  IAlphaOmega
+  (set-alpha [this a]
+    ;; a is either fresh or a wrapper or tmp element
+    (when-not (= kind :edge)
+      (u/errorf "Can't set alpha of non-edge %s." this))
+    (cond
+     (= alpha a) true
+     (nil? alpha) (set! alpha a)
+     :else (u/errorf "Can't reset alpha of %s." this)))
+  (set-omega [this o]
+    ;; o is either fresh or a wrapper or tmp element
+    (when-not (= kind :edge)
+      (u/errorf "Can't set omega of non-edge %s." this))
+    (cond
+     (= omega o) true
+     (nil? omega) (set! omega o)
+     :else (u/errorf "Can't reset omega of %s." this)))
   IManifestation
   (manifest [this]
     (or manifested-element
@@ -258,7 +314,7 @@
 
 (defn make-tmp-element
   ([model kind]
-     (doto (->TmpElement model nil nil {} {} nil)
+     (doto (->TmpElement model nil nil {} {} nil nil nil)
        (set-kind kind)))
   ([model kind type]
      (doto (make-tmp-element model kind)

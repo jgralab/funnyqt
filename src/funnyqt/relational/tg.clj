@@ -146,40 +146,99 @@
            (->> (map #(unify a v %) (tg/vseq g))
                 (remove not))))))))
 
-(defn edgeo
-  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
-  `g` has to be ground."
-  [g e alpha omega]
+(defn tmp-edgeo [g e alpha omega]
   (fn [a]
     (let [ge     (walk a e)
           galpha (walk a alpha)
           gomega (walk a omega)]
       (cond
-       (or (and (ground? ge) (not (tg/edge? ge)))
-           (and (ground? galpha) (not (tg/vertex? galpha)))
-           (and (ground? gomega) (not (tg/vertex? gomega))))
-       (fail a)
+       (not (or (fresh? ge)
+                (tmp/tmp-or-wrapper-element? ge)))
+       (u/errorf "tmp-edgeo: the edge must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
 
-       (ground? ge)
-       (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)])
+       (not (or (fresh? galpha)
+                (tmp/tmp-or-wrapper-element? galpha)))
+       (u/errorf "tmp-edgeo: alpha must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
 
-       (ground? galpha)
+       (not (or (fresh? gomega)
+                (tmp/tmp-or-wrapper-element? gomega)))
+       (u/errorf "tmp-edgeo: omega must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
+
+       (instance? WrapperElement ge)
+       (unify a [alpha omega] (let [edge (.wrapped-element e)]
+                                [(tmp/make-wrapper g (tg/alpha edge))
+                                 (tmp/make-wrapper g (tg/omega edge))]))
+
+       (instance? WrapperElement galpha)
        (to-stream
-        (->> (map #(unify a [e omega] [% (tg/omega %)])
-                  (tg/iseq galpha nil :out))
+        (->> (map (fn [[ed al om]]
+                    (unify a [e alpha omega] [ed al om]))
+                  (concat
+                   (map (fn [ed]
+                          [(tmp/make-wrapper g ed)
+                           (tmp/make-wrapper g (tg/alpha ed))
+                           (tmp/make-wrapper g (tg/omega ed))])
+                        (tg/iseq (.wrapped-element galpha) nil :out))
+                   (let [ed (tmp/make-tmp-element g :edge)]
+                     (tmp/set-alpha ed galpha)
+                     (tmp/set-omega ed gomega)
+                     [[ed galpha gomega]])))
              (remove not)))
 
-       (ground? gomega)
+       (instance? WrapperElement gomega)
        (to-stream
-        (->> (map #(unify a [e alpha] [% (tg/alpha %)])
-                  (tg/iseq gomega nil :in))
+        (->> (map (fn [[ed al om]]
+                    (unify a [e alpha omega] [ed al om]))
+                  (concat
+                   (map (fn [ed]
+                          [(tmp/make-wrapper g ed)
+                           (tmp/make-wrapper g (tg/alpha ed))
+                           (tmp/make-wrapper g (tg/omega ed))])
+                        (tg/iseq (.wrapped-element gomega) nil :in))
+                   (let [ed (tmp/make-tmp-element g :edge)]
+                     (tmp/set-alpha ed galpha)
+                     (tmp/set-omega ed gomega)
+                     [[ed galpha gomega]])))
              (remove not)))
 
-       :else (to-stream
-              (->> (for [edge (tg/eseq g)]
-                     (unify a [e alpha omega]
-                            [edge (tg/alpha edge) (tg/omega edge)]))
-                   (remove not)))))))
+       :else (u/errorf "BANG")))))
+
+(defn edgeo
+  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
+  `g` has to be ground."
+  [g e alpha omega]
+  (if tmp/*make-tmp-elements*
+    (tmp-edgeo g e alpha omega)
+    (fn [a]
+      (let [ge     (walk a e)
+            galpha (walk a alpha)
+            gomega (walk a omega)]
+        (cond
+         (or (and (ground? ge) (not (tg/edge? ge)))
+             (and (ground? galpha) (not (tg/vertex? galpha)))
+             (and (ground? gomega) (not (tg/vertex? gomega))))
+         (fail a)
+
+         (ground? ge)
+         (unify a [alpha omega] [(tg/alpha ge) (tg/omega ge)])
+
+         (ground? galpha)
+         (to-stream
+          (->> (map #(unify a [e omega] [% (tg/omega %)])
+                    (tg/iseq galpha nil :out))
+               (remove not)))
+
+         (ground? gomega)
+         (to-stream
+          (->> (map #(unify a [e alpha] [% (tg/alpha %)])
+                    (tg/iseq gomega nil :in))
+               (remove not)))
+
+         :else (to-stream
+                (->> (for [edge (tg/eseq g)]
+                       (unify a [e alpha omega]
+                              [edge (tg/alpha edge) (tg/omega edge)]))
+                     (remove not))))))))
 
 (defn ^:private attribute-list
   "Gets the list of all attributes of ae's attributed element class."
