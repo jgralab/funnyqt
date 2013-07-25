@@ -4,7 +4,8 @@
             [funnyqt.utils :as u]
             [funnyqt.protocols :as p]
             [clojure.core.logic :as ccl]
-            [clojure.core.logic.protocols :as cclp])
+            [clojure.core.logic.protocols :as cclp]
+            [clojure.core.cache :as cache])
   (:use funnyqt.relational.util))
 
 (def ^:dynamic *make-tmp-elements* false)
@@ -77,18 +78,13 @@
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested]
-  Object
-  (hashCode [this]
-    (.hashCode wrapped-element))
-  (equals [this that]
-    (and (wrapper-element? that)
-         (= wrapped-element (.wrapped-element that))))
   IAsMap
   (as-map [this]
     {:model model :wrapped-element wrapped-element
      :attrs attrs :refs refs :manifested manifested})
   IKind
   (set-kind [this k]
+    (when manifested (u/errorf "Already manifested: %s" this))
     (if (set? k)
       true ;; Kind ambiguous as result of attr relation, so simply succeed.
       (let [cur (condp instance? wrapped-element
@@ -98,6 +94,7 @@
         (= k cur))))
   IType
   (set-type [this t]
+    (when manifested (u/errorf "Already manifested: %s" this))
     (let [cur-class (p/mm-class wrapped-element)
           super-or-eq-to-cur? #(or (= % cur-class)
                                    (p/mm-super-class? % cur-class))]
@@ -106,6 +103,7 @@
         (super-or-eq-to-cur? (p/mm-class model t)))))
   IAttr
   (add-attr [this attr val]
+    (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (let [cur (p/aval wrapped-element attr)]
@@ -114,10 +112,12 @@
        (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
        :else false)))
   (finalize-attrs [this subst]
+    (when manifested (u/errorf "Already manifested: %s" this))
     (set! attrs (groundify-attrs attrs subst))
     true)
   IRef
   (add-ref [this ref target]
+    (when manifested (u/errorf "Already manifested: %s" this))
     ;; target is either fresh or a wrapper or tmp element
     (when (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
       (u/errorf "Can't add ref to an edge."))
@@ -135,18 +135,21 @@
                                      target))
                true))))
   (finalize-refs [this subst]
+    (when manifested (u/errorf "Already manifested: %s" this))
     (set! refs (groundify-refs refs subst))
     (single-containers? (p/mm-class wrapped-element) refs))
   IAlphaOmega
   (set-alpha [this a]
+    (when manifested (u/errorf "Already manifested: %s" this))
     ;; a is either fresh or a wrapper or tmp element
     (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
       (u/errorf "Can't set alpha of non-edge %s." wrapped-element))
     (cond
-     (wrapper-element? a) (= (tg/alpha wrapped-element) (.wrapped-element a))
+     (wrapper-element? a) (= (tg/alpha wrapped-element) (.wrapped-element ^WrapperElement a))
      (tmp-element? a)     false
      :else                true))
   (set-omega [this o]
+    (when manifested (u/errorf "Already manifested: %s" this))
     ;; o is either fresh or a wrapper or tmp element
     (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
       (u/errorf "Can't set omega of non-edge %s." wrapped-element))
@@ -168,8 +171,20 @@
         wrapped-element)))
   (manifestation [this] wrapped-element))
 
+(def ^{:dynamic true
+       :doc "A cache (atom {}) for WrapperElements.  There is at most only one
+  WrapperElement per model object and relation."}
+  *wrapper-cache* nil)
+
 (defn make-wrapper [model element]
-  (->WrapperElement model element {} {} false))
+  (when-not *wrapper-cache*
+    (u/errorf "*wrapper-cache* not bound!"))
+  (if (cache/has? *wrapper-cache* element)
+    (cache/hit *wrapper-cache* element)
+    (set! *wrapper-cache*
+          (cache/miss *wrapper-cache* element
+                      (->WrapperElement model element {} {} false))))
+  (cache/lookup *wrapper-cache* element))
 
 ;;## TmpElement
 
@@ -261,7 +276,11 @@
   (manifest [this]
     (or manifested-element
         (do
-          (set! manifested-element (p/create-element! model type))
+          (set! manifested-element (if (= kind :edge)
+                                     (tg/create-edge! model type
+                                                      (manifest alpha)
+                                                      (manifest omega))
+                                     (p/create-element! model type)))
           (doseq [[at val] attrs]
             (p/set-aval! manifested-element at val))
           (doseq [[role rs] refs]
@@ -321,10 +340,10 @@
         (if (containment-ref? type r)
           (recur (rest rs) (and ok (funnyqt.query/forall?
                                     #(cond
-                                      (instance? WrapperElement %)
-                                      (not (p/container (.wrapped-element %)))
+                                      (wrapper-element? %)
+                                      (not (p/container (.wrapped-element ^WrapperElement %)))
 
-                                      (instance? TmpElement %)
+                                      (tmp-element? %)
                                       true)
                                     ts)))
           (recur (rest rs) ok)))

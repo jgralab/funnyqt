@@ -165,40 +165,62 @@
        (u/errorf "tmp-edgeo: omega must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
 
        (tmp/wrapper-element? ge)
-       (unify a [alpha omega] (let [edge (.wrapped-element ^WrapperElement e)]
-                                [(tmp/make-wrapper g (tg/alpha edge))
-                                 (tmp/make-wrapper g (tg/omega edge))]))
+       (unify a [alpha omega]
+              (let [edge (.wrapped-element ^WrapperElement ge)]
+                (tmp/set-alpha ge galpha)
+                (tmp/set-omega ge gomega)
+                [(tmp/make-wrapper g (tg/alpha edge))
+                 (tmp/make-wrapper g (tg/omega edge))]))
+
+       (tmp/tmp-element? ge)
+       (do
+         (tmp/set-alpha ge galpha)
+         (tmp/set-omega ge gomega)
+         (succeed a))
+
+       (and (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega)
+            (fresh? ge))
+       (to-stream
+        (->> (map (fn [ed]
+                    (unify a e ed))
+                  (concat
+                   (map (partial tmp/make-wrapper g)
+                        (filter
+                         #(= (.wrapped-element ^WrapperElement gomega) (tg/omega %))
+                         (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out)))
+                   [(doto (tmp/make-tmp-element g :edge)
+                      (tmp/set-alpha galpha)
+                      (tmp/set-omega gomega))]))
+             (remove not)))
 
        (tmp/wrapper-element? galpha)
        (to-stream
-        (->> (map (fn [[ed al om]]
-                    (unify a [e alpha omega] [ed al om]))
+        (->> (map (fn [ed-om]
+                    (unify a [e omega] ed-om))
                   (concat
                    (map (fn [ed]
                           [(tmp/make-wrapper g ed)
-                           (tmp/make-wrapper g (tg/alpha ed))
                            (tmp/make-wrapper g (tg/omega ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out))
                    (let [ed (tmp/make-tmp-element g :edge)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)
-                     [[ed galpha gomega]])))
+                     [[ed gomega]])))
              (remove not)))
 
        (tmp/wrapper-element? gomega)
        (to-stream
-        (->> (map (fn [[ed al om]]
-                    (unify a [e alpha omega] [ed al om]))
+        (->> (map (fn [ed-al]
+                    (unify a [e alpha] ed-al))
                   (concat
                    (map (fn [ed]
                           [(tmp/make-wrapper g ed)
-                           (tmp/make-wrapper g (tg/alpha ed))
-                           (tmp/make-wrapper g (tg/omega ed))])
+                           (tmp/make-wrapper g (tg/alpha ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement gomega) nil :in))
                    (let [ed (tmp/make-tmp-element g :edge)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)
-                     [[ed galpha gomega]])))
+                     [[ed galpha]])))
              (remove not)))
 
        :else (u/errorf "BANG")))))
@@ -299,11 +321,7 @@
 
 (defn tmp-adjo [g v role rv]
   (fn [a]
-    (let [edge-class-roles (fn [^EdgeClass ec from-or-to]
-                             (remove empty? (.getAllRoles (if (= :to from-or-to)
-                                                            (.getTo ec)
-                                                            (.getFrom ec)))))
-          gv    (walk a v)
+    (let [gv    (walk a v)
           grole (walk a role)
           grv   (walk a rv)]
       (cond

@@ -17,8 +17,8 @@
                  [emf-xsd-sdk "2.8.3"]]
   :profiles {:dev
              {:dependencies
-              ;; Benchmarking
-              [[criterium "0.4.1"]]}}
+              [[criterium "0.4.1"]
+               [org.clojure/tools.namespace "0.2.4"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]

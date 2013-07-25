@@ -16,7 +16,7 @@
                 (rm/+tags g1 ?c1 ?t)]
          :right [(rm/+County g2 ?c2)
                  (rm/+name g2 ?c2 ?n)
-                 (rm/+tags g1 ?c2 ?t)]
+                 (rm/+tags g2 ?c2 ?t)]
          :where [(locality2locality :?county1 ?c1 :?county2 ?c2)
                  (capital2capital :?county1 ?c1 :?county2 ?c2)])
   (locality2locality
@@ -49,19 +49,22 @@
            (rm/+->crossroads g2 ?loc2 ?cr2)
            (rm/+id g2 ?cr2 ?crid)
            (rtg/typeo g2 ?cr2 ?ct)]
-   :optional [(maybe-names :?cr1 ?cr1 :?cr2 ?cr2)])
+   :optional [(maybe-names :?ne1 ?cr1 :?ne2 ?cr2)])
   (maybe-names
-   :left [(rm/+name g1 ?cr1 ?n)]
-   :right [(rm/+name g2 ?cr2 ?n)])
+   :left [(rm/+name g1 ?ne1 ?n)]
+   :right [(rm/+name g2 ?ne2 ?n)])
   (^:top connection2connection
          :when [(relateo :crossroad2crossroad
                          :?cr1 ?start1 :?cr2 ?start2)
                 (relateo :crossroad2crossroad
                          :?cr1 ?end1 :?cr2 ?end2)]
          :left [(rm/+Connection g1 ?con1 ?start1 ?end1)
+                (rm/+length g1 ?con1 ?len)
                 (rtg/typeo g1 ?con1 ?con-type)]
          :right [(rm/+Connection g2 ?con2 ?start2 ?end2)
-                 (rtg/typeo g2 ?con2 ?con-type)])
+                 (rm/+length g2 ?con2 ?len)
+                 (rtg/typeo g2 ?con2 ?con-type)]
+         )
   (^:top airroute2airroute
          :when [(relateo :locality2locality
                          :?loc1 ?start1 :?loc2 ?start2)
@@ -70,6 +73,18 @@
          :left [(rm/+->dstAirport g1 ?start1 ?end1)]
          :right [(rm/+->dstAirport g2 ?start2 ?end2)]))
 
+(defn print-counts [g]
+  (println "Edges")
+  (println "=====")
+  (doseq [ec (.getEdgeClasses (.getGraphClass (tg/schema g)))
+          :let [ecsym (funnyqt.protocols/qname ec)]]
+    (println ecsym "->" (tg/ecount g (symbol (str ecsym "!")))))
+  (println "Vertices")
+  (println "========")
+  (doseq [ec (.getVertexClasses (.getGraphClass (tg/schema g)))
+          :let [ecsym (funnyqt.protocols/qname ec)]]
+    (println ecsym "->" (tg/vcount g (symbol (str ecsym "!"))))))
+
 (test/deftest routemap-left-to-right
   (let [rm1 (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg")
         rm2 (tg/create-graph (tg/load-schema "test/input/greqltestgraph-with-cr-ids.tg"))]
@@ -77,9 +92,14 @@
     (time (route-map2route-map rm1 rm2 :right))
     (test/is (= 155 (tg/vcount rm1)))
     (test/is (= 355 (tg/ecount rm1)))
+    ;; There are 9 Crossroads that are not contained by some Locality.  Those
+    ;; are responsible for the 13 missing Highways and the one missing Street.
     (test/is (= 146 (tg/vcount rm2)))
-    (test/is (= 340 (tg/ecount rm2)))
-    (viz/print-model rm2 :gtk)))
+    ;; We're missing 13 Highway, 1 normal Streets
+    (test/is (= 341 (tg/ecount rm2)))
+    (print-counts rm1)
+    (print-counts rm2)
+    #_(viz/print-model rm2 :gtk)))
 
 (test/deftest routemap-sync
   (let [rm1 (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg")
@@ -100,14 +120,14 @@
     (test/is (= 155 (tg/vcount rm1)))
     (test/is (= 355 (tg/ecount rm1)))
     (test/is (= 147 (tg/vcount rm2)))
-    (test/is (= 341 (tg/ecount rm2)))
-    (viz/print-model rm2 :gtk)
+    (test/is (= 342 (tg/ecount rm2)))
+    #_(viz/print-model rm2 :gtk)
     (println "Transforming rm2 to rm1.")
     (time (route-map2route-map rm1 rm2 :left))
     (test/is (= 156 (tg/vcount rm1)))
     (test/is (= 356 (tg/ecount rm1)))
     (test/is (= 147 (tg/vcount rm2)))
-    (test/is (= 341 (tg/ecount rm2)))))
+    (test/is (= 342 (tg/ecount rm2)))))
 
 #_(do (time (route-map2route-map rm1 rm2 :right))
          ((juxt tg/vcount tg/ecount) rm2))
@@ -117,3 +137,13 @@
 #_(tg/save-graph rm2 "/home/horn/copy.tg")
 
 
+(comment
+  (defn foo [g]
+    (set (map (fn [s]
+                [(tg/value (tg/alpha s) :id)
+                 (tg/value (tg/omega s) :id)])
+              (tg/eseq g 'connections.Street!))))
+  (def rm1 (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg"))
+  (def rm2 (tg/create-graph (tg/load-schema "test/input/greqltestgraph-with-cr-ids.tg")))
+  (route-map2route-map rm1 rm2 :right)
+  )

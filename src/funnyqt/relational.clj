@@ -19,15 +19,20 @@
        ~@fs)))
 
 (defn echo
-  "If `s` is ground, prints its value.  Else prints the lvar.
-  Always succeeds."
-  [s]
-  (fn [a]
-    (let [ws (walk a s)]
-      (if (ground? ws)
-        (println ws)
-        (println s)))
-    (succeed a)))
+  "Prints the values of all `lvars`.  Always succeeds."
+  ([lvars]
+     (echo nil lvars))
+  ([prompt lvars]
+     (fn [a]
+       (println (apply str
+                       prompt
+                       (interpose ", " (map (fn [v]
+                                              (if (lvar? v)
+                                                (let [w (walk a v)]
+                                                  (str (.name v) " = " w))
+                                                (str "### = " v)))
+                                            lvars))))
+       (succeed a))))
 
 (defmacro condx
   "Expands into a `conda` checking if all vars used in the questions are ground.

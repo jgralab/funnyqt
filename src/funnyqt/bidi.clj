@@ -3,7 +3,8 @@
   (:use clojure.core.logic)
   (:use funnyqt.relational.util)
   (:use [clojure.core.logic.protocols :only [walk]])
-  (:require [funnyqt.relational.tmp-elem :as tmp]
+  (:require [clojure.core.cache :as cache]
+            [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]))
@@ -36,12 +37,6 @@
   (doseq [el (vals match)
           :when (tmp/tmp-or-wrapper-element? el)]
     (tmp/manifest el)))
-
-(defmacro checkonly
-  ([] `clojure.core.logic/s#)
-  ([& goals] `(fn [a#]
-                (binding [tmp/*make-tmp-elements* false]
-                  (bind* a# ~@goals)))))
 
 (defn ^:private make-kw-result-map [syms]
   (apply hash-map
@@ -89,20 +84,20 @@
                     ~@(:when map)
                     ~@(get map src)
                     (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
-              (let [~@(make-wrapper-bindings trg-syms)
-                    ~(make-destr-map trg-syms tm)
-                    (binding [tmp/*make-tmp-elements* true]
-                      (select-best-match
-                       (run* [q#]
-                         ~@(get map trg)
-                         (tmp/finalizeo ~@trg-syms)
-                         (== q# ~(make-kw-result-map trg-syms)))))]
-                ~@(:optional map)
-                (enforce-match ~tm)
-                (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
-                  (swap! *relation-bindings* update-in [~relkw] conj
-                         {~src ~sm, ~trg ~etm})
-                  (fn [] ~@(:where map))))))]
+              (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (cache/basic-cache-factory {}))]
+                (let [~@(make-wrapper-bindings trg-syms)
+                      ~(make-destr-map trg-syms tm)
+                      (binding [tmp/*make-tmp-elements* true]
+                        (select-best-match
+                         (run* [q#]
+                           ~@(get map trg)
+                           (tmp/finalizeo ~@trg-syms)
+                           (== q# ~(make-kw-result-map trg-syms)))))]
+                  ~@(:optional map)
+                  (enforce-match ~tm)
+                  (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
+                    (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
+                    (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
 
@@ -131,34 +126,24 @@
 
   where bindings is:
 
-    ({:left  {:?lsym1 val1...}
-      :right {:?rsym1 rval2 ...}}
+    ({:?lsym1 val1, :?rsym1 rval2, ...}
      ...)"}
   *relation-bindings*)
 
 (defn relateo [relation & keyvals]
-  (let [m (apply flatland.ordered.map/ordered-map keyvals)]
+  (let [m (apply hash-map keyvals)]
     (fn [a]
       (let [bindings (@*relation-bindings* relation)]
         (to-stream
          (->> (map (fn [b]
-                     (let [lefts (:left b)
-                           rights (:right b)
-                           trgs (if (= *target-direction* :right) rights lefts)
-                           srcs (if (= *target-direction* :right) lefts rights)]
-                       (unify a (vec (vals m))
-                              (mapv
-                               (fn [k]
-                                 (let [v (get trgs k ::not-found)]
-                                   (if (= ::not-found v)
-                                     (let [v (get srcs k ::not-found)]
-                                       (if (= ::not-found v)
-                                         (u/errorf "Unbound key %s." k)
-                                         v))
-                                     (if (p/model-object? v)
-                                       (tmp/make-wrapper *target-model* v)
-                                       v))))
-                               (keys m)))))
+                     (let [vs (mapv #(get b % ::not-found) (keys m))]
+                       (when (funnyqt.query/member? ::not-found vs)
+                         (u/errorf "Unbound keys: %s"
+                                   (pr-str
+                                    (filter #(= (get b % ::not-found)
+                                                ::not-found)
+                                            (keys m)))))
+                       (unify a (vec (vals m)) vs)))
                    bindings)
               (remove not)))))))
 
