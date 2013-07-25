@@ -164,12 +164,12 @@
                 (tmp/tmp-or-wrapper-element? gomega)))
        (u/errorf "tmp-edgeo: omega must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
 
-       (instance? WrapperElement ge)
-       (unify a [alpha omega] (let [edge (.wrapped-element e)]
+       (tmp/wrapper-element? ge)
+       (unify a [alpha omega] (let [edge (.wrapped-element ^WrapperElement e)]
                                 [(tmp/make-wrapper g (tg/alpha edge))
                                  (tmp/make-wrapper g (tg/omega edge))]))
 
-       (instance? WrapperElement galpha)
+       (tmp/wrapper-element? galpha)
        (to-stream
         (->> (map (fn [[ed al om]]
                     (unify a [e alpha omega] [ed al om]))
@@ -178,14 +178,14 @@
                           [(tmp/make-wrapper g ed)
                            (tmp/make-wrapper g (tg/alpha ed))
                            (tmp/make-wrapper g (tg/omega ed))])
-                        (tg/iseq (.wrapped-element galpha) nil :out))
+                        (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out))
                    (let [ed (tmp/make-tmp-element g :edge)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)
                      [[ed galpha gomega]])))
              (remove not)))
 
-       (instance? WrapperElement gomega)
+       (tmp/wrapper-element? gomega)
        (to-stream
         (->> (map (fn [[ed al om]]
                     (unify a [e alpha omega] [ed al om]))
@@ -194,7 +194,7 @@
                           [(tmp/make-wrapper g ed)
                            (tmp/make-wrapper g (tg/alpha ed))
                            (tmp/make-wrapper g (tg/omega ed))])
-                        (tg/iseq (.wrapped-element gomega) nil :in))
+                        (tg/iseq (.wrapped-element ^WrapperElement gomega) nil :in))
                    (let [ed (tmp/make-tmp-element g :edge)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)

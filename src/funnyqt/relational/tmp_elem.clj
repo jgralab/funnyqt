@@ -39,8 +39,6 @@
   (set-alpha [this a])
   (set-omega [this o]))
 
-;;# Containment check protocol
-
 (defprotocol ContainmentRef
   (containment-ref? [mm-class ref-kw]))
 
@@ -64,49 +62,13 @@
       (.isContainment er)
       (u/errorf "No such reference %s at metamodel class %s." ref-kw this))))
 
-;;# Helpers
-
-(defn groundify-attrs [attrs subst]
-  (apply hash-map (mapcat (fn [[a v]]
-                            (let [v (if (ccl/lvar? v)
-                                      (cclp/walk subst v)
-                                      v)]
-                              (when (ccl/lvar? v)
-                                (u/errorf "Attribute %s can't be grounded." a))
-                              [a v]))
-                          attrs)))
-
-(defn groundify-refs [refs subst]
-  (apply hash-map
-         (mapcat (fn [[r vs]]
-                   (let [vs (mapv (fn [v]
-                                    (let [v (if (ccl/lvar? v)
-                                              (cclp/walk subst v)
-                                              v)]
-                                      (when (ccl/lvar? v)
-                                        (u/errorf "Reference %s can't be grounded." r))
-                                      v))
-                                  vs)]
-                     [r vs]))
-                 refs)))
-
-(defn single-containers? [type refs]
-  (loop [rs refs, ok true]
-    (if (seq rs)
-      (let [[r ts] (first rs)]
-        (if (containment-ref? type r)
-          (recur (rest rs) (and ok (funnyqt.query/forall?
-                                    #(cond
-                                      (instance? WrapperElement %)
-                                      (not (p/container (.wrapped-element %)))
-
-                                      (instance? TmpElement %)
-                                      true)
-                                    ts)))
-          (recur (rest rs) ok)))
-      ok)))
-
 ;;# Types
+
+(declare wrapper-element?)
+(declare tmp-element?)
+(declare groundify-attrs)
+(declare groundify-refs)
+(declare single-containers?)
 
 ;;## WrapperElement
 
@@ -115,15 +77,11 @@
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested]
-  #_clojure.core.logic.protocols/IUnifyTerms
-  #_(unify-terms [u v s]
-    (when (instance? WrapperElement v)
-      (= (.wrapped-element u) (.wrapped-element v))))
   Object
   (hashCode [this]
     (.hashCode wrapped-element))
   (equals [this that]
-    (and (instance? WrapperElement that)
+    (and (wrapper-element? that)
          (= wrapped-element (.wrapped-element that))))
   IAsMap
   (as-map [this]
@@ -167,8 +125,8 @@
       (u/errorf "ref must be given as keyword but was %s." ref))
     (let [cur (q/adjs wrapped-element ref)] ;; Throws if ref is no valid role name
       (cond
-       (and (instance? WrapperElement target)
-            (q/member? (.wrapped-element target) cur))
+       (and (wrapper-element? target)
+            (q/member? (.wrapped-element ^WrapperElement target) cur))
        true
 
        :else (do
@@ -185,17 +143,17 @@
     (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
       (u/errorf "Can't set alpha of non-edge %s." wrapped-element))
     (cond
-     (instance? WrapperElement a) (= (tg/alpha wrapped-element) (.wrapped-element a))
-     (instance? TmpElement a)     false
-     :else                        true))
+     (wrapper-element? a) (= (tg/alpha wrapped-element) (.wrapped-element a))
+     (tmp-element? a)     false
+     :else                true))
   (set-omega [this o]
     ;; o is either fresh or a wrapper or tmp element
     (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
       (u/errorf "Can't set omega of non-edge %s." wrapped-element))
     (cond
-     (instance? WrapperElement o) (= (tg/omega wrapped-element) (.wrapped-element o))
-     (instance? TmpElement o)     false
-     :else                        true))
+     (wrapper-element? o) (= (tg/omega wrapped-element) (.wrapped-element ^WrapperElement o))
+     (tmp-element? o)     false
+     :else                true))
   IManifestation
   (manifest [this]
     (if manifested
@@ -320,11 +278,57 @@
      (doto (make-tmp-element model kind)
        (set-type type))))
 
-;;## Type predicates
+;;# Helpers
 
 (defn tmp-or-wrapper-element? [el]
   (or (instance? WrapperElement el)
       (instance? TmpElement el)))
+
+(defn tmp-element? [el]
+  (instance? TmpElement el))
+
+(defn wrapper-element? [el]
+  (instance? WrapperElement el))
+
+(defn groundify-attrs [attrs subst]
+  (apply hash-map (mapcat (fn [[a v]]
+                            (let [v (if (ccl/lvar? v)
+                                      (cclp/walk subst v)
+                                      v)]
+                              (when (ccl/lvar? v)
+                                (u/errorf "Attribute %s can't be grounded." a))
+                              [a v]))
+                          attrs)))
+
+(defn groundify-refs [refs subst]
+  (apply hash-map
+         (mapcat (fn [[r vs]]
+                   (let [vs (mapv (fn [v]
+                                    (let [v (if (ccl/lvar? v)
+                                              (cclp/walk subst v)
+                                              v)]
+                                      (when (ccl/lvar? v)
+                                        (u/errorf "Reference %s can't be grounded." r))
+                                      v))
+                                  vs)]
+                     [r vs]))
+                 refs)))
+
+(defn single-containers? [type refs]
+  (loop [rs refs, ok true]
+    (if (seq rs)
+      (let [[r ts] (first rs)]
+        (if (containment-ref? type r)
+          (recur (rest rs) (and ok (funnyqt.query/forall?
+                                    #(cond
+                                      (instance? WrapperElement %)
+                                      (not (p/container (.wrapped-element %)))
+
+                                      (instance? TmpElement %)
+                                      true)
+                                    ts)))
+          (recur (rest rs) ok)))
+      ok)))
 
 ;;# Finalization
 
