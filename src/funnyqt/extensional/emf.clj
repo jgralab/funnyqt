@@ -60,8 +60,9 @@
            im (transient {})
            am (transient {})]
       (if (seq as)
-        (let [v (ecreate! m cls)
+        (let [v (ecreate! cls)
               a (first as)]
+          (eadd! m v)
           ;;(println "Created" v "for" a)
           (recur (rest as)
                  (assoc! im a v)

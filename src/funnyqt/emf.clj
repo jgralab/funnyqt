@@ -729,22 +729,24 @@
 
 (defn ecreate!
   "Creates an EObject of EClass `ecls`.
-  `ecls` may be either an EClass or just an EClass name given as symbol.  If a
-  `model` is provided and non-nil, then add the new EObject to it."
-  ([ecls]
-     (EcoreUtil/create (if (instance? EClass ecls)
-                         ecls
-                         (eclassifier ecls))))
-  ([model ecls]
-     (eadd! model (ecreate! ecls))))
+  `ecls` may be either an EClass or just an EClass name given as symbol.
+  `attrs` are optional attribute-value pairs to be set, where attributes are
+  represented as keywords."
+  [ecls & attrs]
+  (let [eo (EcoreUtil/create (if (instance? EClass ecls)
+                               ecls
+                               (eclassifier ecls)))]
+    (doseq [[attr val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" attrs))
+                                  attrs)]
+      (eset! eo attr val))
+    eo))
 
 (extend-protocol CreateElement
-  EList
-  (create-element! [lst cls]
-    (ecreate! lst cls))
   EMFModel
   (create-element! [model cls]
-    (ecreate! model cls)))
+    (let [e (ecreate! cls)]
+      (eadd! model e)
+      e)))
 
 ;;## Generic setting of props
 

@@ -230,14 +230,14 @@
   (let [m (new-model) ;; Also test the generic creation function...
         fm (create-element! m 'FamilyModel)
         make-family (fn [i]
-                      (doto (ecreate! 'Family)
-                        (eset! :lastName (str "Family" i))
-                        (eset! :street   (str "Some Street " i))
-                        (eset! :town     (str i " Sometown"))))
+                      (ecreate! 'Family
+                                :lastName (str "Family" i)
+                                :street   (str "Some Street " i)
+                                :town     (str i " Sometown")))
         make-member (fn [i]
-                      (doto (ecreate! 'Member)
-                        (eset! :firstName (str "Member" i))
-                        (eset! :age       (Integer/valueOf ^Long (mod i 80)))))
+                      (ecreate! 'Member
+                                :firstName (str "Member" i)
+                                :age       (Integer/valueOf ^Long (mod i 80))))
         random-free-member (fn [mems ref]
                              (loop [m (rand-nth mems)]
                                (if (eget m ref)
@@ -301,10 +301,11 @@
 
 (deftest test-stressy-add-remove
   (let [fm (new-model)
-        root (ecreate! fm 'FamilyModel)
+        root (ecreate! 'FamilyModel)
         f   (ecreate! 'Member)
         fam (ecreate! 'Family)
         s   (ecreate! 'Member)]
+    (eadd! fm root)
     (eadd! root :members f s)
     (eadd! root :families fam)
     (is (== 3 (count (eallpairs fm))))

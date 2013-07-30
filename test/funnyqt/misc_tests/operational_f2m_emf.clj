@@ -40,9 +40,9 @@
 (deftransformation families2genealogy-emf [in out]
   (letmapping [(family2address
                 [f]
-                (doto (ecreate! out 'Address)
-                  (eset! :street (eget f :street))
-                  (eset! :town (eget f :town))))
+                (eadd! out (ecreate! 'Address
+                                     :street (eget f :street)
+                                     :town (eget f :town))))
                (member2person
                 [m]
                 (let [p (ecreate! (if (male? m) 'Male 'Female))]
@@ -63,8 +63,8 @@
                         (eset! p :wife wife))))
                   p))]
     (mapv family2address (eallobjects in 'Family))
-    (doto (ecreate! out 'Genealogy)
-      (eset! :persons (mapv member2person (eallobjects in 'Member)))))
+    (eadd! out  (ecreate! 'Genealogy
+                          :persons (mapv member2person (eallobjects in 'Member)))))
   out)
 
 (load-metamodel "test/input/Families.ecore")
