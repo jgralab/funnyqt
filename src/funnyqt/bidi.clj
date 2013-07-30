@@ -12,23 +12,7 @@
 ;; Either :left or :right
 (def ^:dynamic *target-direction*)
 
-#_(defn sort-matches [matches]
-  (sort (fn [a b]
-          (let [diff (- (count (filter tmp/tmp-element? (vals a)))
-                        (count (filter tmp/tmp-element? (vals b))))]
-            (if (zero? diff)
-              (compare (vec a) (vec b))
-              diff)))
-        matches))
-
-#_(defn select-best-match [matches]
-  (or
-   ;; Do we have an optimal match?
-   (first (filter #(every? (complement tmp/tmp-element?) (vals %)) matches))
-   ;; If not, select the match with the fewest temporary elements.
-   (first (sort-matches (filter tmp/valid-match? matches)))))
-
-(defn select-best-match [matches]
+(defn select-match [matches]
   (when-not (seq matches)
     (u/errorf "Couldn't create a target match!"))
   (first matches))
@@ -36,6 +20,7 @@
 (defn enforce-match [match]
   (doseq [el (vals match)
           :when (tmp/tmp-or-wrapper-element? el)]
+    (println "Enforcing" (tmp/as-map el))
     (tmp/manifest el)))
 
 (defn ^:private make-kw-result-map [syms]
@@ -88,12 +73,11 @@
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
-                        (select-best-match
+                        (select-match
                          (run* [q#]
                            ~@(get map trg)
                            (tmp/finalizeo ~@trg-syms)
                            (== q# ~(make-kw-result-map trg-syms)))))]
-                  ~@(:optional map)
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
                     (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
@@ -110,8 +94,7 @@
         rsyms (distinct (filter qmark-symbol? (flatten (:right map))))
         syms  (distinct (concat lsyms rsyms))]
     (when-let [unknown-keys (seq (disj (set (keys map))
-                                       :left :right :when :where
-                                       :optional))]
+                                       :left :right :when :where))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~name [& ~(make-destr-map syms)]
             (let ~(make-relation-binding-vector syms)
@@ -147,7 +130,61 @@
                    bindings)
               (remove not)))))))
 
-(defmacro deftransformation [name [left right] & relations]
+(defmacro deftransformation
+  "Creates a new bidirectional transformation with the given `name` on the
+  models `left` and `right`.  `relations` is a sequence of relation
+  definitions.  Every relation has the following form:
+
+    (foo2bar
+      :left [...]
+      :right [...])
+
+  The values of :left and :right are vectors of goals.  Logical variables with
+  the same name in :left and :right define the correspondence between the left
+  and right elements.  Usually, those are used for attribute values,
+  e.g., (+name left left-el foo) in :left and (+id right right-el foo)
+  in :right specifies that left-el's name and right-el's id values have to be
+  equal.
+
+  The semantics when transforming from left to right are: For every set of
+  elements in the `left` model for which all :left goals succeed, there must be
+  at least one set of elements in the `right` model for which all :right goals
+  succeed.
+
+  ^:top metadata can be added to relation names.  Such top-level relations are
+  enforced automatically by the transformation in their declaration order.
+
+  A relation spec may also contain a :when precondition:
+
+    (foo2bar
+      :when [...]
+      :left [...]
+      :right [...])
+
+  It is also a vector of goals.  Usually, the goals are used to retrieve and
+  bind elements created by previous relations using `relateo`.  The :left
+  to :right semantics are: For every set of elements in the `left` model for
+  which all :when and all :left goals succeed, there must be at least one set
+  of elements in the `right` model for which all :when and :right goals
+  succeed.
+
+  A relation spec may also contain a :where postcondition:
+
+    (foo2bar
+      :left [...]
+      :right [...]
+      :where [...])
+
+  It is a vector of relation-calls (not goals!).  The semantics is: For any set
+  of elements in the `left` model for which a corresponding set of elements in
+  the `right` model has been enforced, the relations in :where also need to be
+  enforced afterwards.
+
+  Note that the :where relations are not called until all enforcements of
+  foo2bar have been applied, e.g., the evaluation is breadth-first, not
+  depth-first.  That is, in the above definition, the relations in the :where
+  clause may assume that foo2bar already holds for all matching elements."
+  [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))

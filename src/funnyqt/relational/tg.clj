@@ -151,6 +151,7 @@
     (let [ge     (walk a e)
           galpha (walk a alpha)
           gomega (walk a omega)]
+      (println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
       (cond
        (not (or (fresh? ge)
                 (tmp/tmp-or-wrapper-element? ge)))
@@ -167,19 +168,10 @@
        (tmp/wrapper-element? ge)
        (unify a [alpha omega]
               (let [edge (.wrapped-element ^WrapperElement ge)]
-                (tmp/set-alpha ge galpha)
-                (tmp/set-omega ge gomega)
                 [(tmp/make-wrapper g (tg/alpha edge))
                  (tmp/make-wrapper g (tg/omega edge))]))
 
-       (tmp/tmp-element? ge)
-       (do
-         (tmp/set-alpha ge galpha)
-         (tmp/set-omega ge gomega)
-         (succeed a))
-
-       (and (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega)
-            (fresh? ge))
+       (and (fresh? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
        (to-stream
         (->> (map (fn [ed]
                     (unify a e ed))
@@ -193,7 +185,13 @@
                       (tmp/set-omega gomega))]))
              (remove not)))
 
-       (tmp/wrapper-element? galpha)
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
+       (if (and (tmp/set-alpha ge galpha)
+                (tmp/set-omega ge gomega))
+         (succeed a)
+         (fail a))
+
+       (and (fresh? ge) (tmp/wrapper-element? galpha))
        (to-stream
         (->> (map (fn [ed-om]
                     (unify a [e omega] ed-om))
@@ -208,7 +206,13 @@
                      [[ed gomega]])))
              (remove not)))
 
-       (tmp/wrapper-element? gomega)
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha))
+       (if (and (tmp/set-alpha ge galpha)
+                (tmp/set-omega ge gomega))
+         (succeed a)
+         (fail a))
+
+       (and (fresh? ge) (tmp/wrapper-element? gomega))
        (to-stream
         (->> (map (fn [ed-al]
                     (unify a [e alpha] ed-al))
@@ -223,7 +227,13 @@
                      [[ed galpha]])))
              (remove not)))
 
-       :else (u/errorf "BANG")))))
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? gomega))
+       (if (and (tmp/set-alpha ge galpha)
+                (tmp/set-omega ge gomega))
+         (succeed a)
+         (fail a))
+
+       :else (u/errorf "(tmp-edgeo %s %s %s %s)" g ge galpha gomega)))))
 
 (defn edgeo
   "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.

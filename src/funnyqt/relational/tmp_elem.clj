@@ -38,7 +38,8 @@
 
 (defprotocol IAlphaOmega
   (set-alpha [this a])
-  (set-omega [this o]))
+  (set-omega [this o])
+  (finalize-alpha-and-omega [this subst]))
 
 (defprotocol ContainmentRef
   (containment-ref? [mm-class ref-kw]))
@@ -157,6 +158,9 @@
      (wrapper-element? o) (= (tg/omega wrapped-element) (.wrapped-element ^WrapperElement o))
      (tmp-element? o)     false
      :else                true))
+  (finalize-alpha-and-omega [this subst]
+    (println "faao:wrapper")
+    true)
   IManifestation
   (manifest [this]
     (if manifested
@@ -199,7 +203,7 @@
   IAsMap
   (as-map [this]
     {:model model :kind kind :type type :attrs attrs :refs refs
-     :manifested-element manifested-element})
+     :alpha alpha :omega omega :manifested-element manifested-element})
   IKind
   (set-kind [this k]
     (if (set? k)
@@ -272,6 +276,15 @@
      (= omega o) true
      (nil? omega) (set! omega o)
      :else (u/errorf "Can't reset omega of %s." this)))
+  (finalize-alpha-and-omega [this subst]
+    (println "faao:tmp")
+    (set! alpha (cclp/walk subst alpha))
+    (set! omega (cclp/walk subst omega))
+    (when (fresh? alpha)
+      (u/errorf "Can't groundify alpha of %s." (as-map this)))
+    (when (fresh? omega)
+      (u/errorf "Can't groundify omega of %s." (as-map this)))
+    true)
   IManifestation
   (manifest [this]
     (or manifested-element
@@ -353,23 +366,15 @@
 
 (defn finalizeo [& els]
   (fn [a]
+    (println "finalizeo:" els)
     (let [all-ok
-          (loop [els (filter tmp-or-wrapper-element? els), ok true]
-            (if (and ok (seq els))
+          (loop [els (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)), ok true]
+            (if (seq els)
               (recur (rest els) (and ok
                                      (finalize-attrs (first els) a)
-                                     (finalize-refs  (first els) a)))
+                                     (finalize-refs  (first els) a)
+                                     (finalize-alpha-and-omega (first els) a)))
               ok))]
       (if all-ok
         (ccl/succeed a)
         (ccl/fail a)))))
-
-(comment
-  (run* [q]
-    (vertexo g v1)
-    (typeo   g v1 'County)
-    (valueo  g v1 :name "Hessen")
-    (adjo    g v1 :localities v2)
-    (vertexo g v2)
-    (typeo   g v2 'City)
-    (valueo  g v2 :name "Frankfurt")))
