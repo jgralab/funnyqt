@@ -1,5 +1,6 @@
 (ns funnyqt.relational.tmp-elem
   (:require [funnyqt.tg :as tg]
+            [funnyqt.emf :as emf]
             [funnyqt.query :as q]
             [funnyqt.utils :as u]
             [funnyqt.protocols :as p]
@@ -9,9 +10,6 @@
   (:use funnyqt.relational.util))
 
 (def ^:dynamic *make-tmp-elements* false)
-
-;; TODO: Add Unset protocol with unset? function instead of using nil? checks
-;; for attributes.
 
 ;;# Protocols
 
@@ -40,6 +38,17 @@
   (set-alpha [this a])
   (set-omega [this o])
   (finalize-alpha-and-omega [this subst]))
+
+(defprotocol IUnset
+  (unset? [this attr]))
+
+(extend-protocol IUnset
+  de.uni_koblenz.jgralab.AttributedElement
+  (unset? [this attr]
+    (nil? (tg/value this attr)))
+  org.eclipse.emf.ecore.EObject
+  (unset? [this attr]
+    (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
 (defprotocol ContainmentRef
   (containment-ref? [mm-class ref-kw]))
@@ -102,6 +111,9 @@
       (if (vector? t)
         (q/exists? super-or-eq-to-cur? (map (partial p/mm-class model) t))
         (super-or-eq-to-cur? (p/mm-class model t)))))
+  IUnset
+  (unset? [this attr]
+    (unset? wrapped-element attr))
   IAttr
   (add-attr [this attr val]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -109,8 +121,8 @@
       (u/errorf "attr must be given as keyword but was %s." attr))
     (let [cur (p/aval wrapped-element attr)]
       (cond
+       (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
        (= cur val) true
-       (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
        :else false)))
   (finalize-attrs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -231,13 +243,16 @@
          (or (= mm-class type)
              (p/mm-super-class? mm-class type)) true
              :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
+  IUnset
+  (unset? [this attr]
+    (nil? (get attrs attr)))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (let [cur (get attrs attr)]
       (cond
-       (nil? cur) (do (set! attrs (assoc attrs attr val)) true)
+       (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
        (= cur val) true
        :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
   (finalize-attrs [this subst]

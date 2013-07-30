@@ -78,9 +78,15 @@
   (contact2contact
    :left [(ab/+->contacts l ?cat1 ?contact1)
           (ab/+Contact l ?contact1)
+          (ab/+firstName l ?contact1 ?fn)
+          (ab/+lastName l ?contact1 ?ln)
+          (ab/+email l ?contact1 ?mail)
           (ab/+id l ?contact1 ?id)]
    :right [(ab/+->contacts r ?cat2 ?contact2)
            (ab/+Contact r ?contact2)
+           (ab/+firstName r ?contact2 ?fn)
+           (ab/+lastName r ?contact2 ?ln)
+           (ab/+email r ?contact2 ?mail)
            (ab/+id r ?contact2 ?id)]))
 
 (test/deftest test-addressbook2addressbook-l2r
