@@ -21,24 +21,6 @@
           :let [ecsym (funnyqt.protocols/qname ec)]]
     (println ecsym "->" (tg/vcount g (symbol (str ecsym "!"))))))
 
-(rtg/generate-schema-relations "test/input/addressbook.tg" ab)
-
-(deftransformation addressbook2addressbook [l r]
-  (^:top addressbook2addressbook
-         :left [(ab/+AddressBook l ?addrbook1)
-                (ab/+name l ?addrbook1 ?n)]
-         :right [(ab/+AddressBook r ?addrbook2)
-                 (ab/+name r ?addrbook2 ?n)]
-         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
-  (category2category
-   :left [(ab/+ContainsCategory l ?cc1 ?ab1 ?cat1)
-          (ab/+Category l ?cat1)
-          (ab/+name l ?cat1 ?n)]
-   :right [(ab/+ContainsCategory r ?cc2 ?ab2 ?cat2)
-           (ab/+Category r ?cat2)
-           (r/echo [?cat2])
-           (ab/+name r ?cat2 ?n)]))
-
 (defn make-example-addressbook []
   (let [g (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))
         ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
@@ -76,7 +58,30 @@
     (p/add-adj! mozilla :employees tim)
     g))
 
-;(viz/print-model (make-example-addressbook) :gtk)
+(rtg/generate-schema-relations "test/input/addressbook.tg" ab)
+
+(deftransformation addressbook2addressbook [l r]
+  (^:top addressbook2addressbook
+         :left [(ab/+AddressBook l ?addrbook1)
+                (ab/+name l ?addrbook1 ?n)]
+         :right [(ab/+AddressBook r ?addrbook2)
+                 (ab/+name r ?addrbook2 ?n)]
+         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+  (category2category
+   :left [(ab/+ContainsCategory l ?cc1 ?ab1 ?cat1)
+          (ab/+Category l ?cat1)
+          (ab/+name l ?cat1 ?n)]
+   :right [(ab/+ContainsCategory r ?cc2 ?ab2 ?cat2)
+           (ab/+Category r ?cat2)
+           (ab/+name r ?cat2 ?n)]
+   :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)])
+  (contact2contact
+   :left [(ab/+->contacts l ?cat1 ?contact1)
+          (ab/+Contact l ?contact1)
+          (ab/+id l ?contact1 ?id)]
+   :right [(ab/+->contacts r ?cat2 ?contact2)
+           (ab/+Contact r ?contact2)
+           (ab/+id r ?contact2 ?id)]))
 
 (test/deftest test-addressbook2addressbook-l2r
   (let [l (make-example-addressbook)

@@ -18,7 +18,9 @@
    (funnyqt.relational.tmp_elem WrapperElement TmpElement)))
 
 (defn kind-aec-tup-from-spec [g spec]
-  (let [aecfn (partial tg/attributed-element-class g)
+  (let [aecfn (fn [ts]
+                (tg/attributed-element-class
+                 g (second (u/type-with-modifiers (name ts)))))
         kindfn #(if (tg/vertex-class? %) :vertex :edge)]
     (cond
      (symbol? spec) (let [aec (aecfn spec)]
@@ -151,7 +153,7 @@
     (let [ge     (walk a e)
           galpha (walk a alpha)
           gomega (walk a omega)]
-      (println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
+      ;;(println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
       (cond
        (not (or (fresh? ge)
                 (tmp/tmp-or-wrapper-element? ge)))
@@ -342,7 +344,8 @@
        (not (keyword? grole))
        (u/errorf "tmp-adjo: the attribute must be a ground keyword but was %s." grole)
 
-       :else (if (tmp/add-ref gv grole grv)
+       :else (if (and (tmp/add-ref gv grole grv)
+                      (tmp/set-kind gv :vertex))
                (succeed a)
                (fail a))))))
 

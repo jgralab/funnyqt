@@ -20,7 +20,7 @@
 (defn enforce-match [match]
   (doseq [el (vals match)
           :when (tmp/tmp-or-wrapper-element? el)]
-    (println "Enforcing" (tmp/as-map el))
+    ;;(println "Enforcing" (tmp/as-map el))
     (tmp/manifest el)))
 
 (defn ^:private make-kw-result-map [syms]

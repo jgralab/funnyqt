@@ -159,7 +159,6 @@
      (tmp-element? o)     false
      :else                true))
   (finalize-alpha-and-omega [this subst]
-    (println "faao:wrapper")
     true)
   IManifestation
   (manifest [this]
@@ -220,7 +219,7 @@
            ;; the current type must be a subclass or equal to one of the given
            ;; types, and if there's no current type, it must be a subclass or
            ;; equal to one of the given classes in the future.
-      (let [mm-class (p/mm-class model t)]
+      (let [mm-class (p/mm-class model (second (u/type-with-modifiers (name t))))]
         (cond
          ;; No type set already.
          (nil? type) (do (set! type mm-class) true)
@@ -277,7 +276,6 @@
      (nil? omega) (set! omega o)
      :else (u/errorf "Can't reset omega of %s." this)))
   (finalize-alpha-and-omega [this subst]
-    (println "faao:tmp")
     (set! alpha (cclp/walk subst alpha))
     (set! omega (cclp/walk subst omega))
     (when (fresh? alpha)
@@ -289,6 +287,8 @@
   (manifest [this]
     (or manifested-element
         (do
+          (when-not type
+            (u/errorf "Can't manifest: type is nil in %s." (as-map this)))
           (set! manifested-element (if (= kind :edge)
                                      (tg/create-edge! model type
                                                       (manifest alpha)
@@ -366,7 +366,6 @@
 
 (defn finalizeo [& els]
   (fn [a]
-    (println "finalizeo:" els)
     (let [all-ok
           (loop [els (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)), ok true]
             (if (seq els)
