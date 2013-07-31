@@ -158,11 +158,11 @@
   nil
   (model-object? [this] false))
 
-(defprotocol MetaModelObject
+(defprotocol IMetaModelObject
   (meta-model-object? [this]
     "Returns true if `this` is a supported meta model object."))
 
-(extend-protocol MetaModelObject
+(extend-protocol IMetaModelObject
   Object
   (meta-model-object? [this] false)
   nil

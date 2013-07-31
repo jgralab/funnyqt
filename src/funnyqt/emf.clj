@@ -175,6 +175,10 @@
 
 ;;# Generic Metamodel Access
 
+(extend-protocol IMetaModelAccess
+  EClass
+  (meta-model-object? [this] true))
+
 (extend-protocol MMClasses
   EClass
   (mm-classes [cls]

@@ -273,7 +273,7 @@ functions `record` and `enum`."
 
 ;;# Generic Metamodel Access
 
-(extend-protocol MetaModelObject
+(extend-protocol IMetaModelObject
   AttributedElementClass
   (meta-model-object? [this] true))
 
