@@ -179,12 +179,12 @@
   EClass
   (meta-model-object? [this] true))
 
-(extend-protocol MMClasses
+(extend-protocol IMMClasses
   EClass
   (mm-classes [cls]
     (filter eclass? (eclassifiers))))
 
-(extend-protocol MMClass
+(extend-protocol IMMClass
   EObject
   (mm-class
     ([this]
@@ -200,12 +200,12 @@
     ([this qn]
        (eclassifier qn))))
 
-(extend-protocol MMDirectSuperClasses
+(extend-protocol IMMDirectSuperClasses
   EClass
   (mm-direct-super-classes [this]
     (seq (.getESuperTypes this))))
 
-(extend-protocol MMSuperClassOf
+(extend-protocol IMMSuperClassOf
   EClass
   (mm-super-class? [this sub]
     (and (not (identical? this sub))

@@ -170,20 +170,20 @@
 
 ;;# Metamodel Protocols
 
-(defprotocol MMClasses
+(defprotocol IMMClasses
   (mm-classes [cls]
     "Returns all classes in the metamodel containing `cls`."))
 
-(defprotocol MMClass
+(defprotocol IMMClass
   (mm-class [model-element] [model mm-class-sym]
     "Returns the given model-element's metamodel class,
   or the metamodel class named mm-class-sym (a symbol)."))
 
-(defprotocol MMDirectSuperClasses
+(defprotocol IMMDirectSuperClasses
   (mm-direct-super-classes [metamodel-type]
     "Returns the direct superclasses of metamodel-type."))
 
-(defprotocol MMSuperClassOf
+(defprotocol IMMSuperClassOf
   (mm-super-class? [super sub]
     "Return true iff super is a direct or indirect super class of sub.
   (mm-super-class? c c) is false."))

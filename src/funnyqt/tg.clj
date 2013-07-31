@@ -277,14 +277,14 @@ functions `record` and `enum`."
   AttributedElementClass
   (meta-model-object? [this] true))
 
-(extend-protocol MMClasses
+(extend-protocol IMMClasses
   GraphElementClass
   (mm-classes [aec]
     (let [^GraphClass gc (.getGraphClass aec)]
       (concat (.getVertexClasses gc)
 	      (.getEdgeClasses gc)))))
 
-(extend-protocol MMClass
+(extend-protocol IMMClass
   AttributedElement
   (mm-class
     ([this]
@@ -300,12 +300,12 @@ functions `record` and `enum`."
          cls
          (errorf "No such AttributedElementClass: %s." qn)))))
 
-(extend-protocol MMDirectSuperClasses
+(extend-protocol IMMDirectSuperClasses
   GraphElementClass
   (mm-direct-super-classes [this]
     (seq (.getDirectSuperClasses this))))
 
-(extend-protocol MMSuperClassOf
+(extend-protocol IMMSuperClassOf
   GraphElementClass
   (mm-super-class? [this sub]
     (.isSuperClassOf this sub)))
