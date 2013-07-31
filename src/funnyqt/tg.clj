@@ -1116,7 +1116,7 @@ functions `record` and `enum`."
 
 ;;## Deletions
 
-(extend-protocol Deletable
+(extend-protocol IDeletable
   Vertex
   (delete!
     ([v] (.delete v) v)

@@ -96,7 +96,7 @@
 
 ;;# Deletion
 
-(defprotocol Deletable
+(defprotocol IDeletable
   "A protocol for deleting elements."
   (delete! [this] [this recursive]
     "Deletes this element and returns it.  If `recursive` is true (default),
@@ -104,7 +104,7 @@
   meaning for edges.  Implementations are provided for Vertex, Edge, EObject,
   and collections thereof."))
 
-(extend-protocol Deletable
+(extend-protocol IDeletable
   java.util.Collection
   (delete!
     ([this]

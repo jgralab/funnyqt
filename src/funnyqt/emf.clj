@@ -765,7 +765,7 @@
 
 ;;## EObject Deletion
 
-(extend-protocol Deletable
+(extend-protocol IDeletable
   EObject
   (delete!
     ([this]
