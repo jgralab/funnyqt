@@ -138,9 +138,9 @@
   (add-adj!  [obj role obj])
   (add-adjs! [obj role objs]))
 
-;;# Container
+;;# IContainer
 
-(defprotocol Container
+(defprotocol IContainer
   (container [this]
     "Returns the container of this element.
   A container is an element that references this element by some link with

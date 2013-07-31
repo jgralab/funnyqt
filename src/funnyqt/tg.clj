@@ -968,7 +968,7 @@ functions `record` and `enum`."
     ([this ts]
        (vseq this ts))))
 
-(extend-protocol Container
+(extend-protocol IContainer
   Vertex
   (container [v]
     (loop [^Edge inc (first-inc v)]

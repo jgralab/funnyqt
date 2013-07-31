@@ -391,7 +391,7 @@
        :arglists '([eo])}
   econtainer econtainer-internal)
 
-(extend-protocol Container
+(extend-protocol IContainer
   EObject
   (container [this]
     (econtainer-internal this)))
