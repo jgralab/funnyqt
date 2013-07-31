@@ -248,7 +248,7 @@
     (or (first (remove zero? (map #(%1 %2 %3) cmps a b)))
         (- (hash a) (hash b)))))
 
-;;# Adjacencies
+;;# IAdjacencies
 
 ;; Those are implemented in funnyqt.tg and funnyqt.emf
 

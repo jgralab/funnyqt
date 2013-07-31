@@ -1176,7 +1176,7 @@ functions `record` and `enum`."
     (errorf "More than one adjacent vertex found: %s" s)
     (first s)))
 
-(extend-protocol Adjacencies
+(extend-protocol IAdjacencies
   Vertex
   (adj-internal [this roles]
     (if (seq roles)

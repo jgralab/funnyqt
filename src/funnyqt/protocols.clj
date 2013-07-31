@@ -117,9 +117,9 @@
        this)))
 
 
-;;# Adjacencies
+;;# IAdjacencies
 
-(defprotocol Adjacencies
+(defprotocol IAdjacencies
   "A protocol for retrieving adjacent elements."
   (adj-internal [this roles]
     "Gets the adjacent element of `this` navigating `roles`.")

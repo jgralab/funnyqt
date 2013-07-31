@@ -814,7 +814,7 @@
     (when-not allow-unknown-ref
       (errorf "No such structural feature '%s' at %s." ref eo))))
 
-(extend-protocol Adjacencies
+(extend-protocol IAdjacencies
   EObject
   (adj-internal [this roles]
     (if (seq roles)
