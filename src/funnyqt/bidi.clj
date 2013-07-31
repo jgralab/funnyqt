@@ -87,22 +87,42 @@
        (doseq [wfn# wfns#]
          (wfn#)))))
 
-(defn convert-relation [[name & more]]
+(defn extract-extended [all-rels m]
+  (if-let [ext-rels (:extends m)]
+    (let [update-fn (fn [repl-map spec]
+                      (mapv #(replace repl-map %) spec))
+          defs (map (fn [[r & rm]]
+                      (let [repl-map (apply hash-map rm)
+                            specs (get all-rels r)
+                            specs (update-in specs [:left] (partial update-fn repl-map))
+                            specs (update-in specs [:right] (partial update-fn repl-map))
+                            specs (if (:where m)
+                                    (update-in specs [:where] (partial update-fn repl-map))
+                                    specs)
+                            specs (if (:when m)
+                                    (update-in specs [:when] (partial update-fn repl-map))
+                                    specs)]
+                        specs))
+                    ext-rels)]
+      (apply merge-with conj defs))
+    {}))
+
+(defn convert-relation [all-rels [name & more]]
   (let [relkw (keyword (clojure.core/name name))
-        map   (apply hash-map more)
-        body  (concat (:left map) (:right map))
-        wsyms (distinct (filter qmark-symbol? (flatten (:when map))))
-        lsyms (distinct (filter qmark-symbol? (flatten (:left map))))
-        rsyms (distinct (filter qmark-symbol? (flatten (:right map))))
+        m     (apply hash-map more)
+        m     (merge-with concat m (extract-extended all-rels m))
+        wsyms (distinct (filter qmark-symbol? (flatten (:when m))))
+        lsyms (distinct (filter qmark-symbol? (flatten (:left m))))
+        rsyms (distinct (filter qmark-symbol? (flatten (:right m))))
         syms  (distinct (concat lsyms rsyms))]
-    (when-let [unknown-keys (seq (disj (set (keys map))
-                                       :left :right :when :where))]
+    (when-let [unknown-keys (seq (disj (set (keys m))
+                                       :left :right :when :where :extends))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~name [& ~(make-destr-map syms)]
             (let ~(make-relation-binding-vector syms)
               (if (= *target-direction* :right)
-                ~(do-rel-body relkw :right map wsyms lsyms rsyms)
-                ~(do-rel-body relkw :left  map wsyms rsyms lsyms))))))
+                ~(do-rel-body relkw :right m wsyms lsyms rsyms)
+                ~(do-rel-body relkw :left  m wsyms rsyms lsyms))))))
 
 (def ^{:dynamic true
        :doc "A map with the following structure:
@@ -131,6 +151,12 @@
                        (unify a (vec (vals m)) vs)))
                    bindings)
               (remove not)))))))
+
+(defn mapify-relations [rels]
+  (apply hash-map
+         (mapcat (fn [rel]
+                   [(keyword (first rel)) (apply hash-map (rest rel))])
+                 rels)))
 
 (defmacro deftransformation
   "Creates a new bidirectional transformation with the given `name` on the
@@ -194,7 +220,7 @@
        (when-not (or (= dir# :left) (= dir# :right))
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
-       (letfn [~@(map convert-relation relations)]
+       (letfn [~@(map (partial convert-relation (mapify-relations relations)) relations)]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
                    *relation-bindings* (atom {})]

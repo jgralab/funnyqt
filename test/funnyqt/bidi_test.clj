@@ -78,28 +78,31 @@
            (ab/+name r ?cat2 ?n)]
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
            (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
+  (have-same-ids
+   :left [(ab/+id l ?entry1 ?id)]
+   :right [(ab/+id r ?entry2 ?id)])
   (contact2contact
+   :extends [(:have-same-ids ?entry1 ?contact1
+                             ?entry2 ?contact2)]
    :left [(ab/+->contacts l ?cat1 ?contact1)
           (ab/+Contact l ?contact1)
           (ab/+firstName l ?contact1 ?fn)
           (ab/+lastName l ?contact1 ?ln)
-          (ab/+email l ?contact1 ?mail)
-          (ab/+id l ?contact1 ?id)]
+          (ab/+email l ?contact1 ?mail)]
    :right [(ab/+->contacts r ?cat2 ?contact2)
            (ab/+Contact r ?contact2)
            (ab/+firstName r ?contact2 ?fn)
            (ab/+lastName r ?contact2 ?ln)
-           (ab/+email r ?contact2 ?mail)
-           (ab/+id r ?contact2 ?id)])
+           (ab/+email r ?contact2 ?mail)])
   (org2org
+   :extends [(:have-same-ids ?entry1 ?org1
+                             ?entry2 ?org2)]
    :left [(ab/+ContainsOrganization l ?co1 ?cat1 ?org1)
           (ab/+Organization l ?org1)
-          (ab/+id l ?org1 ?id)
           (ab/+homepage l ?org1 ?hp)
           (ab/+name l ?org1 ?n)]
    :right [(ab/+ContainsOrganization r ?co2 ?cat2 ?org2)
            (ab/+Organization r ?org2)
-           (ab/+id r ?org2 ?id)
            (ab/+homepage r ?org2 ?hp)
            (ab/+name r ?org2 ?n)])
   (^:top connect-employees
