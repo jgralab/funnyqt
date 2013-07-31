@@ -56,14 +56,14 @@
               (into rv pkgs))
        rv)))
 
-(defprotocol EcoreModelBasics
+(defprotocol IEcoreModelBasics
   "A protocol for basid EcoreModel operations."
   (load-and-register-internal [this])
   (metamodel-epackages-internal [this])
   (save-metamodel-internal [this file]))
 
 (deftype EcoreModel [^XMIResource resource]
-  EcoreModelBasics
+  IEcoreModelBasics
   (load-and-register-internal [this]
     (.load resource (.getDefaultLoadOptions resource))
     (register-epackages (metamodel-epackages-internal this)))
@@ -73,9 +73,9 @@
   (metamodel-epackages-internal [this]
     (epks-and-subpgks (seq (.getContents resource)))))
 
-;;## EContents
+;;## IEContents
 
-(defprotocol EContents
+(defprotocol IEContents
   "A protocol for getting the contents of EMFModels and EObjects."
   (eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
@@ -91,13 +91,13 @@
 
 ;;## Model
 
-(defprotocol EMFModelBasics
+(defprotocol IEMFModelBasics
   "A protocol for basid EMFModel operations."
   (init-model-internal [this])
   (save-model-internal [this] [this file]))
 
 (deftype EMFModel [^XMIResource resource]
-  EMFModelBasics
+  IEMFModelBasics
   (init-model-internal [this]
     (.load resource (.getDefaultLoadOptions resource)))
   (save-model-internal [this]
@@ -119,9 +119,9 @@
       (.setURI resource uri)
       (save-model-internal this))))
 
-;;## EReferences
+;;## IEReferences
 
-(defprotocol EReferences
+(defprotocol IEReferences
   (epairs-internal [this reffn src-rm trg-rm src-ts trg-ts]
     "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
   May be restricted by reference matchers and type specs on source and target.
@@ -148,7 +148,7 @@
 
 ;;## Value conversion
 
-(defprotocol EmfToClj
+(defprotocol IEmfToClj
   (emf2clj-internal [this]
     "Converts an EMF thingy to a clojure thingy.
 

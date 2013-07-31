@@ -331,7 +331,7 @@
 
 ;;## Traversal Stuff
 
-(extend-protocol EContents
+(extend-protocol IEContents
   EObject
   (econtents-internal [this ts]
     (filter (type-matcher this ts)
@@ -432,7 +432,7 @@
                  `---- c [Car]
 
   Given a Foo object and a eref-matcher matching f, returns a seq of the
-  EReferences b and c, because those are the opposites of the matched f.  Of
+  IEReferences b and c, because those are the opposites of the matched f.  Of
   course, if `src-rm` matches only one specific EReference, i.e., it was
   constructed by (eref-matcher fERef) and not (eref-matcher :f)."
   [^EObject eo src-rm]
@@ -453,7 +453,7 @@
            :else (errorf "container is neither an EMFModel nor a collection: %s"
                          container))))
 
-(extend-protocol EReferences
+(extend-protocol IEReferences
   EMFModel
   (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
     (let [done (atom #{})
@@ -499,13 +499,13 @@
       (search-ereferencers this erefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (erefs-internal this (eref-matcher opposites))
-        (error "No opposite EReferences found."))))
+        (error "No opposite IEReferences found."))))
   (inv-ecrossrefs-internal [this rm container]
     (if container
       (search-ereferencers this ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
         (ecrossrefs-internal this (eref-matcher opposites))
-        (error "No opposite EReferences found.")))))
+        (error "No opposite IEReferences found.")))))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
@@ -552,7 +552,7 @@
   ([eo rs container]
      (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
-(extend-protocol EmfToClj
+(extend-protocol IEmfToClj
   UniqueEList
   (emf2clj-internal [this] (into (ordered-set) (seq this)))
   EMap
@@ -592,7 +592,7 @@
 
 (defn eget
   "Returns the value of `eo`s structural feature `sf`.
-  The value is converted to some clojure type (see EmfToClj protocol).
+  The value is converted to some clojure type (see IEmfToClj protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
   (emf2clj-internal (eget-raw eo sf)))
