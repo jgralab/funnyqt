@@ -175,7 +175,7 @@
 
 ;;# Generic Metamodel Access
 
-(extend-protocol IMetaModelAccess
+(extend-protocol IMetaModelObject
   EClass
   (meta-model-object? [this] true))
 
