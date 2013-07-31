@@ -132,7 +132,7 @@
     "Gets all adjacent elements of `this` navigating `roles`.
   Doesn't error on intermediate unset roles."))
 
-(defprotocol ModifyAdjacencies
+(defprotocol IModifyAdjacencies
   (set-adj!  [obj role obj])
   (set-adjs! [obj role objs])
   (add-adj!  [obj role obj])

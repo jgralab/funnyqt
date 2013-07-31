@@ -1094,7 +1094,7 @@ functions `record` and `enum`."
        (while (when-let [e (first-inc v tm dm)]
                 (delete! e))))))
 
-(extend-protocol ModifyAdjacencies
+(extend-protocol IModifyAdjacencies
   Vertex
   (set-adjs! [v role vs]
     (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass

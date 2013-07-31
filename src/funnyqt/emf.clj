@@ -752,7 +752,7 @@
 
 ;;## Generic setting of props
 
-(extend-protocol ModifyAdjacencies
+(extend-protocol IModifyAdjacencies
   EObject
   (set-adjs! [o role os]
     (eset! o role os))
