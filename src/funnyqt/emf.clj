@@ -743,7 +743,7 @@
       (eset! eo prop val))
     eo))
 
-(extend-protocol CreateElement
+(extend-protocol ICreateElement
   EMFModel
   (create-element! [model cls]
     (let [e (ecreate! cls)]
@@ -841,7 +841,7 @@
 
 ;;# Describing EObjects and EClasses
 
-(extend-protocol Describable
+(extend-protocol IDescribable
   org.eclipse.emf.ecore.EClass
   (describe [this]
     {:name (qname this)

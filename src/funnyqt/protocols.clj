@@ -4,7 +4,7 @@
 
 ;;# Describing Elements
 
-(defprotocol Describable
+(defprotocol IDescribable
   "A protocol for elements supporting describe."
   (describe [this]
     "Describes `this` attributed element or attributed element class."))
@@ -66,7 +66,7 @@
 
 ;;# Generic creation of model elements
 
-(defprotocol CreateElement
+(defprotocol ICreateElement
   (create-element! [model cls]
     "Creates a new element of type `cls` in `model`."))
 

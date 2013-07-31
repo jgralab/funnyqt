@@ -1041,7 +1041,7 @@ functions `record` and `enum`."
         (set-adjs! v prop (if (coll? val) val [val]))))
     v))
 
-(extend-protocol CreateElement
+(extend-protocol ICreateElement
   Graph
   (create-element! [g cls]
     (create-vertex! g cls)))
@@ -1368,7 +1368,7 @@ functions `record` and `enum`."
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
             (.getDirectSubClasses gec))))
 
-(extend-protocol Describable
+(extend-protocol IDescribable
   Graph
   (describe [this]
     {:type 'Graph
