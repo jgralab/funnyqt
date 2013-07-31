@@ -684,12 +684,12 @@ functions `record` and `enum`."
 
 ;;## Value access (including attribute setting)
 
-(defprotocol ^:private ClojureValues2JGraLabValues
+(defprotocol ^:private IClojureValues2JGraLabValues
   "Protocol for transforming clojure persistent collections/maps into
   equivalent pcollections and ratios to doubles."
   (clj2jgval [coll]))
 
-(extend-protocol ClojureValues2JGraLabValues
+(extend-protocol IClojureValues2JGraLabValues
   clojure.lang.ISeq
   (clj2jgval [coll]
     (.plusAll (ArrayPVector/empty) ^Collection (map clj2jgval coll)))
