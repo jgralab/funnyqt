@@ -5,6 +5,7 @@
         funnyqt.relational.util)
   (:require [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]
+            [funnyqt.query :as q]
             [funnyqt.utils :as u]
             [funnyqt.relational :as rel]
             [funnyqt.relational.tmp-elem :as tmp]
@@ -344,10 +345,25 @@
        (not (keyword? grole))
        (u/errorf "tmp-adjo: the attribute must be a ground keyword but was %s." grole)
 
-       :else (if (and (tmp/add-ref gv grole grv)
-                      (tmp/set-kind gv :vertex))
-               (succeed a)
-               (fail a))))))
+       (and (tmp/wrapper-element? gv) (tmp/wrapper-element? grv))
+       (if (tmp/add-ref gv grole grv)
+         (succeed a)
+         (fail a))
+
+       (and (tmp/wrapper-element? gv) (fresh? grv))
+       (to-stream
+        (->> (map #(unify a rv (if (fn? %) (%) %))
+                  (concat
+                   (map #(tmp/make-wrapper g %)
+                        (q/adjs (.wrapped-element ^WrapperElement gv) grole))
+                   ;; This must not be executed if there's an existing adjacent
+                   ;; vertex, so we wrap it in a function.
+                   [#(let [refed (tmp/make-tmp-element g :vertex)]
+                       (tmp/add-ref gv grole refed)
+                       refed)]))
+             (remove not)))
+
+       :else (u/errorf "tmp-adjo: v = %s, role = %s, rv = %s" gv grole grv)))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph

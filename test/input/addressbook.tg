@@ -1,0 +1,16 @@
+TGraph 2;
+Schema test.addressbook.AddressBookSchema;
+GraphClass AddressBookGraph;
+
+abstract VertexClass NamedElement {name: String};
+VertexClass AddressBook: NamedElement;
+VertexClass Category: NamedElement;
+abstract VertexClass Entry {id: Integer};
+VertexClass Contact: Entry {firstName: String, lastName: String, email: String};
+VertexClass Organization: Entry, NamedElement {homepage: String};
+
+EdgeClass ContainsCategory from AddressBook (1,1) role addressBook to Category (0,*) role categories aggregation composite;
+abstract EdgeClass ContainsEntry from Category (1,1) role category to Entry (0,*) role entries aggregation composite;
+EdgeClass ContainsContact from Category (1,1) to Contact (0,*) role contacts aggregation composite;
+EdgeClass ContainsOrganization from Category (1,1) to Organization (0,*) role organizations aggregation composite;
+EdgeClass HasEmployee from Organization (0,*) role employers to Contact (0,*) role employees;

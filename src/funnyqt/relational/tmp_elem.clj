@@ -88,6 +88,17 @@
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested]
+  Object
+  (equals [this other]
+    (and (wrapper-element? other)
+         (identical? model (.model ^WrapperElement other))
+         (identical? wrapped-element (.wrapped-element ^WrapperElement other))
+         (= attrs (.attrs ^WrapperElement other))
+         (= refs (.refs ^WrapperElement other))))
+  (hashCode [this]
+    (java.util.Objects/hash (to-array [model wrapped-element attrs refs])))
+  (toString [this]
+    (str "WrapperElement@" (Integer/toHexString (hash this)) (as-map this)))
   IAsMap
   (as-map [this]
     {:model model :wrapped-element wrapped-element
@@ -132,8 +143,6 @@
   (add-ref [this ref target]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; target is either fresh or a wrapper or tmp element
-    (when (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
-      (u/errorf "Can't add ref to an edge."))
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
     (let [cur (q/adjs wrapped-element ref)] ;; Throws if ref is no valid role name
@@ -192,14 +201,15 @@
   *wrapper-cache* nil)
 
 (defn make-wrapper [model element]
-  (when-not *wrapper-cache*
+  #_(when-not *wrapper-cache*
     (u/errorf "*wrapper-cache* not bound!"))
-  (if (cache/has? *wrapper-cache* element)
+  (->WrapperElement model element {} {} false)
+  #_(if (cache/has? *wrapper-cache* element)
     (cache/hit *wrapper-cache* element)
     (set! *wrapper-cache*
           (cache/miss *wrapper-cache* element
                       (->WrapperElement model element {} {} false))))
-  (cache/lookup *wrapper-cache* element))
+  #_(cache/lookup *wrapper-cache* element))
 
 ;;## TmpElement
 
@@ -211,6 +221,9 @@
                      ^:unsynchronized-mutable alpha
                      ^:unsynchronized-mutable omega
                      ^:unsynchronized-mutable manifested-element]
+  Object
+  (toString [this]
+    (str "TmpElement@" (hash this) (as-map this)))
   IAsMap
   (as-map [this]
     {:model model :kind kind :type type :attrs attrs :refs refs
@@ -294,16 +307,16 @@
     (set! alpha (cclp/walk subst alpha))
     (set! omega (cclp/walk subst omega))
     (when (fresh? alpha)
-      (u/errorf "Can't groundify alpha of %s." (as-map this)))
+      (u/errorf "Can't groundify alpha of %s." this))
     (when (fresh? omega)
-      (u/errorf "Can't groundify omega of %s." (as-map this)))
+      (u/errorf "Can't groundify omega of %s." this))
     true)
   IManifestation
   (manifest [this]
     (or manifested-element
         (do
           (when-not type
-            (u/errorf "Can't manifest: type is nil in %s." (as-map this)))
+            (u/errorf "Can't manifest: type is nil in %s." this))
           (set! manifested-element (if (= kind :edge)
                                      (tg/create-edge! model type
                                                       (manifest alpha)

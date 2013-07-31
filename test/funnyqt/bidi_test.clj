@@ -4,6 +4,7 @@
   (:use clojure.core.logic)
   (:require [funnyqt.relational.tg :as rtg]
             [funnyqt.relational :as r]
+            [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.tg :as tg]
             [funnyqt.visualization :as viz]
             [clojure.test :as test]
@@ -108,33 +109,41 @@
    :right [(ab/+->employees r ?org2 ?contact2)]))
 
 (defn assert-same-addressbooks [l r]
-  (test/is (= 1 (tg/vcount l 'AddressBook)          (tg/vcount r 'AddressBook)))
-  (test/is (= 2 (tg/vcount l 'Category)             (tg/vcount r 'Category)))
-  (test/is (= 2 (tg/ecount l 'ContainsCategory)     (tg/ecount r 'ContainsCategory)))
-  (test/is (= 3 (tg/vcount l 'Contact)              (tg/vcount r 'Contact)))
-  (test/is (= 3 (tg/ecount l 'ContainsContact)      (tg/ecount r 'ContainsContact)))
-  (test/is (= 2 (tg/vcount l 'Organization)         (tg/vcount r 'Organization)))
-  (test/is (= 2 (tg/ecount l 'ContainsOrganization) (tg/ecount r 'ContainsOrganization)))
-  (test/is (= 3 (tg/ecount l 'HasEmployee)          (tg/ecount r 'HasEmployee))))
+  (test/is (= (tg/vcount l 'AddressBook)          (tg/vcount r 'AddressBook)))
+  (test/is (= (tg/vcount l 'Category)             (tg/vcount r 'Category)))
+  (test/is (= (tg/ecount l 'ContainsCategory)     (tg/ecount r 'ContainsCategory)))
+  (test/is (= (tg/vcount l 'Contact)              (tg/vcount r 'Contact)))
+  (test/is (= (tg/ecount l 'ContainsContact)      (tg/ecount r 'ContainsContact)))
+  (test/is (= (tg/vcount l 'Organization)         (tg/vcount r 'Organization)))
+  (test/is (= (tg/ecount l 'ContainsOrganization) (tg/ecount r 'ContainsOrganization)))
+  (test/is (= (tg/ecount l 'HasEmployee)          (tg/ecount r 'HasEmployee))))
 
 (test/deftest test-addressbook2addressbook
   (let [l (make-example-addressbook)
         r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
     ;; Transform l to r
+    (println "addressbook2addressbook l -> r (empty)")
     (addressbook2addressbook l r :right)
     (assert-same-addressbooks l r)
     ;; Do it again.  It shouldn't modify anything.
+    (println "addressbook2addressbook l -> r (both already in sync)")
     (addressbook2addressbook l r :right)
     (assert-same-addressbooks l r)
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
-    #_(addressbook2addressbook l r :right)
-    #_(assert-same-addressbooks l r)
+    (println "addressbook2addressbook l <- r (both already in sync)")
+    (addressbook2addressbook l r :left)
+    (assert-same-addressbooks l r)
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
-    #_(tg/create-vertex! r 'Contact
-                       :id 6
-                       :firstName "Tim"
-                       :lastName "Taylor"
-                       :category (first (filter #(= (tg/value % :name) "Work")
-                                                (tg/vseq r 'Category))))
-    (viz/print-model r :gtk)))
+    (println "addressbook2addressbook l <- r (r has a new Contact)")
+    (let [tim (tg/create-vertex! r 'Contact
+                                 :id (int 6)
+                                 :firstName "Tim"
+                                 :lastName "Taylor"
+                                 :email "tim@gmail.com")
+          cat-work (first (filter #(= (tg/value % :name) "Work")
+                                  (tg/vseq r 'Category)))]
+      (p/add-adj! cat-work :contacts tim))
+    (addressbook2addressbook l r :left)
+    (assert-same-addressbooks l r)
+    #_(viz/print-model r :gtk)))
