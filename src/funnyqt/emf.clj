@@ -107,7 +107,7 @@
               "Restrict the search space using `with-ns-uris`."))
     (first qkgs)))
 
-(extend-protocol Abstractness
+(extend-protocol IAbstractness
   EClass
   (abstract? [this]
     (.isAbstract this)))
@@ -215,7 +215,7 @@
 
 ;;## Qualified Names
 
-(extend-protocol QualifiedName
+(extend-protocol IQualifiedName
   EClassifier
   (qname [this]
     (symbol (str (qname (.getEPackage this))
@@ -314,7 +314,7 @@
         (cache/miss type-matcher-cache ts tm)
         tm))))
 
-(extend-protocol InstanceOf
+(extend-protocol IInstanceOf
   EObject
   (is-instance? [object class]
     (and (instance? EClass class)
@@ -662,7 +662,7 @@
 
 ;;### Generic attribute access
 
-(extend-protocol AttributeValueAccess
+(extend-protocol IAttributeValueAccess
   EObject
   (aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]

@@ -11,7 +11,7 @@
 
 ;;# Qualified Names
 
-(defprotocol QualifiedName
+(defprotocol IQualifiedName
   "A protocol for qualified names."
   (qname [this]
     "Returns the qualified name of this named element's class or named element
@@ -21,9 +21,9 @@
   that may be recursive, so [Map Integer [List String]] corresponds to the java
   domain Map<Integer, List<String>>."))
 
-;;# Abstractness
+;;# IAbstractness
 
-(defprotocol Abstractness
+(defprotocol IAbstractness
   "A protocol for checking if an element class is abstract."
   (abstract? [this]
     "Returns true, iff the element class is abstract.
@@ -33,14 +33,14 @@
     - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg
     - org.eclipse.emf.ecore.EClass: funnyqt.emf"))
 
-(extend-protocol Abstractness
+(extend-protocol IAbstractness
   java.lang.Class
   (abstract? [this]
     (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
 ;;# Instance Check
 
-(defprotocol InstanceOf
+(defprotocol IInstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
   (is-instance? [object class]
     "Returns true, iff `object` is an instance of `class`.")
@@ -49,7 +49,7 @@
 
 ;;# Generic Attribute Value Access
 
-(defprotocol AttributeValueAccess
+(defprotocol IAttributeValueAccess
   "A protocol for generically accessing attributes on some object."
   (aval [el attr]
     "Returns the value of `el`s `attr` attribute.

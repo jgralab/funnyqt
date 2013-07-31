@@ -149,7 +149,7 @@ functions `record` and `enum`."
 
 ;;# Schema Access
 
-(extend-protocol QualifiedName
+(extend-protocol IQualifiedName
   AttributedElementClass
   (qname [aec]
     (symbol (.getQualifiedName aec)))
@@ -182,7 +182,7 @@ functions `record` and `enum`."
   (qname [d]
     (symbol (.getQualifiedName d))))
 
-(extend-protocol Abstractness
+(extend-protocol IAbstractness
   GraphElementClass
   (abstract? [this]
     (.isAbstract this)))
@@ -437,7 +437,7 @@ functions `record` and `enum`."
   (type-matcher [g ts]
     (type-matcher-tg g ts)))
 
-(extend-protocol InstanceOf
+(extend-protocol IInstanceOf
   Graph
   (is-instance? [object class]
     (and (instance? GraphClass class)
@@ -768,7 +768,7 @@ functions `record` and `enum`."
 
 ;;### Generic attribute access
 
-(extend-protocol AttributeValueAccess
+(extend-protocol IAttributeValueAccess
   AttributedElement
   (aval [this attr]
     (value this attr))
