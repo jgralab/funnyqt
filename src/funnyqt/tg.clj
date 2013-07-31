@@ -275,11 +275,7 @@ functions `record` and `enum`."
 
 (extend-protocol MetaModelObject
   AttributedElementClass
-  (meta-model-object? [this] true)
-  Object
-  (meta-model-object? [this] false)
-  nil
-  (meta-model-object? [this] false))
+  (meta-model-object? [this] true))
 
 (extend-protocol MMClasses
   GraphElementClass
@@ -981,13 +977,9 @@ functions `record` and `enum`."
           (that inc)
           (recur (next-inc inc)))))))
 
-(extend-protocol ModelObject
+(extend-protocol IModelObject
   GraphElement
-  (model-object? [this] true)
-  Object
-  (model-object? [this] false)
-  nil
-  (model-object? [this] false))
+  (model-object? [this] true))
 
 ;;## Vertex, edge counts, degree
 

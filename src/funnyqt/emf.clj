@@ -31,6 +31,9 @@
   [eo]
   `(instance? EClass ~eo))
 
+(extend-protocol IModelObject
+  EObject
+  (model-object? [this] true))
 
 ;;# Metamodel Access
 

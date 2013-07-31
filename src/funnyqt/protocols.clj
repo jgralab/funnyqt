@@ -148,13 +148,25 @@
 
 ;;# (Meta-)Model Object predicates
 
-(defprotocol ModelObject
+(defprotocol IModelObject
   (model-object? [this]
     "Returns true if `this` is a supported model object."))
+
+(extend-protocol IModelObject
+  Object
+  (model-object? [this] false)
+  nil
+  (model-object? [this] false))
 
 (defprotocol MetaModelObject
   (meta-model-object? [this]
     "Returns true if `this` is a supported meta model object."))
+
+(extend-protocol MetaModelObject
+  Object
+  (meta-model-object? [this] false)
+  nil
+  (meta-model-object? [this] false))
 
 ;;# Metamodel Protocols
 
