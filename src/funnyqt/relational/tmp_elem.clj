@@ -89,14 +89,6 @@
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested]
   Object
-  (equals [this other]
-    (and (wrapper-element? other)
-         (identical? model (.model ^WrapperElement other))
-         (identical? wrapped-element (.wrapped-element ^WrapperElement other))
-         (= attrs (.attrs ^WrapperElement other))
-         (= refs (.refs ^WrapperElement other))))
-  (hashCode [this]
-    (java.util.Objects/hash (to-array [model wrapped-element attrs refs])))
   (toString [this]
     (str "WrapperElement@" (Integer/toHexString (hash this)) (as-map this)))
   IAsMap
@@ -201,15 +193,12 @@
   *wrapper-cache* nil)
 
 (defn make-wrapper [model element]
-  #_(when-not *wrapper-cache*
-    (u/errorf "*wrapper-cache* not bound!"))
-  (->WrapperElement model element {} {} false)
-  #_(if (cache/has? *wrapper-cache* element)
-    (cache/hit *wrapper-cache* element)
-    (set! *wrapper-cache*
-          (cache/miss *wrapper-cache* element
-                      (->WrapperElement model element {} {} false))))
-  #_(cache/lookup *wrapper-cache* element))
+  (let [cur (get @*wrapper-cache* element ::not-found)]
+    (if (identical? cur ::not-found)
+      (let [w (->WrapperElement model element {} {} false)]
+        (swap! *wrapper-cache* assoc element w)
+        w)
+      cur)))
 
 ;;## TmpElement
 

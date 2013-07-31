@@ -70,7 +70,7 @@
                     ~@(:when map)
                     ~@(get map src)
                     (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
-              (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (cache/basic-cache-factory {}))]
+              (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
