@@ -6,11 +6,11 @@
 
 ;;# Conversion to OrderedSet
 
-(defprotocol OrderedSetConvertible
+(defprotocol IOrderedSetConvertible
   (oset [this]
     "Converts this into an ordered set."))
 
-(extend-protocol OrderedSetConvertible
+(extend-protocol IOrderedSetConvertible
   flatland.ordered.set.OrderedSet
   (oset [this]
     this)
