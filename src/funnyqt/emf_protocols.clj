@@ -148,7 +148,7 @@
 
 ;;## Value conversion
 
-(defprotocol IEmfToClj
+(defprotocol IEMFValues2ClojureValues
   (emf2clj-internal [this]
     "Converts an EMF thingy to a clojure thingy.
 

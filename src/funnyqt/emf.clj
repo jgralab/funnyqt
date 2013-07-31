@@ -552,7 +552,7 @@
   ([eo rs container]
      (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
-(extend-protocol IEmfToClj
+(extend-protocol IEMFValues2ClojureValues
   UniqueEList
   (emf2clj-internal [this] (into (ordered-set) (seq this)))
   EMap
@@ -592,7 +592,7 @@
 
 (defn eget
   "Returns the value of `eo`s structural feature `sf`.
-  The value is converted to some clojure type (see IEmfToClj protocol).
+  The value is converted to some clojure type (see IEMFValues2ClojureValues protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
   (emf2clj-internal (eget-raw eo sf)))
