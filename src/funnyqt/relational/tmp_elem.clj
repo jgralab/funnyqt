@@ -50,10 +50,10 @@
   (unset? [this attr]
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
-(defprotocol ContainmentRef
+(defprotocol IContainmentRef
   (containment-ref? [mm-class ref-kw]))
 
-(extend-protocol ContainmentRef
+(extend-protocol IContainmentRef
   de.uni_koblenz.jgralab.schema.VertexClass
   (containment-ref? [this ref-kw]
     (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
