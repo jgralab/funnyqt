@@ -72,7 +72,7 @@
 
 ;;# Type Matcher
 
-(defprotocol TypeMatcher
+(defprotocol ITypeMatcher
   (type-matcher [model type-spec]
     "Returns a type-matcher function based on the metamodel of model.
   A type-matcher function accepts one object and returns true if the object

@@ -429,7 +429,7 @@ functions `record` and `enum`."
           tm))
       (type-matcher-tg-1 g ts))))
 
-(extend-protocol TypeMatcher
+(extend-protocol ITypeMatcher
   GraphElement
   (type-matcher [ge ts]
     (type-matcher-tg (graph ge) ts))

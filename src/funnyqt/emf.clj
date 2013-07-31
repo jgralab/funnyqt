@@ -298,7 +298,7 @@
                    identity)
      :else (errorf "Don't know how to create an EMF type-matcher for %s" ts)))
 
-(extend-protocol TypeMatcher
+(extend-protocol ITypeMatcher
   EObject
   (type-matcher [m ts]
     (if-let [tm (cache/lookup type-matcher-cache ts)]
