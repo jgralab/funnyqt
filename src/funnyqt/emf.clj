@@ -730,15 +730,17 @@
 (defn ecreate!
   "Creates an EObject of EClass `ecls`.
   `ecls` may be either an EClass or just an EClass name given as symbol.
-  `attrs` are optional attribute-value pairs to be set, where attributes are
-  represented as keywords."
-  [ecls & attrs]
+  `props` are optional property-value pairs to be set, where
+  properties (attributes and references) are represented as keywords.  Since
+  props are set using `eset!`, the value of a multi-valued reference must be a
+  collection of EObjects."
+  [ecls & props]
   (let [eo (EcoreUtil/create (if (instance? EClass ecls)
                                ecls
                                (eclassifier ecls)))]
-    (doseq [[attr val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" attrs))
-                                  attrs)]
-      (eset! eo attr val))
+    (doseq [[prop val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" props))
+                                  props)]
+      (eset! eo prop val))
     eo))
 
 (extend-protocol CreateElement

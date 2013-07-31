@@ -24,8 +24,6 @@
 (defn make-example-addressbook []
   (let [g (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))
         ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
-        cat-work (tg/create-vertex! g 'Category :name "Work")
-        cat-private (tg/create-vertex! g 'Category :name "Private")
         jim (tg/create-vertex! g 'Contact
                                :id (int 1)
                                :firstName "Jim"
@@ -44,18 +42,21 @@
         mozilla (tg/create-vertex! g 'Organization
                                    :id (int 4)
                                    :name "Mozilla Foundation"
-                                   :homepage "www.mozilla.org")
+                                   :homepage "www.mozilla.org"
+                                   :employees [tim])
         ibm (tg/create-vertex! g 'Organization
                                :id (int 5)
                                :name "IBM"
-                               :homepage "www.ibm.com")]
-    (p/add-adjs! ab :categories [cat-work cat-private])
-    (p/add-adj! cat-work :contacts steve)
-    (p/add-adj! cat-work :organizations ibm)
-    (p/add-adjs! cat-private :contacts [jim tim])
-    (p/add-adj! cat-private :organizations mozilla)
-    (p/add-adjs! ibm :employees [steve tim])
-    (p/add-adj! mozilla :employees tim)
+                               :homepage "www.ibm.com"
+                               :employees [steve tim])
+        cat-work (tg/create-vertex! g 'Category :name "Work"
+                                    :addressBook ab
+                                    :contacts [steve]
+                                    :organizations ibm)
+        cat-private (tg/create-vertex! g 'Category :name "Private"
+                                       :addressBook ab
+                                       :contacts [jim tim]
+                                       :organizations [mozilla])]
     g))
 
 (rtg/generate-schema-relations "test/input/addressbook.tg" ab)
@@ -74,7 +75,8 @@
    :right [(ab/+ContainsCategory r ?cc2 ?ab2 ?cat2)
            (ab/+Category r ?cat2)
            (ab/+name r ?cat2 ?n)]
-   :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)])
+   :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
+           (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
   (contact2contact
    :left [(ab/+->contacts l ?cat1 ?contact1)
           (ab/+Contact l ?contact1)
@@ -87,20 +89,52 @@
            (ab/+firstName r ?contact2 ?fn)
            (ab/+lastName r ?contact2 ?ln)
            (ab/+email r ?contact2 ?mail)
-           (ab/+id r ?contact2 ?id)]))
+           (ab/+id r ?contact2 ?id)])
+  (org2org
+   :left [(ab/+ContainsOrganization l ?co1 ?cat1 ?org1)
+          (ab/+Organization l ?org1)
+          (ab/+id l ?org1 ?id)
+          (ab/+homepage l ?org1 ?hp)
+          (ab/+name l ?org1 ?n)]
+   :right [(ab/+ContainsOrganization r ?co2 ?cat2 ?org2)
+           (ab/+Organization r ?org2)
+           (ab/+id r ?org2 ?id)
+           (ab/+homepage r ?org2 ?hp)
+           (ab/+name r ?org2 ?n)])
+  (^:top connect-employees
+   :when [(relateo :org2org :?org1 ?org1 :?org2 ?org2)
+          (relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+   :left [(ab/+->employees l ?org1 ?contact1)]
+   :right [(ab/+->employees r ?org2 ?contact2)]))
 
-(test/deftest test-addressbook2addressbook-l2r
+(defn assert-same-addressbooks [l r]
+  (test/is (= 1 (tg/vcount l 'AddressBook)          (tg/vcount r 'AddressBook)))
+  (test/is (= 2 (tg/vcount l 'Category)             (tg/vcount r 'Category)))
+  (test/is (= 2 (tg/ecount l 'ContainsCategory)     (tg/ecount r 'ContainsCategory)))
+  (test/is (= 3 (tg/vcount l 'Contact)              (tg/vcount r 'Contact)))
+  (test/is (= 3 (tg/ecount l 'ContainsContact)      (tg/ecount r 'ContainsContact)))
+  (test/is (= 2 (tg/vcount l 'Organization)         (tg/vcount r 'Organization)))
+  (test/is (= 2 (tg/ecount l 'ContainsOrganization) (tg/ecount r 'ContainsOrganization)))
+  (test/is (= 3 (tg/ecount l 'HasEmployee)          (tg/ecount r 'HasEmployee))))
+
+(test/deftest test-addressbook2addressbook
   (let [l (make-example-addressbook)
         r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
+    ;; Transform l to r
     (addressbook2addressbook l r :right)
-    (test/is (= 1
-                (tg/vcount l 'AddressBook)
-                (tg/vcount r 'AddressBook)))
-    (test/is (= 2
-                (tg/vcount l 'Category)
-                (tg/vcount r 'Category)))
-    (test/is (= 2
-                (tg/ecount l 'ContainsCategory)
-                (tg/ecount r 'ContainsCategory)))
-    (viz/print-model r :gtk)
-    ))
+    (assert-same-addressbooks l r)
+    ;; Do it again.  It shouldn't modify anything.
+    (addressbook2addressbook l r :right)
+    (assert-same-addressbooks l r)
+    ;; Do it in the other direction.  Again, it shouldn't modify anything.
+    #_(addressbook2addressbook l r :right)
+    #_(assert-same-addressbooks l r)
+    ;; Now add a new Contact to the right addressbook and synchronize it to the
+    ;; left.
+    #_(tg/create-vertex! r 'Contact
+                       :id 6
+                       :firstName "Tim"
+                       :lastName "Taylor"
+                       :category (first (filter #(= (tg/value % :name) "Work")
+                                                (tg/vseq r 'Category))))
+    (viz/print-model r :gtk)))

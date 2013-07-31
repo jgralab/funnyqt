@@ -1027,16 +1027,18 @@ functions `record` and `enum`."
 
 (defn create-vertex!
   "Creates a new vertex of type `cls` in `g`.
-  `cls` is a VertexClass or a qualified name given as symbol.  `attrs` are
-  optional attribute-value pairs to be set, where attributes are represented as
-  keywords."
-  [^Graph g cls & attrs]
+  `cls` is a VertexClass or a qualified name given as symbol.  `props` are
+  optional property-value pairs to be set, where properties (attributes and
+  roles) are represented as keywords."
+  [^Graph g cls & props]
   (let [v (.createVertex g (if (vertex-class? cls)
                              cls
                              (attributed-element-class g cls)))]
-    (doseq [[attr val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" attrs))
-                                  attrs)]
-      (set-value! v attr val))
+    (doseq [[prop val] (partition 2 2 (repeatedly #(errorf "prop-vals not paired: %s" props))
+                                  props)]
+      (if (.getAttribute (attributed-element-class v) (name prop))
+        (set-value! v prop val)
+        (set-adjs! v prop (if (coll? val) val [val]))))
     v))
 
 (extend-protocol CreateElement
@@ -1054,7 +1056,8 @@ functions `record` and `enum`."
                            cls
                            (attributed-element-class g cls))
                        from to)]
-    (doseq [[attr val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" attrs)) attrs)]
+    (doseq [[attr val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" attrs))
+                                  attrs)]
       (set-value! e attr val))
     e))
 

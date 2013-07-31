@@ -12,9 +12,10 @@
 ;; Either :left or :right
 (def ^:dynamic *target-direction*)
 
-(defn select-match [matches]
+(defn select-match [matches relation src-match]
   (when-not (seq matches)
-    (u/errorf "Couldn't create a target match!"))
+    (u/errorf "Couldn't create a %s target match for source match: %s"
+              relation src-match))
   (first matches))
 
 (defn enforce-match [match]
@@ -77,7 +78,8 @@
                          (run* [q#]
                            ~@(get map trg)
                            (tmp/finalizeo ~@trg-syms)
-                           (== q# ~(make-kw-result-map trg-syms)))))]
+                           (== q# ~(make-kw-result-map trg-syms)))
+                         ~relkw ~sm))]
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
                     (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
