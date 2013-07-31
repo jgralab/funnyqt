@@ -964,7 +964,7 @@ functions `record` and `enum`."
   ([v ts dir]
      (riseq-internal v (type-matcher v ts) (direction-matcher dir))))
 
-(extend-protocol Elements
+(extend-protocol IElements
   Graph
   (elements
     ([this]

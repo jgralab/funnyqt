@@ -60,7 +60,7 @@
 
 ;;# Generic Access to Vertices and EObjects
 
-(defprotocol Elements
+(defprotocol IElements
   (elements [model] [model type-spec]
     "Returns the lazy sequence of elements in `model` restricted by `type-spec`."))
 

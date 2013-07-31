@@ -372,7 +372,7 @@
   ([m] (eallobjects-internal m identity))
   ([m ts] (eallobjects-internal m ts)))
 
-(extend-protocol Elements
+(extend-protocol IElements
   EMFModel
   (elements
     ([this]
