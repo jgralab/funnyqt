@@ -5,12 +5,10 @@
         funnyqt.relational.util)
   (:require [funnyqt.protocols :as p]
             [funnyqt.emf :as emf]
-            [funnyqt.relational :as rel])
+            [funnyqt.relational.tmp-elem :as tmp])
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
-
-;;# Utilities
 
 (defn eobjecto
   "A relation where EObject `e` has the type `t`, an EClass name in EMFModel `m`.
