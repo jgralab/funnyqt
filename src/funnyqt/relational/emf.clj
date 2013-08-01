@@ -5,24 +5,74 @@
         funnyqt.relational.util)
   (:require [funnyqt.protocols :as p]
             [funnyqt.emf :as emf]
-            [funnyqt.relational.tmp-elem :as tmp])
+            [funnyqt.relational.tmp-elem :as tmp]
+            [funnyqt.utils :as u])
   (:import
    (org.eclipse.emf.ecore
     EStructuralFeature EAttribute EReference EObject EClass EPackage)))
+
+(defn tmp-eobjecto
+  ([m eo]
+     (fn [a]
+       (let [geo (walk a eo)]
+         (cond
+          (not (or (fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+          (u/errorf "tmp-eobjecto/2: eo must be fresh or a ground Wrapper/TmpElement but was %s."
+                    geo)
+
+          (ground? geo)
+          (if (tmp/set-kind geo :element)
+            (succeed a)
+            (fail a))
+
+          :elso (to-stream
+                 (->> (map #(unify a eo %)
+                           (concat
+                            (map (partial tmp/make-wrapper m)
+                                 (emf/eallobjects m))
+                            [(tmp/make-tmp-element m :element)]))
+                      (remove not)))))))
+  ([m eo t]
+     (fn [a]
+       (let [geo (walk a eo)
+             gt  (walk a t)]
+         (cond
+          (not (ground? gt))
+          (u/errorf "tmp-eobjecto/3: type must be ground.")
+
+          (not (or (fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+          (u/errorf "tmp-eobjecto/3: eo must be fresh or a ground Wrapper/TmpElement but was %s."
+                    geo)
+
+          (ground? geo) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
+          (if (and (tmp/set-kind geo :element)
+                   (tmp/set-type geo gt))
+            (succeed a)
+            (fail a))
+
+          :else (to-stream
+                 (->> (map #(unify a eo %)
+                           (concat
+                            (map (partial tmp/make-wrapper m)
+                                 (emf/eallobjects m gt))
+                            [(tmp/make-tmp-element m :element gt)]))
+                      (remove not))))))))
 
 (defn eobjecto
   "A relation where EObject `e` has the type `t`, an EClass name in EMFModel `m`.
   In fact, `t` may be any type specification (see
   `funnyqt.protocols/type-matcher`)."
   ([m eo]
-     (fn [a]
-       (let [geo (walk a eo)]
-         (if (ground? geo)
-           (if (emf/eobject? geo) (succeed a) (fail a))
-           (to-stream
-            (->> (map #(unify a eo %)
-                      (emf/eallobjects m))
-                 (remove not)))))))
+     (if tmp/*make-tmp-elements*
+       (tmp-eobjecto m eo)
+       (fn [a]
+         (let [geo (walk a eo)]
+           (if (ground? geo)
+             (if (emf/eobject? geo) (succeed a) (fail a))
+             (to-stream
+              (->> (map #(unify a eo %)
+                        (emf/eallobjects m))
+                   (remove not))))))))
   ([m e t]
      (fn [a]
        (let [ge (walk a e)
