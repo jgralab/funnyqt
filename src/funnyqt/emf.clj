@@ -124,7 +124,7 @@
 
 (defn eclass
   "Returns the EClass of the given EObject `eo`."
-  [^EObject eo]
+  ^org.eclipse.emf.ecore.EObject [^EObject eo]
   (.eClass eo))
 
 (defn eclasses
@@ -772,7 +772,7 @@
 (extend-protocol ICreateRelationship
   EMFModel
   (create-relationship! [this refkw from to]
-    (let [^EClass ec (.eClass from)
+    (let [^EClass ec (eclass from)
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
       (if (.isMany sf)
         (eadd! from refkw to)

@@ -247,7 +247,7 @@ functions `record` and `enum`."
 (defn schema
   "Returns the schema of `elem` (an AttributedElement, AttributedElementClass,
   or a Domain)."
-  [elem]
+  ^de.uni_koblenz.jgralab.schema.Schema [elem]
   (condp instance? elem
     AttributedElement      (.getSchema ^AttributedElement elem)
     AttributedElementClass (.getSchema ^AttributedElementClass elem)
@@ -256,7 +256,7 @@ functions `record` and `enum`."
 (defn domain
   "Returns the Domain `qname` in the schema of `elem`.  `elem` may be an
   AttributedElement, AttributedElementClass, or a Schema."
-  [elem qname]
+  ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
   (if (or (instance? AttributedElement elem)
           (instance? AttributedElementClass elem))
     (or (.getDomain ^Schema (schema elem) (domain-qname qname))

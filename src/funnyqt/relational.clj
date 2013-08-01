@@ -26,7 +26,7 @@
      (fn [a]
        (println (apply str
                        prompt
-                       (interpose ", " (map (fn [v]
+                       (interpose ", " (map (fn [^clojure.core.logic.LVar v]
                                               (if (lvar? v)
                                                 (let [w (walk a v)]
                                                   (str (.name v) " = " w))
