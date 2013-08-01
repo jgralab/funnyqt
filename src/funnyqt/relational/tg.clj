@@ -22,7 +22,7 @@
   (let [aecfn (fn [ts]
                 (tg/attributed-element-class
                  g (second (u/type-with-modifiers (name ts)))))
-        kindfn #(if (tg/vertex-class? %) :vertex :edge)]
+        kindfn #(if (tg/vertex-class? %) :element :relationship)]
     (cond
      (symbol? spec) (let [aec (aecfn spec)]
                       [(kindfn aec) aec])
@@ -52,8 +52,8 @@
 
        :else (let [[kind aec] (kind-aec-tup-from-spec g gt)
                    seqfn (cond
-                          (= kind :vertex) tg/vseq
-                          (= kind :edge)   tg/eseq
+                          (= kind :element) tg/vseq
+                          (= kind :relationship)   tg/eseq
                           :else (fn [g gt]
                                   (concat (tg/vseq g gt) (tg/eseq g gt))))]
                (to-stream
@@ -119,7 +119,7 @@
        (u/errorf "tmp-vertexo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." gv)
 
        (ground? gv)
-       (if (tmp/set-kind gv :vertex)
+       (if (tmp/set-kind gv :element)
          (succeed a)
          (fail a))
 
@@ -130,7 +130,7 @@
                          (map (partial tmp/make-wrapper g)
                               (tg/vseq g))
                          ;; One new vertex tmp element
-                         [(tmp/make-tmp-element g :vertex)]))
+                         [(tmp/make-tmp-element g :element)]))
                    (remove not)))))))
 
 (defn vertexo
@@ -183,7 +183,7 @@
                         (filter
                          #(= (.wrapped-element ^WrapperElement gomega) (tg/omega %))
                          (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out)))
-                   [(doto (tmp/make-tmp-element g :edge)
+                   [(doto (tmp/make-tmp-element g :relationship)
                       (tmp/set-alpha galpha)
                       (tmp/set-omega gomega))]))
              (remove not)))
@@ -203,7 +203,7 @@
                           [(tmp/make-wrapper g ed)
                            (tmp/make-wrapper g (tg/omega ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out))
-                   (let [ed (tmp/make-tmp-element g :edge)]
+                   (let [ed (tmp/make-tmp-element g :relationship)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)
                      [[ed gomega]])))
@@ -224,7 +224,7 @@
                           [(tmp/make-wrapper g ed)
                            (tmp/make-wrapper g (tg/alpha ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement gomega) nil :in))
-                   (let [ed (tmp/make-tmp-element g :edge)]
+                   (let [ed (tmp/make-tmp-element g :relationship)]
                      (tmp/set-alpha ed galpha)
                      (tmp/set-omega ed gomega)
                      [[ed galpha]])))
@@ -358,7 +358,7 @@
                         (q/adjs (.wrapped-element ^WrapperElement gv) grole))
                    ;; This must not be executed if there's an existing adjacent
                    ;; vertex, so we wrap it in a function.
-                   [#(let [refed (tmp/make-tmp-element g :vertex)]
+                   [#(let [refed (tmp/make-tmp-element g :element)]
                        (tmp/add-ref gv grole refed)
                        refed)]))
              (remove not)))

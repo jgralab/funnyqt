@@ -133,20 +133,20 @@
   (let [l (make-example-addressbook)
         r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
     ;; Transform l to r
-    (println "addressbook2addressbook l -> r (empty)")
-    (addressbook2addressbook l r :right)
+    (print "addressbook2addressbook l -> r (empty)                ")
+    (time (addressbook2addressbook l r :right))
     (assert-same-addressbooks l r)
     ;; Do it again.  It shouldn't modify anything.
-    (println "addressbook2addressbook l -> r (both already in sync)")
-    (addressbook2addressbook l r :right)
+    (print "addressbook2addressbook l -> r (both already in sync) ")
+    (time (addressbook2addressbook l r :right))
     (assert-same-addressbooks l r)
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
-    (println "addressbook2addressbook l <- r (both already in sync)")
-    (addressbook2addressbook l r :left)
+    (print "addressbook2addressbook l <- r (both already in sync) ")
+    (time (addressbook2addressbook l r :left))
     (assert-same-addressbooks l r)
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
-    (println "addressbook2addressbook l <- r (r has a new Contact)")
+    (print "addressbook2addressbook l <- r (r has a new Contact)  ")
     (let [tim (tg/create-vertex! r 'Contact
                                  :id (int 6)
                                  :firstName "Tim"
@@ -155,6 +155,8 @@
           cat-work (first (filter #(= (tg/value % :name) "Work")
                                   (tg/vseq r 'Category)))]
       (p/add-adj! cat-work :contacts tim))
-    (addressbook2addressbook l r :left)
+    (time (addressbook2addressbook l r :left))
     (assert-same-addressbooks l r)
-    #_(viz/print-model r :gtk)))
+    #_(do
+        (future (viz/print-model l :gtk))
+        (viz/print-model r :gtk))))

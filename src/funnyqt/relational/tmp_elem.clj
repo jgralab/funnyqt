@@ -73,6 +73,15 @@
       (.isContainment er)
       (u/errorf "No such reference %s at metamodel class %s." ref-kw this))))
 
+(defprotocol IWrappedRelationship
+  (get-src [this])
+  (get-trg [this]))
+
+(extend-protocol IWrappedRelationship
+  de.uni_koblenz.jgralab.Edge
+  (get-src [this] (tg/alpha this))
+  (get-trg [this] (tg/omega this)))
+
 ;;# Types
 
 (declare wrapper-element?)
@@ -82,6 +91,12 @@
 (declare single-containers?)
 
 ;;## WrapperElement
+
+(def element-types #{de.uni_koblenz.jgralab.Vertex org.eclipse.emf.ecore.EObject})
+(def relationship-types #{de.uni_koblenz.jgralab.Edge})
+
+(defn ^:private instance-of-any? [class-set elem]
+  (some #(instance? % elem) class-set))
 
 (deftype WrapperElement [model
                          wrapped-element
@@ -100,11 +115,15 @@
     (when manifested (u/errorf "Already manifested: %s" this))
     (if (set? k)
       true ;; Kind ambiguous as result of attr relation, so simply succeed.
-      (let [cur (condp instance? wrapped-element
-                  de.uni_koblenz.jgralab.Vertex :vertex
-                  de.uni_koblenz.jgralab.Edge   :edge
-                  org.eclipse.emf.ecore.EObject :eobject)]
-        (= k cur))))
+      (do
+        (when-not (#{:element :relationship} k)
+          (u/errorf "Unknown kind %s." k))
+        (let [cur (cond
+                   (instance-of-any? element-types wrapped-element) :element
+                   (instance-of-any? relationship-types wrapped-element) :relationship
+                   :else (u/errorf "The type of %s is not registered in %s or %s."
+                                   wrapped-element #'element-types #'relationship-types))]
+          (= k cur)))))
   IType
   (set-type [this t]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -156,19 +175,19 @@
   (set-alpha [this a]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; a is either fresh or a wrapper or tmp element
-    (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
-      (u/errorf "Can't set alpha of non-edge %s." wrapped-element))
+    (when-not (instance-of-any? relationship-types wrapped-element)
+      (u/errorf "Can't set alpha of non-relationship %s." wrapped-element))
     (cond
-     (wrapper-element? a) (= (tg/alpha wrapped-element) (.wrapped-element ^WrapperElement a))
+     (wrapper-element? a) (= (get-src wrapped-element) (.wrapped-element ^WrapperElement a))
      (tmp-element? a)     false
      :else                true))
   (set-omega [this o]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; o is either fresh or a wrapper or tmp element
-    (when-not (instance? de.uni_koblenz.jgralab.Edge wrapped-element)
-      (u/errorf "Can't set omega of non-edge %s." wrapped-element))
+    (when-not (instance-of-any? relationship-types wrapped-element)
+      (u/errorf "Can't set omega of non-relationship %s." wrapped-element))
     (cond
-     (wrapper-element? o) (= (tg/omega wrapped-element) (.wrapped-element ^WrapperElement o))
+     (wrapper-element? o) (= (get-trg wrapped-element) (.wrapped-element ^WrapperElement o))
      (tmp-element? o)     false
      :else                true))
   (finalize-alpha-and-omega [this subst]
@@ -221,10 +240,13 @@
   (set-kind [this k]
     (if (set? k)
       true ;; Kind ambiguous as result of attr relation, so simply succeed.
-      (cond
-       (nil? kind) (do (set! kind k) true)
-       (= kind k) true
-       :else (u/errorf "Cannot reset kind from %s to %s." kind k))))
+      (do
+        (when-not (#{:element :relationship} k)
+          (u/errorf "Unknown kind %s." k))
+        (cond
+         (nil? kind) (do (set! kind k) true)
+         (= kind k) true
+         :else (u/errorf "Cannot reset kind from %s to %s." kind k)))))
   IType
   (set-type [this t]
     (if (vector? t)
@@ -278,7 +300,7 @@
   IAlphaOmega
   (set-alpha [this a]
     ;; a is either fresh or a wrapper or tmp element
-    (when-not (= kind :edge)
+    (when-not (= kind :relationship)
       (u/errorf "Can't set alpha of non-edge %s." this))
     (cond
      (= alpha a) true
@@ -286,7 +308,7 @@
      :else (u/errorf "Can't reset alpha of %s." this)))
   (set-omega [this o]
     ;; o is either fresh or a wrapper or tmp element
-    (when-not (= kind :edge)
+    (when-not (= kind :relationship)
       (u/errorf "Can't set omega of non-edge %s." this))
     (cond
      (= omega o) true
@@ -306,11 +328,12 @@
         (do
           (when-not type
             (u/errorf "Can't manifest: type is nil in %s." this))
-          (set! manifested-element (if (= kind :edge)
-                                     (tg/create-edge! model type
-                                                      (manifest alpha)
-                                                      (manifest omega))
-                                     (p/create-element! model type)))
+          (set! manifested-element (cond
+                                    (= kind :element) (p/create-element! model type)
+                                    (= kind :relationship) (p/create-relationship!
+                                                            model type
+                                                            (manifest alpha) (manifest omega))
+                                    :else (u/errorf "Unknown kind %s." kind)))
           (doseq [[at val] attrs]
             (p/set-aval! manifested-element at val))
           (doseq [[role rs] refs]
