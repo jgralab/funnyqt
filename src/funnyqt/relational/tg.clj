@@ -41,7 +41,7 @@
 
        (not (or (fresh? ge)
                 (tmp/tmp-or-wrapper-element? ge)))
-       (u/errorf "tmp-typeo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." ge)
+       (u/errorf "tmp-typeo: e must be fresh or a ground Wrapper/TmpElement but was %s." ge)
 
        (ground? ge)
        (let [[kind aec] (kind-aec-tup-from-spec g gt)]
@@ -116,7 +116,8 @@
       (cond
        (not (or (fresh? gv)
                 (tmp/tmp-or-wrapper-element? gv)))
-       (u/errorf "tmp-vertexo: the element must be fresh or a ground Wrapper- or TmpElement but was %s." gv)
+       (u/errorf "tmp-vertexo: v must be fresh or a ground Wrapper/TmpElement but was %s."
+                 gv)
 
        (ground? gv)
        (if (tmp/set-kind gv :element)
@@ -156,17 +157,17 @@
           gomega (walk a omega)]
       ;;(println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
       (cond
-       (not (or (fresh? ge)
-                (tmp/tmp-or-wrapper-element? ge)))
-       (u/errorf "tmp-edgeo: the edge must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
+       (not (or (fresh? ge) (tmp/tmp-or-wrapper-element? ge)))
+       (u/errorf "tmp-edgeo: e must be fresh or a ground Wrapper/TmpElement but was %s."
+                 ge)
 
-       (not (or (fresh? galpha)
-                (tmp/tmp-or-wrapper-element? galpha)))
-       (u/errorf "tmp-edgeo: alpha must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
+       (not (or (fresh? galpha) (tmp/tmp-or-wrapper-element? galpha)))
+       (u/errorf "tmp-edgeo: alpha must be fresh or a ground Wrapper/TmpElement but was %s."
+                 galpha)
 
-       (not (or (fresh? gomega)
-                (tmp/tmp-or-wrapper-element? gomega)))
-       (u/errorf "tmp-edgeo: omega must be fresh or a ground Wrapper- or TmpElement but was %s." galpha)
+       (not (or (fresh? gomega) (tmp/tmp-or-wrapper-element? gomega)))
+       (u/errorf "tmp-edgeo: omega must be fresh or a ground Wrapper/TmpElement but was %s."
+                 gomega)
 
        (tmp/wrapper-element? ge)
        (unify a [alpha omega]
@@ -287,11 +288,11 @@
           gval (walk a val)]
       (cond
        (not (tmp/tmp-or-wrapper-element? gae))
-       (u/errorf "tmp-valueo: the element has to be a ground Tmp- or WrapperElement but was %s."
+       (u/errorf "tmp-valueo: ae has to be a ground Tmp/WrapperElement but was %s."
                gae)
 
        (not (keyword? gat))
-       (u/errorf "tmp-valueo: the attribute must be a ground keyword but was %s." gat)
+       (u/errorf "tmp-valueo: at must be a ground keyword but was %s." gat)
 
        :else (if (tmp/add-attr gae gat gval)
                (succeed a)
@@ -339,11 +340,11 @@
           grv   (walk a rv)]
       (cond
        (not (tmp/tmp-or-wrapper-element? gv))
-       (u/errorf "tmp-adjo: the source element has to be a ground Tmp- or WrapperElement but was %s."
+       (u/errorf "tmp-adjo: v has to be a ground Tmp/WrapperElement but was %s."
                  gv)
 
        (not (keyword? grole))
-       (u/errorf "tmp-adjo: the attribute must be a ground keyword but was %s." grole)
+       (u/errorf "tmp-adjo: role must be a ground keyword but was %s." grole)
 
        (and (tmp/wrapper-element? gv) (tmp/tmp-or-wrapper-element? grv))
        (if (tmp/add-ref gv grole grv)
@@ -363,7 +364,8 @@
                        refed)]))
              (remove not)))
 
-       :else (u/errorf "unsupported args to tmp-adjo:\n  v = %s\n  role = %s\n rv = %s" gv grole grv)))))
+       :else (u/errorf "unsupported args to tmp-adjo:\n  v = %s\n  role = %s\n rv = %s"
+                       gv grole grv)))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph

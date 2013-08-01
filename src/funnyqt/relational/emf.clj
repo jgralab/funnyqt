@@ -5,11 +5,13 @@
         funnyqt.relational.util)
   (:require [funnyqt.protocols :as p]
             [funnyqt.emf :as emf]
+            [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.utils :as u])
   (:import
-   (org.eclipse.emf.ecore
-    EStructuralFeature EAttribute EReference EObject EClass EPackage)))
+   (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject
+                          EClass EPackage)
+   (funnyqt.relational.tmp_elem WrapperElement TmpElement)))
 
 (defn tmp-eobjecto
   ([m eo]
@@ -103,82 +105,135 @@
 (defn ^:private attribute-list [eo]
   (seq (.getEAllAttributes (.eClass ^EObject eo))))
 
-(defn valueo
-  "A relation where EObject `eo` has value `val` for its `at` attribute in
-  EMFModel `m`."
-  [m eo at val]
+(defn tmp-valueo [m eo at val]
   (fn [a]
     (let [geo  (walk a eo)
           gat  (walk a at)
           gval (walk a val)]
       (cond
-       (or (and (ground? geo) (not (emf/eobject? geo)))
-           (and (ground? gat) (not (keyword? gat)))
-           (and (ground? geo) (ground? gat)
-                (not (when-let [sf (.getEStructuralFeature
-                                    (.eClass ^EObject geo) ^String (name gat))]
-                       (instance? EAttribute sf)))))
-       (fail a)
+       (not (tmp/tmp-or-wrapper-element? geo))
+       (u/errorf "tmp-valueo: eo has to be a ground Tmp/WrapperElement but was %s."
+                 geo)
 
-       (and (ground? geo) (ground? gat))
-       (unify a val (emf/eget geo gat))
+       (not (keyword? gat))
+       (u/errorf "tmp-valueo: az must be a ground keyword but was %s." gat)
 
-       (ground? geo)
-       (to-stream
-        (->> (for [^EAttribute attr (attribute-list geo)
-                   :let [an (keyword (.getName attr))]]
-               (unify a [at val] [an (emf/eget geo an)]))
-             (remove not)))
+       :else (if (tmp/add-attr geo gat gval)
+               (succeed a)
+               (fail a))))))
 
-       :else (to-stream
-              (->> (for [^EObject elem (emf/eallobjects m)
-                         ^EAttribute attr (attribute-list elem)
-                         :let [an (keyword (.getName attr))]]
-                     (unify a [eo at val] [elem an (emf/eget elem an)]))
-                   (remove not)))))))
+(defn valueo
+  "A relation where EObject `eo` has value `val` for its `at` attribute in
+  EMFModel `m`."
+  [m eo at val]
+  (if tmp/*make-tmp-elements*
+    (tmp-valueo m eo at val)
+    (fn [a]
+      (let [geo  (walk a eo)
+            gat  (walk a at)
+            gval (walk a val)]
+        (cond
+         (or (and (ground? geo) (not (emf/eobject? geo)))
+             (and (ground? gat) (not (keyword? gat)))
+             (and (ground? geo) (ground? gat)
+                  (not (when-let [sf (.getEStructuralFeature
+                                      (.eClass ^EObject geo) ^String (name gat))]
+                         (instance? EAttribute sf)))))
+         (fail a)
+
+         (and (ground? geo) (ground? gat))
+         (unify a val (emf/eget geo gat))
+
+         (ground? geo)
+         (to-stream
+          (->> (for [^EAttribute attr (attribute-list geo)
+                     :let [an (keyword (.getName attr))]]
+                 (unify a [at val] [an (emf/eget geo an)]))
+               (remove not)))
+
+         :else (to-stream
+                (->> (for [^EObject elem (emf/eallobjects m)
+                           ^EAttribute attr (attribute-list elem)
+                           :let [an (keyword (.getName attr))]]
+                       (unify a [eo at val] [elem an (emf/eget elem an)]))
+                     (remove not))))))))
 
 (defn ^:private reference-list [eo]
   (seq (.getEAllReferences (.eClass ^EObject eo))))
 
-(defn adjo
-  "A relation where `eo` references `reo` with its `ref` reference in EMFModel
-  `m`."
-  [m eo ref reo]
+(defn tmp-adjo [m eo ref reo]
   (fn [a]
     (let [geo  (walk a eo)
           gref (walk a ref)
           greo (walk a reo)]
       (cond
-       (or (and (ground? geo) (not (emf/eobject? geo)))
-           (and (ground? gref) (not (keyword? gref)))
-           (and (ground? greo) (not (emf/eobject? greo)))
-           (and (ground? geo) (ground? gref)
-                (not (when-let [sf (.getEStructuralFeature
-                                    (.eClass ^EObject geo) ^String (name gref))]
-                       (instance? EReference sf)))))
-       (fail a)
+       (not (tmp/tmp-or-wrapper-element? geo))
+       (u/errorf "tmp-adjo: geo has to be a ground Tmp/WrapperElement but was %s."
+                 geo)
 
-       (and (ground? geo) (ground? gref))
+       (not (keyword? gref))
+       (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
+
+       (and (tmp/wrapper-element? geo) (tmp/wrapper-element? greo))
+       (if (tmp/add-ref geo gref greo)
+         (succeed a)
+         (fail a))
+
+       (and (tmp/wrapper-element? geo) (fresh? greo))
        (to-stream
-        (->> (for [refed (funnyqt.query/adjs* geo gref)]
-               (unify a [reo] [refed]))
+        (->> (map #(unify a reo (if (fn? %) (%) %))
+                  (concat
+                   (map #(tmp/make-wrapper m %)
+                        (q/adjs (.wrapped-element ^WrapperElement geo) gref))
+                   [#(let [refed (tmp/make-tmp-element m :element)]
+                       (tmp/add-ref geo gref greo)
+                       refed)]))
              (remove not)))
 
-       (ground? geo)
-       (to-stream
-        (->> (for [^EReference reference (reference-list geo)
-                   :let [rn (keyword (.getName reference))]
-                   refed (funnyqt.query/adjs* geo rn)]
-               (unify a [ref reo] [rn refed]))
-             (remove not)))
+       :else (u/errorf "unsupported args to tmp-adjo:\n  v = %s\n  role = %s\n rv = %s"
+                       geo gref greo)))))
 
-       :else (to-stream
-              (->> (for [^EObject elem (emf/eallobjects m)
-                         ^EReference reference (reference-list elem)
-                         :let [rn (keyword (.getName reference))]
-                         refed (funnyqt.query/adjs* elem rn)]
-                     (unify a [eo ref reo] [elem rn refed]))
-                   (remove not)))))))
+(defn adjo
+  "A relation where `eo` references `reo` with its `ref` reference in EMFModel
+  `m`."
+  [m eo ref reo]
+  (if tmp/*make-tmp-elements*
+    (tmp-adjo m eo ref reo)
+    (fn [a]
+      (let [geo  (walk a eo)
+            gref (walk a ref)
+            greo (walk a reo)]
+        (cond
+         (or (and (ground? geo) (not (emf/eobject? geo)))
+             (and (ground? gref) (not (keyword? gref)))
+             (and (ground? greo) (not (emf/eobject? greo)))
+             (and (ground? geo) (ground? gref)
+                  (not (when-let [sf (.getEStructuralFeature
+                                      (.eClass ^EObject geo) ^String (name gref))]
+                         (instance? EReference sf)))))
+         (fail a)
+
+         (and (ground? geo) (ground? gref))
+         (to-stream
+          (->> (for [refed (funnyqt.query/adjs* geo gref)]
+                 (unify a [reo] [refed]))
+               (remove not)))
+
+         (ground? geo)
+         (to-stream
+          (->> (for [^EReference reference (reference-list geo)
+                     :let [rn (keyword (.getName reference))]
+                     refed (funnyqt.query/adjs* geo rn)]
+                 (unify a [ref reo] [rn refed]))
+               (remove not)))
+
+         :else (to-stream
+                (->> (for [^EObject elem (emf/eallobjects m)
+                           ^EReference reference (reference-list elem)
+                           :let [rn (keyword (.getName reference))]
+                           refed (funnyqt.query/adjs* elem rn)]
+                       (unify a [eo ref reo] [elem rn refed]))
+                     (remove not))))))))
 
 ;;# Metamodel specific relations
 
