@@ -78,12 +78,21 @@
            (ab/+name r ?cat2 ?n)]
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
            (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
-  (have-same-ids
-   :left [(ab/+id l ?entry1 ?id)]
-   :right [(ab/+id r ?entry2 ?id)])
+  ;; The following 2 relations are of course non-sense.  They only serve to
+  ;; check if the (transitive) :includes stuff works.
+  (^:abstract have-same-ids3
+              :left [(ab/+id l ?ex1 ?id)]
+              :right [(ab/+id r ?ex2 ?id)])
+  (^:abstract have-same-ids2
+              :left [(ab/+id l ?e1 ?id)]
+              :right [(ab/+id r ?e2 ?id)])
+  (^:abstract have-same-ids
+              :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+                         (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+              :left [(ab/+id l ?entry1 ?id)]
+              :right [(ab/+id r ?entry2 ?id)])
   (contact2contact
-   :extends [(:have-same-ids ?entry1 ?contact1
-                             ?entry2 ?contact2)]
+   :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab/+->contacts l ?cat1 ?contact1)
           (ab/+Contact l ?contact1)
           (ab/+firstName l ?contact1 ?fn)
@@ -95,8 +104,7 @@
            (ab/+lastName r ?contact2 ?ln)
            (ab/+email r ?contact2 ?mail)])
   (org2org
-   :extends [(:have-same-ids ?entry1 ?org1
-                             ?entry2 ?org2)]
+   :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
    :left [(ab/+ContainsOrganization l ?co1 ?cat1 ?org1)
           (ab/+Organization l ?org1)
           (ab/+homepage l ?org1 ?hp)
@@ -106,8 +114,8 @@
            (ab/+homepage r ?org2 ?hp)
            (ab/+name r ?org2 ?n)])
   (^:top connect-employees
-   :when [(relateo :org2org :?org1 ?org1 :?org2 ?org2)
-          (relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+   :when [(relateo org2org :?org1 ?org1 :?org2 ?org2)
+          (relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
    :left [(ab/+->employees l ?org1 ?contact1)]
    :right [(ab/+->employees r ?org2 ?contact2)]))
 

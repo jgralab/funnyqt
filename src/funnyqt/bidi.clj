@@ -43,7 +43,7 @@
   ([syms as]
      {:keys (vec (set syms)) :as as}))
 
-(defn untempify-trg-match [trg-match]
+(defn replace-tmps-and-wrappers-with-manifestations [trg-match]
   (apply hash-map
          (mapcat (fn [[k v]]
                    [k (if (tmp/tmp-or-wrapper-element? v)
@@ -58,7 +58,7 @@
                          ~sym)])
                syms)))
 
-(defn ^:private do-rel-body [relkw trg map wsyms src-syms trg-syms]
+(defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms]
   (let [src (if (= trg :right) :left :right)
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
@@ -79,55 +79,90 @@
                            ~@(get map trg)
                            (tmp/finalizeo ~@trg-syms)
                            (== q# ~(make-kw-result-map trg-syms)))
-                         ~relkw ~sm))]
+                         ~relsym ~sm))]
                   (enforce-match ~tm)
-                  (let [~(make-destr-map trg-syms etm) (untempify-trg-match ~tm)]
-                    (swap! *relation-bindings* update-in [~relkw] conj (merge ~sm ~etm))
+                  (let [~(make-destr-map trg-syms etm)
+                        (replace-tmps-and-wrappers-with-manifestations ~tm)]
+                    (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
                     (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
 
-(defn extract-extended [all-rels m]
-  (if-let [ext-rels (:extends m)]
-    (let [update-fn (fn [repl-map spec]
-                      (mapv #(replace repl-map %) spec))
-          defs (map (fn [[r & rm]]
-                      (let [repl-map (apply hash-map rm)
-                            specs (get all-rels r)
-                            specs (update-in specs [:left] (partial update-fn repl-map))
-                            specs (update-in specs [:right] (partial update-fn repl-map))
-                            specs (if (:where m)
-                                    (update-in specs [:where] (partial update-fn repl-map))
-                                    specs)
-                            specs (if (:when m)
-                                    (update-in specs [:when] (partial update-fn repl-map))
-                                    specs)]
-                        specs))
-                    ext-rels)]
-      (apply merge-with conj defs))
-    {}))
+(defn ^:private adapt-subst-map
+  "Adapt the current subst-map `sm` for the given included rel.
+  Example:
 
-(defn convert-relation [all-rels [name & more]]
-  (let [relkw (keyword (clojure.core/name name))
-        m     (apply hash-map more)
-        m     (merge-with concat m (extract-extended all-rels m))
+    sm = {?entry1 ?org1, ?entry2 ?org2}
+    incl-rel  = have-same-ids2
+    rm        = (:?e1 ?entry1 :?e2 ?entry2)
+
+  => {?e1 ?org1, ?e2 ?org2}"
+  [sm [incl-rel & rm]]
+  (let [rm (apply hash-map rm)]
+    (apply hash-map
+           (mapcat (fn [[k v]]
+                     [(symbol (name k)) (get sm v)])
+                   rm))))
+
+(defn ^:private adapt-included-spec
+  [all-rels subst-map [incl-rel & rm]]
+  (let [rm (apply hash-map rm)
+        update-fn (fn [subst-map spec]
+                    (mapv #(replace subst-map %) spec))
+        spec (get all-rels incl-rel)
+        spec (update-in spec [:left] (partial update-fn subst-map))
+        spec (update-in spec [:right] (partial update-fn subst-map))
+        spec (if (:where spec)
+               (update-in spec [:where] (partial update-fn subst-map))
+               spec)
+        spec (if (:when spec)
+               (update-in spec [:when] (partial update-fn subst-map))
+               spec)]
+    (if (:includes spec)
+      (apply merge-with concat
+             (concat
+              (map (fn [irel]
+                     (adapt-included-spec all-rels (adapt-subst-map subst-map irel) irel))
+                   (:includes spec))
+              [spec]))
+      spec)))
+
+(defn ^:private embed-included-rels [all-rels m]
+  (if-let [irels (:includes m)]
+    (apply merge-with concat
+           (concat
+            (map (fn [irel]
+                   (let [[_ & rm] irel
+                         rm (apply hash-map rm)
+                         subst-map (apply hash-map
+                                          (mapcat (fn [[is ss]]
+                                                    [(symbol (name is)) ss])
+                                                  rm))]
+                     (adapt-included-spec all-rels subst-map irel)))
+                 irels)
+            [m]))
+    m))
+
+(defn ^:private convert-relation [all-rels [relsym & more]]
+  (let [m     (apply hash-map more)
+        m     (embed-included-rels all-rels m)
         wsyms (distinct (filter qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter qmark-symbol? (flatten (:right m))))
         syms  (distinct (concat lsyms rsyms))]
     (when-let [unknown-keys (seq (disj (set (keys m))
-                                       :left :right :when :where :extends))]
+                                       :left :right :when :where :includes))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
-    `(~name [& ~(make-destr-map syms)]
-            (let ~(make-relation-binding-vector syms)
-              (if (= *target-direction* :right)
-                ~(do-rel-body relkw :right m wsyms lsyms rsyms)
-                ~(do-rel-body relkw :left  m wsyms rsyms lsyms))))))
+    `(~relsym [& ~(make-destr-map syms)]
+              (let ~(make-relation-binding-vector syms)
+                (if (= *target-direction* :right)
+                  ~(do-rel-body relsym :right m wsyms lsyms rsyms)
+                  ~(do-rel-body relsym :left  m wsyms rsyms lsyms))))))
 
 (def ^{:dynamic true
        :doc "A map with the following structure:
 
-    {:relname1 bindings, :relname2 bindings, ...}
+    {relation1 bindings, relation2 bindings, ...}
 
   where bindings is:
 
@@ -136,6 +171,9 @@
   *relation-bindings*)
 
 (defn relateo [relation & keyvals]
+  (when-not (fn? relation)
+    (u/errorf "No relation (fn) given but %s %s."
+              (class relation) relation))
   (let [m (apply hash-map keyvals)]
     (fn [a]
       (let [bindings (@*relation-bindings* relation)]
@@ -152,10 +190,10 @@
                    bindings)
               (remove not)))))))
 
-(defn mapify-relations [rels]
+(defn ^:private mapify-relations [rels]
   (apply hash-map
          (mapcat (fn [rel]
-                   [(keyword (first rel)) (apply hash-map (rest rel))])
+                   [(first rel) (apply hash-map (rest rel))])
                  rels)))
 
 (defmacro deftransformation
@@ -211,7 +249,30 @@
   Note that the :where relations are not called until all enforcements of
   foo2bar have been applied, e.g., the evaluation is breadth-first, not
   depth-first.  That is, in the above definition, the relations in the :where
-  clause may assume that foo2bar already holds for all matching elements."
+  clause may assume that foo2bar already holds for all matching elements.
+
+  A relation spec may also contain an :includes clause:
+
+    (foo2bar
+      :includes [(a2b :?a ?foo :?b ?bar)]
+      :left [(rel-with ?foo) ...]
+      :right [(rel-with ?bar) ...])
+    (^:abstract a2b
+      :left [(rel-with ?a) ...]
+      :right [(rel-with ?b) ...])
+
+  You can think of it as a kind of relation inheritance: the foo2bar relation
+  includes all :left/:right/:when/:where clauses of the a2b rule, where ?a is
+  substituted by ?foo, and ?b is substituted by ?bar.  Usually, this feature is
+  useful for refactoring relations on common attributes.
+
+  A relation may include multiple other relations, and inclusion also works
+  transitively.  Inclusions must not contain cycles.
+
+  A relation that's not called explicitly in a :where clause and is only
+  included by others should be declared ^:abstract like a2b above.  Then, no
+  code is generated for it."
+
   [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]
     (when (empty? top-rels)
@@ -220,7 +281,8 @@
        (when-not (or (= dir# :left) (= dir# :right))
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
-       (letfn [~@(map (partial convert-relation (mapify-relations relations)) relations)]
+       (letfn [~@(map (partial convert-relation (mapify-relations relations))
+                   (remove #(:abstract (meta (first %))) relations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
                    *relation-bindings* (atom {})]

@@ -345,7 +345,7 @@
        (not (keyword? grole))
        (u/errorf "tmp-adjo: the attribute must be a ground keyword but was %s." grole)
 
-       (and (tmp/wrapper-element? gv) (tmp/wrapper-element? grv))
+       (and (tmp/wrapper-element? gv) (tmp/tmp-or-wrapper-element? grv))
        (if (tmp/add-ref gv grole grv)
          (succeed a)
          (fail a))
@@ -363,7 +363,7 @@
                        refed)]))
              (remove not)))
 
-       :else (u/errorf "tmp-adjo: v = %s, role = %s, rv = %s" gv grole grv)))))
+       :else (u/errorf "unsupported args to tmp-adjo:\n  v = %s\n  role = %s\n rv = %s" gv grole grv)))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
@@ -423,14 +423,6 @@
                            :let [rn (keyword rn)]]
                        (unify a [v role rv] [(tg/this e) rn (tg/that e)]))
                      (remove not))))))))
-
-(comment
-  (def g (tg/load-graph "test/input/greqltestgraph-with-cr-ids.tg"))
-  (generate-schema-relations "test/input/greqltestgraph-with-cr-ids.tg" rm)
-  (binding [tmp/*make-tmp-elements* true]
-    (doall (run* [q]
-             (rm/+City g q)
-             (rm/+name g q "Koblenz")))))
 
 ;;# Metamodel specific
 
