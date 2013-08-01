@@ -968,6 +968,14 @@ functions `record` and `enum`."
     ([this ts]
        (vseq this ts))))
 
+(extend-protocol IRelationships
+  Graph
+  (relationships
+    ([this]
+       (eseq this))
+    ([this ts]
+       (eseq this ts))))
+
 (extend-protocol IContainer
   Vertex
   (container [v]
@@ -1052,6 +1060,11 @@ functions `record` and `enum`."
                                   attrs)]
       (set-value! e attr val))
     e))
+
+(extend-protocol ICreateRelationship
+  Graph
+  (create-relationship! [this cls from to]
+    (create-edge! this cls from to)))
 
 (defn set-alpha!
   "Sets the start vertex of `e` to `v` and returns `e`."

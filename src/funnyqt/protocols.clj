@@ -58,17 +58,35 @@
     "Sets the value of `el`s `attr` attribute to `val`.
   `attr` is the attribute name given as keyword."))
 
-;;# Generic Access to Vertices and EObjects
+;;# Generic Access to Vertices and EObjects and Edges and EObject pairs
 
 (defprotocol IElements
   (elements [model] [model type-spec]
     "Returns the lazy sequence of elements in `model` restricted by `type-spec`."))
+
+(defprotocol IRelationships
+  (relationships [model] [modes spec]
+    "Returns the lazy seq of relationships en `model` restricted by `spec`.
+  The value of spec is framework specific.  For TGraphs it's a symbol denoting
+  an EdgeClass name, and for EMF it's a vector [src trg] of source and target
+  reference names given as keyword, or source and target classes given as
+  symbols.  Both may be nil meaning to accept any reference.  The return value
+  is also framework specific.  For TGraphs it's a seq of Edges, for EMF it's a
+  seq of [src-eobject trg-eobject] tuples."))
 
 ;;# Generic creation of model elements
 
 (defprotocol ICreateElement
   (create-element! [model cls]
     "Creates a new element of type `cls` in `model`."))
+
+(defprotocol ICreateRelationship
+  (create-relationship! [model cls src-elem trg-elem]
+    "Creates a new relationship of type `cls` in `model` connecting `src-elem`
+  to `trg-elem`.  The valid values for `cls` are framework specific.  For
+  TGraphs it is a symbol denoting an EdgeClass name, for EMF it is a keyword
+  denoting an EReference name.  The return value is also framework specific.
+  For TGraphs it is an Edge, for EMF it is the tuple [src-elem trg-elem]."))
 
 ;;# Type Matcher
 

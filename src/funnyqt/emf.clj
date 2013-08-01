@@ -700,6 +700,18 @@
   ([m src-rs trg-rs src-ts trg-ts]
      (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
 
+(extend-protocol IRelationships
+  EMFModel
+  (relationships
+    ([this]
+       (eallpairs this))
+    ([this [src-rs [s t]]]
+       (let [src-role (when (keyword? s) s)
+             src-cls  (when (symbol? s) s)
+             trg-role (when (keyword? t) t)
+             trg-cls  (when (symbol? t) t)]
+         (eallpairs this src-role trg-role src-cls trg-cls)))))
+
 (defn ecrosspairs
   "Returns the seq of all cross-reference edges in terms of [src trg] pairs.
   Restrictions may be defined in terms of reference specs `src-rs` and
@@ -756,6 +768,15 @@
     (let [e (ecreate! cls)]
       (eadd! model e)
       e)))
+
+(extend-protocol ICreateRelationship
+  EMFModel
+  (create-relationship! [this refkw from to]
+    (let [^EClass ec (.eClass from)
+          ^EReference sf (.getEStructuralFeature ec (name refkw))]
+      (if (.isMany sf)
+        (eadd! from refkw to)
+        (eset! from refkw to)))))
 
 ;;## Generic setting of props
 
