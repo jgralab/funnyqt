@@ -1,11 +1,11 @@
 (ns funnyqt.declarative
-  (:use [funnyqt.protocols        :only [has-type?]])
-  (:use [funnyqt.utils            :only [errorf]])
-  (:use [funnyqt.query            :only [member? xor]])
-  (:require [flatland.ordered.map :as om])
-  (:require [funnyqt.emf          :as emf])
-  (:require [funnyqt.tg           :as tg])
-  (:use [clojure.tools.macro      :only [name-with-attributes macrolet mexpand-all]]))
+  (:require [flatland.ordered.map :as om]
+            [funnyqt.utils        :as u]
+            [funnyqt.protocols    :as p]
+            [funnyqt.query        :as q]
+            [funnyqt.emf          :as emf]
+            [funnyqt.tg           :as tg]
+            [clojure.tools.macro  :as tm]))
 
 (defn ^:private rule? [form]
   (if-let [[name args & body] form]
@@ -15,22 +15,23 @@
                (contains? m :to))
            (if (contains? m :generalizes)
              (and
-               (or (vector? (:generalizes m))
-                   (errorf "Error in %s: :generalizes must be a vector" form))
-               (if (or (contains? m :from) (contains? m :to)
-                         (contains? m :when-let))
-                 (errorf "Error in %s: :generalize rules may have a :when clause but no :from, :to, or :when-let." form)
-                 true))
+              (or (vector? (:generalizes m))
+                  (u/errorf ":generalizes must be a vector: %s" form))
+              (if (or (contains? m :from) (contains? m :to)
+                      (contains? m :when-let))
+                (u/errorf ":generalize rules may have a :when clause but no :from, :to, or :when-let: %s"
+                          form)
+                true))
              true)
-           (if (xor (contains? m :from) (contains? m :to))
-             (errorf "Error in %s: rules must contain :from and :to, %s."
-                     form "or neither of both")
+           (if (q/xor (contains? m :from) (contains? m :to))
+             (u/errorf "rules must contain :from and :to, or neither of both: %s"
+                       form)
              true)
            (if (contains? m :to)
              (or (vector? (:to m))
-                 (errorf "Error in %s: :to must be a vector." form))
+                 (u/errorf ":to must be a vector: %s" form))
              true)))
-    (errorf "Error in %s: neither helper nor rule." form)))
+    (u/errorf "neither helper nor rule: %s" form)))
 
 (def ^{:dynamic true
        :doc "Actions deferred to the end of the transformation."}
@@ -64,7 +65,7 @@
 
 (defn ^:private type-constr [e t]
   (if t
-    `(has-type? ~e ~t)
+    `(p/has-type? ~e ~t)
     true))
 
 (defn ^:private create-vector [v outs]
@@ -88,7 +89,7 @@
 (defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
         _ (when (> (count (:args m)) 1)
-            (errorf "Error: Rules must have exactly one argument: %s" (:name m)))
+            (u/errorf "Error: Rules must have exactly one argument: %s" (:name m)))
         arg (first (:args m))
         create-vec (create-vector (:to m) outs)
         created (mapv first (partition 2 create-vec))
@@ -113,7 +114,7 @@
                                     wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys m))
                               :name :args :from :to :when :when-let :body :generalizes))]
-      (errorf "Unknown keys in declarative rule: %s" uks))
+      (u/errorf "Unknown keys in declarative rule: %s" uks))
     `(~(:name m) ~(:args m)
       (when ~arg
         ~(if-let [gens (:generalizes m)]
@@ -203,17 +204,17 @@
 
   {:arglists '([name args & rules-and-fns])}
   [name & more]
-  (let [[name more] (name-with-attributes name more)
+  (let [[name more] (tm/name-with-attributes name more)
         [args rules-and-fns] (if (vector? (first more))
                                [(first more) (next more)]
-                               (errorf "Error: arg vector missing!"))
+                               (u/errorf "Error: arg vector missing!"))
         [ins outs] (let [i (first args)
                          o (second args)]
                      (cond
-                      (nil? i) (errorf "No input models given.")
-                      (nil? o) (errorf "No output models given.")
-                      (not (vector? i)) (errorf "Error: input models must be a vector.")
-                      (not (vector? o)) (errorf "Error: output models must be a vector.")
+                      (nil? i) (u/errorf "No input models given.")
+                      (nil? o) (u/errorf "No output models given.")
+                      (not (vector? i)) (u/errorf "Error: input models must be a vector.")
+                      (not (vector? o)) (u/errorf "Error: output models must be a vector.")
                       :else [(apply om/ordered-map i) (apply om/ordered-map o)]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
@@ -221,8 +222,8 @@
         rule-by-name (fn [n]
                        (let [rs (filter #(= n (first %)) rules)]
                          (cond
-                          (empty? rs) (errorf "No such rule: %s" n)
-                          (fnext rs)  (errorf "Multiple rules named %s: %s" n rs)
+                          (empty? rs) (u/errorf "No such rule: %s" n)
+                          (fnext rs)  (u/errorf "Multiple rules named %s: %s" n rs)
                           :else (first rs))))
         collect-type-specs (fn ct [r]
                              (let [m (rule-as-map r)]
@@ -234,7 +235,7 @@
                                  (:from m))))
         type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs top-rules)))))]
     (when-not (seq top-rules)
-      (errorf "At least one rule has to be declared as top-level rule."))
+      (u/errorf "At least one rule has to be declared as top-level rule."))
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
        (binding [*deferred-actions* (atom [])
@@ -249,4 +250,3 @@
                   (doseq [r# ~(mapv first top-rules)]
                     (r# elem#))))
            @*trace*)))))
-

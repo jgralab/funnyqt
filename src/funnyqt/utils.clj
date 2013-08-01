@@ -1,8 +1,8 @@
 (ns funnyqt.utils
   "Generic utility functions."
-  (:require clojure.pprint)
-  (:require [clojure.string :as str])
-  (:use flatland.ordered.set))
+  (:require clojure.pprint
+            [clojure.string :as str]
+            [flatland.ordered.set :as os]))
 
 ;;# Conversion to OrderedSet
 
@@ -17,14 +17,14 @@
 
   java.util.Collection
   (oset [this]
-    (into (ordered-set) this))
+    (into (os/ordered-set) this))
 
   Object
   (oset [this]
-    (ordered-set this))
+    (os/ordered-set this))
 
   nil
-  (oset [this] (ordered-set)))
+  (oset [this] (os/ordered-set)))
 
 (defn into-oset
   "Returns an ordered-set of all given arguments.  Collection args are

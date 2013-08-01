@@ -1,10 +1,10 @@
 (ns funnyqt.bidi
-  (:refer-clojure :exclude [==])
-  (:use clojure.core.logic)
-  (:use funnyqt.relational.util)
-  (:use [clojure.core.logic.protocols :only [walk]])
   (:require [clojure.core.cache :as cache]
+            [clojure.core.logic :as ccl]
+            [clojure.core.logic.protocols :as cclp]
+            [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
+            [funnyqt.relational.util :as ru]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]))
@@ -34,7 +34,7 @@
 
 (defn ^:private make-relation-binding-vector [syms]
   (vec (mapcat (fn [sym]
-                 [sym `(or ~sym (lvar ~(name sym)))])
+                 [sym `(or ~sym (ccl/lvar ~(name sym)))])
                syms)))
 
 (defn ^:private make-destr-map
@@ -66,19 +66,19 @@
     `(let [wfns#
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
-                  (run* [q#]
+                  (ccl/run* [q#]
                     ~@(:when map)
                     ~@(get map src)
-                    (== q# ~(make-kw-result-map (concat wsyms src-syms))))]
+                    (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
                         (select-match
-                         (run* [q#]
+                         (ccl/run* [q#]
                            ~@(get map trg)
                            (tmp/finalizeo ~@trg-syms)
-                           (== q# ~(make-kw-result-map trg-syms)))
+                           (ccl/== q# ~(make-kw-result-map trg-syms)))
                          ~relsym ~sm))]
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm)
@@ -146,9 +146,9 @@
 (defn ^:private convert-relation [all-rels [relsym & more]]
   (let [m     (apply hash-map more)
         m     (embed-included-rels all-rels m)
-        wsyms (distinct (filter qmark-symbol? (flatten (:when m))))
-        lsyms (distinct (filter qmark-symbol? (flatten (:left m))))
-        rsyms (distinct (filter qmark-symbol? (flatten (:right m))))
+        wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
+        lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
+        rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
         syms  (distinct (concat lsyms rsyms))]
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :includes))]
@@ -177,16 +177,16 @@
   (let [m (apply hash-map keyvals)]
     (fn [a]
       (let [bindings (@*relation-bindings* relation)]
-        (to-stream
+        (ccl/to-stream
          (->> (map (fn [b]
                      (let [vs (mapv #(get b % ::not-found) (keys m))]
-                       (when (funnyqt.query/member? ::not-found vs)
+                       (when (q/member? ::not-found vs)
                          (u/errorf "Unbound keys: %s"
                                    (pr-str
                                     (filter #(= (get b % ::not-found)
                                                 ::not-found)
                                             (keys m)))))
-                       (unify a (vec (vals m)) vs)))
+                       (ccl/unify a (vec (vals m)) vs)))
                    bindings)
               (remove not)))))))
 
@@ -288,4 +288,3 @@
                    *relation-bindings* (atom {})]
            ~@(map (fn [r] `(~(first r))) top-rels)
            @*relation-bindings*)))))
-

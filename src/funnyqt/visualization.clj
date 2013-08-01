@@ -3,17 +3,19 @@
 
 Using the function `print-model`, TGraph and EMF models can be visualized,
 either in a window or by printing them to PDF/PNG/JPG/SVG documents."
-  (:use funnyqt.protocols)
-  (:use funnyqt.query)
-  (:use funnyqt.utils)
-  (:require [funnyqt.emf :as emf])
-  (:require [funnyqt.tg  :as tg])
-  (:import (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
-           (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
-           (org.eclipse.emf.ecore EObject EAttribute EReference)
-           (funnyqt.emf_protocols EMFModel)
-           (java.awt Image)
-           (javax.swing ImageIcon)))
+  (:require clojure.java.shell
+            [funnyqt.protocols :as p]
+            [funnyqt.emf :as emf]
+            [funnyqt.tg  :as tg]
+            [funnyqt.query :as q]
+            [funnyqt.utils :as u])
+  (:import
+   (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
+   (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
+   (org.eclipse.emf.ecore EObject EAttribute EReference)
+   (funnyqt.emf_protocols EMFModel)
+   (java.awt Image)
+   (javax.swing ImageIcon)))
 
 ;;* Visualization
 
@@ -107,7 +109,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (let [h (emf-dot-id eo)]
       (str "  " h
            " [label=\"{{:" (if *print-qualified-names*
-                             (qname eo)
+                             (p/qname eo)
                              (.getName (.eClass eo)))
            "}|"
            (emf-dot-attributes eo)
@@ -142,7 +144,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
         dist (atom  [2.0 4.0])]
     (reduce str
             (for [^EReference ref (.getEAllReferences (.eClass eo))
-                  :when (not (member? ref @*emf-opposite-refs*))
+                  :when (not (q/member? ref @*emf-opposite-refs*))
                   :when (not (or (.isContainment ref)
                                  (.isContainer ref)))
                   :let [oref (.getEOpposite ref)]
@@ -182,17 +184,17 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 ;;** TGraph stuff
 
 (defn ^:private tg-dot-attributes [^AttributedElement elem]
-    (reduce str
-            (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
-                  :let [n (.getName attr)]]
-              (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
+  (reduce str
+          (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
+                :let [n (.getName attr)]]
+            (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
 
 (defn ^:private tg-dot-vertex [^Vertex v]
   (when (dot-included? v)
     (str "  v" (tg/id v)
          " [label=\"{{v" (tg/id v) ": "
          (if *print-qualified-names*
-           (qname v)
+           (p/qname v)
            (.getSimpleName (.getAttributedElementClass v)))
          "}|"
          (tg-dot-attributes v)
@@ -212,7 +214,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (str "  v" (tg/id (tg/alpha e)) " -> v" (tg/id (tg/omega e))
            " [id=e" (tg/id e) ", label=\"e" (tg/id e) ": "
            (if *print-qualified-names*
-             (qname e)
+             (p/qname e)
              (.getSimpleName (.getAttributedElementClass e)))
            "\\l"
            (tg-dot-attributes e)
@@ -271,8 +273,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (let [opts (dot-options opts)]
     (when (and (:name (meta opts))
                (re-matches #"\S*(\s|[-])\S*" (:name (meta opts))))
-      (errorf "The :name must not contain whitespace or hyphens: '%s'"
-              (:name (meta opts))))
+      (u/errorf "The :name must not contain whitespace or hyphens: '%s'"
+                (:name (meta opts))))
     (binding [*included* (when-let [included (:include (meta opts))]
                            (set included))
               *excluded* (set (:exclude (meta opts)))
@@ -280,8 +282,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                            (cond
                             (fn? mark)   mark
                             (coll? mark) (set mark)
-                            :else (errorf ":mark must be a function or collection but was a %s: %s."
-                                          (class mark) mark))
+                            :else (u/errorf ":mark must be a function or collection but was a %s: %s."
+                                            (class mark) mark))
                            (constantly false))
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
@@ -290,11 +292,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
             (for [[k v] opts]
               (str (name k) "=" v)))
            ";\n\n"
-           (if-let [[_ f] (the (fn [[cls _]]
-                                 (instance? cls m))
-                               dot-model-fns)]
+           (if-let [[_ f] (q/the (fn [[cls _]]
+                                   (instance? cls m))
+                                 dot-model-fns)]
              (f m)
-             (errorf "No dotting function defined for %s." (class m)))
+             (u/errorf "No dotting function defined for %s." (class m)))
            "}"))))
 
 (defn print-model
@@ -339,17 +341,17 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
               ([fmt]
                  (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) :in ds)]
                    (or (zero? (:exit r))
-                       (errorf "Dotting failed: %s" (:err r)))))
+                       (u/errorf "Dotting failed: %s" (:err r)))))
               ([fmt f]
                  (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) "-o" f :in ds)]
                    (or (zero? (:exit r))
-                       (errorf "Dotting failed: %s" (:err r))))))
+                       (u/errorf "Dotting failed: %s" (:err r))))))
         exts #{"dot" "xdot" "ps" "svg" "svgz" "png" "gif" "pdf" "eps"}
         fmt (if (string? f)
               (get exts (second (re-matches #".*\.([^.]+)$" f)))
               f)]
     (when-not fmt
-      (errorf "Unknown file format: %s. Supported extensions are %s." f exts))
+      (u/errorf "Unknown file format: %s. Supported extensions are %s." f exts))
     (when (string? f)
       (println (format "Printing visualization to %s." f)))
     (condp = fmt

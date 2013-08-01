@@ -1,10 +1,7 @@
 (ns funnyqt.emf-protocols
   "EMF specific protocols and types"
-  (:use funnyqt.protocols)
-  (:use funnyqt.utils)
-  (:use flatland.ordered.set)
-  (:use flatland.ordered.map)
-  (:require clojure.java.shell)
+  (:require [funnyqt.protocols :as p]
+            [funnyqt.utils :as u])
   (:import
    (org.eclipse.emf.ecore.xmi XMIResource)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
@@ -12,10 +9,10 @@
    (org.eclipse.emf.common.util URI EList)
    (org.eclipse.emf.ecore.resource Resource)
    (org.eclipse.emf.ecore.resource.impl ResourceImpl)
-   (org.eclipse.emf.ecore
-    EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier EClass
-    EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation EAttribute EReference
-    EStructuralFeature)
+   (org.eclipse.emf.ecore EcorePackage EPackage EPackage$Registry EObject
+                          EModelElement EClassifier EClass EDataType
+                          EEnumLiteral EEnum EFactory ETypedElement EAnnotation
+                          EAttribute EReference EStructuralFeature)
    (org.eclipse.emf.ecore.impl EPackageImpl)))
 
 ;;# Code
@@ -69,7 +66,7 @@
     (register-epackages (metamodel-epackages-internal this)))
   ;; TODO: Implement me.
   (save-metamodel-internal [this file]
-    (error "Not yet implemented!"))
+    (u/error "Not yet implemented!"))
   (metamodel-epackages-internal [this]
     (epks-and-subpgks (seq (.getContents resource)))))
 
@@ -112,8 +109,8 @@
               (.remove li))))
         (println "Saving model to" (.toFileString uri))
         (.save resource (.getDefaultSaveOptions resource)))
-      (error (str "You tried to call save-model an XMIResource not associated with a file!\n"
-                  "Use (save-model m \"foo.xmi\") instead."))))
+      (u/error (str "You tried to call save-model an XMIResource not associated with a file!\n"
+                    "Use (save-model m \"foo.xmi\") instead."))))
   (save-model-internal [this file]
     (let [uri (URI/createFileURI file)]
       (.setURI resource uri)
@@ -159,4 +156,3 @@
   EList        | vector
 
   All other objects are kept as-is."))
-

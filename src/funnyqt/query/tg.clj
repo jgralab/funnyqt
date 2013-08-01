@@ -61,12 +61,12 @@ can compute that like so:
       (/ (reduce-values + 0 locs :foundingDate :year)
          (count locs)))"
   (:require clojure.string
-            [clojure.core.reducers :as r])
-  (:use funnyqt.tg)
-  (:use funnyqt.protocols)
-  (:use funnyqt.utils)
-  (:use flatland.ordered.set)
-  (:use funnyqt.query)
+            [clojure.core.reducers :as r]
+            [funnyqt.tg :as tg]
+            [funnyqt.protocols :as p]
+            [funnyqt.utils :as u]
+            [flatland.ordered.set :as os]
+            [funnyqt.query :as q])
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
    (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
@@ -93,9 +93,9 @@ can compute that like so:
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
-   (prop-name? p) (into (ordered-set)
-                        (r/mapcat #(adjs* % p) (oset v)))
-   :else (errorf "Don't know how to apply %s." p)))
+   (u/prop-name? p) (into (os/ordered-set)
+                          (r/mapcat #(q/adjs* % p) (u/oset v)))
+   :else (u/errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
   "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
@@ -103,11 +103,11 @@ can compute that like so:
   ([vs ts]
      (p-restr-tg vs ts identity))
   ([vs ts pred]
-     (let [vs (oset vs)]
-       (oset
+     (let [vs (u/oset vs)]
+       (u/oset
         (if (seq vs)
-          (let [tm (type-matcher (first vs) ts)]
-            (into (ordered-set)
+          (let [tm (p/type-matcher (first vs) ts)]
+            (into (os/ordered-set)
                   (r/filter (every-pred tm pred) vs)))
           vs)))))
 
@@ -116,34 +116,34 @@ can compute that like so:
   description `p`.
   `v` may be a vertex or a seq of vertices."
   [v p]
-  (binding [*p-apply* p-apply-tg
-            *p-restr* p-restr-tg]
-    (*p-apply* v p)))
+  (binding [q/*p-apply* p-apply-tg
+            q/*p-restr* p-restr-tg]
+    (q/*p-apply* v p)))
 
 (defn- ---
   "Returns the vertices reachable from `v` via incidences with direction `dir`
   and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
   [v dir this-aks that-aks ts pred]
-  (let [vs (oset v)]
+  (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
                            (or pred identity)
                            (if (seq this-aks)
-                             #(member? (.getThisAggregationKind ^Edge %) this-aks)
+                             #(q/member? (.getThisAggregationKind ^Edge %) this-aks)
                              identity)
                            (if (seq that-aks)
-                             #(member? (.getThatAggregationKind ^Edge %) that-aks)
+                             #(q/member? (.getThatAggregationKind ^Edge %) that-aks)
                              identity))
-            tm (type-matcher (first vs) ts)
-            dm (direction-matcher dir)]
+            tm (p/type-matcher (first vs) ts)
+            dm (tg/direction-matcher dir)]
         (into
-         (ordered-set)
+         (os/ordered-set)
          (r/mapcat (fn [sv]
-                   (r/map that
+                   (r/map tg/that
                           (r/filter complete-pred
                                     (iseq-internal sv tm dm))))
                  vs)))
-      (ordered-set))))
+      (os/ordered-set))))
 
 (defn -->
   "Returns the vertices reachable from `v` via outgoing incidences,
@@ -291,25 +291,25 @@ can compute that like so:
   component."
   [f val coll a & as]
   (reduce f val (map (if as
-                       #(loop [v (value % a), r as]
+                       #(loop [v (tg/value % a), r as]
                           (if (seq r)
                             (let [acc (first r)]
                               (recur (if (fn? acc)
                                        (acc v)
-                                       (value v acc))
+                                       (tg/value v acc))
                                      (rest r)))
                             v))
-                       #(value % a))
+                       #(tg/value % a))
                      coll)))
 
 (defn- topological-sort-clj
   "Returns a vector of `g`s vertices in topological order.
   Returns false, iff the graph is cyclic."
   [g]
-  (loop [rem (vseq g), es  #{}, sorted []]
+  (loop [rem (tg/vseq g), es  #{}, sorted []]
     (if (seq rem)
       (let [gs (group-by (fn [v]
-                           (if (seq (remove es (map normal-edge (iseq v nil :in))))
+                           (if (seq (remove es (map tg/normal-edge (tg/iseq v nil :in))))
                              false
                              true))
                          rem)
@@ -318,7 +318,7 @@ can compute that like so:
         ;;(println (count rem) ": good" (count good) "bad" (count bad))
         (if (seq good)
           (recur bad
-                 (into es (mapcat #(iseq % nil :out) good))
+                 (into es (mapcat #(tg/iseq % nil :out) good))
                  (into sorted good))
           false))
       sorted)))
@@ -338,7 +338,7 @@ can compute that like so:
              (case alg
                :kahn-knuth (KahnKnuthAlgorithm. g)
                :dfs        (TopologicalOrderWithDFS. g (IterativeDepthFirstSearch. g))
-               (error (str "Unknown topo-sort algorithm" alg)))]
+               (u/error (str "Unknown topo-sort algorithm" alg)))]
          (.execute a)
          (if (.isAcyclic ^AcyclicitySolver a)
            (map #(.getSecond ^PermutationEntry %)

@@ -6,8 +6,7 @@
             [funnyqt.protocols :as p]
             [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [clojure.core.cache :as cache])
-  (:use funnyqt.relational.util))
+            [funnyqt.relational.util :as ru]))
 
 (def ^:dynamic *make-tmp-elements* false)
 
@@ -251,10 +250,10 @@
   (set-type [this t]
     (if (vector? t)
       true ;; Many types given as a result of an attribute relation.  Simply
-           ;; succeed.  TODO: We could handle that more restrictively, i.e.,
-           ;; the current type must be a subclass or equal to one of the given
-           ;; types, and if there's no current type, it must be a subclass or
-           ;; equal to one of the given classes in the future.
+      ;; succeed.  TODO: We could handle that more restrictively, i.e.,
+      ;; the current type must be a subclass or equal to one of the given
+      ;; types, and if there's no current type, it must be a subclass or
+      ;; equal to one of the given classes in the future.
       (let [mm-class (p/mm-class model (second (u/type-with-modifiers (name t))))]
         (cond
          ;; No type set already.
@@ -317,9 +316,9 @@
   (finalize-alpha-and-omega [this subst]
     (set! alpha (cclp/walk subst alpha))
     (set! omega (cclp/walk subst omega))
-    (when (fresh? alpha)
+    (when (ru/fresh? alpha)
       (u/errorf "Can't groundify alpha of %s." this))
-    (when (fresh? omega)
+    (when (ru/fresh? omega)
       (u/errorf "Can't groundify omega of %s." this))
     true)
   IManifestation

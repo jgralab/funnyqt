@@ -29,38 +29,37 @@ there's a TypeE with no inheritance relationships.
 Then, (foo objOfTypeA) invokes the first implementation, (foo objOfTypeB)
 invokes the second implementation, both (foo objOfTypeC) and (foo objOfTypeD)
 invoke the third implementation, and (foo objOfTypeE) invokes the default
-behavior."
-  (:use [funnyqt.protocols        :only [qname mm-classes mm-class
-                                         mm-direct-super-classes]])
-  (:use [funnyqt.utils            :only [errorf]])
-  (:use [clojure.tools.macro	  :only [name-with-attributes]])
-  (:require [funnyqt.tg           :as tg]
-	    [funnyqt.emf          :as emf])
-  (:require [flatland.ordered.map :as om])
-  (:require clojure.pprint))
+behavior.  If no optional default behavior is specified, an exception is
+thrown."
+  (:require [clojure.tools.macro  :as tm]
+            [funnyqt.utils        :as u]
+            [funnyqt.tg           :as tg]
+            [funnyqt.emf          :as emf]
+            [funnyqt.protocols    :as p]
+            [flatland.ordered.map :as om]))
 
 ;;# Utility protocols
 
 (defn find-polyfn-impl [m t]
   (loop [ts [t]]
     (when (seq ts)
-      (let [fns (remove nil? (map #(m (qname %)) ts))]
-	(if (seq fns)
-	  (if (fnext fns)
-	    (errorf "%s polyfns are applicable for type %s" (count fns) t)
-	    (first fns))
-	  (recur (set (mapcat mm-direct-super-classes ts))))))))
+      (let [fns (remove nil? (map #(m (p/qname %)) ts))]
+        (if (seq fns)
+          (if (fnext fns)
+            (u/errorf "%s polyfns are applicable for type %s" (count fns) t)
+            (first fns))
+          (recur (set (mapcat p/mm-direct-super-classes ts))))))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
   (let [meta-map (meta polyfn-var)
-	spec-map (deref (::polyfn-spec-table meta-map))
-	dispatch-map-atom (::polyfn-dispatch-table meta-map)]
+        spec-map (deref (::polyfn-spec-table meta-map))
+        dispatch-map-atom (::polyfn-dispatch-table meta-map)]
     (println "Rebuilding dispatch-table for polyfn" polyfn-var)
     (time (let [dm (apply hash-map (mapcat (fn [c]
-					     (when-let [pfn (find-polyfn-impl spec-map c)]
-					       [c pfn]))
-					   (mm-classes cls)))]
-	    (swap! dispatch-map-atom (constantly dm))))))
+                                             (when-let [pfn (find-polyfn-impl spec-map c)]
+                                               [c pfn]))
+                                           (p/mm-classes cls)))]
+            (swap! dispatch-map-atom (constantly dm))))))
 
 ;;# Polyfns
 
@@ -76,25 +75,25 @@ behavior."
 
   {:arglists '([name doc-string? [model-elem & more] & body])}
   [name & more]
-  (let [[name more] (name-with-attributes name more)
-	argvec      (first more)
-	body        (next more)
-	type-var    (gensym "type__")]
+  (let [[name more] (tm/name-with-attributes name more)
+        argvec      (first more)
+        body        (next more)
+        type-var    (gensym "type__")]
     `(defn ~name ~(assoc (meta name)
-		   ::polyfn-spec-table (atom {})
-		   ::polyfn-dispatch-table (atom nil))
+                    ::polyfn-spec-table (atom {})
+                    ::polyfn-dispatch-table (atom nil))
        ~argvec
        (let [meta-map# (meta #'~name)
-	     ~type-var (mm-class ~(first argvec))]
-	 (when-not (deref (::polyfn-dispatch-table meta-map#))
-	   (build-polyfn-dispatch-table #'~name ~type-var))
-	 (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
-	   (if-let [f# (dispatch-map# ~type-var)]
-	     (f# ~(first argvec))
-	     (do
-	       ~@(or body
-		     `[(errorf "No polyfn implementation defined for type %s"
-			       (print-str ~type-var))]))))))))
+             ~type-var (p/mm-class ~(first argvec))]
+         (when-not (deref (::polyfn-dispatch-table meta-map#))
+           (build-polyfn-dispatch-table #'~name ~type-var))
+         (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
+           (if-let [f# (dispatch-map# ~type-var)]
+             (f# ~(first argvec))
+             (do
+               ~@(or body
+                     `[(u/errorf "No polyfn implementation defined for type %s"
+                                 (print-str ~type-var))]))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for objects of type `type`.
@@ -105,23 +104,23 @@ behavior."
 
   {:arglists '([name type [model-elem & more] & body])}
   [name & more]
-  (let [[name more]   (name-with-attributes name more)
-	[type more]   [(first more) (next more)]
-	[argvec body] [(first more) (next more)]]
+  (let [[name more]   (tm/name-with-attributes name more)
+        [type more]   [(first more) (next more)]
+        [argvec body] [(first more) (next more)]]
     `(do
        (when-not (find (meta #'~name) ::polyfn-spec-table)
-	 (errorf "%s is not declared as a polyfn." #'~name))
+         (u/errorf "%s is not declared as a polyfn." #'~name))
        (when-not (symbol? ~type)
-	 (errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
-		 ~type (class ~type)))
+         (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
+                   ~type (class ~type)))
        (let [^String n# (clojure.core/name ~type)
-	     spec-map# (::polyfn-spec-table (meta #'~name))
-	     dispatch-map# (::polyfn-dispatch-table (meta #'~name))]
-	 (when (or (.startsWith n# "!")
-		   (.endsWith n# "!"))
-	   (errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
-		   ~type))
-	 ;; Update the specs
-	 (swap! spec-map# assoc ~type (fn ~argvec ~@body))
-	 ;; Reset the dispatch table
-	 (swap! dispatch-map# (constantly nil))))))
+             spec-map# (::polyfn-spec-table (meta #'~name))
+             dispatch-map# (::polyfn-dispatch-table (meta #'~name))]
+         (when (or (.startsWith n# "!")
+                   (.endsWith n# "!"))
+           (u/errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
+                     ~type))
+         ;; Update the specs
+         (swap! spec-map# assoc ~type (fn ~argvec ~@body))
+         ;; Reset the dispatch table
+         (swap! dispatch-map# (constantly nil))))))

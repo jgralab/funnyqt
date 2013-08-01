@@ -1,11 +1,10 @@
 (ns funnyqt.relational
   "Generic relations"
-  (:refer-clojure :exclude [==])
-  (:require clojure.walk)
-  (:use clojure.core.logic
-        [clojure.core.logic.protocols :only [walk]]
-        [funnyqt.utils :only [errorf]]
-        funnyqt.relational.util))
+  (:require clojure.walk
+	    [clojure.core.logic :as ccl]
+	    [clojure.core.logic.protocols :as cclp]
+	    [funnyqt.utils :as u]
+	    [funnyqt.relational.util :as ru]))
 
 (defmacro with-fresh
   "Replace all symbols with a leading question mark with fresh lvars.
@@ -14,8 +13,8 @@
   unified, but all occurences of `_' are not."
   [& forms]
   (let [fs (clojure.walk/postwalk #(if (= '_ %) (gensym "?") %) forms)
-        qsyms (vec (distinct (filter qmark-symbol? (flatten fs))))]
-    `(fresh ~qsyms
+	qsyms (vec (distinct (filter ru/qmark-symbol? (flatten fs))))]
+    `(ccl/fresh ~qsyms
        ~@fs)))
 
 (defn echo
@@ -25,14 +24,14 @@
   ([prompt lvars]
      (fn [a]
        (println (apply str
-                       prompt
-                       (interpose ", " (map (fn [^clojure.core.logic.LVar v]
-                                              (if (lvar? v)
-                                                (let [w (walk a v)]
-                                                  (str (.name v) " = " w))
-                                                (str "### = " v)))
-                                            lvars))))
-       (succeed a))))
+		       prompt
+		       (interpose ", " (map (fn [^clojure.core.logic.LVar v]
+					      (if (ccl/lvar? v)
+						(let [w (cclp/walk a v)]
+						  (str (.name v) " = " w))
+						(str "### = " v)))
+					    lvars))))
+       (ccl/succeed a))))
 
 (defmacro condx
   "Expands into a `conda` checking if all vars used in the questions are ground.
@@ -41,54 +40,54 @@
   is ground, then the use of `conda` improves the performance."
   [& clauses]
   (let [vars (mapcat (fn [c]
-                       (let [f (first c)]
-                         (if (list? f)
-                           (rest f)
-                           [])))
-                     clauses)]
-    `(conda
-      [(all ~@(map (fn [v] `(nonlvaro ~v)) vars))
-       (conda ~@clauses)]
-      [succeed
-       (conde ~@clauses)])))
+		       (let [f (first c)]
+			 (if (list? f)
+			   (rest f)
+			   [])))
+		     clauses)]
+    `(ccl/conda
+      [(all ~@(map (fn [v] `(ccl/nonlvaro ~v)) vars))
+       (ccl/conda ~@clauses)]
+      [ccl/succeed
+       (ccl/conde ~@clauses)])))
 
-(defn- str-splits [s]
+(defn ^:private str-splits [s]
   (loop [idx 0, r []]
     (if (<= idx (count s))
       (recur (inc idx)
-             (conj r [(subs s 0 idx) (subs s idx)]))
+	     (conj r [(subs s 0 idx) (subs s idx)]))
       r)))
 
 (defn stro
   [x y xy]
   (fn [a]
-    (let [wx  (walk a x)
-          wy  (walk a y)
-          wxy (walk a xy)]
+    (let [wx  (cclp/walk a x)
+	  wy  (cclp/walk a y)
+	  wxy (cclp/walk a xy)]
       (cond
-       (and (ground? wx) (ground? wy) (ground? wxy))
-       (if (= (str wx wy) wxy) (succeed a) (fail a))
+       (and (ru/ground? wx) (ru/ground? wy) (ru/ground? wxy))
+       (if (= (str wx wy) wxy) (ccl/succeed a) (ccl/fail a))
 
-       (and (ground? wx) (ground? wy))
-       (or (unify a [x y xy] [wx wy (str wx wy)])
-           (fail a))
+       (and (ru/ground? wx) (ru/ground? wy))
+       (or (ccl/unify a [x y xy] [wx wy (str wx wy)])
+	   (ccl/fail a))
 
-       (and (ground? wx) (ground? wxy) (string? wxy)
-            (.startsWith ^String wxy wx))
-       (or (unify a [x y xy] [wx (subs wxy (count wx)) wxy])
-           (fail a))
+       (and (ru/ground? wx) (ru/ground? wxy) (string? wxy)
+	    (.startsWith ^String wxy wx))
+       (or (ccl/unify a [x y xy] [wx (subs wxy (count wx)) wxy])
+	   (ccl/fail a))
 
-       (and (ground? wy) (ground? wxy) (string? wxy)
-            (.endsWith ^String wxy wy))
-       (or (unify a [x y xy] [(subs wxy 0 (count wy)) wy wxy])
-           (fail a))
+       (and (ru/ground? wy) (ru/ground? wxy) (string? wxy)
+	    (.endsWith ^String wxy wy))
+       (or (ccl/unify a [x y xy] [(subs wxy 0 (count wy)) wy wxy])
+	   (ccl/fail a))
 
-       (ground? wxy)
-       (to-stream
-        (->> (map (fn [[s1 s2]]
-                    (unify a [x y xy] [s1 s2 wxy]))
-                  (str-splits wxy))
-             (remove not)))
+       (ru/ground? wxy)
+       (ccl/to-stream
+	(->> (map (fn [[s1 s2]]
+		    (ccl/unify a [x y xy] [s1 s2 wxy]))
+		  (str-splits wxy))
+	     (remove not)))
 
        ;; TODO: we should not fail here...
-       :else (fail a)))))
+       :else (ccl/fail a)))))

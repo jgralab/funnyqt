@@ -1,10 +1,8 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:require [clojure.core.reducers :as r])
-  (:use [funnyqt.utils :only [error errorf oset into-oset]]
-        [funnyqt.protocols :only [adj-internal adjs-internal
-                                  adj*-internal adjs*-internal
-                                  has-type?]]))
+  (:require [clojure.core.reducers :as r]
+            [funnyqt.utils :as u]
+            [funnyqt.protocols :as p]))
 
 ;;# Type Case
 
@@ -30,7 +28,7 @@
       'TypeB (do-b-stuff obj)
       (do-default-stuff obj))"
   [elem & clauses]
-  `(condp (fn [t# e#] (has-type? e# t#)) ~elem
+  `(condp (fn [t# e#] (p/has-type? e# t#)) ~elem
      ~@clauses))
 
 ;;# Quantified Expressions
@@ -66,9 +64,9 @@
   ([s]
      (if-let [f (first s)]
        (if (next s)
-         (errorf "seq contains more than one element: %s" (print-str s))
+         (u/errorf "seq contains more than one element: %s" (print-str s))
          f)
-       (error "seq contains zero elements!")))
+       (u/error "seq contains zero elements!")))
   ([pred s]
      (the (filter pred s))))
 
@@ -258,26 +256,26 @@
   Errors if a role is undefined, intermediate targets are nil, or there are
   more elements that can be reached that way."
   [elem role & roles]
-  (adj-internal elem (cons role roles)))
+  (p/adj-internal elem (cons role roles)))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
   simply returns nil."
   [elem role & roles]
-  (adj*-internal elem (cons role roles)))
+  (p/adj*-internal elem (cons role roles)))
 
 (defn adjs
   "Traverses `role` and more `roles` starting at `elem`.
   Returns the seq of target objects.
   Errors if a role is undefined or intermediate targets are nil."
   [elem role & roles]
-  (into [] (adjs-internal elem (cons role roles))))
+  (into [] (p/adjs-internal elem (cons role roles))))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
   it simply returns nil."
   [elem role & roles]
-  (into [] (adjs*-internal elem (cons role roles))))
+  (into [] (p/adjs*-internal elem (cons role roles))))
 
 ;;# Regular Path Expressions
 
@@ -296,16 +294,16 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varargs seq of path descriptions."
   [v & p]
-  (oset (r/reduce (fn [c p]
-                    (*p-apply* c p))
-                  v p)))
+  (u/oset (r/reduce (fn [c p]
+                      (*p-apply* c p))
+                    v p)))
 
 (defn p-opt
   "Path option starting at `v` and maybe traversing `p`.
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   [v p]
-  (into-oset v (*p-apply* v p)))
+  (u/into-oset v (*p-apply* v p)))
 
 (defn p-alt
   "Path alternative starting at `v` and traversing one of `p`.
@@ -313,14 +311,14 @@
   `p` is a varags seq of the alternative path descriptions."
   [v & p]
   (into (flatland.ordered.set/ordered-set)
-        (r/mapcat #(*p-apply* (oset v) %) p)))
+        (r/mapcat #(*p-apply* (u/oset v) %) p)))
 
 (defn ^:private p-*-or-+
   [v p ret]
   (let [n (into (flatland.ordered.set/ordered-set)
-                (r/remove ret (oset (*p-apply* v p))))]
+                (r/remove ret (u/oset (*p-apply* v p))))]
     (if (seq n)
-      (recur n p (into-oset ret n))
+      (recur n p (u/into-oset ret n))
       ret)))
 
 (defn p-*
@@ -328,7 +326,7 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a path description."
   [v p]
-  (p-*-or-+ v p (oset v)))
+  (p-*-or-+ v p (u/oset v)))
 
 (defn p-+
   "Path iteration starting at `v` and traversing `p` one or many times.
@@ -355,7 +353,7 @@
   ([v n p]
      {:pre [(>= n 0)]}
      (if (zero? n)
-       (oset v)
+       (u/oset v)
        (recur (*p-apply* v p) (dec n) p))))
 
 (defn p-restr
@@ -366,4 +364,3 @@
      (*p-restr* objs ts identity))
   ([objs ts pred]
      (*p-restr* objs ts pred)))
-

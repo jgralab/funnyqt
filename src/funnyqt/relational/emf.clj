@@ -1,12 +1,11 @@
 (ns funnyqt.relational.emf
-  (:refer-clojure :exclude [==])
-  (:use clojure.core.logic
-        [clojure.core.logic.protocols :only [walk]]
-        funnyqt.relational.util)
-  (:require [funnyqt.protocols :as p]
+  (:require [clojure.core.logic :as ccl]
+            [clojure.core.logic.protocols :as cclp]
+            [funnyqt.protocols :as p]
             [funnyqt.emf :as emf]
             [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
+            [funnyqt.relational.util :as ru]
             [funnyqt.utils :as u])
   (:import
    (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject
@@ -16,19 +15,19 @@
 (defn tmp-eobjecto
   ([m eo]
      (fn [a]
-       (let [geo (walk a eo)]
+       (let [geo (cclp/walk a eo)]
          (cond
-          (not (or (fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+          (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
           (u/errorf "tmp-eobjecto/2: eo must be fresh or a ground Wrapper/TmpElement but was %s."
                     geo)
 
-          (ground? geo)
+          (ru/ground? geo)
           (if (tmp/set-kind geo :element)
-            (succeed a)
-            (fail a))
+            (ccl/succeed a)
+            (ccl/fail a))
 
-          :elso (to-stream
-                 (->> (map #(unify a eo %)
+          :elso (ccl/to-stream
+                 (->> (map #(ccl/unify a eo %)
                            (concat
                             (map (partial tmp/make-wrapper m)
                                  (emf/eallobjects m))
@@ -36,24 +35,24 @@
                       (remove not)))))))
   ([m eo t]
      (fn [a]
-       (let [geo (walk a eo)
-             gt  (walk a t)]
+       (let [geo (cclp/walk a eo)
+             gt  (cclp/walk a t)]
          (cond
-          (not (ground? gt))
+          (not (ru/ground? gt))
           (u/errorf "tmp-eobjecto/3: type must be ground.")
 
-          (not (or (fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+          (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
           (u/errorf "tmp-eobjecto/3: eo must be fresh or a ground Wrapper/TmpElement but was %s."
                     geo)
 
-          (ground? geo) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
+          (ru/ground? geo) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
           (if (and (tmp/set-kind geo :element)
                    (tmp/set-type geo gt))
-            (succeed a)
-            (fail a))
+            (ccl/succeed a)
+            (ccl/fail a))
 
-          :else (to-stream
-                 (->> (map #(unify a eo %)
+          :else (ccl/to-stream
+                 (->> (map #(ccl/unify a eo %)
                            (concat
                             (map (partial tmp/make-wrapper m)
                                  (emf/eallobjects m gt))
@@ -68,38 +67,38 @@
      (if tmp/*make-tmp-elements*
        (tmp-eobjecto m eo)
        (fn [a]
-         (let [geo (walk a eo)]
-           (if (ground? geo)
-             (if (emf/eobject? geo) (succeed a) (fail a))
-             (to-stream
-              (->> (map #(unify a eo %)
+         (let [geo (cclp/walk a eo)]
+           (if (ru/ground? geo)
+             (if (emf/eobject? geo) (ccl/succeed a) (ccl/fail a))
+             (ccl/to-stream
+              (->> (map #(ccl/unify a eo %)
                         (emf/eallobjects m))
                    (remove not))))))))
   ([m e t]
      (fn [a]
-       (let [ge (walk a e)
-             gt (walk a t)]
+       (let [ge (cclp/walk a e)
+             gt (cclp/walk a t)]
          (cond
-          (or (and (ground? ge) (not (emf/eobject? ge)))
-              (and (ground? gt) (not (or (symbol? gt) (coll? gt)))))
-          (fail a)
+          (or (and (ru/ground? ge) (not (emf/eobject? ge)))
+              (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
+          (ccl/fail a)
 
-          (and (ground? ge) (ground? gt))
+          (and (ru/ground? ge) (ru/ground? gt))
           (if (p/has-type? ge gt)
-            (succeed a)
-            (fail a))
+            (ccl/succeed a)
+            (ccl/fail a))
 
-          (ground? ge)
-          (unify a t (p/qname ge))
+          (ru/ground? ge)
+          (ccl/unify a t (p/qname ge))
 
-          (ground? gt)
-          (to-stream
-           (->> (map #(unify a e %) (emf/eallobjects m t))
+          (ru/ground? gt)
+          (ccl/to-stream
+           (->> (map #(ccl/unify a e %) (emf/eallobjects m t))
                 (remove not)))
 
-          :else (to-stream
+          :else (ccl/to-stream
                  (->> (for [elem (emf/eallobjects m t)]
-                        (unify a [e t] [elem (p/qname elem)]))
+                        (ccl/unify a [e t] [elem (p/qname elem)]))
                       (remove not))))))))
 
 (defn ^:private attribute-list [eo]
@@ -107,9 +106,9 @@
 
 (defn tmp-valueo [m eo at val]
   (fn [a]
-    (let [geo  (walk a eo)
-          gat  (walk a at)
-          gval (walk a val)]
+    (let [geo  (cclp/walk a eo)
+          gat  (cclp/walk a at)
+          gval (cclp/walk a val)]
       (cond
        (not (tmp/tmp-or-wrapper-element? geo))
        (u/errorf "tmp-valueo: eo has to be a ground Tmp/WrapperElement but was %s."
@@ -119,8 +118,8 @@
        (u/errorf "tmp-valueo: az must be a ground keyword but was %s." gat)
 
        :else (if (tmp/add-attr geo gat gval)
-               (succeed a)
-               (fail a))))))
+               (ccl/succeed a)
+               (ccl/fail a))))))
 
 (defn valueo
   "A relation where EObject `eo` has value `val` for its `at` attribute in
@@ -129,33 +128,33 @@
   (if tmp/*make-tmp-elements*
     (tmp-valueo m eo at val)
     (fn [a]
-      (let [geo  (walk a eo)
-            gat  (walk a at)
-            gval (walk a val)]
+      (let [geo  (cclp/walk a eo)
+            gat  (cclp/walk a at)
+            gval (cclp/walk a val)]
         (cond
-         (or (and (ground? geo) (not (emf/eobject? geo)))
-             (and (ground? gat) (not (keyword? gat)))
-             (and (ground? geo) (ground? gat)
+         (or (and (ru/ground? geo) (not (emf/eobject? geo)))
+             (and (ru/ground? gat) (not (keyword? gat)))
+             (and (ru/ground? geo) (ru/ground? gat)
                   (not (when-let [sf (.getEStructuralFeature
                                       (.eClass ^EObject geo) ^String (name gat))]
                          (instance? EAttribute sf)))))
-         (fail a)
+         (ccl/fail a)
 
-         (and (ground? geo) (ground? gat))
-         (unify a val (emf/eget geo gat))
+         (and (ru/ground? geo) (ru/ground? gat))
+         (ccl/unify a val (emf/eget geo gat))
 
-         (ground? geo)
-         (to-stream
+         (ru/ground? geo)
+         (ccl/to-stream
           (->> (for [^EAttribute attr (attribute-list geo)
                      :let [an (keyword (.getName attr))]]
-                 (unify a [at val] [an (emf/eget geo an)]))
+                 (ccl/unify a [at val] [an (emf/eget geo an)]))
                (remove not)))
 
-         :else (to-stream
+         :else (ccl/to-stream
                 (->> (for [^EObject elem (emf/eallobjects m)
                            ^EAttribute attr (attribute-list elem)
                            :let [an (keyword (.getName attr))]]
-                       (unify a [eo at val] [elem an (emf/eget elem an)]))
+                       (ccl/unify a [eo at val] [elem an (emf/eget elem an)]))
                      (remove not))))))))
 
 (defn ^:private reference-list [eo]
@@ -163,9 +162,9 @@
 
 (defn tmp-adjo [m eo ref reo]
   (fn [a]
-    (let [geo  (walk a eo)
-          gref (walk a ref)
-          greo (walk a reo)]
+    (let [geo  (cclp/walk a eo)
+          gref (cclp/walk a ref)
+          greo (cclp/walk a reo)]
       (cond
        (not (tmp/tmp-or-wrapper-element? geo))
        (u/errorf "tmp-adjo: geo has to be a ground Tmp/WrapperElement but was %s."
@@ -176,12 +175,12 @@
 
        (and (tmp/wrapper-element? geo) (tmp/wrapper-element? greo))
        (if (tmp/add-ref geo gref greo)
-         (succeed a)
-         (fail a))
+         (ccl/succeed a)
+         (ccl/fail a))
 
-       (and (tmp/wrapper-element? geo) (fresh? greo))
-       (to-stream
-        (->> (map #(unify a reo (if (fn? %) (%) %))
+       (and (tmp/wrapper-element? geo) (ru/fresh? greo))
+       (ccl/to-stream
+        (->> (map #(ccl/unify a reo (if (fn? %) (%) %))
                   (concat
                    (map #(tmp/make-wrapper m %)
                         (q/adjs (.wrapped-element ^WrapperElement geo) gref))
@@ -200,39 +199,39 @@
   (if tmp/*make-tmp-elements*
     (tmp-adjo m eo ref reo)
     (fn [a]
-      (let [geo  (walk a eo)
-            gref (walk a ref)
-            greo (walk a reo)]
+      (let [geo  (cclp/walk a eo)
+            gref (cclp/walk a ref)
+            greo (cclp/walk a reo)]
         (cond
-         (or (and (ground? geo) (not (emf/eobject? geo)))
-             (and (ground? gref) (not (keyword? gref)))
-             (and (ground? greo) (not (emf/eobject? greo)))
-             (and (ground? geo) (ground? gref)
+         (or (and (ru/ground? geo) (not (emf/eobject? geo)))
+             (and (ru/ground? gref) (not (keyword? gref)))
+             (and (ru/ground? greo) (not (emf/eobject? greo)))
+             (and (ru/ground? geo) (ru/ground? gref)
                   (not (when-let [sf (.getEStructuralFeature
                                       (.eClass ^EObject geo) ^String (name gref))]
                          (instance? EReference sf)))))
-         (fail a)
+         (ccl/fail a)
 
-         (and (ground? geo) (ground? gref))
-         (to-stream
+         (and (ru/ground? geo) (ru/ground? gref))
+         (ccl/to-stream
           (->> (for [refed (funnyqt.query/adjs* geo gref)]
-                 (unify a [reo] [refed]))
+                 (ccl/unify a [reo] [refed]))
                (remove not)))
 
-         (ground? geo)
-         (to-stream
+         (ru/ground? geo)
+         (ccl/to-stream
           (->> (for [^EReference reference (reference-list geo)
                      :let [rn (keyword (.getName reference))]
                      refed (funnyqt.query/adjs* geo rn)]
-                 (unify a [ref reo] [rn refed]))
+                 (ccl/unify a [ref reo] [rn refed]))
                (remove not)))
 
-         :else (to-stream
+         :else (ccl/to-stream
                 (->> (for [^EObject elem (emf/eallobjects m)
                            ^EReference reference (reference-list elem)
                            :let [rn (keyword (.getName reference))]
                            refed (funnyqt.query/adjs* elem rn)]
-                       (unify a [eo ref reo] [elem rn refed]))
+                       (ccl/unify a [eo ref reo] [elem rn refed]))
                      (remove not))))))))
 
 ;;# Metamodel specific relations
@@ -268,19 +267,20 @@
     `(defn ~(symbol (str "+->" (name eref)))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
        [~'m ~'eo ~'reo]
-       (all
+       (ccl/all
         (eobjecto ~'m ~'eo '~ts)
         (adjo ~'m ~'eo ~eref ~'reo)))))
 
 (defn ^:private create-eattribute-relation
   "Creates relations for the given EAttribute."
-  [[attr ecls]] ;; attr is an attr name symbol, ecls the set of classes having
-                ;; such an attr
+  [[attr ecls]]
+  ;; attr is an attr name symbol, ecls the set of classes having
+  ;; such an attr
   (let [ts (mapv #(p/qname %) ecls)]
     `(defn ~(symbol (str "+" (name attr)))
        ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
        [~'m ~'eo ~'val]
-       (all
+       (ccl/all
         (eobjecto ~'m ~'eo '~ts)
         (valueo ~'m ~'eo ~attr ~'val)))))
 
@@ -302,8 +302,7 @@
            old-ns *ns*]
        `(do
           ~@(when nssym
-              `[(ns ~nssym
-                  (:refer-clojure :exclude [~'==]))])
+              `[(ns ~nssym)])
           ;; Metamodel specific relations
           ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                     (emf/metamodel-epackages ecore-model))
@@ -328,4 +327,3 @@
                (for [^EReference r @refs]
                  (create-ereference-relation r))))
           (in-ns '~(ns-name old-ns))))))
-

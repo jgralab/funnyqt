@@ -1,14 +1,14 @@
 (ns funnyqt.metatransform.tg
   "Schema-creating transformations on TGraphs."
-  (:use funnyqt.tg)
-  (:use funnyqt.query.tg)
-  (:use funnyqt.query)
-  (:use funnyqt.protocols)
-  (:use [funnyqt.utils :only [error errorf split-qname pr-identity]])
-  (:use funnyqt.extensional.tg)
-  (:require clojure.set)
-  (:require clojure.pprint)
-  (:require [clojure.tools.macro :as m])
+  (:require clojure.set
+            clojure.pprint
+            [clojure.tools.macro :as m]
+            [funnyqt.protocols :as p]
+            [funnyqt.utils :as u]
+            [funnyqt.tg :as tg]
+            [funnyqt.query :as q]
+            [funnyqt.query.tg :as qtg]
+            [funnyqt.extensional.tg :as etg])
   (:import
    (java.util Arrays)
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
@@ -37,13 +37,13 @@
   [g aec]
   (cond
    (instance? GraphClass aec)  [g]
-   (instance? VertexClass aec) (vseq g (funnyqt.protocols/qname aec))
-   (instance? EdgeClass aec)   (eseq g (funnyqt.protocols/qname aec))
-   :else (errorf "Cannot handle %s." aec)))
+   (instance? VertexClass aec) (tg/vseq g (funnyqt.protocols/qname aec))
+   (instance? EdgeClass aec)   (tg/eseq g (funnyqt.protocols/qname aec))
+   :else (u/errorf "Cannot handle %s." aec)))
 
 (defmacro with-open-schema [g & body]
   `(let [g# ~g
-         ^Schema s# (schema g#)
+         ^Schema s# (tg/schema g#)
          was-opened# (.reopen s#)
          r# (do ~@body)]
      (when was-opened#
@@ -55,14 +55,14 @@
 ;;## Create a new schema & empty graph
 
 (defn- create-schema [sqname gcname]
-  (let [[prefix sname] (split-qname sqname)]
+  (let [[prefix sname] (u/split-qname sqname)]
     (doto (SchemaImpl. sname prefix)
       (.createGraphClass (name gcname)))))
 
 (defn empty-graph [sqname gcname]
   (let [^Schema s (create-schema sqname gcname)]
     (.finish s)
-    (create-graph s)))
+    (tg/create-graph s)))
 
 ;;## Creating Enum & Record domains
 
@@ -73,9 +73,9 @@
   as string, keyword, or symbol."
   [g name comp-doms]
   (with-open-schema g
-    (let [rd (.createRecordDomain ^Schema (schema g) (clojure.core/name name))]
+    (let [rd (.createRecordDomain ^Schema (tg/schema g) (clojure.core/name name))]
       (doseq [[comp dom] comp-doms]
-        (.addComponent rd (clojure.core/name comp) (domain (schema g) dom)))
+        (.addComponent rd (clojure.core/name comp) (tg/domain (tg/schema g) dom)))
       rd)))
 
 (defn create-enum-domain!
@@ -84,7 +84,7 @@
   `name` and the `literals` may be given as string, keyword, or symbol."
   [g name literals]
   (with-open-schema g
-    (let [ed (.createEnumDomain ^Schema (schema g)
+    (let [ed (.createEnumDomain ^Schema (tg/schema g)
                                 ^String (clojure.core/name name)
                                 ^java.util.List  (mapv clojure.core/name
                                                        literals))])))
@@ -97,14 +97,14 @@
 (defn- create-vc!
   [g {:keys [qname abstract]}]
   (with-open-schema g
-    (-> (.getGraphClass ^Schema (schema g))
+    (-> (.getGraphClass ^Schema (tg/schema g))
         (doto ^VertexClass (.createVertexClass (name qname))
           (.setAbstract (boolean abstract))))))
 
 (defn create-vertex-class!
   "Creates VertexClass + instances in `g`.
   The map given as first argument provides the schema properties.
-  For `archs`, see function `create-vertices!`."
+  For `archs`, see function `etg/create-vertices!`."
   ([g {:keys [qname abstract]
        :or {abstract false}
        :as props}]
@@ -115,7 +115,7 @@
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
      (create-vertex-class! g props)
-     (create-vertices! g qname archs)))
+     (etg/create-vertices! g qname archs)))
 
 ;;## EdgeClasses
 
@@ -126,19 +126,19 @@
                     from from-multis from-role from-kind
                     to to-multis to-role to-kind]}]
   (with-open-schema g
-    (-> (.getGraphClass ^Schema (schema g))
+    (-> (.getGraphClass ^Schema (tg/schema g))
         (doto (.createEdgeClass
                (name qname)
-               (attributed-element-class g from) (first from-multis)
+               (tg/attributed-element-class g from) (first from-multis)
                (second from-multis) from-role from-kind
-               (attributed-element-class g to) (first to-multis)
+               (tg/attributed-element-class g to) (first to-multis)
                (second to-multis) to-role to-kind)
           (.setAbstract (boolean abstract))))))
 
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
   The map given as first argument provides the schema properties.
-  For `archs`, see function `create-edges!`."
+  For `archs`, see function `etg/create-edges!`."
   ([g {:keys [qname abstract
               from from-multis from-role from-kind
               to   to-multis   to-role   to-kind]
@@ -162,7 +162,7 @@
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
      (create-edge-class! g props)
-     (create-edges! g qname archs)))
+     (etg/create-edges! g qname archs)))
 
 ;;## Attributes
 
@@ -174,7 +174,7 @@
   (when (seq new-attrs)
     (let [oaf (on-attributes-fn
                (fn [ae ^objects ary]
-                 (let [^AttributedElementClass aec (attributed-element-class ae)
+                 (let [^AttributedElementClass aec (tg/attributed-element-class ae)
                        new-attrs (set new-attrs)
                        ^objects new-ary (make-array Object (.getAttributeCount aec))]
                    (loop [atts (.getAttributeList aec), posinc 0]
@@ -195,9 +195,9 @@
 (defn- create-attr!
   [g {:keys [qname domain default]}]
   (with-open-schema g
-    (let [[qn aname _] (split-qname qname)
-          aec          ^AttributedElementClass (attributed-element-class g qn)]
-      (.createAttribute aec aname (funnyqt.tg/domain g domain) default)
+    (let [[qn aname _] (u/split-qname qname)
+          aec          ^AttributedElementClass (tg/attributed-element-class g qn)]
+      (.createAttribute aec aname (tg/domain g domain) default)
       (fix-attr-array-after-add!
        (element-seq g aec)
        (.getAttribute aec aname)))))
@@ -205,14 +205,14 @@
 (defn create-attribute!
   "Creates an attribute and sets values.
   The map given as first argument determines the schema properties.
-  For `valfn`, see `set-values!`."
+  For `valfn`, see `etg/set-values!`."
   ([g {:keys [qname domain default] :as props}]
      {:pre [qname domain]}
      (create-attr! g props))
   ([g {:keys [qname domain default] :as props} valfn]
      {:pre [valfn]}
      (create-attribute! g props)
-     (set-values! g qname valfn)))
+     (etg/set-values! g qname valfn)))
 
 ;;### Renaming
 
@@ -232,21 +232,21 @@
   `oldname` is a fully qualified name (e.g., `contacts.Person.name`), and
   `newname` is just the new attribute name (e.g., `lastName`)"
   [g oldname newname]
-  (let [[qn aname _] (split-qname oldname)
-        aec ^AttributedElementClass (attributed-element-class g qn)
+  (let [[qn aname _] (u/split-qname oldname)
+        aec ^AttributedElementClass (tg/attributed-element-class g qn)
         ^Attribute attribute (.getAttribute aec aname)]
     ;; Check that no subclass (or even this class) contains attribute `newname`
     (when (.containsAttribute aec (name newname))
-      (errorf "%s already has a %s attribute." aec (name newname)))
+      (u/errorf "%s already has a %s attribute." aec (name newname)))
     (when (instance? GraphElementClass aec)
       (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
         (when (.containsAttribute sub (name newname))
-          (errorf "%s subclass %s already has a %s attribute."
+          (u/errorf "%s subclass %s already has a %s attribute."
                   aec sub (name newname)))))
     (let [old-idx-map (old-attr-idx-map aec aname)
           oaf (on-attributes-fn
                (fn [^AttributedElement ae ^objects ary]
-                 (let [^AttributedElementClass klass (attributed-element-class ae)
+                 (let [^AttributedElementClass klass (tg/attributed-element-class ae)
                        old-idx (old-idx-map klass)
                        new-idx (.getAttributeIndex klass (name newname))]
                    (if (== old-idx new-idx)
@@ -263,13 +263,13 @@
 (defn delete-attribute!
   "Deletes `attr` (a fully qualified name, e.g., `contacts.Person.name`."
   [g attr]
-  (let [[qn aname _] (split-qname attr)
-        aec ^AttributedElementClass (attributed-element-class g qn)
+  (let [[qn aname _] (u/split-qname attr)
+        aec ^AttributedElementClass (tg/attributed-element-class g qn)
         ^Attribute attribute (.getAttribute aec aname)
         old-idx-map (old-attr-idx-map aec aname)
         oaf (on-attributes-fn
              (fn [^AttributedElement ae ^objects ary]
-               (let [^AttributedElementClass klass (attributed-element-class ae)
+               (let [^AttributedElementClass klass (tg/attributed-element-class ae)
                      old-idx (old-idx-map klass)
                      new-ary (object-array (dec (alength ary)))]
                  (dotimes [i (alength new-ary)]
@@ -309,11 +309,11 @@
        ;; favour of the inherited one.
        (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
                                    (.delete oa)
-                                   (errorf
+                                   (u/errorf
                                     (str "%s tries to inherit different %s attributes. "
                                          "It already has one from %s and now gets another one from %s.")
                                     sub a (.getAttributedElementClass (.getAttribute sub a)) super))
-       :else (errorf
+       :else (u/errorf
               "%s tries to inherit %s with different domains: %s from %s and %s from %s"
               sub a
               (supmap a) (.getAttributedElementClass (.getAttribute sub a))
@@ -327,18 +327,18 @@
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
   (with-open-schema g
-    (let [^GraphElementClass superaec (attributed-element-class g super)
-          subaecs (map #(attributed-element-class g %1) subs)]
+    (let [^GraphElementClass superaec (tg/attributed-element-class g super)
+          subaecs (map #(tg/attributed-element-class g %1) subs)]
       (doseq [^GraphElementClass subaec subaecs]
         (let [new-atts (handle-attribute-clashes superaec subaec)]
           (if (isa? (class superaec) VertexClass)
             (do
               (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
-              (apply fix-attr-array-after-add! (vseq g subaec)
+              (apply fix-attr-array-after-add! (tg/vseq g subaec)
                      new-atts))
             (do
               (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
-              (apply fix-attr-array-after-add! (eseq g subaec)
+              (apply fix-attr-array-after-add! (tg/eseq g subaec)
                      new-atts))))))))
 
 (defn add-super-classes!
