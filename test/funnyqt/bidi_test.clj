@@ -227,7 +227,7 @@
                  (tg/ecount l 'ContainsOrganization))
               (count (emf/eallpairs r :category :entries))))
   (test/is (= (tg/ecount l 'HasEmployee)
-              (count (emf/eallpairs r :employer :employee)))))
+              (count (emf/eallpairs r :employers :employees)))))
 
 (test/deftest test-addressbook-tg2addressbook-emf
   (let [l (make-example-addressbook-tg)
