@@ -1,13 +1,13 @@
 (ns funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
-  (:use funnyqt.protocols
-        funnyqt.emf-protocols
-        funnyqt.utils
-        funnyqt.query
-        flatland.ordered.set
-        flatland.ordered.map)
-  (:require [clojure.core.cache :as cache]
-            [clojure.core.reducers :as r])
+  (:require [clojure.core.cache    :as cache]
+            [clojure.core.reducers :as r]
+            [funnyqt.protocols     :as p]
+            [funnyqt.emf-protocols :as ep]
+            [funnyqt.utils         :as u]
+            [funnyqt.query         :as q]
+            [flatland.ordered.set  :as os]
+            [flatland.ordered.map  :as om])
   (:import
    (funnyqt.emf_protocols EMFModel EcoreModel)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
@@ -31,9 +31,9 @@
   [eo]
   `(instance? EClass ~eo))
 
-(extend-protocol IModelObject
+(extend-protocol p/IModelObject
   EObject
-  (model-object? [this] true))
+  (p/model-object? [this] true))
 
 ;;# Metamodel Access
 
@@ -68,16 +68,16 @@
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (->EcoreModel res)
-      load-and-register-internal)))
+    (doto (ep/->EcoreModel res)
+      ep/load-and-register-internal)))
 
 (def ^{:arglists '([ecore-model file])
        :doc "Saves the metamodel `ecore-model` to `file`."}
-  save-metamodel save-metamodel-internal)
+  save-metamodel ep/save-metamodel-internal)
 
 (def ^{:arglists '([ecore-model])
        :doc "Returns a seq of the metamodel `ecore-model`s EPackages."}
-  metamodel-epackages metamodel-epackages-internal)
+  metamodel-epackages ep/metamodel-epackages-internal)
 
 (def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
@@ -91,7 +91,7 @@
 (defn epackages
   "The lazy seq of all registered EPackages."
   []
-  (with-system-class-loader
+  (ep/with-system-class-loader
     (map #(.getEPackage EPackage$Registry/INSTANCE %)
          (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
 
@@ -100,19 +100,19 @@
   [name]
   (let [name (clojure.core/name name)
         ffn (if (.contains name ".")
-              (fn [^EPackage p] (= (clojure.core/name (qname p)) name))
+              (fn [^EPackage p] (= (clojure.core/name (p/qname p)) name))
               (fn [^EPackage p] (= (.getName p) name)))
         qkgs (filter ffn (epackages))]
     (when-not (seq qkgs)
-      (errorf "No such package %s." name))
+      (u/errorf "No such package %s." name))
     (when (nnext qkgs)
-      (errorf "Multiple packages named %s: %s\n%s" name qkgs
-              "Restrict the search space using `with-ns-uris`."))
+      (u/errorf "Multiple packages named %s: %s\n%s" name qkgs
+                "Restrict the search space using `with-ns-uris`."))
     (first qkgs)))
 
-(extend-protocol IAbstractness
+(extend-protocol p/IAbstractness
   EClass
-  (abstract? [this]
+  (p/abstract? [this]
     (.isAbstract this)))
 
 (defn eclassifiers
@@ -130,7 +130,7 @@
 (defn eclasses
   "The lazy seq of EClasses."
   []
-  (filter (partial instance? EClass) (eclassifiers)))
+  (filter eclass? (eclassifiers)))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
@@ -144,16 +144,16 @@
       (if (>= ld 0)
         (if-let [^EPackage ep (epackage (subs n 0 ld))]
           (or (.getEClassifier ep (subs n (inc ld)))
-              (errorf "No such EClassifier %s in %s." n (print-str ep)))
-          (errorf "No such EPackage %s." (subs n 0 ld)))
+              (u/errorf "No such EClassifier %s in %s." n (print-str ep)))
+          (u/errorf "No such EPackage %s." (subs n 0 ld)))
         (let [classifiers (filter (fn [^EClassifier ec]
                                     (= (.getName ec) n))
                                   (eclassifiers))]
           (cond
-           (empty? classifiers) (errorf "No such EClassifier %s." n)
-           (next classifiers)   (errorf "EClassifier %s is ambiguous: %s\n%s"
-                                        n (print-str classifiers)
-                                        "Restrict the search space using `with-ns-uris`.")
+           (empty? classifiers) (u/errorf "No such EClassifier %s." n)
+           (next classifiers)   (u/errorf "EClassifier %s is ambiguous: %s\n%s"
+                                          n (print-str classifiers)
+                                          "Restrict the search space using `with-ns-uris`.")
            :else (let [ecls (first classifiers)]
                    (cache/miss eclassifier-cache name ecls)
                    ecls)))))))
@@ -166,48 +166,48 @@
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
   [qname]
-  (let [[eenum elit] (split-qname qname)]
+  (let [[eenum elit] (u/split-qname qname)]
     (if-let [^EEnum enum-cls (eclassifier eenum)]
       (or (.getEEnumLiteral enum-cls ^String elit)
-          (errorf "%s has no EEnumLiteral with name %s."
-                  (print-str enum-cls) elit))
-      (errorf "No such EEnum %s." eenum))))
+          (u/errorf "%s has no EEnumLiteral with name %s."
+                    (print-str enum-cls) elit))
+      (u/errorf "No such EEnum %s." eenum))))
 
 ;;# Generic Metamodel Access
 
-(extend-protocol IMetaModelObject
+(extend-protocol p/IMetaModelObject
   EClass
-  (meta-model-object? [this] true))
+  (p/meta-model-object? [this] true))
 
-(extend-protocol IMMClasses
+(extend-protocol p/IMMClasses
   EClass
-  (mm-classes [cls]
+  (p/mm-classes [cls]
     (filter eclass? (eclassifiers))))
 
-(extend-protocol IMMClass
+(extend-protocol p/IMMClass
   EObject
-  (mm-class
+  (p/mm-class
     ([this]
        (.eClass this))
     ([this qn]
        (eclassifier qn)))
   EMFModel
-  (mm-class
+  (p/mm-class
     ([this qn]
        (eclassifier qn)))
   EcoreModel
-  (mm-class
+  (p/mm-class
     ([this qn]
        (eclassifier qn))))
 
-(extend-protocol IMMDirectSuperClasses
+(extend-protocol p/IMMDirectSuperClasses
   EClass
-  (mm-direct-super-classes [this]
+  (p/mm-direct-super-classes [this]
     (seq (.getESuperTypes this))))
 
-(extend-protocol IMMSuperClassOf
+(extend-protocol p/IMMSuperClassOf
   EClass
-  (mm-super-class? [this sub]
+  (p/mm-super-class? [this sub]
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 
@@ -218,26 +218,26 @@
   "In the arity 1 version, saves `model` which has to be associated with a file
   already.  In the arity 2 version, saves `model` to `file` (a string denoting
   a file name)."
-  save-model-internal)
+  ep/save-model-internal)
 
 ;;## Qualified Names
 
-(extend-protocol IQualifiedName
+(extend-protocol p/IQualifiedName
   EClassifier
-  (qname [this]
-    (symbol (str (qname (.getEPackage this))
+  (p/qname [this]
+    (symbol (str (p/qname (.getEPackage this))
                  "." (.getName this))))
 
   EPackage
-  (qname [this]
+  (p/qname [this]
     (loop [p (.getESuperPackage this), n (.getName this)]
       (if p
         (recur (.getESuperPackage p) (str (.getName p) "." n))
         (symbol n))))
 
   EObject
-  (qname [o]
-    (qname (.eClass o))))
+  (p/qname [o]
+    (p/qname (.eClass o))))
 
 ;;## EMF Model
 
@@ -250,9 +250,9 @@
   If `xmifile` is given (a file name as string), set it as file URI used by
   `save-model`."
   ([]
-     (->EMFModel (XMIResourceImpl.)))
+     (ep/->EMFModel (XMIResourceImpl.)))
   ([^String xmifile]
-     (->EMFModel (XMIResourceImpl. xmifile))))
+     (ep/->EMFModel (XMIResourceImpl. xmifile))))
 
 (defn load-model
   "Loads an EMFModel from the XMI file `f`."
@@ -262,15 +262,15 @@
             f)
         uri (URI/createFileURI f)
         res (XMIResourceImpl. uri)]
-    (doto (->EMFModel res)
-      init-model-internal)))
+    (doto (ep/->EMFModel res)
+      ep/init-model-internal)))
 
 ;;## Type Checks
 
 (defn ^:private type-matcher-emf-1
-  "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
+  "Returns a matcher for p/elements Foo, !Foo, Foo!, !Foo!."
   [c]
-  (let [v     (type-with-modifiers (name c))
+  (let [v     (u/type-with-modifiers (name c))
         neg   (v 0)
         qname (v 1)
         exact (v 2)
@@ -286,102 +286,102 @@
 (defn ^:private type-matcher-emf
   [ts]
   (cond
-   (nil? ts)   identity
-   (fn? ts)    ts
-   (qname? ts) (type-matcher-emf-1 ts)
-   (eclass? ts) (fn [e] (.isInstance ^EClass ts e))
-   (coll? ts)  (if (seq ts)
-                 (let [f (first ts)
-                       [op r] (case f
-                                :and  [and-fn  (next ts)]
-                                :nand [nand-fn (next ts)]
-                                :or   [or-fn   (next ts)]
-                                :nor  [nor-fn  (next ts)]
-                                :xor  [xor-fn  (next ts)]
-                                [or-fn ts])
-                       t-matchers (map #(type-matcher-emf %) r)]
-                   (apply op t-matchers))
+   (nil? ts)     identity
+   (fn? ts)      ts
+   (u/qname? ts) (type-matcher-emf-1 ts)
+   (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
+   (coll? ts)    (if (seq ts)
+                   (let [f (first ts)
+                         [op r] (case f
+                                  :and  [q/and-fn  (next ts)]
+                                  :nand [q/nand-fn (next ts)]
+                                  :or   [q/or-fn   (next ts)]
+                                  :nor  [q/nor-fn  (next ts)]
+                                  :xor  [q/xor-fn  (next ts)]
+                                  [q/or-fn ts])
+                         t-matchers (map #(type-matcher-emf %) r)]
+                     (apply op t-matchers))
                    ;; Empty collection given: (), [], that's also ok
                    identity)
-     :else (errorf "Don't know how to create an EMF type-matcher for %s" ts)))
+   :else (u/errorf "Don't know how to create an EMF p/type-matcher for %s" ts)))
 
-(extend-protocol ITypeMatcher
+(extend-protocol p/ITypeMatcher
   EObject
-  (type-matcher [m ts]
+  (p/type-matcher [m ts]
     (if-let [tm (cache/lookup type-matcher-cache ts)]
       (do (cache/hit type-matcher-cache ts) tm)
       (let [tm (type-matcher-emf ts)]
         (cache/miss type-matcher-cache ts tm)
         tm)))
   EMFModel
-  (type-matcher [m ts]
+  (p/type-matcher [m ts]
     (if-let [tm (cache/lookup type-matcher-cache ts)]
       (do (cache/hit type-matcher-cache ts) tm)
       (let [tm (type-matcher-emf ts)]
         (cache/miss type-matcher-cache ts tm)
         tm))))
 
-(extend-protocol IInstanceOf
+(extend-protocol p/IInstanceOf
   EObject
-  (is-instance? [object class]
+  (p/is-instance? [object class]
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
-  (has-type? [obj spec]
-    ((type-matcher obj spec) obj)))
+  (p/has-type? [obj spec]
+    ((p/type-matcher obj spec) obj)))
 
 ;;## Traversal Stuff
 
-(extend-protocol IEContents
+(extend-protocol ep/IEContents
   EObject
-  (econtents-internal [this ts]
-    (filter (type-matcher this ts)
+  (ep/econtents-internal [this ts]
+    (filter (p/type-matcher this ts)
             (seq (.eContents this))))
-  (eallcontents-internal [this ts]
-    (filter (type-matcher this ts)
+  (ep/eallcontents-internal [this ts]
+    (filter (p/type-matcher this ts)
             (iterator-seq (.eAllContents this))))
-  (econtainer-internal [this]
+  (ep/econtainer-internal [this]
     (.eContainer this))
 
   EMFModel
-  (econtents-internal [this ts]
-    (filter (type-matcher this ts)
+  (ep/econtents-internal [this ts]
+    (filter (p/type-matcher this ts)
             (seq (.getContents ^Resource (.resource this)))))
-  (eallcontents-internal [this ts]
-    (filter (type-matcher this ts)
+  (ep/eallcontents-internal [this ts]
+    (filter (p/type-matcher this ts)
             (iterator-seq (EcoreUtil/getAllProperContents
                            ^Resource (.resource this) true))))
-  (eallobjects-internal [this ts]
-    (eallcontents-internal this ts))
+  (ep/eallobjects-internal [this ts]
+    (ep/eallcontents-internal this ts))
 
   clojure.lang.IPersistentCollection
-  (econtents-internal [this tm]
-    (mapcat #(econtents-internal % tm) this))
-  (eallcontents-internal [this tm]
-    (mapcat #(eallcontents-internal % tm) this)))
+  (ep/econtents-internal [this tm]
+    (mapcat #(ep/econtents-internal % tm) this))
+  (ep/eallcontents-internal [this tm]
+    (mapcat #(ep/eallcontents-internal % tm) this)))
 
 (defn eallcontents
   "Returns a seq of `x`s direct and indirect contents matching the type spec
 `ts`."
   ([x]
-     (eallcontents-internal x identity))
+     (ep/eallcontents-internal x identity))
   ([x ts]
-     (eallcontents-internal x ts)))
+     (ep/eallcontents-internal x ts)))
 
 (defn econtents
   "Returns a seq of `x`s direct contents matching the type spec `ts`."
   ([x]
-     (econtents-internal x identity))
+     (ep/econtents-internal x identity))
   ([x ts]
-     (econtents-internal x ts)))
+     (ep/econtents-internal x ts)))
 
 (defn eallobjects
   "Returns a seq of all objects in `m` that match the type spec `ts`."
-  ([m] (eallobjects-internal m identity))
-  ([m ts] (eallobjects-internal m ts)))
+  ([m] (ep/eallobjects-internal m identity))
+  ([m ts] (ep/eallobjects-internal m ts)))
 
-(extend-protocol IElements
+(extend-protocol p/IElements
   EMFModel
-  (elements
+  (p/elements
     ([this]
        (eallobjects this))
     ([this ts]
@@ -389,12 +389,12 @@
 
 (def ^{:doc "Returns the EObject containing `eo`."
        :arglists '([eo])}
-  econtainer econtainer-internal)
+  econtainer ep/econtainer-internal)
 
-(extend-protocol IContainer
+(extend-protocol p/IContainer
   EObject
-  (container [this]
-    (econtainer-internal this)))
+  (p/container [this]
+    (ep/econtainer-internal this)))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
@@ -412,15 +412,15 @@
   (cond
    (nil? rs)        identity
    (fn? rs)         rs
-   (prop-name? rs)  (let [n (name rs)]
-                      (fn [^EReference ref]
-                        (= n (.getName ref))))
+   (u/prop-name? rs)  (let [n (name rs)]
+                        (fn [^EReference ref]
+                          (= n (.getName ref))))
    (instance? EReference rs) (fn [r] (= rs r))
    (coll? rs)       (if (seq rs)
                       (apply some-fn (map eref-matcher rs))
                       ;; Empty collection given: (), [], that's also ok
                       identity)
-   :else (errorf "Don't know how to create a reference matcher for %s" rs)))
+   :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
 
 (defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
@@ -432,7 +432,7 @@
                  `---- c [Car]
 
   Given a Foo object and a eref-matcher matching f, returns a seq of the
-  IEReferences b and c, because those are the opposites of the matched f.  Of
+  EReferences b and c, because those are the opposites of the matched f.  Of
   course, if `src-rm` matches only one specific EReference, i.e., it was
   constructed by (eref-matcher fERef) and not (eref-matcher :f)."
   [^EObject eo src-rm]
@@ -446,22 +446,22 @@
   that are contained in `container`.  `reffn` is either erefs-internal or
   ecrossrefs-internal."
   [refed reffn rm container]
-  (filter (fn [o] (member? refed (reffn o rm)))
+  (filter (fn [o] (q/member? refed (reffn o rm)))
           (cond
            (instance? EMFModel container) (eallobjects container)
            (coll? container)              container
-           :else (errorf "container is neither an EMFModel nor a collection: %s"
-                         container))))
+           :else (u/errorf "container is neither an EMFModel nor a collection: %s"
+                           container))))
 
-(extend-protocol IEReferences
+(extend-protocol ep/IEReferences
   EMFModel
-  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
+  (ep/epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
     (let [done (atom #{})
           src-rm (eref-matcher src-rs)
           trg-rm (eref-matcher trg-rs)]
       (for [^EObject src (eallobjects this src-ts)
             ^EReference ref (seq (-> src .eClass .getEAllReferences))
-            :when (not (member? ref @done))
+            :when (not (q/member? ref @done))
             :when (trg-rm ref)
             :let [nthere-rm (eref-matcher ref)
                   oref (.getEOpposite ref)]
@@ -469,12 +469,12 @@
                     (src-rm oref)
                     true)
             trg (reffn src nthere-rm)
-            :when (or (nil? trg-ts) (has-type? trg trg-ts))]
+            :when (or (nil? trg-ts) (p/has-type? trg trg-ts))]
         (do
           (when oref (swap! done conj oref))
           [src trg]))))
   EObject
-  (ecrossrefs-internal [this rm]
+  (ep/ecrossrefs-internal [this rm]
     (mapcat (fn [^EReference r]
               (if-let [x (.eGet this r)]
                 (if (.isMany r)
@@ -485,7 +485,7 @@
                              (not (.isContainer ref))
                              (rm ref))]
               ref)))
-  (erefs-internal [this rm]
+  (ep/erefs-internal [this rm]
     (mapcat (fn [^EReference r]
               (if-let [x (.eGet this r)]
                 (if (.isMany r)
@@ -494,27 +494,27 @@
             (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
                   :when (rm ref)]
               ref)))
-  (inv-erefs-internal [this rm container]
+  (ep/inv-erefs-internal [this rm container]
     (if container
-      (search-ereferencers this erefs-internal rm container)
+      (search-ereferencers this ep/erefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
-        (erefs-internal this (eref-matcher opposites))
-        (error "No opposite IEReferences found."))))
-  (inv-ecrossrefs-internal [this rm container]
+        (ep/erefs-internal this (eref-matcher opposites))
+        (u/error "No opposite EReferences found."))))
+  (ep/inv-ecrossrefs-internal [this rm container]
     (if container
-      (search-ereferencers this ecrossrefs-internal rm container)
+      (search-ereferencers this ep/ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
-        (ecrossrefs-internal this (eref-matcher opposites))
-        (error "No opposite IEReferences found.")))))
+        (ep/ecrossrefs-internal this (eref-matcher opposites))
+        (u/error "No opposite EReferences found.")))))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
   restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
   see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
   ([eo]
-     (ecrossrefs-internal eo identity))
+     (ep/ecrossrefs-internal eo identity))
   ([eo rs]
-     (ecrossrefs-internal eo (eref-matcher rs))))
+     (ep/ecrossrefs-internal eo (eref-matcher rs))))
 
 (defn erefs
   "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
@@ -522,9 +522,9 @@
   `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
   containment refs."
   ([eo]
-     (erefs-internal eo identity))
+     (ep/erefs-internal eo identity))
   ([eo rs]
-     (erefs-internal eo (eref-matcher rs))))
+     (ep/erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
@@ -533,11 +533,11 @@
   if they reference `eo`.  `container` may be either an EMFModel or a
   collection of EObjects."
   ([eo]
-     (inv-erefs-internal eo identity nil))
+     (ep/inv-erefs-internal eo identity nil))
   ([eo rs]
-     (inv-erefs-internal eo (eref-matcher rs) nil))
+     (ep/inv-erefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (inv-erefs-internal eo (eref-matcher rs) container)))
+     (ep/inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
@@ -546,34 +546,34 @@
   are tested if they cross-reference `eo`. `container` may be either an
   EMFModel or a collection of EObjects."
   ([eo]
-     (inv-ecrossrefs-internal eo identity nil))
+     (ep/inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
+     (ep/inv-ecrossrefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
+     (ep/inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
-(extend-protocol IEMFValues2ClojureValues
+(extend-protocol ep/IEMFValues2ClojureValues
   UniqueEList
-  (emf2clj-internal [this] (into (ordered-set) (seq this)))
+  (ep/emf2clj-internal [this] (into (os/ordered-set) (seq this)))
   EMap
-  (emf2clj-internal [this] (into (ordered-map) (seq this)))
+  (ep/emf2clj-internal [this] (into (om/ordered-map) (seq this)))
   EList
-  (emf2clj-internal [this] (into (vector) this))
+  (ep/emf2clj-internal [this] (into (vector) this))
   EObject
-  (emf2clj-internal [this] this)
+  (ep/emf2clj-internal [this] this)
   Number
-  (emf2clj-internal [this] this)
+  (ep/emf2clj-internal [this] this)
   String
-  (emf2clj-internal [this] this)
+  (ep/emf2clj-internal [this] this)
   Boolean
-  (emf2clj-internal [this] this)
+  (ep/emf2clj-internal [this] this)
   nil
-  (emf2clj-internal [_] nil))
+  (ep/emf2clj-internal [_] nil))
 
 (defn emf2clj
   "Converts an EMF value (e.g., an EList) to an appropriate clojure value."
   [val]
-  (emf2clj-internal val))
+  (ep/emf2clj-internal val))
 
 (defn eget-raw
   "Returns the value of `eo`s structural feature `sf`.
@@ -588,14 +588,14 @@
                    sf
                    (.getEStructuralFeature (.eClass eo) (name sf)))]
     (.eGet eo sfeat)
-    (errorf "No such structural feature %s for %s." sf (print-str eo))))
+    (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eget
   "Returns the value of `eo`s structural feature `sf`.
   The value is converted to some clojure type (see IEMFValues2ClojureValues protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
-  (emf2clj-internal (eget-raw eo sf)))
+  (ep/emf2clj-internal (eget-raw eo sf)))
 
 (defn eset!
   "Sets `eo`s structural feature `sf` to `value` and returns `eo`.
@@ -609,7 +609,7 @@
         eo)
       (doto eo
         (.eSet sfeat value)))
-    (errorf "No such structural feature %s for %s." sf (print-str eo))))
+    (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eunset!
   "Unsets `eo`s structural feature `sf` and returns `eo`.
@@ -620,7 +620,7 @@
                    (.getEStructuralFeature (.eClass eo) (name sf)))]
     (doto eo
       (.eUnset sfeat))
-    (errorf "No such structural feature %s for %s." sf (print-str eo))))
+    (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eadd!
   "Adds `value` and `more` values to `eo`s list of attribute/reference values
@@ -669,21 +669,25 @@
 
 ;;### Generic attribute access
 
-(extend-protocol IAttributeValueAccess
+(extend-protocol p/IAttributeValueAccess
   EObject
-  (aval [this attr]
+  (p/aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (if (instance? EAttribute sf)
-        (emf2clj-internal (.eGet this sf))
+        (ep/emf2clj-internal (.eGet this sf))
         (if (nil? sf)
-          (errorf "No such attribute %s at object %s." attr this)
-          (errorf "%s is no attribute of object %s." sf this)))))
-  (set-aval! [this attr val]
+          (u/errorf "No such attribute %s at object %s." attr this)
+          (u/errorf "%s is no attribute of object %s." sf this)))))
+  (p/set-aval! [this attr val]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (cond
-       (nil? sf) (errorf "No such attribute %s at object %s." attr this)
-       (instance? EReference sf) (errorf "%s is no attribute of object %s but a reference." sf this)))
-    (eset! this attr val)))
+       (nil? sf)
+       (u/errorf "No such attribute %s at object %s." attr this)
+
+       (instance? EReference sf)
+       (u/errorf "%s is no attribute of object %s but a reference." sf this)
+
+       :else (eset! this attr val)))))
 
 
 ;;## Edges, i.e., src/trg tuples
@@ -694,15 +698,15 @@
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
   specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m erefs-internal identity identity nil nil))
+     (ep/epairs-internal m ep/erefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m erefs-internal src-rs trg-rs nil nil))
+     (ep/epairs-internal m ep/erefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
+     (ep/epairs-internal m ep/erefs-internal src-rs trg-rs src-ts trg-ts)))
 
-(extend-protocol IRelationships
+(extend-protocol p/IRelationships
   EMFModel
-  (relationships
+  (p/relationships
     ([this]
        (eallpairs this))
     ([this [src-rs [s t]]]
@@ -717,11 +721,11 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m ecrossrefs-internal identity identity nil nil))
+     (ep/epairs-internal m ep/ecrossrefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m ecrossrefs-internal src-rs trg-rs nil nil))
+     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
+     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (defn ^:private econtents-by-ref
   [^EObject eo rm]
@@ -737,11 +741,11 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (epairs-internal m econtents-by-ref identity identity nil nil))
+     (ep/epairs-internal m econtents-by-ref identity identity nil nil))
   ([m src-rs trg-rs]
-     (epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
+     (ep/epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
+     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
@@ -757,21 +761,21 @@
   (let [eo (EcoreUtil/create (if (instance? EClass ecls)
                                ecls
                                (eclassifier ecls)))]
-    (doseq [[prop val] (partition 2 2 (repeatedly #(errorf "attr-vals not paired: %s" props))
+    (doseq [[prop val] (partition 2 2 (repeatedly #(u/errorf "attr-vals not paired: %s" props))
                                   props)]
       (eset! eo prop val))
     eo))
 
-(extend-protocol ICreateElement
+(extend-protocol p/ICreateElement
   EMFModel
-  (create-element! [model cls]
+  (p/create-element! [model cls]
     (let [e (ecreate! cls)]
       (eadd! model e)
       e)))
 
-(extend-protocol ICreateRelationship
+(extend-protocol p/ICreateRelationship
   EMFModel
-  (create-relationship! [this refkw from to]
+  (p/create-relationship! [this refkw from to]
     (let [^EClass ec (eclass from)
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
       (if (.isMany sf)
@@ -780,22 +784,22 @@
 
 ;;## Generic setting of props
 
-(extend-protocol IModifyAdjacencies
+(extend-protocol p/IModifyAdjacencies
   EObject
-  (set-adjs! [o role os]
+  (p/set-adjs! [o role os]
     (eset! o role os))
-  (set-adj! [o1 role o2]
+  (p/set-adj! [o1 role o2]
     (eset! o1 role o2))
-  (add-adjs! [o role os]
+  (p/add-adjs! [o role os]
     (apply eadd! o role (first os) (rest os)))
-  (add-adj! [o1 role o2]
+  (p/add-adj! [o1 role o2]
     (eadd! o1 (name role) o2)))
 
 ;;## EObject Deletion
 
-(extend-protocol IDeletable
+(extend-protocol p/IDeletable
   EObject
-  (delete!
+  (p/delete!
     ([this]
        (EcoreUtil/delete this true)
        this)
@@ -810,8 +814,8 @@
   contents of `eo`.
 
   If `eo` isn't cross-referenced unidirectional, this is equivalent
-  to `(delete! eo)` but faster.  If `eo` is cross-referenced unidirectional,
-  these objects will still reference `eo` after the call, so use `delete!`
+  to `(p/delete! eo)` but faster.  If `eo` is cross-referenced unidirectional,
+  these objects will still reference `eo` after the call, so use `p/delete!`
   instead of `edelete!` in that case."
   ([^EObject eo]
      (edelete! eo true))
@@ -835,44 +839,44 @@
         (let [ub (.getUpperBound sf)]
           (if (== 1 ub)
             (.eGet eo sf)
-            (errorf "Must not call adj on EReference '%s' with upper bound %s."
-                    sf ub)))
+            (u/errorf "Must not call adj on EReference '%s' with upper bound %s."
+                      sf ub)))
         (.eGet eo sf))
-      (errorf "'%s' at %s is no EReference." sf eo))
+      (u/errorf "'%s' at %s is no EReference." sf eo))
     (when-not allow-unknown-ref
-      (errorf "No such structural feature '%s' at %s." ref eo))))
+      (u/errorf "No such structural feature '%s' at %s." ref eo))))
 
-(extend-protocol IAdjacencies
+(extend-protocol p/IAdjacencies
   EObject
-  (adj-internal [this roles]
+  (p/adj-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) false true))]
         (recur a (rest roles)))
       this))
-  (adj*-internal [this roles]
+  (p/adj*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (adjs-internal [this roles]
+  (p/adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) false false)]
-        (r/mapcat #(adjs-internal % (rest roles))
+        (r/mapcat #(p/adjs-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this]))
-  (adjs*-internal [this roles]
+  (p/adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) true false)]
-        (r/mapcat #(adjs*-internal % (rest roles))
+        (r/mapcat #(p/adjs*-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this])))
 
 ;;# Describing EObjects and EClasses
 
-(extend-protocol IDescribable
-  org.eclipse.emf.ecore.EClass
-  (describe [this]
-    {:name (qname this)
+(extend-protocol p/IDescribable
+  EClass
+  (p/describe [this]
+    {:name (p/qname this)
      :abstract (.isAbstract this)
      :interface (.isInterface this)
      :superclasses (seq (.getESuperTypes this))
@@ -884,9 +888,9 @@
                        (map (fn [^org.eclipse.emf.ecore.EReference ref]
                               [(keyword (.getName ref)) (.getEReferenceType ref)])
                             (seq (.getEReferences this))))})
-  org.eclipse.emf.ecore.EObject
-  (describe [this]
-    {:eclass (qname this)
+  EObject
+  (p/describe [this]
+    {:eclass (p/qname this)
      :container (econtainer this)
      :attr-slots (into {}
                        (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
@@ -894,10 +898,10 @@
                                 [kw (eget this kw)]))
                             (seq (.getEAllAttributes (.eClass this)))))
      :ref-slots (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
-                              (let [kw (keyword (.getName ref))]
-                                [kw (eget this kw)]))
-                            (seq (.getEAllReferences (.eClass this)))))}))
+                      (map (fn [^org.eclipse.emf.ecore.EReference ref]
+                             (let [kw (keyword (.getName ref))]
+                               [kw (eget this kw)]))
+                           (seq (.getEAllReferences (.eClass this)))))}))
 
 ;;# Printing
 
@@ -920,7 +924,7 @@
   [^EClass ec ^java.io.Writer out]
   (.write out
           (str "#<EClass "
-               (qname ec)
+               (p/qname ec)
                (feature-str
                 [[(.isAbstract ec)  :abstract]
                  [(.isInterface ec) :interface]])
@@ -929,7 +933,7 @@
 (defmethod print-method EEnum
   [^EEnum en ^java.io.Writer out]
   (.write out
-          (str "#<EEnum " (qname en)
+          (str "#<EEnum " (p/qname en)
                #_(feature-str
                   [[(.isSerializable en) :serializable]])
                ">")))
@@ -937,7 +941,7 @@
 (defmethod print-method EDataType
   [^EDataType edt ^java.io.Writer out]
   (.write out
-          (str "#<EDataType " (qname edt)
+          (str "#<EDataType " (p/qname edt)
                #_(feature-str
                   [[(.isSerializable edt) :serializable]])
                ">")))
@@ -949,7 +953,7 @@
                (if (instance? EcorePackage ep)
                  "EcorePackage "
                  "EPackage ")
-               (qname ep)
+               (p/qname ep)
                (let [m (into {}
                              (map (fn [[v k]]
                                     (when v
@@ -983,5 +987,3 @@
                  "@" (or (EcoreUtil/getID eo)
                          (Integer/toHexString (hash eo)))
                  ">"))))
-
-
