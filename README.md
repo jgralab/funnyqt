@@ -31,25 +31,14 @@ Getting started is really simple:
 **Installation** section of the
 [Leiningen](https://github.com/technomancy/leiningen) page.
 
-2. Fetch the FunnyQT dependencies:
+2. Just to be sure everything's fine, you might want to execute the test cases.
 
 ```
 $ cd funnyqt
-$ lein deps
-```
-
-3. Just to be sure everything's fine, you might want to execute the test cases.
-
-```
 $ lein test
 ```
 
-4. You are ready to go.  Start a REPL and start hacking.  (When using the plain
-REPL instead of the REPLs in a sophisticated IDE such as
-[SLIME](http://common-lisp.net/project/slime/) or
-[Counterclockwise](http://code.google.com/p/counterclockwise/), it's highly
-recommended to have [rlwrap](http://utopia.knoware.nl/~hlub/rlwrap/#rlwrap)
-installed to get some better editing and history support.)
+3. You are ready to go.  Start a REPL and start hacking.
 
 ```
 $ lein repl
@@ -66,7 +55,7 @@ user=> (vseq g 'localities.City)
 
 ## License
 
-Copyright (C) 2011-2012 The JGraLab Team <ist@uni-koblenz.de>
+Copyright (C) 2011-2013 Tassilo Horn & The JGraLab Team <ist@uni-koblenz.de>
 
 Distributed under the
 [General Public License, Version 3](http://www.gnu.org/copyleft/gpl.html).
