@@ -39,7 +39,7 @@
             (or (get (@e/*img* (first subs)) arch)
                 (recur (rest subs)))))
         (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                arch gec @e/*img*))))
+                  arch gec @e/*img*))))
 
 (defn ^:private arch-internal
   "Returns the archetype of `img` for GraphElementClass `gec`.
@@ -52,7 +52,7 @@
             (or (get (@e/*arch* (first subs)) img)
                 (recur (rest subs)))))
         (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                img gec @e/*arch*))))
+                  img gec @e/*arch*))))
 
 ;;# Creating Elements
 

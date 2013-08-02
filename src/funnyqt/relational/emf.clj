@@ -26,7 +26,7 @@
             (ccl/succeed a)
             (ccl/fail a))
 
-          :elso (ccl/to-stream
+          :else (ccl/to-stream
                  (->> (map #(ccl/unify a eo %)
                            (concat
                             (map (partial tmp/make-wrapper m)
@@ -74,32 +74,34 @@
               (->> (map #(ccl/unify a eo %)
                         (emf/eallobjects m))
                    (remove not))))))))
-  ([m e t]
-     (fn [a]
-       (let [ge (cclp/walk a e)
-             gt (cclp/walk a t)]
-         (cond
-          (or (and (ru/ground? ge) (not (emf/eobject? ge)))
-              (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
-          (ccl/fail a)
+  ([m eo t]
+     (if tmp/*make-tmp-elements*
+       (tmp-eobjecto m eo t)
+       (fn [a]
+         (let [geo (cclp/walk a eo)
+               gt (cclp/walk a t)]
+           (cond
+            (or (and (ru/ground? geo) (not (emf/eobject? geo)))
+                (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
+            (ccl/fail a)
 
-          (and (ru/ground? ge) (ru/ground? gt))
-          (if (p/has-type? ge gt)
-            (ccl/succeed a)
-            (ccl/fail a))
+            (and (ru/ground? geo) (ru/ground? gt))
+            (if (p/has-type? geo gt)
+              (ccl/succeed a)
+              (ccl/fail a))
 
-          (ru/ground? ge)
-          (ccl/unify a t (p/qname ge))
+            (ru/ground? geo)
+            (ccl/unify a t (p/qname geo))
 
-          (ru/ground? gt)
-          (ccl/to-stream
-           (->> (map #(ccl/unify a e %) (emf/eallobjects m t))
-                (remove not)))
+            (ru/ground? gt)
+            (ccl/to-stream
+             (->> (map #(ccl/unify a eo %) (emf/eallobjects m t))
+                  (remove not)))
 
-          :else (ccl/to-stream
-                 (->> (for [elem (emf/eallobjects m t)]
-                        (ccl/unify a [e t] [elem (p/qname elem)]))
-                      (remove not))))))))
+            :else (ccl/to-stream
+                   (->> (for [elem (emf/eallobjects m t)]
+                          (ccl/unify a [eo t] [elem (p/qname elem)]))
+                        (remove not)))))))))
 
 (defn ^:private attribute-list [eo]
   (seq (.getEAllAttributes (.eClass ^EObject eo))))
@@ -173,7 +175,7 @@
        (not (keyword? gref))
        (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
 
-       (and (tmp/wrapper-element? geo) (tmp/wrapper-element? greo))
+       (and (tmp/wrapper-element? geo) (tmp/tmp-or-wrapper-element? greo))
        (if (tmp/add-ref geo gref greo)
          (ccl/succeed a)
          (ccl/fail a))
@@ -304,26 +306,28 @@
           ~@(when nssym
               `[(ns ~nssym)])
           ;; Metamodel specific relations
-          ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                    (emf/metamodel-epackages ecore-model))
-              (concat
-               (doall
-                (mapcat
-                 (fn [^EClass ecl]
-                   (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                  (seq (.getEAttributes ecl)))]
-                     (swap! atts
-                            #(update-in %1 [%2] conj ecl)
-                            a))
-                   (doseq [r (map #(keyword (.getName ^EReference %))
-                                  (seq (.getEReferences ecl)))]
-                     (swap! refs
-                            #(update-in %1 [%2] conj ecl)
-                            r))
-                   (create-eclass-relations ecl))
-                 (emf/eclassifiers)))
-               (for [^EAttribute a @atts]
-                 (create-eattribute-relation a))
-               (for [^EReference r @refs]
-                 (create-ereference-relation r))))
+          (emf/with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
+                                   (emf/metamodel-epackages ecore-model))
+            ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
+                                      (emf/metamodel-epackages ecore-model))
+                (concat
+                 (doall
+                  (mapcat
+                   (fn [^EClass ecl]
+                     (doseq [a (map #(keyword (.getName ^EAttribute %))
+                                    (seq (.getEAttributes ecl)))]
+                       (swap! atts
+                              #(update-in %1 [%2] conj ecl)
+                              a))
+                     (doseq [r (map #(keyword (.getName ^EReference %))
+                                    (seq (.getEReferences ecl)))]
+                       (swap! refs
+                              #(update-in %1 [%2] conj ecl)
+                              r))
+                     (create-eclass-relations ecl))
+                   (emf/eclassifiers)))
+                 (for [^EAttribute a @atts]
+                   (create-eattribute-relation a))
+                 (for [^EReference r @refs]
+                   (create-ereference-relation r)))))
           (in-ns '~(ns-name old-ns))))))

@@ -1,125 +1,115 @@
 (ns funnyqt.bidi-test
-  (:use funnyqt.bidi)
-  (:refer-clojure :exclude [==])
-  (:use clojure.core.logic)
-  (:require [funnyqt.relational.tg :as rtg]
-	    [funnyqt.relational :as r]
-	    [funnyqt.relational.tmp-elem :as tmp]
-	    [funnyqt.tg :as tg]
-	    [funnyqt.visualization :as viz]
-	    [clojure.test :as test]
-	    [funnyqt.protocols :as p]))
+  (:require [clojure.test :as test]
+            [funnyqt.bidi :as bidi]
+            [funnyqt.relational.tg :as rtg]
+            [funnyqt.relational.emf :as remf]
+            [funnyqt.tg :as tg]
+            [funnyqt.emf :as emf]
+            [funnyqt.visualization :as viz]
+            [funnyqt.protocols :as p]))
 
-(defn print-counts [g]
-  (println "Edges")
-  (println "=====")
-  (doseq [ec (.getEdgeClasses (.getGraphClass (tg/schema g)))
-	  :let [ecsym (funnyqt.protocols/qname ec)]]
-    (println ecsym "->" (tg/ecount g (symbol (str ecsym "!")))))
-  (println "Vertices")
-  (println "========")
-  (doseq [ec (.getVertexClasses (.getGraphClass (tg/schema g)))
-	  :let [ecsym (funnyqt.protocols/qname ec)]]
-    (println ecsym "->" (tg/vcount g (symbol (str ecsym "!"))))))
+;;* Example AddressBook Graph
 
-(defn make-example-addressbook []
+(defn make-example-addressbook-tg []
   (let [g (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))
-	ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
-	jim (tg/create-vertex! g 'Contact
-			       :id (int 1)
-			       :firstName "Jim"
-			       :lastName "Jones"
-			       :email "jim@gmail.com")
-	tim (tg/create-vertex! g 'Contact
-			       :id (int 2)
-			       :firstName "Tim"
-			       :lastName "Turner"
-			       :email "tim@mozilla.org")
-	steve (tg/create-vertex! g 'Contact
-				 :id (int 3)
-				 :firstName "Steve"
-				 :lastName "Stevenson"
-				 :email "steve@ibm.com")
-	mozilla (tg/create-vertex! g 'Organization
-				   :id (int 4)
-				   :name "Mozilla Foundation"
-				   :homepage "www.mozilla.org"
-				   :employees [tim])
-	ibm (tg/create-vertex! g 'Organization
-			       :id (int 5)
-			       :name "IBM"
-			       :homepage "www.ibm.com"
-			       :employees [steve tim])
-	cat-work (tg/create-vertex! g 'Category :name "Work"
-				    :addressBook ab
-				    :contacts [steve]
-				    :organizations ibm)
-	cat-private (tg/create-vertex! g 'Category :name "Private"
-				       :addressBook ab
-				       :contacts [jim tim]
-				       :organizations [mozilla])]
+        ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
+        jim (tg/create-vertex! g 'Contact
+                               :id (int 1)
+                               :firstName "Jim"
+                               :lastName "Jones"
+                               :email "jim@gmail.com")
+        tim (tg/create-vertex! g 'Contact
+                               :id (int 2)
+                               :firstName "Tim"
+                               :lastName "Turner"
+                               :email "tim@mozilla.org")
+        steve (tg/create-vertex! g 'Contact
+                                 :id (int 3)
+                                 :firstName "Steve"
+                                 :lastName "Stevenson"
+                                 :email "steve@ibm.com")
+        mozilla (tg/create-vertex! g 'Organization
+                                   :id (int 4)
+                                   :name "Mozilla Foundation"
+                                   :homepage "www.mozilla.org"
+                                   :employees [tim])
+        ibm (tg/create-vertex! g 'Organization
+                               :id (int 5)
+                               :name "IBM"
+                               :homepage "www.ibm.com"
+                               :employees [steve tim])
+        cat-work (tg/create-vertex! g 'Category :name "Work"
+                                    :addressBook ab
+                                    :contacts [steve]
+                                    :organizations ibm)
+        cat-private (tg/create-vertex! g 'Category :name "Private"
+                                       :addressBook ab
+                                       :contacts [jim tim]
+                                       :organizations [mozilla])]
     g))
 
-(rtg/generate-schema-relations "test/input/addressbook.tg" ab)
+;;* Transformation TG <-> TG
 
-(deftransformation addressbook2addressbook [l r]
+(rtg/generate-schema-relations "test/input/addressbook.tg" ab-tg)
+
+(bidi/deftransformation addressbook-tg2addressbook-tg [l r]
   (^:top addressbook2addressbook
-	 :left [(ab/+AddressBook l ?addrbook1)
-		(ab/+name l ?addrbook1 ?n)]
-	 :right [(ab/+AddressBook r ?addrbook2)
-		 (ab/+name r ?addrbook2 ?n)]
-	 :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+         :left [(ab-tg/+AddressBook l ?addrbook1)
+                (ab-tg/+name l ?addrbook1 ?n)]
+         :right [(ab-tg/+AddressBook r ?addrbook2)
+                 (ab-tg/+name r ?addrbook2 ?n)]
+         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
   (category2category
-   :left [(ab/+ContainsCategory l ?cc1 ?ab1 ?cat1)
-	  (ab/+Category l ?cat1)
-	  (ab/+name l ?cat1 ?n)]
-   :right [(ab/+ContainsCategory r ?cc2 ?ab2 ?cat2)
-	   (ab/+Category r ?cat2)
-	   (ab/+name r ?cat2 ?n)]
+   :left [(ab-tg/+ContainsCategory l ?cc1 ?ab1 ?cat1)
+          (ab-tg/+Category l ?cat1)
+          (ab-tg/+name l ?cat1 ?n)]
+   :right [(ab-tg/+ContainsCategory r ?cc2 ?ab2 ?cat2)
+           (ab-tg/+Category r ?cat2)
+           (ab-tg/+name r ?cat2 ?n)]
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
-	   (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
+           (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
   ;; The following 2 relations are of course non-sense.  They only serve to
   ;; check if the (transitive) :includes stuff works.
   (^:abstract have-same-ids3
-	      :left [(ab/+id l ?ex1 ?id)]
-	      :right [(ab/+id r ?ex2 ?id)])
+              :left [(ab-tg/+id l ?ex1 ?id)]
+              :right [(ab-tg/+id r ?ex2 ?id)])
   (^:abstract have-same-ids2
-	      :left [(ab/+id l ?e1 ?id)]
-	      :right [(ab/+id r ?e2 ?id)])
+              :left [(ab-tg/+id l ?e1 ?id)]
+              :right [(ab-tg/+id r ?e2 ?id)])
   (^:abstract have-same-ids
-	      :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
-			 (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
-	      :left [(ab/+id l ?entry1 ?id)]
-	      :right [(ab/+id r ?entry2 ?id)])
+              :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+                         (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+              :left [(ab-tg/+id l ?entry1 ?id)]
+              :right [(ab-tg/+id r ?entry2 ?id)])
   (contact2contact
    :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
-   :left [(ab/+->contacts l ?cat1 ?contact1)
-	  (ab/+Contact l ?contact1)
-	  (ab/+firstName l ?contact1 ?fn)
-	  (ab/+lastName l ?contact1 ?ln)
-	  (ab/+email l ?contact1 ?mail)]
-   :right [(ab/+->contacts r ?cat2 ?contact2)
-	   (ab/+Contact r ?contact2)
-	   (ab/+firstName r ?contact2 ?fn)
-	   (ab/+lastName r ?contact2 ?ln)
-	   (ab/+email r ?contact2 ?mail)])
+   :left [(ab-tg/+->contacts l ?cat1 ?contact1)
+          (ab-tg/+Contact l ?contact1)
+          (ab-tg/+firstName l ?contact1 ?fn)
+          (ab-tg/+lastName l ?contact1 ?ln)
+          (ab-tg/+email l ?contact1 ?mail)]
+   :right [(ab-tg/+->contacts r ?cat2 ?contact2)
+           (ab-tg/+Contact r ?contact2)
+           (ab-tg/+firstName r ?contact2 ?fn)
+           (ab-tg/+lastName r ?contact2 ?ln)
+           (ab-tg/+email r ?contact2 ?mail)])
   (org2org
    :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
-   :left [(ab/+ContainsOrganization l ?co1 ?cat1 ?org1)
-	  (ab/+Organization l ?org1)
-	  (ab/+homepage l ?org1 ?hp)
-	  (ab/+name l ?org1 ?n)]
-   :right [(ab/+ContainsOrganization r ?co2 ?cat2 ?org2)
-	   (ab/+Organization r ?org2)
-	   (ab/+homepage r ?org2 ?hp)
-	   (ab/+name r ?org2 ?n)])
+   :left [(ab-tg/+ContainsOrganization l ?co1 ?cat1 ?org1)
+          (ab-tg/+Organization l ?org1)
+          (ab-tg/+homepage l ?org1 ?hp)
+          (ab-tg/+name l ?org1 ?n)]
+   :right [(ab-tg/+ContainsOrganization r ?co2 ?cat2 ?org2)
+           (ab-tg/+Organization r ?org2)
+           (ab-tg/+homepage r ?org2 ?hp)
+           (ab-tg/+name r ?org2 ?n)])
   (^:top connect-employees
-	 :when [(relateo org2org :?org1 ?org1 :?org2 ?org2)
-		(relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
-	 :left [(ab/+->employees l ?org1 ?contact1)]
-	 :right [(ab/+->employees r ?org2 ?contact2)]))
+         :when [(bidi/relateo org2org :?org1 ?org1 :?org2 ?org2)
+                (bidi/relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :left [(ab-tg/+->employees l ?org1 ?contact1)]
+         :right [(ab-tg/+->employees r ?org2 ?contact2)]))
 
-(defn assert-same-addressbooks [l r]
+(defn assert-same-addressbooks-tg-tg [l r]
   (test/is (= (tg/vcount l 'AddressBook)          (tg/vcount r 'AddressBook)))
   (test/is (= (tg/vcount l 'Category)             (tg/vcount r 'Category)))
   (test/is (= (tg/ecount l 'ContainsCategory)     (tg/ecount r 'ContainsCategory)))
@@ -129,34 +119,144 @@
   (test/is (= (tg/ecount l 'ContainsOrganization) (tg/ecount r 'ContainsOrganization)))
   (test/is (= (tg/ecount l 'HasEmployee)          (tg/ecount r 'HasEmployee))))
 
-(test/deftest test-addressbook2addressbook
-  (let [l (make-example-addressbook)
-	r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
+(test/deftest test-addressbook-tg2addressbook-tg
+  (let [l (make-example-addressbook-tg)
+        r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
     ;; Transform l to r
-    (print "addressbook2addressbook l -> r (empty)                ")
-    (time (addressbook2addressbook l r :right))
-    (assert-same-addressbooks l r)
+    (print "addressbook-tg2addressbook-tg l -> r (empty)                ")
+    (time (addressbook-tg2addressbook-tg l r :right))
+    (assert-same-addressbooks-tg-tg l r)
     ;; Do it again.  It shouldn't modify anything.
-    (print "addressbook2addressbook l -> r (both already in sync) ")
-    (time (addressbook2addressbook l r :right))
-    (assert-same-addressbooks l r)
+    (print "addressbook-tg2addressbook-tg l -> r (both already in sync) ")
+    (time (addressbook-tg2addressbook-tg l r :right))
+    (assert-same-addressbooks-tg-tg l r)
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
-    (print "addressbook2addressbook l <- r (both already in sync) ")
-    (time (addressbook2addressbook l r :left))
-    (assert-same-addressbooks l r)
+    (print "addressbook-tg2addressbook-tg l <- r (both already in sync) ")
+    (time (addressbook-tg2addressbook-tg l r :left))
+    (assert-same-addressbooks-tg-tg l r)
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
-    (print "addressbook2addressbook l <- r (r has a new Contact)  ")
+    (print "addressbook-tg2addressbook-tg l <- r (r has a new Contact)  ")
     (let [tim (tg/create-vertex! r 'Contact
-				 :id (int 6)
-				 :firstName "Tim"
-				 :lastName "Taylor"
-				 :email "tim@gmail.com")
-	  cat-work (first (filter #(= (tg/value % :name) "Work")
-				  (tg/vseq r 'Category)))]
+                                 :id (int 6)
+                                 :firstName "Tim"
+                                 :lastName "Taylor"
+                                 :email "tim@gmail.com")
+          cat-work (first (filter #(= (tg/value % :name) "Work")
+                                  (tg/vseq r 'Category)))]
       (p/add-adj! cat-work :contacts tim))
-    (time (addressbook2addressbook l r :left))
-    (assert-same-addressbooks l r)
+    (time (addressbook-tg2addressbook-tg l r :left))
+    (assert-same-addressbooks-tg-tg l r)
     #_(do
-	(future (viz/print-model l :gtk))
-	(viz/print-model r :gtk))))
+        (future (viz/print-model l :gtk))
+        (viz/print-model r :gtk))))
+
+;;* Transformation TG <-> EMF
+
+(remf/generate-ecore-model-relations "test/input/AddressBook.ecore" ab-emf)
+
+(bidi/deftransformation addressbook-tg2addressbook-emf [l r]
+  (^:top addressbook2addressbook
+         :left [(ab-tg/+AddressBook l ?addrbook1)
+                (ab-tg/+name l ?addrbook1 ?n)]
+         :right [(ab-emf/+AddressBook r ?addrbook2)
+                 (ab-emf/+name r ?addrbook2 ?n)]
+         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+  (category2category
+   :left [(ab-tg/+->categories l ?ab1 ?cat1)
+          (ab-tg/+Category l ?cat1)
+          (ab-tg/+name l ?cat1 ?n)]
+   :right [(ab-emf/+->categories r ?ab2 ?cat2)
+           (ab-emf/+Category r ?cat2)
+           (ab-emf/+name r ?cat2 ?n)]
+   :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
+           (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
+  ;; The following 2 relations are of course non-sense.  They only serve to
+  ;; check if the (transitive) :includes stuff works.
+  (^:abstract have-same-ids3
+              :left [(ab-tg/+id l ?ex1 ?id)]
+              :right [(ab-emf/+id r ?ex2 ?id)])
+  (^:abstract have-same-ids2
+              :left [(ab-tg/+id l ?e1 ?id)]
+              :right [(ab-emf/+id r ?e2 ?id)])
+  (^:abstract have-same-ids
+              :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+                         (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+              :left [(ab-tg/+id l ?entry1 ?id)]
+              :right [(ab-emf/+id r ?entry2 ?id)])
+  (contact2contact
+   :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
+   :left [(ab-tg/+->contacts l ?cat1 ?contact1)
+          (ab-tg/+Contact l ?contact1)
+          (ab-tg/+firstName l ?contact1 ?fn)
+          (ab-tg/+lastName l ?contact1 ?ln)
+          (ab-tg/+email l ?contact1 ?mail)]
+   :right [(ab-emf/+->entries r ?cat2 ?contact2)
+           (ab-emf/+Contact r ?contact2)
+           (ab-emf/+firstName r ?contact2 ?fn)
+           (ab-emf/+lastName r ?contact2 ?ln)
+           (ab-emf/+email r ?contact2 ?mail)])
+  (org2org
+   :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
+   :left [(ab-tg/+->organizations l ?cat1 ?org1)
+          (ab-tg/+Organization l ?org1)
+          (ab-tg/+homepage l ?org1 ?hp)
+          (ab-tg/+name l ?org1 ?n)]
+   :right [(ab-emf/+->entries r ?cat2 ?org2)
+           (ab-emf/+Organization r ?org2)
+           (ab-emf/+homepage r ?org2 ?hp)
+           (ab-emf/+name r ?org2 ?n)])
+  (^:top connect-employees
+         :when [(bidi/relateo org2org :?org1 ?org1 :?org2 ?org2)
+                (bidi/relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :left [(ab-tg/+->employees l ?org1 ?contact1)]
+         :right [(ab-emf/+->employees r ?org2 ?contact2)]))
+
+(defn assert-same-addressbooks-tg-emf [l r]
+  (test/is (= (tg/vcount l 'AddressBook)
+              (count (emf/eallobjects r 'AddressBook))))
+  (test/is (= (tg/vcount l 'Category)
+              (count (emf/eallobjects r 'Category))))
+  (test/is (= (tg/ecount l 'ContainsCategory)
+              (count (emf/eallpairs r :addressBook :categories))))
+  (test/is (= (tg/vcount l 'Contact)
+              (count (emf/eallobjects r 'Contact))))
+  (test/is (= (tg/vcount l 'Organization)
+              (count (emf/eallobjects r 'Organization))))
+  (test/is (= (+ (tg/ecount l 'ContainsContact)
+                 (tg/ecount l 'ContainsOrganization))
+              (count (emf/eallpairs r :category :entries))))
+  (test/is (= (tg/ecount l 'HasEmployee)
+              (count (emf/eallpairs r :employer :employee)))))
+
+(test/deftest test-addressbook-tg2addressbook-emf
+  (let [l (make-example-addressbook-tg)
+        r (emf/new-model)]
+    ;; Transform l to r
+    (print "addressbook-tg2addressbook-emf l -> r (empty)                ")
+    (time (addressbook-tg2addressbook-emf l r :right))
+    (assert-same-addressbooks-tg-emf l r)
+    ;; Do it again.  It shouldn't modify anything.
+    (print "addressbook-tg2addressbook-emf l -> r (both already in sync) ")
+    (time (addressbook-tg2addressbook-emf l r :right))
+    (assert-same-addressbooks-tg-emf l r)
+    ;; Do it in the other direction.  Again, it shouldn't modify anything.
+    (print "addressbook-tg2addressbook-emf l <- r (both already in sync) ")
+    (time (addressbook-tg2addressbook-emf l r :left))
+    (assert-same-addressbooks-tg-emf l r)
+    ;; Now add a new Contact to the right addressbook and synchronize it to the
+    ;; left.
+    (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
+    (let [tim (emf/ecreate! 'Contact
+                            :id (int 6)
+                            :firstName "Tim"
+                            :lastName "Taylor"
+                            :email "tim@gmail.com")
+          cat-work (first (filter #(= (emf/eget % :name) "Work")
+                                  (emf/eallobjects r 'Category)))]
+      (p/add-adj! cat-work :entries tim))
+    (time (addressbook-tg2addressbook-emf l r :left))
+    (assert-same-addressbooks-tg-emf l r)
+    #_(do
+        (future (viz/print-model l :gtk))
+        (viz/print-model r :gtk))))
