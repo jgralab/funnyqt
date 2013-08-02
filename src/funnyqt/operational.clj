@@ -1,8 +1,7 @@
 (ns funnyqt.operational
   "Stuff for writing QVT Operational Mappings like transformations."
-  (:use [funnyqt.utils :only [error errorf]])
-  (:use [funnyqt.query :only [the]])
-  (:require [clojure.tools.macro :as m]))
+  (:require [clojure.tools.macro :as m]
+            [funnyqt.utils       :as u]))
 
 ;;# Mappings
 
@@ -14,19 +13,19 @@
        :doc "Actions deferred to the end of the transformation."}
   *deferred-actions*)
 
-(defn- inject-trace-recorder [mapping args form]
+(defn ^:private inject-trace-recorder [mapping args form]
   `(let [result# ~form]
      (swap! *traceability-mappings* assoc-in [~mapping ~(first args)] result#)
      result#))
 
-(defn- tracify-spec [mapping more]
+(defn ^:private tracify-spec [mapping more]
   (cond
    (vector? (first more)) (tracify-spec mapping (list more))
    (seq? more) (for [m more :let [args (first m), body (next m)]]
                  (if (seq args)
                    `(~args ~(inject-trace-recorder mapping args `(do ~@body)))
                    `(~args ~@body)))
-   :else (errorf "Syntax error: %s" more)))
+   :else (u/errorf "Syntax error: %s" more)))
 
 ;; TODO: Man will vermutlich ne Variante, bei der man bestimmen kann, für
 ;; welche Parameter Trace-Links erzeugt werden.
@@ -52,7 +51,7 @@
   (defmapping foo1
     [x] (do x))
   (defmapping foo2
-    "bla"
+    "here's some docs."
     ([] (foo 1))
     ([a] (foo a)
        (foo a a))
@@ -64,7 +63,7 @@
   {:arglists '([[mspecs] & body])}
   [mspecs & body]
   (when-not (vector? mspecs)
-    (errorf "No mspec vector in letmapping!"))
+    (u/errorf "No mspec vector in letmapping!"))
   `(letfn [~@(map (fn [[n & more]]
                     `(~n ~@(tracify-spec n more)))
                mspecs)]
@@ -78,8 +77,8 @@
                 ([a] (foo a)
                    (foo a a))
                 ([a b] (foo a b)))]
-     (foo1)
-     (foo2)))
+    (foo1)
+    (foo2)))
 
 
 ;;# Deferring
@@ -123,7 +122,7 @@
         body (next more)]
     ;; Validate
     (when-not (vector? args)
-      (errorf "No args vector specified for transformation %s." args))
+      (u/errorf "No args vector specified for transformation %s." args))
     `(defn ~tname ~(meta tname)
        ~args
        (binding [*traceability-mappings* (atom {})
@@ -132,4 +131,3 @@
            (doseq [da# @*deferred-actions*]
              (da#))
            r#)))))
-

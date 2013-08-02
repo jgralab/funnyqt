@@ -1,16 +1,16 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
-  (:use [funnyqt.utils :only [errorf pr-identity prewalk]])
-  (:use [funnyqt.query :only [the]])
-  (:use [funnyqt.pmatch])
-  (:use funnyqt.protocols)
-  (:use [funnyqt.query :only [member?]])
-  (:require [clojure.tools.macro :as m])
-  (:require [funnyqt.visualization :as viz])
-  (:import (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
-                        JPanel JLabel JScrollPane JComboBox Action)
-           (java.awt.event ActionEvent ItemEvent ItemListener)
-           (java.awt GridBagLayout GridBagConstraints)))
+  (:require [clojure.tools.macro   :as m]
+            [funnyqt.visualization :as viz]
+            [funnyqt.utils         :as u]
+            [funnyqt.query         :as q]
+            [funnyqt.protocols     :as p]
+            [funnyqt.pmatch        :as pm])
+  (:import
+   (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
+                JPanel JLabel JScrollPane JComboBox Action)
+   (java.awt.event ActionEvent ItemEvent ItemListener)
+   (java.awt GridBagLayout GridBagConstraints)))
 
 
 ;;# Rules
@@ -58,19 +58,19 @@
   Existing (fnname ...) forms are also wrapped by bindings of *as-test* to
   false.  Doesn't replace in nested `loop` or `fn` forms."
   [fnname form]
-  (prewalk (fn [el]
-             (if (and (seq? el)
-                      (or (= (first el) 'recur)
-                          (= (first el) fnname)))
-               `(binding [*as-test* false]
-                  (~fnname ~@(next el)))
-               el))
-           (fn [el]
-             (and (seq? el)
-                  (let [x (first el)]
-                    (or (= x `clojure.core/loop)
-                        (= x `clojure.core/fn)))))
-           form))
+  (u/prewalk (fn [el]
+               (if (and (seq? el)
+                        (or (= (first el) 'recur)
+                            (= (first el) fnname)))
+                 `(binding [*as-test* false]
+                    (~fnname ~@(next el)))
+                 el))
+             (fn [el]
+               (and (seq? el)
+                    (let [x (first el)]
+                      (or (= x `clojure.core/loop)
+                          (= x `clojure.core/fn)))))
+             form))
 
 (defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
@@ -80,11 +80,11 @@
     (if (vector? (first more))
       ;; match vector given
       (let [match (first more)
-            match (transform-pattern-vector name match args)
-            matchsyms (bindings-to-arglist match)
+            match (pm/transform-pattern-vector name match args)
+            matchsyms (pm/bindings-to-arglist match)
             body (next more)]
         `(~args
-          (let [matches# (pattern-for ~match ~matchsyms)]
+          (let [matches# (pm/pattern-for ~match ~matchsyms)]
             (if *as-pattern*
               matches#
               (when-let [~matchsyms (first matches#)]
@@ -102,7 +102,7 @@
       ;; No match given
       `(~args
         (cond
-         *as-pattern* (errorf "Can't apply rule %s without pattern as pattern!" name)
+         *as-pattern* (u/errorf "Can't apply rule %s without pattern as pattern!" name)
          *as-test*    (fn [] ~@(unrecur name more))
          :else        (do ~@more))))))
 
@@ -118,9 +118,9 @@
         [name more] (if name
                       (m/name-with-attributes name more)
                       [name more])]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              *pattern-expansion-context*
-                                              (:pattern-expansion-context (meta *ns*)))]
+    (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                                 pm/*pattern-expansion-context*
+                                                 (:pattern-expansion-context (meta *ns*)))]
       `(fn ~@(when name [name])
          ~@(if (seq? (first more))
              (mapv (partial convert-spec name) more)
@@ -132,10 +132,10 @@
   {:arglists '([[rspecs] & body])}
   [rspecs & body]
   (when-not (vector? rspecs)
-    (errorf "No rspec vector in letmapping!"))
-  (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                            *pattern-expansion-context*
-                                            (:pattern-expansion-context (meta *ns*)))]
+    (u/errorf "No rspec vector in letmapping!"))
+  (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                               pm/*pattern-expansion-context*
+                                               (:pattern-expansion-context (meta *ns*)))]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (seq? (first more))
                                (mapv (partial convert-spec n) more)
@@ -178,9 +178,9 @@
                  [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              *pattern-expansion-context*
-                                              (:pattern-expansion-context (meta *ns*)))]
+    (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
+                                                 pm/*pattern-expansion-context*
+                                                 (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
          ~@(if (seq? (first more))
              (mapv (partial convert-spec name) more)
@@ -215,14 +215,14 @@
   be applied.  This is identical to `apply-all` with `funnyqt.query/and*` as
   combfn."
   [rules & args]
-  (apply-all rules funnyqt.query/and* args))
+  (apply-all rules q/and* args))
 
 (defn apply-all:or
   "Applies all `rules` with `args` and returns logical true iff at least one
   rule could be applied.  This is identical to `apply-all` with
   `funnyqt.query/or*` as combfn."
   [rules & args]
-  (apply-all rules funnyqt.query/or* args))
+  (apply-all rules q/or* args))
 
 (defn apply-sequentially
   "Applies `rules` in sequence with `args` until one rule returns logical

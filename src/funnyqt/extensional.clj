@@ -1,8 +1,7 @@
 (ns funnyqt.extensional
   "Specify models extensionally."
-  (:use [funnyqt.utils :only [error errorf]])
-  (:require clojure.set)
-  (:require [clojure.tools.macro :as m]))
+  (:require clojure.set
+            [clojure.tools.macro :as m]))
 
 ;;# Dynamic vars
 
