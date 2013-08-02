@@ -1,10 +1,10 @@
 (ns funnyqt.extensional.tg
   "Specify TGraphs extensionally."
-  (:use funnyqt.tg)
-  (:use funnyqt.extensional)
-  (:use [funnyqt.utils :only [errorf split-qname]])
-  (:require clojure.set)
-  (:require funnyqt.protocols)
+  (:require clojure.set
+            [funnyqt.tg          :as tg]
+            [funnyqt.protocols   :as p]
+            [funnyqt.extensional :as e]
+            [funnyqt.utils       :as u])
   (:import
    (de.uni_koblenz.jgralab.schema GraphElementClass EdgeClass VertexClass)))
 
@@ -32,27 +32,27 @@
   "Returns the image of `arch` for GraphElementClass `gec`.
   Can only be called inside a `deftransformation`."
   [^GraphElementClass gec arch]
-  (let [m (@*img* gec)]
+  (let [m (@e/*img* gec)]
     (or (and m (m arch))
         (loop [subs (.getAllSubClasses gec)]
           (when (seq subs)
-            (or (get (@*img* (first subs)) arch)
+            (or (get (@e/*img* (first subs)) arch)
                 (recur (rest subs)))))
-        (errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                arch gec @*img*))))
+        (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
+                arch gec @e/*img*))))
 
 (defn ^:private arch-internal
   "Returns the archetype of `img` for GraphElementClass `gec`.
   Can only be called inside a `deftransformation`."
   [^GraphElementClass gec img]
-  (let [m (@*arch* gec)]
+  (let [m (@e/*arch* gec)]
     (or (and m (m img))
         (loop [subs (.getAllSubClasses gec)]
           (when (seq subs)
-            (or (get (@*arch* (first subs)) img)
+            (or (get (@e/*arch* (first subs)) img)
                 (recur (rest subs)))))
-        (errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                img gec @*arch*))))
+        (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
+                img gec @e/*arch*))))
 
 ;;# Creating Elements
 
@@ -64,12 +64,12 @@
   objects.  It's value is taken as a set.  Traceability mappings are
   established implicitly."
   [g cls archfn]
-  (let [^VertexClass vc (attributed-element-class g cls)]
+  (let [^VertexClass vc (tg/attributed-element-class g cls)]
     (loop [as (set (archfn))
            im (transient {})
            am (transient {})]
       (if (seq as)
-        (let [v (create-vertex! g cls)
+        (let [v (tg/create-vertex! g cls)
               a (first as)]
           ;;(println "Created" v "for" a)
           (recur (rest as)
@@ -77,10 +77,10 @@
                  (assoc! am v a)))
         (let [img  (persistent! im)
               arch (persistent! am)]
-          (when *img*
-            (swap! *img*  into-trace-map vc img))
-          (when *arch*
-            (swap! *arch* into-trace-map vc arch))
+          (when e/*img*
+            (swap! e/*img*  e/into-trace-map vc img))
+          (when e/*arch*
+            (swap! e/*arch* e/into-trace-map vc arch))
           (keys arch))))))
 
 ;;## Creating Edges
@@ -99,7 +99,7 @@
   return the image of the given archetype in the image-mapping of the new
   edge's source/target vertex class."
   [g cls archfn]
-  (let [^EdgeClass ec (attributed-element-class g cls)
+  (let [^EdgeClass ec (tg/attributed-element-class g cls)
         saec (-> ec (.getFrom) (.getVertexClass))
         eaec (-> ec (.getTo)   (.getVertexClass))]
     (loop [as (binding [resolve-alpha #(img-internal saec %)
@@ -109,14 +109,14 @@
            am (transient {})]
       (if (seq as)
         (let [[a al om] (first as)
-              e (create-edge! g cls al om)]
+              e (tg/create-edge! g cls al om)]
           (recur (rest as) (assoc! im a e) (assoc! am e a)))
         (let [img  (persistent! im)
               arch (persistent! am)]
-          (when *img*
-            (swap! *img*  into-trace-map ec img))
-          (when *arch*
-            (swap! *arch* into-trace-map ec arch))
+          (when e/*img*
+            (swap! e/*img*  e/into-trace-map ec img))
+          (when e/*arch*
+            (swap! e/*arch* e/into-trace-map ec arch))
           (keys arch))))))
 
 ;;## Setting Attribute Values
@@ -132,8 +132,8 @@
   of the defining class (or subclass) that has been created for the given
   archetype."
   [g attrqn valfn]
-  (let [[aecname attrname _] (split-qname attrqn)
-        aec (attributed-element-class g aecname)]
+  (let [[aecname attrname _] (u/split-qname attrqn)
+        aec (tg/attributed-element-class g aecname)]
     (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
                          (doall (valfn)))]
-      (set-value! elem attrname val))))
+      (tg/set-value! elem attrname val))))

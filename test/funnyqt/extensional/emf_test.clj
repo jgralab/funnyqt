@@ -53,7 +53,7 @@
                  (fn []
                    (for [mem (filter wife (eallobjects m 'Member))]
                      [(resolve-eobject mem) (resolve-target (wife mem))])))
-  (set-features! tm 'Person.parents
+  (add-features! tm 'Person.parents
                  (fn []
                    (for [child (eallobjects m 'Member)
                          :let [parents (parents-of child)]
