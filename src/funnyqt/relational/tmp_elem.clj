@@ -44,7 +44,7 @@
 (extend-protocol IUnset
   de.uni_koblenz.jgralab.AttributedElement
   (unset? [this attr]
-    (nil? (tg/value this attr)))
+    (.isUnsetAttribute this (name attr)))
   org.eclipse.emf.ecore.EObject
   (unset? [this attr]
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
@@ -140,11 +140,10 @@
     (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
-    (let [cur (p/aval wrapped-element attr)]
-      (cond
-       (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
-       (= cur val) true
-       :else false)))
+    (cond
+     (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
+     (= (p/aval wrapped-element attr) val) true
+     :else false))
   (finalize-attrs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! attrs (groundify-attrs attrs subst))
@@ -273,11 +272,11 @@
   (add-attr [this attr val]
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
-    (let [cur (get attrs attr)]
-      (cond
-       (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
-       (= cur val) true
-       :else (u/errorf "Cannot reset attribute %s from %s to %s." attr cur val))))
+    (cond
+     (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
+     (= (get attrs attr) val) true
+     :else (u/errorf "Cannot reset attribute %s from %s to %s."
+                     attr (get attrs attr) val)))
   (finalize-attrs [this subst]
     (set! attrs (groundify-attrs attrs subst))
     true)
