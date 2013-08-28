@@ -36,26 +36,25 @@
 
 
 (deftransformation families2genealogy [[in :emf] [out :tg]]
-  (^:top member2person [m] :generalizes [member2male member2female])
-  (member2person-setter [m p]
-                        (set-value! p :fullName
-                                    (str (emf/eget m :firstName)
-                                         " "
-                                         (emf/eget (family m) :lastName)))
-                        (when-let [ps (seq (parents-of m))]
-                          (set-adjs! p :parents (map member2person ps))))
-  (member2male [m]
-               :from 'Member
-               :when (male? m)
-               :to   [p 'Male :model out]
-               (member2person-setter m p)
-               (when-let [w (wife m)]
-                 (add-adj! p :wife (member2female w))))
-  (member2female [m]
-                 :from 'Member
-                 :when (not (male? m))
-                 :to   [p 'Female]
-                 (member2person-setter m p)))
+  (^:top member2person
+         :from [m 'Member]
+         :disjuncts [member2male member2female :result p]
+         (set-value! p :fullName
+                     (str (emf/eget m :firstName)
+                          " "
+                          (emf/eget (family m) :lastName)))
+         (when-let [ps (seq (parents-of m))]
+           (set-adjs! p :parents (map member2person ps))))
+  (member2male
+   :from [m 'Member]
+   :when (male? m)
+   :to   [p 'Male :model out]
+   (when-let [w (wife m)]
+     (add-adj! p :wife (member2female w))))
+  (member2female
+   :from [m 'Member]
+   :when (not (male? m))
+   :to   [p 'Female]))
 
 (deftest test-transformation
   (let [_ (emf/load-metamodel "test/input/Families.ecore")

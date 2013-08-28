@@ -8,28 +8,31 @@
             [clojure.tools.macro  :as tm]))
 
 (defn ^:private rule? [form]
-  (if-let [[name args & body] form]
+  (if-let [[name & body] form]
     (let [m (apply hash-map (apply concat (partition 2 body)))]
-      (and (or (contains? m :generalizes)
+      (and (or (contains? m :disjuncts)
                (contains? m :from)
                (contains? m :to))
-           (if (contains? m :generalizes)
+           (if (contains? m :disjuncts)
              (and
-              (or (vector? (:generalizes m))
-                  (u/errorf ":generalizes must be a vector: %s" form))
-              (if (or (contains? m :from) (contains? m :to)
-                      (contains? m :when-let))
-                (u/errorf ":generalize rules may have a :when clause but no :from, :to, or :when-let: %s"
+              (or (vector? (:disjuncts m))
+                  (u/errorf ":disjuncts must be a vector: %s" form))
+              (if (or (contains? m :to))
+                (u/errorf ":disjuncts rules may have a :when clause but no :to: %s"
                           form)
                 true))
              true)
-           (if (q/xor (contains? m :from) (contains? m :to))
-             (u/errorf "rules must contain :from and :to, or neither of both: %s"
+           (if (and (contains? m :to) (not (contains? m :from)))
+             (u/errorf "if rules contain :to, they must also contain a :from."
                        form)
              true)
            (if (contains? m :to)
              (or (vector? (:to m))
                  (u/errorf ":to must be a vector: %s" form))
+             true)
+           (if (contains? m :from)
+             (or (vector? (:from m))
+                 (u/errorf ":from must be a vector: %s" form))
              true)))
     (u/errorf "neither helper nor rule: %s" form)))
 
@@ -48,25 +51,27 @@
   `(swap! *deferred-actions* conj (fn [] ~@body)))
 
 (defn ^:private rule-as-map [rule]
-  (let [[name args & body] rule]
+  (let [[name & body] rule]
     (assoc (loop [b body, v []]
              (if (seq b)
                (if (keyword? (first b))
                  (recur (nnext b) (conj v (first b) (second b)))
                  (apply hash-map (conj v :body b)))
                (apply hash-map v)))
-      :name name
-      :args args)))
+      :name name)))
 
-(defn ^:private make-lookups [arg where gens]
-  (cons `(get ((deref *trace*) ~(keyword (name where))) ~arg)
-        (map (fn [w] `(~w ~arg))
-             gens)))
+(defn ^:private make-generalized-rules-calls [args gens]
+  (map (fn [w] `(apply ~w ~args)) gens))
 
-(defn ^:private type-constr [e t]
-  (if t
-    `(p/has-type? ~e ~t)
-    true))
+(defn ^:private make-trace-lookup [args rule]
+  `(get ((deref *trace*) ~(keyword (name rule))) ~args))
+
+(defn ^:private type-constrs [from wrap-in-and]
+  (let [form (for [[e t] (partition 2 from)]
+               `(p/has-type? ~e ~t))]
+    (if wrap-in-and
+      (cons `and form)
+      form)))
 
 (defn ^:private create-vector [v outs]
   (let [v (loop [v v, r []]
@@ -86,11 +91,12 @@
                           `(emf/ecreate! ~model ~type))])
                  v))))
 
+(defn ^:private disjunct-rules [rule-map]
+  (seq (take-while #(not= :result %) (:disjuncts rule-map))))
+
 (defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
-        _ (when (> (count (:args m)) 1)
-            (u/errorf "Error: Rules must have exactly one argument: %s" (:name m)))
-        arg (first (:args m))
+        arg-vec (vec (filter symbol? (:from m)))
         create-vec (create-vector (:to m) outs)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
@@ -100,7 +106,7 @@
         creation-form (when (seq created)
                         `(let ~create-vec
                            (swap! *trace* update-in [~(keyword (:name m))]
-                                  assoc ~arg ~retval)
+                                  assoc ~arg-vec ~retval)
                            ~@(:body m)
                            ~retval))
         wl-and-creation-form (if (:when-let m)
@@ -113,20 +119,33 @@
                                        ~wl-and-creation-form)
                                     wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys m))
-                              :name :args :from :to :when :when-let :body :generalizes))]
+                              :name :from :to :when :when-let :body :disjuncts))]
       (u/errorf "Unknown keys in declarative rule: %s" uks))
-    `(~(:name m) ~(:args m)
-      (when ~arg
-        ~(if-let [gens (:generalizes m)]
-           `(when ~(or (:when m) true)
-              (or ~@(make-lookups arg (:name m) gens)))
-           `(or ~@(make-lookups arg (:name m) nil)
-                ;; type constraint & :when constraint
-                (when ~(type-constr arg (:from m))
-                  ~when-wl-and-creation-form)))))))
+    `(~(:name m) ~arg-vec
+      ~(if-let [d (:disjuncts m)]
+         (let [drs (disjunct-rules m)
+               _ (println drs)
+               d (take-last 2 d)
+               result-spec (if (= :result (first d))
+                             (second d)
+                             (gensym "disj-rule-result"))
+               disj-calls-and-body `(let [r# (or ~@(make-generalized-rules-calls arg-vec drs))]
+                                      (when-let [~result-spec r#]
+                                        ~@(:body m)
+                                        r#))]
+           `(when (and ~@(type-constrs (:from m) false)
+                       ~(or (:when m) true))
+              ~(if (:when-let m)
+                 `(when-let ~(:when-let m)
+                    ~disj-calls-and-body)
+                 disj-calls-and-body)))
+         `(or ~(make-trace-lookup arg-vec (:name m))
+              ;; type constraint & :when constraint
+              (when ~(type-constrs (:from m) true)
+                ~when-wl-and-creation-form))))))
 
 (defmacro deftransformation
-  "Creates a declarative, ATL-like transformation named `name`.
+  "Creates a declarative transformation named `name`.
 
   `args` specifies the transformations input/output models.  It is a vector of
   input models and output models.  Both input and output are again vectors of
@@ -162,18 +181,23 @@
   If there are multiple output models, the :to spec has to state in which model
   a given object has to be created, e.g.,
 
-    :to [b 'OutClass :model out1,
+    :to [b 'OutClass  :model out1,
          c 'OutClass2 :model out2]
 
-  A generalizing rule has the form
+  A disjunctive rule has the form
 
-    (x2y [x]
-      :generalizes [a2b c2d ...])
+    (x2y
+      :from [x 'X]
+      :disjuncts [a2b c2d ... :result y]
+      (optional-body-using y))
 
-  Generalizing rules mustn't have :from/:to/:when-let clauses, but :when is
-  supported.  When a generalizing rule is applied, it tries the specializing
-  rules in the declared order.  The first one whose constraints and :from type
-  match gets applied.
+  Disjunctive rules mustn't have :to/:when-let clauses, but :when is supported.
+  When a disjunctive rule is applied, it tries the given disjunct rules in the
+  declared order.  The first one whose constraints and :from type match gets
+  applied.  An optional :result spec may be the last thing in the :disjuncts
+  vector.  If a disjunct rule could be applied, the result is bound to that
+  spec and can be used in the optional body.  The spec may be a symbol or any
+  destructuring form supported by let.
 
   In a rule's body, other rules may be called.  A rule always returns the
   elements that where created for a given input element.  If the called
@@ -227,15 +251,17 @@
                           :else (first rs))))
         collect-type-specs (fn ct [r]
                              (let [m (rule-as-map r)]
-                               (if-let [grs (:generalizes m)]
+                               (if-let [grs (disjunct-rules m)]
                                  (let [specs (set (map (comp ct rule-by-name) grs))]
                                    (if (= 1 (count specs))
                                      (first specs)
                                      (vec specs)))
-                                 (:from m))))
-        type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs top-rules)))))]
+                                 (map second (partition 2 (:from m))))))
+        type-spec (vec (cons :or (distinct (remove nil? (mapcat collect-type-specs top-rules)))))]
     (when-not (seq top-rules)
       (u/errorf "At least one rule has to be declared as top-level rule."))
+    (when-not (every? #(= 2 (count (:from (rule-as-map %)))) top-rules)
+      (u/errorf "Top-level rules must declare exactly one input element in :from."))
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
        (binding [*deferred-actions* (atom [])
