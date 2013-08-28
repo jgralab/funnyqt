@@ -1,4 +1,4 @@
-(ns funnyqt.declarative
+(ns funnyqt.model2model
   (:require [flatland.ordered.map :as om]
             [funnyqt.utils        :as u]
             [funnyqt.protocols    :as p]
@@ -121,7 +121,7 @@
                                     wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys m))
                               :name :from :to :when :when-let :body :disjuncts))]
-      (u/errorf "Unknown keys in declarative rule: %s" uks))
+      (u/errorf "Unknown keys in rule: %s" uks))
     `(~(:name m) ~arg-vec
       ~(if-let [d (:disjuncts m)]
          (let [drs (disjunct-rules m)
@@ -144,7 +144,7 @@
                 ~when-wl-and-creation-form))))))
 
 (defmacro deftransformation
-  "Creates a declarative transformation named `name`.
+  "Creates a model-to-model transformation named `name`.
 
   `args` specifies the transformations input/output models.  It is a vector of
   input models and output models.  Both input and output are again vectors of

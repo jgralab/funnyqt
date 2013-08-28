@@ -1,11 +1,11 @@
-(ns funnyqt.declarative-test
+(ns funnyqt.model2model-test
   (:require [funnyqt.emf :as emf])
   (:require [funnyqt.query.emf :as emfq])
   (:require [funnyqt.visualization :as viz])
   (:use funnyqt.protocols)
   (:use funnyqt.tg)
   (:use funnyqt.query)
-  (:use funnyqt.declarative)
+  (:use funnyqt.model2model)
   (:use clojure.test))
 
 (defn family
