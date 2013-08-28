@@ -35,7 +35,6 @@
                      m [p-seq :familyFather :mother]))]
     (the w)))
 
-
 (deftransformation families2genealogy [[in :emf] [out :tg]]
   (make-address
    :from [street town]
@@ -46,8 +45,7 @@
          :from [m]
          :disjuncts [member2male member2female :result p]
          (set-value! p :fullName
-                     (str (emf/eget m :firstName)
-                          " "
+                     (str (emf/eget m :firstName) " "
                           (emf/eget (family m) :lastName)))
          (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
                                                     'AgeGroup.CHILD
@@ -73,11 +71,12 @@
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (create-graph out-schema)
         trace (time (families2genealogy in ng))]
-    (viz/print-model ng :gtk)
+    #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
     (is (==  7 (vcount ng 'Female)))
     (is (==  6 (vcount ng 'Male)))
     (is (==  3 (ecount ng 'HasSpouse)))
     (is (== 18 (ecount ng 'HasChild)))
-    (is (== 3  (count (vseq ng 'Address))))))
+    (is (== 3  (count (vseq ng 'Address))))
+    #_(clojure.pprint/pprint trace)))
 
