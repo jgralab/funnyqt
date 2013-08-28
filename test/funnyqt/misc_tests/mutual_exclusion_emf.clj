@@ -19,8 +19,7 @@
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
   [model] [p1<Process> -<next>-> p2]
-  (let [p (ecreate! 'Process)]
-    (eadd! model p)
+  (let [p (ecreate! model 'Process)]
     (eset! p :name (str "np" @counter))
     (swap! counter inc)
     (eset! p1 :next p)
@@ -35,8 +34,7 @@
 (defrule mount-rule
   "Matches a process and creates and assigns a resource to it."
   [model] [p<Process>]
-  (let [r (ecreate! 'Resource)]
-    (eadd! model r)
+  (let [r (ecreate! model 'Resource)]
     (eset! r :name (str "nr" @counter))
     (swap! counter inc)
     (eset! r :taker p)))
@@ -149,10 +147,8 @@
   Two Processes connected in a ring by two Next edges."
   []
   (let [m (new-model)
-        p1 (ecreate! 'Process)
-        p2 (ecreate! 'Process)]
-    (eadd! m p1)
-    (eadd! m p2)
+        p1 (ecreate! m 'Process)
+        p2 (ecreate! m 'Process)]
     (eset! p1 :name "p1")
     (eset! p2 :name "p2")
     (eset! p1 :next p2)
@@ -217,10 +213,8 @@
   (let [m (new-model)]
     (loop [i n, lp nil]
       (if (pos? i)
-        (let [r (ecreate! 'Resource)
-              p (ecreate! 'Process)]
-          (eadd! m r)
-          (eadd! m p)
+        (let [r (ecreate! m 'Resource)
+              p (ecreate! m 'Process)]
           (when lp
             (eset! lp :next p))
           (eset! p :name (str "p" (- (inc n) i)))

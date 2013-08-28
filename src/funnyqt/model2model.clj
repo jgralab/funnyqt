@@ -1,6 +1,5 @@
 (ns funnyqt.model2model
-  (:require [flatland.ordered.map :as om]
-            [funnyqt.utils        :as u]
+  (:require [funnyqt.utils        :as u]
             [funnyqt.protocols    :as p]
             [funnyqt.query        :as q]
             [clojure.tools.macro  :as tm]))

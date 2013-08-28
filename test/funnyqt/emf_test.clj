@@ -230,12 +230,12 @@
   (let [m (new-model) ;; Also test the generic creation function...
         fm (create-element! m 'FamilyModel)
         make-family (fn [i]
-                      (ecreate! 'Family
+                      (ecreate! nil 'Family
                                 :lastName (str "Family" i)
                                 :street   (str "Some Street " i)
                                 :town     (str i " Sometown")))
         make-member (fn [i]
-                      (ecreate! 'Member
+                      (ecreate! nil 'Member
                                 :firstName (str "Member" i)
                                 :age       (Integer/valueOf ^Long (mod i 80))))
         random-free-member (fn [mems ref]
@@ -286,26 +286,25 @@
 
 (deftest test-eget-raw
   (let [i 1000
-        fm (ecreate! 'FamilyModel)
+        fm (ecreate! nil 'FamilyModel)
         ^EList ms (eget-raw fm :members)]
     (print "Adding" i "Members (raw): \t")
     (time (dotimes [_ i]
-            (.add ms (ecreate! 'Member))))
+            (.add ms (ecreate! nil 'Member))))
     (is (== i (count (econtents fm 'Member))))
     (print "Adding" i "Members (eset!): \t")
     (time (eset! fm :members (loop [ims (eget fm :members), x i]
                                (if (pos? x)
-                                 (recur (conj ims (ecreate! 'Member)) (dec x))
+                                 (recur (conj ims (ecreate! nil 'Member)) (dec x))
                                  ims))))
     (is (== (* 2 i) (count (econtents fm 'Member))))))
 
 (deftest test-stressy-add-remove
   (let [fm (new-model)
-        root (ecreate! 'FamilyModel)
-        f   (ecreate! 'Member)
-        fam (ecreate! 'Family)
-        s   (ecreate! 'Member)]
-    (eadd! fm root)
+        root (ecreate! fm 'FamilyModel)
+        f   (ecreate! nil 'Member)
+        fam (ecreate! nil 'Family)
+        s   (ecreate! nil 'Member)]
     (eadd! root :members f s)
     (eadd! root :families fam)
     (is (== 3 (count (eallpairs fm))))

@@ -247,7 +247,7 @@
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
     (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
-    (let [tim (emf/ecreate! 'Contact
+    (let [tim (emf/ecreate! nil 'Contact
                             :id (int 6)
                             :firstName "Tim"
                             :lastName "Taylor"
