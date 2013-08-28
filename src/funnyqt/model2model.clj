@@ -3,8 +3,6 @@
             [funnyqt.utils        :as u]
             [funnyqt.protocols    :as p]
             [funnyqt.query        :as q]
-            [funnyqt.emf          :as emf]
-            [funnyqt.tg           :as tg]
             [clojure.tools.macro  :as tm]))
 
 (defn ^:private args-types-map [from]
@@ -78,17 +76,13 @@
             (if (seq v)
               (if (= (first (nnext v)) :model)
                 (recur (nnext (nnext v)) (conj (into r (take 2 v))
-                                               (outs (nth v 3))
                                                (nth v 3)))
                 (recur (nnext v) (conj (into r (take 2 v))
-                                       (outs (ffirst outs))
-                                       (ffirst outs))))
+                                       (first outs))))
               r))
-        v (partition 4 v)]
-    (vec (mapcat (fn [[sym type mk model]]
-                   [sym (if (= mk :tg)
-                          `(tg/create-vertex! ~model ~type)
-                          `(emf/ecreate! ~model ~type))])
+        v (partition 3 v)]
+    (vec (mapcat (fn [[sym type model]]
+                   [sym `(p/create-element! ~model ~type)])
                  v))))
 
 (defn ^:private disjunct-rules [rule-map]
@@ -147,11 +141,9 @@
   "Creates a model-to-model transformation named `name`.
 
   `args` specifies the transformations input/output models.  It is a vector of
-  input models and output models.  Both input and output are again vectors of
-  model specs.  A model spec is a name followed by a model kind (:emf or :tg).
-  E.g., a transformation receiving two JGraLab TGraphs as input and
-  instantiating objects in an output EMF model would have the args [[in1 :tg,
-  in2 :tg] [out :emf]].
+  input models and output models.  Both input and output are again vectors.
+  E.g., a transformation receiving two input models and instantiating objects
+  in one single output model would have the args [[in1 in2] [out]].
 
   In the rest of the transformation spec, rules and functions are defined.
   Functions are to be defined in the syntax of function definitions in
@@ -241,14 +233,13 @@
         [args rules-and-fns] (if (vector? (first more))
                                [(first more) (next more)]
                                (u/errorf "Error: arg vector missing!"))
-        [ins outs] (let [i (first args)
-                         o (second args)]
+        [ins outs] (let [[i o] args]
                      (cond
                       (nil? i) (u/errorf "No input models given.")
                       (nil? o) (u/errorf "No output models given.")
                       (not (vector? i)) (u/errorf "input models must be a vector.")
                       (not (vector? o)) (u/errorf "output models must be a vector.")
-                      :else [(apply om/ordered-map i) (apply om/ordered-map o)]))
+                      :else [i o]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
         top-rules   (filter #(:top (meta (first %))) rules)
@@ -270,15 +261,12 @@
     (when-not (seq top-rules)
       (u/errorf "At least one rule has to be declared as top-level rule."))
     `(defn ~name ~(meta name)
-       [~@(keys ins) ~@(keys outs)]
+       [~@ins ~@outs]
        (binding [*trace*            (atom {})]
          (letfn [~@fns
                  ~@(map (partial convert-rule outs) rules)]
-           ~@(for [m (keys ins)
-                   :let [kind (ins m)]]
-               `(doseq [elem# ~(if (= :tg kind)
-                                 `(tg/vseq ~m ~type-spec)
-                                 `(emf/eallobjects ~m ~type-spec))]
+           ~@(for [m ins]
+               `(doseq [elem# (p/elements ~m ~type-spec)]
                   (doseq [r# ~(mapv first top-rules)]
                     (r# elem#))))
            @*trace*)))))

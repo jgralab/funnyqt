@@ -35,7 +35,7 @@
                      m [p-seq :familyFather :mother]))]
     (the w)))
 
-(deftransformation families2genealogy [[in :emf] [out :tg]]
+(deftransformation families2genealogy [[in] [out]]
   (make-address
    :from [street town]
    :to [adr 'Address]

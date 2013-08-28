@@ -751,25 +751,27 @@
 ;;## EObject Creation
 
 (defn ecreate!
-  "Creates an EObject of EClass `ecls`.
+  "Creates an EObject of EClass `ecls` contained in `model` which may be nil.
   `ecls` may be either an EClass or just an EClass name given as symbol.
   `props` are optional property-value pairs to be set, where
   properties (attributes and references) are represented as keywords.  Since
   props are set using `eset!`, the value of a multi-valued reference must be a
   collection of EObjects."
-  [ecls & props]
+  [model ecls & props]
   (let [eo (EcoreUtil/create (if (instance? EClass ecls)
                                ecls
                                (eclassifier ecls)))]
     (doseq [[prop val] (partition 2 2 (repeatedly #(u/errorf "attr-vals not paired: %s" props))
                                   props)]
       (eset! eo prop val))
+    (when model
+      (eadd! model eo))
     eo))
 
 (extend-protocol p/ICreateElement
   EMFModel
   (p/create-element! [model cls]
-    (let [e (ecreate! cls)]
+    (let [e (ecreate! model cls)]
       (eadd! model e)
       e)))
 
