@@ -33,6 +33,10 @@
            (if (contains? m :from)
              (or (vector? (:from m))
                  (u/errorf ":from must be a vector: %s" form))
+             true)
+           (if (and (contains? (meta name) :top)
+                    (not= (count (keys (args-types-map (:from m)))) 1))
+             (u/errorf "Top-level rules must declare exactly one argument: %s" form)
              true)))
     (u/errorf "neither helper nor rule: %s" form)))
 
@@ -66,8 +70,9 @@
 (defn ^:private make-trace-lookup [args rule]
   `(get ((deref *trace*) ~(keyword (name rule))) ~args))
 
-(defn ^:private type-constrs [from wrap-in-and]
-  (let [form (for [[e t] (partition 2 from)]
+(defn ^:private type-constrs [a-t-m wrap-in-and]
+  (let [form (for [[e t] a-t-m
+                   :when t]
                `(p/has-type? ~e ~t))]
     (if wrap-in-and
       (cons `and form)
@@ -94,9 +99,19 @@
 (defn ^:private disjunct-rules [rule-map]
   (seq (take-while #(not= :result %) (:disjuncts rule-map))))
 
+(defn ^:private args-types-map [from]
+  (loop [f from, r {}]
+    (if (seq f)
+      (if (and (symbol? (first f))
+               (coll? (second f)))
+        (recur (nnext f) (assoc r (first f) (second f)))
+        (recur (next f)  (assoc r (first f) nil)))
+      r)))
+
 (defn ^:private convert-rule [outs rule]
   (let [m (rule-as-map rule)
-        arg-vec (vec (filter symbol? (:from m)))
+        a-t-m (args-types-map (:from m))
+        arg-vec (vec (keys a-t-m))
         create-vec (create-vector (:to m) outs)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
@@ -124,7 +139,6 @@
     `(~(:name m) ~arg-vec
       ~(if-let [d (:disjuncts m)]
          (let [drs (disjunct-rules m)
-               _ (println drs)
                d (take-last 2 d)
                result-spec (if (= :result (first d))
                              (second d)
@@ -133,15 +147,14 @@
                                       (when-let [~result-spec r#]
                                         ~@(:body m)
                                         r#))]
-           `(when (and ~@(type-constrs (:from m) false)
+           `(when (and ~@(type-constrs a-t-m false)
                        ~(or (:when m) true))
               ~(if (:when-let m)
                  `(when-let ~(:when-let m)
                     ~disj-calls-and-body)
                  disj-calls-and-body)))
          `(or ~(make-trace-lookup arg-vec (:name m))
-              ;; type constraint & :when constraint
-              (when ~(type-constrs (:from m) true)
+              (when ~(type-constrs a-t-m true)
                 ~when-wl-and-creation-form))))))
 
 (defmacro deftransformation
@@ -256,12 +269,10 @@
                                    (if (= 1 (count specs))
                                      (first specs)
                                      (vec specs)))
-                                 (map second (partition 2 (:from m))))))
+                                 (remove nil? (vals (args-types-map (:from m)))))))
         type-spec (vec (cons :or (distinct (remove nil? (mapcat collect-type-specs top-rules)))))]
     (when-not (seq top-rules)
       (u/errorf "At least one rule has to be declared as top-level rule."))
-    (when-not (every? #(= 2 (count (:from (rule-as-map %)))) top-rules)
-      (u/errorf "Top-level rules must declare exactly one input element in :from."))
     `(defn ~name ~(meta name)
        [~@(keys ins) ~@(keys outs)]
        (binding [*deferred-actions* (atom [])

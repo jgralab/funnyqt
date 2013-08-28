@@ -1,6 +1,7 @@
 (ns funnyqt.declarative-test
   (:require [funnyqt.emf :as emf])
   (:require [funnyqt.query.emf :as emfq])
+  (:require [funnyqt.visualization :as viz])
   (:use funnyqt.protocols)
   (:use funnyqt.tg)
   (:use funnyqt.query)
@@ -36,13 +37,23 @@
 
 
 (deftransformation families2genealogy [[in :emf] [out :tg]]
+  (make-address
+   :from [street town]
+   :to [adr 'Address]
+   (set-value! adr :street street)
+   (set-value! adr :town   town))
   (^:top member2person
-         :from [m 'Member]
+         :from [m]
          :disjuncts [member2male member2female :result p]
          (set-value! p :fullName
                      (str (emf/eget m :firstName)
                           " "
                           (emf/eget (family m) :lastName)))
+         (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
+                                                    'AgeGroup.CHILD
+                                                    'AgeGroup.ADULT)))
+         (set-adj! p :address (make-address (emf/eget (family m) :street)
+                                            (emf/eget (family m) :town)))
          (when-let [ps (seq (parents-of m))]
            (set-adjs! p :parents (map member2person ps))))
   (member2male
@@ -62,12 +73,11 @@
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (create-graph out-schema)
         trace (time (families2genealogy in ng))]
-    #_(show-graph ng)
+    (viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
     (is (==  7 (vcount ng 'Female)))
     (is (==  6 (vcount ng 'Male)))
     (is (==  3 (ecount ng 'HasSpouse)))
     (is (== 18 (ecount ng 'HasChild)))
-    ;(is (== 3  (count (vseq ng 'Address))))
-    ))
+    (is (== 3  (count (vseq ng 'Address))))))
 
