@@ -207,10 +207,10 @@
 
   The values of :left and :right are vectors of goals.  Logical variables with
   the same name in :left and :right define the correspondence between the left
-  and right elements.  Usually, those are used for attribute values,
-  e.g., (+name left left-el foo) in :left and (+id right right-el foo)
-  in :right specifies that left-el's name and right-el's id values have to be
-  equal.
+  and right elements.  Logical variables have to start with a question mark.
+  Usually, those are used for attribute values, e.g., (+name left ?left-el
+  ?foo) in :left and (+id right ?right-el ?foo) in :right specifies that
+  ?left-el's name and ?right-el's id values have to be equal.
 
   The semantics when transforming from left to right are: For every set of
   elements in the `left` model for which all :left goals succeed, there must be

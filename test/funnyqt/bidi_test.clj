@@ -276,3 +276,10 @@
     (ccl/fresh [c v]
       (cd/+is-persistent cd1 c v)
       (ccl/== q [c v]))))
+
+(bidi/deftransformation class-diagram2database-schema [cd db]
+  (^:top package2schema
+         :left [(cd/+Package cd ?pkg)
+                (cd/+name cd ?pkg ?name)]
+         :right [(db/+Schema db ?schema)
+                 (db/+name db ?schema ?name)]))
