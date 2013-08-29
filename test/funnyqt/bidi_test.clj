@@ -282,4 +282,30 @@
          :left [(cd/+Package cd ?pkg)
                 (cd/+name cd ?pkg ?name)]
          :right [(db/+Schema db ?schema)
-                 (db/+name db ?schema ?name)]))
+                 (db/+name db ?schema ?name)]
+         :where [(class2table :?pkg ?pkg :?schema ?schema)])
+  (class2table
+   :left [(cd/+->classifiers cd ?pkg ?class)
+          (cd/+Class cd ?class)
+          (cd/+is-persistent cd ?class true)
+          (cd/+name cd ?class ?name)]
+   :right [(db/+->tables db ?schema ?table)
+           (db/+Table db ?table)
+           (db/+name db ?table ?name)]
+   :where [(attribute2column :?class ?class :?table ?table)])
+  (attribute2column
+   :left [(cd/+->attrs cd ?class ?attr)
+          (cd/+Attribute cd ?attr)
+          (cd/+name cd ?attr ?name)]
+   :right [(db/+->cols db ?table ?col)
+           (db/+Column db ?col)
+           (db/+name db ?col ?name)]
+   :where [(primary2pkey :?attr ?attr :?table ?table :?col ?col)])
+  (primary2pkey
+   :left [(cd/+is-primary cd ?attr true)]
+   :right [(db/+->pkey db ?table ?col)]))
+
+(test/deftest test-cd2db
+  (let [result-db (emf/new-model)]
+    (class-diagram2database-schema cd1 result-db :right)
+    (viz/print-model result-db :gtk)))

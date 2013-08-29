@@ -63,6 +63,12 @@
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
         etm (gensym "enforced-trg-match")]
+    (doseq [[kw what] [[:when "goals"] [:left "goals"] [:right "goals"]
+                       [:where "relation calls"]]]
+      (when (and (kw map) (or (not (coll? (kw map)))
+                              (not (coll? (first (kw map))))))
+        (u/errorf "Error in %s: %s has to be a vector of %s but was %s."
+                  relsym kw what (kw map))))
     `(let [wfns#
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
