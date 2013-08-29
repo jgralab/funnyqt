@@ -266,7 +266,7 @@
   "Creates relations for the given EReference."
   [[eref ecls]]
   (let [ts (mapv #(p/qname %) ecls)]
-    `(defn ~(symbol (str "+->" (name eref)))
+    `(defn ~(symbol (str "+->" (clojure.string/replace (name eref) "_" "-")))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
        [~'m ~'eo ~'reo]
        (ccl/all
@@ -279,7 +279,7 @@
   ;; attr is an attr name symbol, ecls the set of classes having
   ;; such an attr
   (let [ts (mapv #(p/qname %) ecls)]
-    `(defn ~(symbol (str "+" (name attr)))
+    `(defn ~(symbol (str "+" (clojure.string/replace (name attr) "_" "-")))
        ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
        [~'m ~'eo ~'val]
        (ccl/all
@@ -292,15 +292,31 @@
 (defmacro generate-ecore-model-relations
   "Generates metamodel-specific relations in the namespace denoted by `nssym`.
   If `nssym` is nil (or not given), generate them in the current namespace.
-  `ecore-file` is the ecore file containing the metamodel."
+  `ecore-file` is the ecore file containing the metamodel.
+
+  For any EClass Foo, there will be a relation (+Foo model el) that succeeds
+  for all EObjects el in the model that have the type Foo.  Similarly, there
+  are relations +!Foo, +Foo!, and +!Foo! restricting to exact Foo instances
+  and/or negating.
+
+  For any attribute bar, there will be a relation (+bar model el val) where el
+  is an element of model that posesses a bar attribute whose value is val.
+
+  For any reference baz, there will be a relation (+baz model el ref) where el
+  is an element of model that posesses a baz reference that links to ref.  If
+  baz is a multi-valued reference, then ref is contained in that list.
+
+  Property names containing an underscore will result in relations with a
+  hyphen instead, e.g., attribute \"is_persistent\" is translated into a
+  relation +is-persistent."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
      (let [ecore-model (emf/load-metamodel
                         (if (.exists (clojure.java.io/file ecore-file))
                           ecore-file
                           (clojure.java.io/resource ecore-file)))
-           atts (atom {}) ;; map from attribute names to set of eclasses that have it
-           refs (atom {}) ;; map from reference names to set of eclasses that have it
+           atts (atom {}) ;; map from attribute kws to set of eclasses that have it
+           refs (atom {}) ;; map from reference kws to set of eclasses that have it
            old-ns *ns*]
        `(do
           ~@(when nssym

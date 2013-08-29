@@ -1,5 +1,6 @@
 (ns funnyqt.bidi-test
   (:require [clojure.test :as test]
+            [clojure.core.logic :as ccl]
             [funnyqt.bidi :as bidi]
             [funnyqt.relational.tg :as rtg]
             [funnyqt.relational.emf :as remf]
@@ -8,7 +9,12 @@
             [funnyqt.visualization :as viz]
             [funnyqt.protocols :as p]))
 
-;;* Example AddressBook Graph
+;;# AddressBook to AddressBook
+
+(rtg/generate-schema-relations "test/input/addressbook.tg" ab-tg)
+(remf/generate-ecore-model-relations "test/input/AddressBook.ecore" ab-emf)
+
+;;## Example AddressBook Graph
 
 (defn make-example-addressbook-tg []
   (let [g (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))
@@ -48,9 +54,7 @@
                                        :organizations [mozilla])]
     g))
 
-;;* Transformation TG <-> TG
-
-(rtg/generate-schema-relations "test/input/addressbook.tg" ab-tg)
+;;## Transformation TG <-> TG
 
 (bidi/deftransformation addressbook-tg2addressbook-tg [l r]
   (^:top addressbook2addressbook
@@ -151,9 +155,7 @@
         (future (viz/print-model l :gtk))
         (viz/print-model r :gtk))))
 
-;;* Transformation TG <-> EMF
-
-(remf/generate-ecore-model-relations "test/input/AddressBook.ecore" ab-emf)
+;;## Transformation TG <-> EMF
 
 (bidi/deftransformation addressbook-tg2addressbook-emf [l r]
   (^:top addressbook2addressbook
@@ -260,3 +262,17 @@
     #_(do
         (future (viz/print-model l :gtk))
         (viz/print-model r :gtk))))
+
+;;# UML Class Diagram to RDBMS Tables
+
+(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore" cd)
+(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore" db)
+
+(def cd1 (emf/load-model "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
+(def db1 (emf/load-model "test/input/uml-rdbms-bidi/m2/database01.xmi"))
+
+(comment
+  (ccl/run* [q]
+    (ccl/fresh [c v]
+      (cd/+is-persistent cd1 c v)
+      (ccl/== q [c v]))))

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="ASCII"?>
+<classdiagram:Package
+    xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:classdiagram="http://www.openomf.org/example/classdiagram/1.0"
+    xsi:schemaLocation="http://www.openomf.org/example/classdiagram/1.0 ../metamodels/classdiagram.ecore"
+    name="university">
+  <classifiers
+      xsi:type="classdiagram:Class"
+      name="person">
+    <attrs name="name"
+        is_primary="true"/>
+  </classifiers>
+  <classifiers
+      xsi:type="classdiagram:Class"
+      name="worker"
+      parent="//@classifiers.0">
+    <attrs name="working_address"/>
+  </classifiers>
+  <classifiers
+      xsi:type="classdiagram:Class"
+      name="employer"
+      is_persistent="true"
+      parent="//@classifiers.1">
+    <attrs name="department"/>
+  </classifiers>
+  <classifiers
+      xsi:type="classdiagram:Class"
+      name="professor"
+      is_persistent="true"
+      parent="//@classifiers.2">
+    <attrs name="number_of_publications"/>
+  </classifiers>
+</classdiagram:Package>
