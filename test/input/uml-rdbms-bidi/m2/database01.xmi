@@ -1,26 +1,15 @@
 <?xml version="1.0" encoding="ASCII"?>
-<database:Schema
-    xmi:version="2.0"
-    xmlns:xmi="http://www.omg.org/XMI"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:database="http://www.openmtf.org/example/database/1.0"
-    xsi:schemaLocation="http://www.openmtf.org/example/database/1.0 ../metamodels/database.ecore"
-    name="university">
-  <tables name="employer"
-      pkey="//@tables.0/@cols.0"
-      is_local="true">
+<database:Schema xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:database="http://www.openmtf.org/example/database/1.0" xsi:schemaLocation="http://www.openmtf.org/example/database/1.0 test/input/uml-rdbms-bidi/database.ecore" name="university">
+  <tables name="employer" pkey="//@tables.0/@cols.0" is_local="true">
     <cols name="name"/>
     <cols name="working_address"/>
     <cols name="department"/>
   </tables>
-  <tables name="professor"
-      pkey="//@tables.0/@cols.0"
-      is_local="true">
+  <tables name="professor" pkey="//@tables.1/@cols.0" is_local="true">
     <cols name="name"/>
     <cols name="working_address"/>
     <cols name="department"/>
     <cols name="number_of_pubblications"/>
-    <cols type=""
-        name="email"/>
+    <cols type="" name="email"/>
   </tables>
 </database:Schema>

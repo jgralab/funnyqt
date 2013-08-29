@@ -211,6 +211,11 @@
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 
+(extend-protocol p/IMMMultiValuedProperty
+  EClass
+  (p/mm-multi-valued-property? [cls prop]
+    (.isMany (.getEStructuralFeature cls (name prop)))))
+
 ;;# Model
 
 (def ^{:arglists '([model] [model file])}

@@ -96,7 +96,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   *emf-opposite-refs*)
 
 (defn ^:private emf-dot-id [o]
-  (str "O" (Integer/toString (hash o) (Character/MAX_RADIX))))
+  (str "O" (Integer/toHexString (hash o))))
 
 (defn ^:private emf-dot-attributes [^EObject eo]
   (reduce str

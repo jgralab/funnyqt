@@ -303,9 +303,31 @@
    :where [(primary2pkey :?attr ?attr :?table ?table :?col ?col)])
   (primary2pkey
    :left [(cd/+is-primary cd ?attr true)]
-   :right [(db/+->pkey db ?table ?col)]))
+   :right [(db/+->pkey db ?table ?col)])
+  (^:top super-attribute2column ;; FIXME: Doesn't work in direction DB->CD
+         :debug-src [(println "s-a2c:"
+                              (emf/eget ?subclass :name)
+                              (emf/eget ?superclass :name)
+                              (emf/eget ?table :name))]
+         :when [(ccl/conde
+                 [(bidi/relateo class2table :?class ?subclass :?table ?table)]
+                 [(bidi/relateo super-attribute2column :?superclass ?subclass :?table ?table)])]
+         :left [(cd/+->parent cd ?subclass ?superclass)]
+         :right [(cd/+Class cd ?subclass)
+                 (cd/+Class cd ?superclass)
+                 (ccl/!= ?subclass ?superclass)]
+         :where [(attribute2column :?class ?superclass :?table ?table)
+                 (super-attribute2column :?subclass ?superclass :?table ?table)]))
 
 (test/deftest test-cd2db
   (let [result-db (emf/new-model)]
     (class-diagram2database-schema cd1 result-db :right)
+    (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
+    (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
+    (test/is (= 7 (count (emf/eallobjects result-db 'Column))))
     #_(viz/print-model result-db :gtk)))
+
+(test/deftest test-db2cd
+  (let [result-cd (emf/new-model)]
+    ;;(class-diagram2database-schema result-cd db1 :left)
+    #_(viz/print-model result-cd :gtk)))

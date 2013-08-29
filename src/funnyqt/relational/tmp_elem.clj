@@ -198,9 +198,13 @@
         (set! manifested true)
         (doseq [[at val] attrs]
           (p/set-aval! wrapped-element at val))
-        (doseq [[role rs] refs]
+        (doseq [[role rs] refs
+                :let [multi-valued (p/mm-multi-valued-property?
+                                    (p/mm-class wrapped-element) role)]]
           (doseq [r rs]
-            (p/add-adj! wrapped-element role (manifest r))))
+            (if multi-valued
+              (p/add-adj! wrapped-element role (manifest r))
+              (p/set-adj! wrapped-element role (manifest r)))))
         wrapped-element)))
   (manifestation [this] wrapped-element))
 
@@ -334,9 +338,13 @@
                                     :else (u/errorf "Unknown kind %s." kind)))
           (doseq [[at val] attrs]
             (p/set-aval! manifested-element at val))
-          (doseq [[role rs] refs]
+          (doseq [[role rs] refs
+                  :let [multi-valued (p/mm-multi-valued-property?
+                                      (p/mm-class manifested-element) role)]]
             (doseq [r rs]
-              (p/add-adj! manifested-element role r)))
+              (if multi-valued
+                (p/add-adj! manifested-element role r)
+                (p/set-adj! manifested-element role r))))
           manifested-element)))
   (manifestation [this] manifested-element))
 

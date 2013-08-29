@@ -205,3 +205,8 @@
   (mm-super-class? [super sub]
     "Return true iff super is a direct or indirect super class of sub.
   (mm-super-class? c c) is false."))
+
+(defprotocol IMMMultiValuedProperty
+  (mm-multi-valued-property? [cls prop]
+    "Returns true iff `prop` (given as keyword) is a multi-valued property
+  of `cls`."))

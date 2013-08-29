@@ -58,17 +58,29 @@
                          ~sym)])
                syms)))
 
+(defn ^:private valid-spec-vector? [spec goals]
+  (or (nil? spec)
+      (and (coll? spec)
+           (let [f (first spec)]
+             (or (seq? f)
+                 (when goals
+                   (and (symbol? f)
+                        (or (= "succeed" (name f))
+                            (= "fail"    (name f))))))))))
+
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms]
   (let [src (if (= trg :right) :left :right)
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
         etm (gensym "enforced-trg-match")]
-    (doseq [[kw what] [[:when "goals"] [:left "goals"] [:right "goals"]
-                       [:where "relation calls"]]]
-      (when (and (kw map) (or (not (coll? (kw map)))
-                              (not (coll? (first (kw map))))))
-        (u/errorf "Error in %s: %s has to be a vector of %s but was %s."
-                  relsym kw what (kw map))))
+    (doseq [kw [:when :left :right]]
+      (when-not (valid-spec-vector? (kw map) true)
+        (u/errorf "Error in %s: %s has to be a vector of goals but was %s."
+                  relsym kw (kw map))))
+    (doseq [kw [:where :includes]]
+      (when-not (valid-spec-vector? (kw map) true)
+        (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
+                  relsym kw (kw map))))
     `(let [wfns#
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
@@ -77,6 +89,7 @@
                     ~@(get map src)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
+                ~@(:debug-src map)
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
@@ -86,10 +99,12 @@
                            (tmp/finalizeo ~@trg-syms)
                            (ccl/== q# ~(make-kw-result-map trg-syms)))
                          ~relsym ~sm))]
+                  ~@(:debug-trg map)
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm)
                         (replace-tmps-and-wrappers-with-manifestations ~tm)]
                     (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
+                    ~@(:debug-enforced map)
                     (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
@@ -155,11 +170,14 @@
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
-        syms  (distinct (concat lsyms rsyms))]
+        syms  (distinct (concat lsyms rsyms wsyms))]
     (when-let [unknown-keys (seq (disj (set (keys m))
-                                       :left :right :when :where :includes))]
+                                       :left :right :when :where :includes
+                                       :debug-entry :debug-src :debug-trg
+                                       :debug-enforced))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms)]
+              ~@(:debug-entry m)
               (let ~(make-relation-binding-vector syms)
                 (if (= *target-direction* :right)
                   ~(do-rel-body relsym :right m wsyms lsyms rsyms)
@@ -176,7 +194,16 @@
      ...)"}
   *relation-bindings*)
 
-(defn relateo [relation & keyvals]
+(defn relateo
+  "A relation that succeeds if there's a correspondence between `keyvals` in
+  `relation`.  `keyvals` is a sequence of keywords with values that relate
+  elements from the left and right domains of `relation`.
+
+  Example:
+
+    (bidi/relateo class2table :?class ?subclass :?table ?subtable)"
+
+  [relation & keyvals]
   (when-not (fn? relation)
     (u/errorf "No relation (fn) given but %s %s."
               (class relation) relation))
@@ -257,6 +284,13 @@
   depth-first.  That is, in the above definition, the relations in the :where
   clause may assume that foo2bar already holds for all matching elements.
 
+  Both :left and :right are optional.  If omitted, they are equivalent to
+  `:left [ccl/succeed]` and `:right [ccl/succeed]`, i.e., they simply succeed.
+  Clearly, omitting those clauses makes only sense if there're :when and :where
+  clauses.  For example, there might be a final ^:top relation that matches
+  elements only in terms of `:when [(relateo ...)...]` and then invokes other
+  relations using its :where clause.
+
   A relation spec may also contain an :includes clause:
 
     (foo2bar
@@ -277,7 +311,17 @@
 
   A relation that's not called explicitly in a :where clause and is only
   included by others should be declared ^:abstract like a2b above.  Then, no
-  code is generated for it."
+  code is generated for it.
+
+  For debugging purposes, relations may also contain the following clauses:
+
+    :debug-entry    [...] ;; code being executed when a relation is invoked
+    :debug-src      [...] ;; code being executed when the source domain and :when
+                          ;; clause has been matched
+    :debug-trg      [...] ;; code being executed when the target domain has been
+                          ;; matched
+    :debug-enforced [...] ;; code being executed when the target domain has
+                          ;; been enforced"
 
   [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]

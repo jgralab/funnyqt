@@ -310,6 +310,17 @@ functions `record` and `enum`."
   (p/mm-super-class? [this sub]
     (.isSuperClassOf this sub)))
 
+(extend-protocol p/IMMMultiValuedProperty
+  VertexClass
+  (p/mm-multi-valued-property? [cls prop]
+    (let [dec (.getDirectedEdgeClassForFarEndRole cls (name prop))
+          ec  (.getEdgeClass dec)
+          dir (.getDirection dec)]
+      (> (.getMax (if (= dir EdgeDirection/OUT)
+                    (.getTo ec)
+                    (.getFrom ec)))
+         1))))
+
 ;;# Graph Access
 
 (defn graph
