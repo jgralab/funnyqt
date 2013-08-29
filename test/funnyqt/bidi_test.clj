@@ -308,4 +308,4 @@
 (test/deftest test-cd2db
   (let [result-db (emf/new-model)]
     (class-diagram2database-schema cd1 result-db :right)
-    (viz/print-model result-db :gtk)))
+    #_(viz/print-model result-db :gtk)))
