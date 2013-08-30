@@ -305,7 +305,8 @@
    :left [(cd/+is-primary cd ?attr true)]
    :right [(db/+->pkey db ?table ?col)])
   (^:top super-attribute2column
-         :only-direction :right
+         :only (fn [dir feature-set]
+                 (= dir :right))
          :when [(cd/+->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo class2table :?class ?subclass :?table ?table)]
@@ -324,4 +325,7 @@
 (test/deftest test-db2cd
   (let [result-cd (emf/new-model)]
     (class-diagram2database-schema result-cd db1 :left)
+    (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
+    (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
+    (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))

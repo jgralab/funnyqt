@@ -74,6 +74,11 @@
                         (or (= "succeed" (name f))
                             (= "fail"    (name f))))))))))
 
+(defn ^:private insert-debug
+  "If code is non-nil, wrap it in a vector for being spliced in."
+  [code]
+  (when code [code]))
+
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms]
   (let [src (if (= trg :right) :left :right)
         sm  (gensym "src-match")
@@ -95,7 +100,7 @@
                     ~@(get map src)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
-                ~(:debug-src map)
+                ~@(insert-debug (:debug-src map))
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
@@ -105,12 +110,12 @@
                            (tmp/finalizeo ~@trg-syms)
                            (ccl/== q# ~(make-kw-result-map trg-syms)))
                          ~relsym ~sm))]
-                  ~(:debug-trg map)
+                  ~@(insert-debug (:debug-trg map))
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm)
                         (replace-tmps-and-wrappers-with-manifestations ~tm)]
                     (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
-                    ~(:debug-enforced map)
+                    ~@(insert-debug (:debug-enforced map))
                     (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
@@ -170,14 +175,6 @@
             [m]))
     m))
 
-(defn relation-enabled?
-  "Used only internally."
-  [dir features]
-  (and (or (nil? dir)
-           (= *target-direction* dir))
-       (or (nil? features)
-           (seq (clojure.set/intersection *features* features)))))
-
 (defn ^:private convert-relation [all-rels [relsym & more]]
   (let [m     (apply hash-map more)
         m     (embed-included-rels all-rels m)
@@ -188,16 +185,18 @@
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :includes
                                        :debug-entry :debug-src :debug-trg
-                                       :debug-enforced
-                                       :only-direction :only-features))]
+                                       :debug-enforced :only))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
-    `(~relsym [& ~(make-destr-map syms)]
-              (when (relation-enabled? ~(:only-direction m) ~(:only-features m))
-                ~(:debug-entry m)
-                (let ~(make-relation-binding-vector syms)
-                  (if (= *target-direction* :right)
-                    ~(do-rel-body relsym :right m wsyms lsyms rsyms)
-                    ~(do-rel-body relsym :left  m wsyms rsyms lsyms)))))))
+    (let [relbody `(~@(insert-debug (:debug-entry m))
+                    (let ~(make-relation-binding-vector syms)
+                      (if (= *target-direction* :right)
+                        ~(do-rel-body relsym :right m wsyms lsyms rsyms)
+                        ~(do-rel-body relsym :left  m wsyms rsyms lsyms))))]
+      `(~relsym [& ~(make-destr-map syms)]
+                ~@(if (nil? (:only m))
+                    relbody
+                    `((when (~(:only m) *target-direction* *features*)
+                        ~@relbody)))))))
 
 (def ^{:dynamic true
        :doc "A map with the following structure:
@@ -254,7 +253,7 @@
 
   `direction` is the direction in which to execute the transformation,
   either :left or :right.  `features` is a sequence of keywords.  For more
-  information, see the docs to the :only-features clause far below.
+  information, see the docs to the :only clause far below.
 
   In the transformation specification, `relations` is a sequence of relation
   definitions.  Every relation has the following form:
@@ -339,30 +338,15 @@
   code is generated for it.
 
   Since not every bidirectional transformation problem is strictly bijective,
-  relations may also have an :only-direction clause.  Possible values are :left
-  and :right, meaning that this relation has only an effect when the
-  transformation is executed in this direction.  That makes it possible to have
-  a generally bidirectional transformation with several special cases depending
-  on the transformation direction.
+  relations may also have an :only clause.  The value of the :only clause has
+  to be a function accepting the current transformation direction (:left
+  or :right), and the current set of features provided at the transformation
+  call.  For example, a relation
 
-  Similarly, it is possible to encode different variants of the transformation
-  using the :only-features clause for relations.  This has to be a set of
-  keywords naming features of the transformation.  Only if the transformation
-  has be called with at least one of the features, that relation is enabled.
-  For example with
+    (a2x :only (fn [dir features] (= dir :left)) ...)
 
-    (deftransformation abc2xyz [l r]
-      (^:top a2x-1 :only-features #{:v1 :v2} ...)
-      (^:top a2x-2 :only-features #{:v3} ...))
-
-    ;; Invocation of the transformation
-    (axc2xyz lm rm some-dir <features>)
-
-  a2x-1 is only effective for <features> including :v1 or :v2 (or both).
-  Likewise, a2b-2 is only effective if <features> includes :v3.  Note that if
-  <features> includes both :v1 (or :v2) and :v3, then a2b-1 and a2b-2 will
-  effective.  I.e., a relation is enabled iff the intersection of features
-  given at invocation and the declared :only-features features is not empty.
+  is only active when transforming in the direction of the left model, in the
+  other direction it is a no-op.
 
   For debugging purposes, relations may also contain the following clauses:
 
@@ -382,7 +366,7 @@
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
     `(defn ~name [~left ~right dir# & features#]
-       (when-not (or (= dir# :left) (= dir# :right))
+       (when-not (#{:left :right} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
        (letfn [~@(map (partial convert-relation (mapify-relations relations))
@@ -390,7 +374,6 @@
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
                    *features* (set features#)
-                   *relation-bindings* (atom {})
-                   ]
+                   *relation-bindings* (atom {})]
            ~@(map (fn [r] `(~(first r))) top-rels)
            @*relation-bindings*)))))
