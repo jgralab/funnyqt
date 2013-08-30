@@ -10,7 +10,13 @@
             [funnyqt.protocols :as p]))
 
 ;; Either :left or :right
-(def ^:dynamic *target-direction*)
+(def ^{:dynamic true
+       :doc "Used only internally."}
+  *target-direction*)
+
+(def ^{:dynamic true
+       :doc "Used only internally."}
+  *features*)
 
 (defn select-match [matches relation src-match]
   (when-not (seq matches)
@@ -89,7 +95,7 @@
                     ~@(get map src)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
-                ~@(:debug-src map)
+                ~(:debug-src map)
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
@@ -99,12 +105,12 @@
                            (tmp/finalizeo ~@trg-syms)
                            (ccl/== q# ~(make-kw-result-map trg-syms)))
                          ~relsym ~sm))]
-                  ~@(:debug-trg map)
+                  ~(:debug-trg map)
                   (enforce-match ~tm)
                   (let [~(make-destr-map trg-syms etm)
                         (replace-tmps-and-wrappers-with-manifestations ~tm)]
                     (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
-                    ~@(:debug-enforced map)
+                    ~(:debug-enforced map)
                     (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
@@ -164,6 +170,14 @@
             [m]))
     m))
 
+(defn relation-enabled?
+  "Used only internally."
+  [dir features]
+  (and (or (nil? dir)
+           (= *target-direction* dir))
+       (or (nil? features)
+           (seq (clojure.set/intersection *features* features)))))
+
 (defn ^:private convert-relation [all-rels [relsym & more]]
   (let [m     (apply hash-map more)
         m     (embed-included-rels all-rels m)
@@ -174,14 +188,16 @@
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :includes
                                        :debug-entry :debug-src :debug-trg
-                                       :debug-enforced))]
+                                       :debug-enforced
+                                       :only-direction :only-features))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms)]
-              ~@(:debug-entry m)
-              (let ~(make-relation-binding-vector syms)
-                (if (= *target-direction* :right)
-                  ~(do-rel-body relsym :right m wsyms lsyms rsyms)
-                  ~(do-rel-body relsym :left  m wsyms rsyms lsyms))))))
+              (when (relation-enabled? ~(:only-direction m) ~(:only-features m))
+                ~(:debug-entry m)
+                (let ~(make-relation-binding-vector syms)
+                  (if (= *target-direction* :right)
+                    ~(do-rel-body relsym :right m wsyms lsyms rsyms)
+                    ~(do-rel-body relsym :left  m wsyms rsyms lsyms)))))))
 
 (def ^{:dynamic true
        :doc "A map with the following structure:
@@ -231,7 +247,16 @@
 
 (defmacro deftransformation
   "Creates a new bidirectional transformation with the given `name` on the
-  models `left` and `right`.  `relations` is a sequence of relation
+  models `left` and `right`.  The signature of the defined transformation (a
+  plain function) is
+
+    (transformation-name left-model right-model direction & features)
+
+  `direction` is the direction in which to execute the transformation,
+  either :left or :right.  `features` is a sequence of keywords.  For more
+  information, see the docs to the :only-features clause far below.
+
+  In the transformation specification, `relations` is a sequence of relation
   definitions.  Every relation has the following form:
 
     (foo2bar
@@ -295,11 +320,11 @@
 
     (foo2bar
       :includes [(a2b :?a ?foo :?b ?bar)]
-      :left [(rel-with ?foo) ...]
-      :right [(rel-with ?bar) ...])
+      :left [(rel-with l ?foo) ...]
+      :right [(rel-with r ?bar) ...])
     (^:abstract a2b
-      :left [(rel-with ?a) ...]
-      :right [(rel-with ?b) ...])
+      :left [(rel-with l ?a) ...]
+      :right [(rel-with r ?b) ...])
 
   You can think of it as a kind of relation inheritance: the foo2bar relation
   includes all :left/:right/:when/:where clauses of the a2b rule, where ?a is
@@ -313,21 +338,50 @@
   included by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
+  Since not every bidirectional transformation problem is strictly bijective,
+  relations may also have an :only-direction clause.  Possible values are :left
+  and :right, meaning that this relation has only an effect when the
+  transformation is executed in this direction.  That makes it possible to have
+  a generally bidirectional transformation with several special cases depending
+  on the transformation direction.
+
+  Similarly, it is possible to encode different variants of the transformation
+  using the :only-features clause for relations.  This has to be a set of
+  keywords naming features of the transformation.  Only if the transformation
+  has be called with at least one of the features, that relation is enabled.
+  For example with
+
+    (deftransformation abc2xyz [l r]
+      (^:top a2x-1 :only-features #{:v1 :v2} ...)
+      (^:top a2x-2 :only-features #{:v3} ...))
+
+    ;; Invocation of the transformation
+    (axc2xyz lm rm some-dir <features>)
+
+  a2x-1 is only effective for <features> including :v1 or :v2 (or both).
+  Likewise, a2b-2 is only effective if <features> includes :v3.  Note that if
+  <features> includes both :v1 (or :v2) and :v3, then a2b-1 and a2b-2 will
+  effective.  I.e., a relation is enabled iff the intersection of features
+  given at invocation and the declared :only-features features is not empty.
+
   For debugging purposes, relations may also contain the following clauses:
 
-    :debug-entry    [...] ;; code being executed when a relation is invoked
-    :debug-src      [...] ;; code being executed when the source domain and :when
-                          ;; clause has been matched
-    :debug-trg      [...] ;; code being executed when the target domain has been
-                          ;; matched
-    :debug-enforced [...] ;; code being executed when the target domain has
-                          ;; been enforced"
+    :debug-entry    (println ...) ;; code being executed when a relation is invoked
+    :debug-src      (println ...) ;; code being executed when the source domain
+                                  ;; and :when clause has been matched
+    :debug-trg      (println ...) ;; code being executed when the target domain has
+                                  ;; been matched
+    :debug-enforced (println ...) ;; code being executed when the target domain has
+                                  ;; been enforced
+
+  The value may be arbitrary forms that are inserted at the corresponding
+  places."
 
   [name [left right] & relations]
   (let [top-rels (filter #(:top (meta (first %))) relations)]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
-    `(defn ~name [~left ~right dir#]
+    `(defn ~name [~left ~right dir# & features#]
        (when-not (or (= dir# :left) (= dir# :right))
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
@@ -335,6 +389,8 @@
                    (remove #(:abstract (meta (first %))) relations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
-                   *relation-bindings* (atom {})]
+                   *features* (set features#)
+                   *relation-bindings* (atom {})
+                   ]
            ~@(map (fn [r] `(~(first r))) top-rels)
            @*relation-bindings*)))))

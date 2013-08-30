@@ -305,6 +305,7 @@
    :left [(cd/+is-primary cd ?attr true)]
    :right [(db/+->pkey db ?table ?col)])
   (^:top super-attribute2column
+         :only-direction :right
          :when [(cd/+->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo class2table :?class ?subclass :?table ?table)]
