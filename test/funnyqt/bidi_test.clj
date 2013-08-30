@@ -318,9 +318,9 @@
     (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
     (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
     (test/is (= 7 (count (emf/eallobjects result-db 'Column))))
-    (viz/print-model result-db :gtk)))
+    #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd
   (let [result-cd (emf/new-model)]
     (class-diagram2database-schema result-cd db1 :left)
-    (viz/print-model result-cd :gtk)))
+    #_(viz/print-model result-cd :gtk)))
