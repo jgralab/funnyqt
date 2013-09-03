@@ -36,6 +36,7 @@
     (the w)))
 
 (deftransformation families2genealogy [[in] [out]]
+  (some-test-fn [x] :foo)
   (make-address
    :from [street town]
    :to [adr 'Address]

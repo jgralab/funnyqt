@@ -87,52 +87,51 @@
 (defn ^:private disjunct-rules [rule-map]
   (seq (take-while #(not= :result %) (:disjuncts rule-map))))
 
-(defn ^:private convert-rule [outs rule]
-  (let [m (rule-as-map rule)
-        a-t-m (args-types-map (:from m))
+(defn ^:private convert-rule [outs rule-map]
+  (let [a-t-m (args-types-map (:from rule-map))
         arg-vec (vec (keys a-t-m))
-        create-vec (create-vector (:to m) outs)
+        create-vec (create-vector (:to rule-map) outs)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
                  (first created)
                  created)
-        wl-vars (map first (partition 2 (:when-let m)))
+        wl-vars (map first (partition 2 (:when-let rule-map)))
         creation-form (when (seq created)
                         `(let ~create-vec
-                           (swap! *trace* update-in [~(keyword (:name m))]
+                           (swap! *trace* update-in [~(keyword (:name rule-map))]
                                   assoc ~arg-vec ~retval)
-                           ~@(:body m)
+                           ~@(:body rule-map)
                            ~retval))
-        wl-and-creation-form (if (:when-let m)
-                               `(let ~(vec (:when-let m))
+        wl-and-creation-form (if (:when-let rule-map)
+                               `(let ~(vec (:when-let rule-map))
                                   (when (and ~@wl-vars)
                                     ~creation-form))
                                creation-form)
-        when-wl-and-creation-form (if (:when m)
-                                    `(when ~(or (:when m) true)
+        when-wl-and-creation-form (if (:when rule-map)
+                                    `(when ~(or (:when rule-map) true)
                                        ~wl-and-creation-form)
                                     wl-and-creation-form)]
-    (when-let [uks (seq (disj (set (keys m))
+    (when-let [uks (seq (disj (set (keys rule-map))
                               :name :from :to :when :when-let :body :disjuncts))]
       (u/errorf "Unknown keys in rule: %s" uks))
-    `(~(:name m) ~arg-vec
-      ~(if-let [d (:disjuncts m)]
-         (let [drs (disjunct-rules m)
+    `(~(:name rule-map) ~arg-vec
+      ~(if-let [d (:disjuncts rule-map)]
+         (let [drs (disjunct-rules rule-map)
                d (take-last 2 d)
                result-spec (if (= :result (first d))
                              (second d)
                              (gensym "disj-rule-result"))
                disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
                                       (when-let [~result-spec r#]
-                                        ~@(:body m)
+                                        ~@(:body rule-map)
                                         r#))]
            `(when (and ~@(type-constrs a-t-m false)
-                       ~(or (:when m) true))
-              ~(if (:when-let m)
-                 `(when-let ~(:when-let m)
+                       ~(or (:when rule-map) true))
+              ~(if (:when-let rule-map)
+                 `(when-let ~(:when-let rule-map)
                     ~disj-calls-and-body)
                  disj-calls-and-body)))
-         `(or ~(make-trace-lookup arg-vec (:name m))
+         `(or ~(make-trace-lookup arg-vec (:name rule-map))
               (when ~(type-constrs a-t-m true)
                 ~when-wl-and-creation-form))))))
 
@@ -241,31 +240,33 @@
                       :else [i o]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
+        rules (apply hash-map (mapcat (fn [r] [(first r) (rule-as-map r)]) rules))
+        fns   (apply hash-map (mapcat (fn [f] [(first f) f]) fns))
         top-rules   (filter #(:top (meta (first %))) rules)
         rule-by-name (fn [n]
-                       (let [rs (filter #(= n (first %)) rules)]
-                         (cond
-                          (empty? rs) (u/errorf "No such rule: %s" n)
-                          (fnext rs)  (u/errorf "Multiple rules named %s: %s" n rs)
-                          :else (first rs))))
-        collect-type-specs (fn ct [r]
-                             (let [m (rule-as-map r)]
-                               (if-let [disj-rules (disjunct-rules m)]
-                                 (let [specs (set (map (comp ct rule-by-name) disj-rules))]
-                                   (if (= 1 (count specs))
-                                     (first specs)
-                                     (vec specs)))
-                                 (remove nil? (vals (args-types-map (:from m)))))))
-        type-spec (vec (cons :or (distinct (remove nil? (mapcat collect-type-specs top-rules)))))]
+                       (or (get rules n) (u/errorf "No such rule: %s" n)))
+        collect-type-specs (fn ct [rule-map]
+                             (if-let [disj-rules (disjunct-rules rule-map)]
+                               (let [specs (set (map (comp ct rule-by-name) disj-rules))]
+                                 (if (= 1 (count specs))
+                                   (first specs)
+                                   (vec specs)))
+                               (remove nil? (vals (args-types-map (:from rule-map))))))
+        type-spec (vec (cons :or (distinct (remove nil? (mapcat collect-type-specs
+                                                                (vals top-rules))))))
+        rule-specs (map (partial convert-rule outs) (vals rules))
+        elem-var (gensym "elem")]
     (when-not (seq top-rules)
       (u/errorf "At least one rule has to be declared as top-level rule."))
-    `(defn ~name ~(meta name)
+    `(defn ~name ~(merge (meta name)
+                         {::rules (list 'quote rules)
+                          ::fns   (list 'quote fns)})
        [~@ins ~@outs]
-       (binding [*trace*            (atom {})]
-         (letfn [~@fns
-                 ~@(map (partial convert-rule outs) rules)]
+       (binding [*trace* (atom {})]
+         (letfn [~@(vals fns)
+                 ~@rule-specs]
            ~@(for [m ins]
-               `(doseq [elem# (p/elements ~m ~type-spec)]
-                  (doseq [r# ~(mapv first top-rules)]
-                    (r# elem#))))
+               `(doseq [~elem-var (p/elements ~m ~type-spec)]
+                  ~@(for [r (keys top-rules)]
+                      `(~r ~elem-var))))
            @*trace*)))))
