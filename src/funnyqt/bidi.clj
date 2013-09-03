@@ -8,7 +8,8 @@
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.protocols :as p]
-            [clojure.tools.macro :as tm]))
+            [clojure.tools.macro :as tm]
+            [clojure.walk :as cw]))
 
 ;; Either :left or :right
 (def ^{:dynamic true
@@ -255,6 +256,9 @@
   either :left or :right.  `features` is a sequence of keywords.  For more
   information, see the docs to the :only clause far below.
 
+  Defining Relations
+  ==================
+
   In the transformation specification, `relations` is a sequence of relation
   definitions.  Every relation has the following form:
 
@@ -277,6 +281,9 @@
   ^:top metadata can be added to relation names.  Such top-level relations are
   enforced automatically by the transformation in their declaration order.
 
+  Preconditions
+  =============
+
   A relation spec may also contain a :when precondition:
 
     (foo2bar
@@ -290,6 +297,9 @@
   which all :when and all :left goals succeed, there must be at least one set
   of elements in the `right` model for which all :when and :right goals
   succeed.
+
+  Postconditions
+  ==============
 
   A relation spec may also contain a :where postcondition:
 
@@ -315,6 +325,9 @@
   elements only in terms of `:when [(relateo ...)...]` and then invokes other
   relations using its :where clause.
 
+  Including other Relations
+  =========================
+
   A relation spec may also contain an :includes clause:
 
     (foo2bar
@@ -337,6 +350,9 @@
   included by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
+  Conditionalizing Relations
+  ==========================
+
   Since not every bidirectional transformation problem is strictly bijective,
   relations may also have an :only clause.  The value of the :only clause has
   to be a function accepting the current transformation direction (:left
@@ -347,6 +363,9 @@
 
   is only active when transforming in the direction of the left model, in the
   other direction it is a no-op.
+
+  Debugging Relations
+  ===================
 
   For debugging purposes, relations may also contain the following clauses:
 
@@ -359,15 +378,58 @@
                                   ;; been enforced
 
   The value may be arbitrary forms that are inserted at the corresponding
-  places."
+  places.
+
+  Transformation Inheritance
+  ==========================
+
+  A transformation may have :extends metadata.  Its value is a symbol or a
+  vector of symbols denoting other bidirectional transformations.
+
+    (deftransformation ^{:extends a2b-base} a2b [l r]
+      ...)
+
+  The transformation a2b extends a2b-base here.  This means that a2b contains
+  its own relations plus the ones defined in a2b-base.  If a2b defines a
+  relation that's already defined by a2b-base, then a2b's version overrides the
+  version from a2b-base.  Likewise, a2b calls all top-level relations defined
+  by itself and a2b-base.
+
+  a2b is allowed to use different names for the left and right model.  However,
+  when overriding a relation, the logical variables (those beginning with
+  question mark) should have the same names as in the overridden relation, at
+  least if some other inherited relation calls the overridden relation
+  in :where or accesses its trace in terms of `relateo` in :when.  That's
+  because the logical variables act as named parameters and are also
+  represented in the transformation trace."
 
   {:arglists '([name [left right] & relations])}
-  [name & more] ;more = [left right] & relations
+  [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [left right] (first more)
         relations (next more)
         relations (mapify-relations relations)
+        relations (if-let [extended (:extends (meta name))]
+                    (do
+                      (when-not (or (symbol? extended)
+                                    (and (vector? extended)
+                                         (every? symbol? extended)))
+                        (u/errorf (str "The value of :extends must be a symbol or a "
+                                       "vector of symbols denoting bidi transformations: "
+                                       "%s")
+                                  extended))
+                      (let [extended (if (coll? extended) extended [extended])]
+                        (apply merge (conj (mapv (fn [ex]
+                                                   (let [m (meta (resolve ex))]
+                                                     (cw/prewalk-replace
+                                                      {(::left-model-name m) left
+                                                       (::right-model-name m) right}
+                                                      (::relations m))))
+                                                 extended)
+                                           relations))))
+                    relations)
         top-rels (filter #(:top (meta %)) (keys relations))]
+    (println relations)
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
     `(defn ~name ~(merge (meta name)

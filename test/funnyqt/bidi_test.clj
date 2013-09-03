@@ -331,3 +331,37 @@
     (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
     (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))
+
+(bidi/deftransformation ^{:extends [class-diagram2database-schema]}
+  class-diagram2database-schema-ext
+  "This transformation extends class-diagram2database-schema.  It only
+  overrides class2table with the very same definition plus a
+  always-succeeding :when clause, and uses different model parameter names."
+  [l r]
+  (class2table
+   :when [ccl/succeed]
+   :left [(cd/+->classifiers l ?pkg ?class)
+          (cd/+Class l ?class)
+          (cd/+is-persistent l ?class true)
+          (cd/+name l ?class ?name)]
+   :right [(db/+->tables r ?schema ?table)
+           (db/+Table r ?table)
+           (db/+name r ?table ?name)]
+   :where [(attribute2column :?class ?class :?table ?table)]))
+
+(test/deftest test-cd2db-ext
+  (let [result-db (emf/new-model)]
+    (class-diagram2database-schema-ext cd1 result-db :right)
+    (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
+    (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
+    (test/is (= 7 (count (emf/eallobjects result-db 'Column))))
+    #_(viz/print-model result-db :gtk)))
+
+(test/deftest test-db2cd-ext
+  (let [result-cd (emf/new-model)]
+    (class-diagram2database-schema-ext result-cd db1 :left)
+    (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
+    (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
+    (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
+    #_(viz/print-model result-cd :gtk)))
+
