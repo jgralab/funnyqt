@@ -176,9 +176,8 @@
             [m]))
     m))
 
-(defn ^:private convert-relation [all-rels [relsym & more]]
-  (let [m     (apply hash-map more)
-        m     (embed-included-rels all-rels m)
+(defn ^:private convert-relation [all-rels [relsym m]]
+  (let [m     (embed-included-rels all-rels m)
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
@@ -367,18 +366,23 @@
   (let [[name more] (tm/name-with-attributes name more)
         [left right] (first more)
         relations (next more)
-        top-rels (filter #(:top (meta (first %))) relations)]
+        relations (mapify-relations relations)
+        top-rels (filter #(:top (meta %)) (keys relations))]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
-    `(defn ~name ~(meta name) [~left ~right dir# & features#]
+    `(defn ~name ~(merge (meta name)
+                         {::left-model-name (list 'quote left)
+                          ::right-model-name (list 'quote right)
+                          ::relations (list 'quote relations)})
+       [~left ~right dir# & features#]
        (when-not (#{:left :right} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
-       (letfn [~@(map (partial convert-relation (mapify-relations relations))
-                   (remove #(:abstract (meta (first %))) relations))]
+       (letfn [~@(map (partial convert-relation relations)
+                   (remove #(:abstract (meta %)) relations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
                    *features* (set features#)
                    *relation-bindings* (atom {})]
-           ~@(map (fn [r] `(~(first r))) top-rels)
+           ~@(map (fn [r] `(~r)) top-rels)
            @*relation-bindings*)))))
