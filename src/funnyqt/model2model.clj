@@ -136,16 +136,22 @@
                 ~when-wl-and-creation-form))))))
 
 (defmacro deftransformation
-  "Creates a model-to-model transformation named `name`.
+  "Creates a model-to-model transformation named `name` with the declared
+ `in-models`, `out-models`, and optional additional `args`.  For example,
 
-  `args` specifies the transformations input/output models.  It is a vector of
-  input models and output models.  Both input and output are again vectors.
-  E.g., a transformation receiving two input models and instantiating objects
-  in one single output model would have the args [[in1 in2] [out]].
+    (deftransformation foo2bar [[in1 in2] [out] x y z]
+      ...)
+
+  declares a transformation named foo2bar that receives 2 input models in1 and
+  in2, creates elements in the single output model out, and has three
+  additional parameters x, y, and z.
 
   In the rest of the transformation spec, rules and functions are defined.
   Functions are to be defined in the syntax of function definitions in
   `letfn`.
+
+  Rules
+  =====
 
   Rules are defined similarily, but they are identified by several keywords.
   A plain mapping rule has the form:
@@ -169,14 +175,24 @@
   :to is a vector of output elements (paired with their types) that are to be
   created.
 
-  Following these special keyword-clauses, arbitrary code may follow, e.g., to
-  set attributes and references of the newly created objects.
-
   If there are multiple output models, the :to spec has to state in which model
   a given object has to be created, e.g.,
 
     :to [b 'OutClass  :model out1,
          c 'OutClass2 :model out2]
+
+  Following these special keyword-clauses, arbitrary code may follow, e.g., to
+  set attributes and references of the newly created objects by calling other
+  rules.
+
+  A rule always returns the elements that where created for a given input
+  element in terms of the :to clause.  If the called rule's :to clause creates
+  only one object, the result of a call is this object.  If its :to clause
+  creates multiple objects, the result of a call is a vector of the created
+  objects in the order of their declaration in :to.
+
+  Disjunctive Rules
+  =================
 
   Besides normal mapping rules, there are disjunctive rules.  Those have the
   following form:
@@ -194,12 +210,8 @@
   bound to that spec and can be used in the optional body.  The spec may be a
   symbol or any destructuring form supported by let.
 
-  In a rule's body, other rules may be called.  A rule always returns the
-  elements that where created for a given input element in terms of the :to
-  clause.  If the called rule's :to clause creates only one object, the result
-  of a call is this object.  If its :to clause creates multiple objects, the
-  result of a call is a vector of the created objects in the order of their
-  declaration in :to.
+  Top-level Rules
+  ===============
 
   At least one rule has to be declared top-level using ^:top metadata:
 
@@ -213,6 +225,9 @@
   top-level rules explicitly.  Top-level rules must have exactly one element
   declared in their :from clause.
 
+  Transformation Trace
+  ====================
+
   The transformation function returns the trace of the transformation as a map
   of the form:
 
@@ -223,25 +238,68 @@
   In that example, it is obvious that rule1 creates just one target element for
   two given input elements, whereas rule2 creates two output elements for one
   given input element.  In other words, rule1 has 2 elements declared in :from
-  and 2 elements in :to, and for rule2 it's the other way round."
+  and 2 elements in :to, and for rule2 it's the other way round.
 
-  {:arglists '([name args & rules-and-fns])}
+  Transformation Inheritance
+  ==========================
+
+  By providing :extends metadata to the transformation (a symbol or a vector of
+  symbols denoting other transformations), one can declare the new
+  transformation to extend one or many other transformations.
+
+    (deftransformation ^{:extends foo2bar-base} foo2bar
+     \"Transforms a foo model to a bar model.\"
+     [foo bar]
+     ...)
+
+  The transformation foo2bar extends foo2bar-base here.  This means that
+  foo2bar contains its own rules and functions plus the ones defined in
+  foo2bar-base.  If foo2bar defines a function or rule that's already defined
+  by foo2bar-base, then foo2bar's version overrides the version from
+  foo2bar-base.  foo2bar calls all top-level relations defined by itself and
+  foo2bar-base.
+
+  Note that transformation inheritance doesn't mangle transformation parameters
+  in any way.  If a base transformation uses an argument vector [src trg] but
+  the extending transformation uses [s t], you'll get a compile error if
+  inherited/non-overridden rules use either one of them.  So in general, it is
+  advisable that extending transformations have the very same parameters as the
+  extended transformations, plus optionally some more parameters."
+
+  {:arglists '([name [[& in-models] [& out-models] & args] & rules-and-fns])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [args rules-and-fns] (if (vector? (first more))
                                [(first more) (next more)]
                                (u/errorf "Error: arg vector missing!"))
-        [ins outs] (let [[i o] args]
-                     (cond
-                      (nil? i) (u/errorf "No input models given.")
-                      (nil? o) (u/errorf "No output models given.")
-                      (not (vector? i)) (u/errorf "input models must be a vector.")
-                      (not (vector? o)) (u/errorf "output models must be a vector.")
-                      :else [i o]))
+        [ins outs aa] (let [[i o & aa] args]
+                        (cond
+                         (nil? i) (u/errorf "No input models given.")
+                         (nil? o) (u/errorf "No output models given.")
+                         (not (vector? i)) (u/errorf "input models must be a vector.")
+                         (not (vector? o)) (u/errorf "output models must be a vector.")
+                         :else [i o aa]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
         rules (apply hash-map (mapcat (fn [r] [(first r) (rule-as-map r)]) rules))
         fns   (apply hash-map (mapcat (fn [f] [(first f) f]) fns))
+        [rules fns] (if-let [extended (:extends (meta name))]
+                      (do
+                        (when-not (or (symbol? extended)
+                                      (and (vector? extended)
+                                           (every? symbol? extended)))
+                          (u/errorf (str "The value of :extends must be a symbol or a "
+                                         "vector of symbols denoting transformations: "
+                                         "%s")
+                                    extended))
+                        (let [extended (if (coll? extended) extended [extended])]
+                          [(apply merge (conj (mapv #(::rules (meta (resolve %)))
+                                                    extended)
+                                              rules))
+                           (apply merge (conj (mapv #(::fns   (meta (resolve %)))
+                                                    extended)
+                                              fns))]))
+                              [rules fns])
         top-rules   (filter #(:top (meta (first %))) rules)
         rule-by-name (fn [n]
                        (or (get rules n) (u/errorf "No such rule: %s" n)))
@@ -261,7 +319,7 @@
     `(defn ~name ~(merge (meta name)
                          {::rules (list 'quote rules)
                           ::fns   (list 'quote fns)})
-       [~@ins ~@outs]
+       [~@ins ~@outs ~@aa]
        (binding [*trace* (atom {})]
          (letfn [~@(vals fns)
                  ~@rule-specs]
