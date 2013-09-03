@@ -429,7 +429,6 @@
                                            relations))))
                     relations)
         top-rels (filter #(:top (meta %)) (keys relations))]
-    (println relations)
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
     `(defn ~name ~(merge (meta name)
