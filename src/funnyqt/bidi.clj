@@ -7,7 +7,8 @@
             [funnyqt.relational.util :as ru]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
-            [funnyqt.protocols :as p]))
+            [funnyqt.protocols :as p]
+            [clojure.tools.macro :as tm]))
 
 ;; Either :left or :right
 (def ^{:dynamic true
@@ -361,11 +362,15 @@
   The value may be arbitrary forms that are inserted at the corresponding
   places."
 
-  [name [left right] & relations]
-  (let [top-rels (filter #(:top (meta (first %))) relations)]
+  {:arglists '([name [left right] & relations])}
+  [name & more] ;more = [left right] & relations
+  (let [[name more] (tm/name-with-attributes name more)
+        [left right] (first more)
+        relations (next more)
+        top-rels (filter #(:top (meta (first %))) relations)]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
-    `(defn ~name [~left ~right dir# & features#]
+    `(defn ~name ~(meta name) [~left ~right dir# & features#]
        (when-not (#{:left :right} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))

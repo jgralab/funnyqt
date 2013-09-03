@@ -277,7 +277,9 @@
       (cd/+is-persistent cd1 c v)
       (ccl/== q [c v]))))
 
-(bidi/deftransformation class-diagram2database-schema [cd db]
+(bidi/deftransformation class-diagram2database-schema
+  "Transforms between class diagrams and database schemas."
+  [cd db]
   (^:top package2schema
          :left [(cd/+Package cd ?pkg)
                 (cd/+name cd ?pkg ?name)]
