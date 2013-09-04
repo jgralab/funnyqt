@@ -1,4 +1,4 @@
-(defproject funnyqt "0.7.1"
+(defproject funnyqt "0.8.0"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -11,13 +11,13 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [org.clojure/core.cache "0.6.3"]
                  [de.uni-koblenz.ist/jgralab "7.7.0"]
-                 [org.clojure/core.logic "0.8.3"]
+                 [org.clojure/core.logic "0.8.4"]
                  [org.flatland/ordered "1.5.1"]
                  [org.clojure/tools.macro "0.1.2"]
                  [emf-xsd-sdk "2.8.3"]]
   :profiles {:dev
              {:dependencies
-              [[criterium "0.4.1"]
+              [[criterium "0.4.2"]
                [org.clojure/tools.namespace "0.2.4"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
