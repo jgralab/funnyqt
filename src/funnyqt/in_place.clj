@@ -188,7 +188,7 @@
 
 ;;# Higher order rule application functions
 
-(defn apply-first
+(defn apply-disjunctively
   "Applies the first matching rule in `rules` with `args` and returns its
   result.  If no rule matches, returns nil."
   [rules & args]
@@ -224,12 +224,12 @@
   [rules & args]
   (apply-all rules q/or* args))
 
-(defn apply-sequentially
+(defn apply-conjunctively
   "Applies `rules` in sequence with `args` until one rule returns logical
   false.  Returns the value of the last rule application iff all rules could be
   applied.  Else, it returns logical false.
 
-  Thus,            (apply-sequentially [r1 r2 r3 r4 r5] x y)
+  Thus,            (apply-conjunctively [r1 r2 r3 r4 r5] x y)
   is equivalent to (and (r1 x y) (r2 x y) (r3 x y) (r4 x y) (r5 x y))"
   [rules & args]
   (loop [rs rules, ret true]
@@ -238,13 +238,13 @@
         (recur (rest rs) v))
       ret)))
 
-(defn apply-sequentially*
+(defn apply-conjunctively*
   "Applies `rules` in sequence until one rule returns logical false.  Returns
   the value of the last rule application iff all rules could be applied.  Else,
   it returns logical false.  The first rule is applied with `args`, all others
   are applied with the result of the previous rule application.
 
-  Thus,            (apply-sequentially [r1 r2 r3 r4 r5] x y)
+  Thus,            (apply-conjunctively* [r1 r2 r3 r4 r5] x y)
   is equivalent to (when-let [r (r1 x y)]
                      (when-let [r (apply r2 x)]
                        (when-let [r (apply r3 x)]
