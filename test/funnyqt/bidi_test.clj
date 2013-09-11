@@ -165,7 +165,7 @@
                  (ab-emf/+name r ?addrbook2 ?n)]
          :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
   (category2category
-   :left [(ab-tg/+->categories l ?ab1 ?cat1)
+   :left [(ab-tg/+ContainsCategory l ?cc ?ab1 ?cat1)
           (ab-tg/+Category l ?cat1)
           (ab-tg/+name l ?cat1 ?n)]
    :right [(ab-emf/+->categories r ?ab2 ?cat2)
