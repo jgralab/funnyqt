@@ -55,7 +55,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (let [r (-> (str s)
                 (clojure.string/replace "<" "&lt;")
                 (clojure.string/replace ">" "&gt;")
-                (clojure.string/replace "\"" "\\\""))]
+                (clojure.string/replace "\"" "\\\"")
+                (clojure.string/replace "{" "\\{")
+                (clojure.string/replace "}" "\\}"))]
       (if (string? s)
         (str "\\\"" r "\\\"")
         r))

@@ -147,8 +147,6 @@
   additional parameters x, y, and z.
 
   In the rest of the transformation spec, rules and functions are defined.
-  Functions are to be defined in the syntax of function definitions in
-  `letfn`.
 
   Rules
   =====
@@ -221,9 +219,30 @@
        ...)
 
   When the transformation gets executed, top-level rules are applied to
-  matching elements automatically.  All other rules have to be called from the
-  top-level rules explicitly.  Top-level rules must have exactly one element
-  declared in their :from clause.
+  matching elements automatically (unless there's a main function; see below).
+  All other rules have to be called from the top-level rules explicitly.
+  Top-level rules must have exactly one element declared in their :from clause.
+
+  Functions
+  =========
+
+  Functions are just arbitrary local helpers.  They are to be defined in the
+  syntax of function definitions in `letfn`, that is, they support for
+  overloading etc.
+
+  There may be one special function called `main`.  This function must not have
+  parameters.  If defined, it acts as the entry point to the transformation,
+  i.e., it is called automatically and is responsible for calling the
+  transformation's rules appropriately.  If there's a `main` function, the
+  ^:top metadata attached to rules has no effect, that is, they are not called
+  automatically.
+
+  So you usually have either top-level rules or a `main` function.  The former
+  is simpler and usually suffices while the latter provides more control to the
+  user.  For example, there may be cases where some entry rule has to be called
+  with model elements that are sorted topologically, or your transformation
+  needs to bind additional dynamic vars.  In such cases, defining a `main`
+  function allows you to do so.
 
   Transformation Trace
   ====================
@@ -303,6 +322,7 @@
         top-rules   (filter #(:top (meta (first %))) rules)
         rule-by-name (fn [n]
                        (or (get rules n) (u/errorf "No such rule: %s" n)))
+        main-fn (get fns 'main)
         collect-type-specs (fn ct [rule-map]
                              (if-let [disj-rules (disjunct-rules rule-map)]
                                (let [specs (set (map (comp ct rule-by-name) disj-rules))]
@@ -314,8 +334,15 @@
                                                                 (vals top-rules))))))
         rule-specs (map (partial convert-rule outs) (vals rules))
         elem-var (gensym "elem")]
-    (when-not (seq top-rules)
-      (u/errorf "At least one rule has to be declared as top-level rule."))
+    (when-not (or main-fn (seq top-rules))
+      (u/error (str "At least one rule has to be declared as top-level rule, "
+                    "or there has to be a main function!")))
+    (when (and main-fn (not (zero? (count (second main-fn)))))
+      (u/error "The main function mustn't have any parameters."))
+    (when (and main-fn (seq top-rules))
+      (println (str "There's a main function and " (count top-rules)
+                    " top-level rules.  Top-level rules are only applied "
+                    "automatically if there's no main function.")))
     `(defn ~name ~(merge (meta name)
                          {::rules (list 'quote rules)
                           ::fns   (list 'quote fns)})
@@ -323,8 +350,10 @@
        (binding [*trace* (atom {})]
          (letfn [~@(vals fns)
                  ~@rule-specs]
-           ~@(for [m ins]
-               `(doseq [~elem-var (p/elements ~m ~type-spec)]
-                  ~@(for [r (keys top-rules)]
-                      `(~r ~elem-var))))
+           ~@(if main-fn
+               `[(~'main)]
+               (for [m ins]
+                 `(doseq [~elem-var (p/elements ~m ~type-spec)]
+                    ~@(for [r (keys top-rules)]
+                        `(~r ~elem-var)))))
            @*trace*)))))
