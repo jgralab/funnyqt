@@ -204,14 +204,22 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          "color=" (if (*marked* v) "red" "black")
          "];\n")))
 
+(defn tg-role-name [ic]
+  (when ic
+    (let [r (.getRolename ic)]
+      (if (seq r)
+        r
+        (first (remove nil? (map tg-role-name
+                                 (.getOwnSubsettedIncidenceClasses ic))))))))
+
 (defn ^:private tg-dot-edge [^Edge e]
   (when (and (not (*excluded* e))
              (dot-included? (tg/alpha e))
              (dot-included? (tg/omega e)))
     (let [^EdgeClass ec (.getAttributedElementClass e)
-          fr (-> ec  .getFrom .getRolename)
+          fr  (tg-role-name (.getFrom ec))
           fak (-> ec .getFrom .getAggregationKind)
-          tr (-> ec  .getTo   .getRolename)
+          tr  (tg-role-name (.getTo ec))
           tak (-> ec .getTo   .getAggregationKind)]
       (str "  v" (tg/id (tg/alpha e)) " -> v" (tg/id (tg/omega e))
            " [id=e" (tg/id e) ", label=\"e" (tg/id e) ": "
