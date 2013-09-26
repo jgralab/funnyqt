@@ -246,6 +246,28 @@
     (or (first (remove zero? (map #(%1 %2 %3) cmps a b)))
         (- (hash a) (hash b)))))
 
+(defn sort-topologically
+  "Returns the objects `obs` as topologically sorted vector or false if there's
+  a cycle.  `deps-fn` is a function that given an object of `objs` returns its
+  \"dependencies\", i.e., objects that need to be sorted before it."
+  [vs deps-fn]
+  (let [vs (set vs)]
+    (loop [rem vs, known  #{}, sorted []]
+      (if (seq rem)
+        (let [gs (group-by (fn [v]
+                             (every? #(member? % known)
+                                     (filter vs (deps-fn v))))
+                           rem)
+              good (gs true)
+              bad (gs false)]
+          ;;(println (count rem) ": good" (count good) "bad" (count bad))
+          (if (seq good)
+            (recur bad
+                   (into known good)
+                   (into sorted good))
+            false))
+        sorted))))
+
 ;;# IAdjacencies
 
 ;; Those are implemented in funnyqt.tg and funnyqt.emf

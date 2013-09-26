@@ -302,45 +302,20 @@ can compute that like so:
                        #(tg/value % a))
                      coll)))
 
-(defn- topological-sort-clj
-  "Returns a vector of `g`s vertices in topological order.
-  Returns false, iff the graph is cyclic."
-  [g]
-  (loop [rem (tg/vseq g), es  #{}, sorted []]
-    (if (seq rem)
-      (let [gs (group-by (fn [v]
-                           (if (seq (remove es (map tg/normal-edge (tg/iseq v nil :in))))
-                             false
-                             true))
-                         rem)
-            good (gs true)
-            bad (gs false)]
-        ;;(println (count rem) ": good" (count good) "bad" (count bad))
-        (if (seq good)
-          (recur bad
-                 (into es (mapcat #(tg/iseq % nil :out) good))
-                 (into sorted good))
-          false))
-      sorted)))
-
 (defn topological-sort
   "Returns a seq of `g`s vertices in topological order.
   Returns false, iff the graph is cyclic.  The actual algorithm `alg` may be
-  chosen between :dfs (a depth-first variant, the default), :kahn-knuth,
-  and :plain (a purely functional clojure implementation, which is nice but
-  slow)."
+  chosen between :dfs (a depth-first variant, the default), and :kahn-knuth."
   ([g]
      (topological-sort g :dfs))
   ([g alg]
-     (if (= alg :plain)
-       (topological-sort-clj g)
-       (let [^TopologicalOrderSolver a
-             (case alg
-               :kahn-knuth (KahnKnuthAlgorithm. g)
-               :dfs        (TopologicalOrderWithDFS. g (IterativeDepthFirstSearch. g))
-               (u/error (str "Unknown topo-sort algorithm" alg)))]
-         (.execute a)
-         (if (.isAcyclic ^AcyclicitySolver a)
-           (map #(.getSecond ^PermutationEntry %)
-                (seq (.getTopologicalOrder a)))
-           false)))))
+     (let [^TopologicalOrderSolver a
+           (case alg
+             :kahn-knuth (KahnKnuthAlgorithm. g)
+             :dfs        (TopologicalOrderWithDFS. g (IterativeDepthFirstSearch. g))
+             (u/error (str "Unknown topo-sort algorithm" alg)))]
+       (.execute a)
+       (if (.isAcyclic ^AcyclicitySolver a)
+         (map #(.getSecond ^PermutationEntry %)
+              (seq (.getTopologicalOrder a)))
+         false))))
