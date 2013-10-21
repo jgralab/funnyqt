@@ -265,11 +265,11 @@ functions `record` and `enum`."
         (u/errorf "No such domain %s" (domain-qname qname)))))
 
 (defn schema-graph
-  "Returns the SchemaGraph of `g`."
-  [^Graph g]
+  "Returns the SchemaGraph of schema `s`."
+  [^Schema s]
   (.convert2SchemaGraph
    (de.uni_koblenz.jgralab.utilities.tg2schemagraph.Schema2SchemaGraph.)
-   ^Schema (schema g)))
+   s))
 
 ;;# Generic Metamodel Access
 
