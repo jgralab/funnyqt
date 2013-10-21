@@ -53,6 +53,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn ^:private dot-escape [s]
   (if s
     (let [r (-> (str s)
+                (clojure.string/replace "\n" "\\n")
                 (clojure.string/replace "<" "&lt;")
                 (clojure.string/replace ">" "&gt;")
                 (clojure.string/replace "\"" "\\\"")
