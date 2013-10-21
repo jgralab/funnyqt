@@ -2,10 +2,11 @@
   (:require [funnyqt.utils        :as u]
             [funnyqt.protocols    :as p]
             [funnyqt.query        :as q]
-            [clojure.tools.macro  :as tm]))
+            [clojure.tools.macro  :as tm]
+            [flatland.ordered.map :as om]))
 
 (defn ^:private args-types-map [from]
-  (loop [f from, r {}]
+  (loop [f from, r (om/ordered-map)]
     (if (seq f)
       (if (and (symbol? (first f))
                (coll? (second f)))
