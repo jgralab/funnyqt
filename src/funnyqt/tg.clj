@@ -1493,9 +1493,44 @@ functions `record` and `enum`."
 
 (defn ^:private create-vc-create-fn [^VertexClass vc]
   (when-not (p/abstract? vc)
-    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName vc) \. \$)))
-       [~'g]
-       (create-vertex! ~'g '~(symbol (.getQualifiedName vc))))))
+    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
+       ~(format "Create a new %s vertex in graph `g`.
+  Additional `props` may be supplied.
+  Shorthand for (apply create-vertex! '%s props)."
+                (.getQualifiedName vc)
+                (.getQualifiedName vc))
+       [~'g ~'& ~'props]
+       (apply create-vertex! ~'g '~(symbol (.getQualifiedName vc)) ~'props))))
+
+(defn ^:private create-ec-create-fn [^EdgeClass ec]
+  (when-not (p/abstract? ec)
+    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
+        ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
+  Additional `attrs` may be supplied.
+  Shorthand for (apply create-edge! '%s props)."
+                (.getQualifiedName ec)
+                (.getQualifiedName ec))
+       [~'g ~'alpha ~'omega ~'& ~'attrs]
+       (apply create-edge! ~'g '~(symbol (.getQualifiedName ec))
+              ~'alpha ~'omega ~'attrs))))
+
+(defn ^:private create-attr-fns [attr owners]
+  (let [domains (set (for [^AttributedElementClass aec owners]
+                       (.getQualifiedName (.getDomain (.getAttribute aec (name attr))))))]
+    `(do
+       ~@(when (contains? domains "Boolean")
+           `[(defn ~(symbol (str (name attr) "?")) [~'ae]
+               (value ~'ae ~attr))])
+       ~@(when (or (not (contains? domains "Boolean"))
+                   (> (count domains) 2))
+           `[(defn ~(symbol (str (name attr))) [~'ae]
+               (value ~'ae ~attr))])
+       (defn ~(symbol (str "set-" (name attr) "!")) [~'ae ~'val]
+         (set-value! ~'ae ~attr ~'val)))))
+
+(defn ^:private create-role-fns [role owners]
+  ;; TODO: gotta need to check if that role is single- or multi-valued
+  )
 
 (defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
@@ -1507,9 +1542,10 @@ functions `record` and `enum`."
      `(funnyqt.utils.tg/schema-ns-generator ~schema-file
                                             ~nssym
                                             create-vc-create-fn
-                                            nil
-                                            nil
+                                            create-ec-create-fn
+                                            create-attr-fns
                                             nil)))
 
-;(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
+(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
+
 
