@@ -2,6 +2,9 @@
   (:require [funnyqt.tg :as tg])
   (:import (de.uni_koblenz.jgralab.schema VertexClass EdgeClass Attribute Schema)))
 
+(defn ^:private no-nils [coll]
+  (doall (remove nil? coll)))
+
 (defmacro schema-ns-generator
   "A helper macro for generating a schema-specific API in some namespace.
   The namespace is named `nssym`.  If that's nil, then use the current
@@ -35,39 +38,42 @@
            `[(ns ~nssym)])
        ;; The schema specific ones
        ~@(concat
-          (doall
-           (mapcat
-            (fn [^VertexClass vc]
-              (doseq [a (mapv #(keyword (.getName ^Attribute %))
-                              (seq (.getOwnAttributeList vc)))]
-                (swap! atts
-                       #(update-in %1 [%2] conj vc)
-                       a))
-              ((resolve vc-fn) vc))
-            (seq (-> schema .getGraphClass .getVertexClasses))))
-          (doall
-           (mapcat
-            (fn [^EdgeClass ec]
-              (doseq [a (mapv #(keyword (.getName ^Attribute %))
-                              (seq (.getOwnAttributeList ec)))]
-                (swap! atts
-                       #(update-in %1 [%2] conj ec)
-                       a))
-              (let [from-vc (-> ec .getFrom .getVertexClass)
-                    from-rn (-> ec .getFrom .getRolename)]
-                ;; Skip empty role names!
-                (when (seq from-rn)
-                  (swap! refs #(update-in %1 [from-rn] conj from-vc))))
-              (let [to-vc (-> ec .getTo .getVertexClass)
-                    to-rn (-> ec .getTo .getRolename)]
-                (when (seq to-rn)
-                  (swap! refs #(update-in %1 [to-rn] conj to-vc))))
-              ((resolve ec-fn) ec))
-            (seq (-> schema .getGraphClass .getEdgeClasses))))
-          (doall
-           (for [[a owners] @atts]
-             ((resolve attr-fn) a owners)))
-          (doall
-           (for [[role owners] @refs]
-             ((resolve role-fn) role owners))))
+          (no-nils
+           (for [^VertexClass vc (seq (-> schema .getGraphClass .getVertexClasses))]
+             (do
+               (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                               (seq (.getOwnAttributeList vc)))]
+                 (swap! atts
+                        #(update-in %1 [%2] conj vc)
+                        a))
+               (when vc-fn
+                 ((resolve vc-fn) vc)))))
+          (no-nils
+           (for [^EdgeClass ec (seq (-> schema .getGraphClass .getEdgeClasses))]
+             (do
+               ;; Collect attributes
+               (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                               (seq (.getOwnAttributeList ec)))]
+                 (swap! atts
+                        #(update-in %1 [%2] conj ec)
+                        a))
+               ;; Collect roles
+               (let [from-vc (-> ec .getFrom .getVertexClass)
+                     from-rn (-> ec .getFrom .getRolename)]
+                 (when (seq from-rn)
+                   (swap! refs #(update-in %1 [from-rn] conj from-vc))))
+               (let [to-vc (-> ec .getTo .getVertexClass)
+                     to-rn (-> ec .getTo .getRolename)]
+                 (when (seq to-rn)
+                   (swap! refs #(update-in %1 [to-rn] conj to-vc))))
+               (when ec-fn
+                 ((resolve ec-fn) ec)))))
+          (no-nils
+           (when attr-fn
+             (for [[a owners] @atts]
+               ((resolve attr-fn) a owners))))
+          (no-nils
+           (when role-fn
+             (for [[role owners] @refs]
+               ((resolve role-fn) role owners)))))
        (in-ns '~(ns-name old-ns)))))

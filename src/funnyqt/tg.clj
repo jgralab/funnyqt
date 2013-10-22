@@ -38,6 +38,7 @@ whose values are instances of generated classes, there are the constructor
 functions `record` and `enum`."
   (:require [clojure.core.cache    :as cache]
             [clojure.core.reducers :as r]
+            [clojure.string        :as str]
             [funnyqt.query         :as q]
             [funnyqt.protocols     :as p]
             [funnyqt.utils         :as u])
@@ -1485,13 +1486,30 @@ functions `record` and `enum`."
   [gc out]
   (.write ^java.io.Writer out
           (str "#<GraphClass " (p/qname gc) ">")))
+
 ;;# Schema-specific API
 
-#_(defmacro generate-schema-specific-api
+(require 'funnyqt.utils.tg)
+
+(defn ^:private create-vc-create-fn [^VertexClass vc]
+  (when-not (p/abstract? vc)
+    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName vc) \. \$)))
+       [~'g]
+       (create-vertex! ~'g '~(symbol (.getQualifiedName vc))))))
+
+(defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
   vertices and edges and functions for accessing properties (attributes and
   roles)."
   ([schema-file]
      `(generate-schema-specific-api ~schema-file nil))
   ([schema-file nssym]
-     nil))
+     `(funnyqt.utils.tg/schema-ns-generator ~schema-file
+                                            ~nssym
+                                            create-vc-create-fn
+                                            nil
+                                            nil
+                                            nil)))
+
+;(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
+

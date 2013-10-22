@@ -257,11 +257,12 @@
 (defn ^:private create-eclass-relations
   "Creates relations for the given eclass."
   [ecls]
-  (for [na (class->rel-symbols ecls)]
-    `(defn ~(:unique-name (meta na))
-       ~(format "A relation where `eo` is an %s EObject." na)
-       [~'m ~'eo]
-       (eobjecto ~'m ~'eo '~na))))
+  `(do
+     ~@(for [na (class->rel-symbols ecls)]
+         `(defn ~(:unique-name (meta na))
+            ~(format "A relation where `eo` is an %s EObject." na)
+            [~'m ~'eo]
+            (eobjecto ~'m ~'eo '~na)))))
 
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."

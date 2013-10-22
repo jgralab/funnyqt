@@ -2,6 +2,9 @@
   (:require [funnyqt.emf :as emf])
   (:import (org.eclipse.emf.ecore EPackage EClass EAttribute EReference)))
 
+(defn ^:private no-nils [coll]
+  (doall (remove nil? coll)))
+
 (defmacro ecore-model-ns-generator
   "A helper macro to generate metamodel specific APIs in some namespace.
 
@@ -38,23 +41,27 @@
          ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
                                    (emf/metamodel-epackages ecore-model))
              (concat
-              (doall
-               (mapcat
-                (fn [^EClass ecl]
-                  (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                 (seq (.getEAttributes ecl)))]
-                    (swap! atts
-                           #(update-in %1 [%2] conj ecl)
-                           a))
-                  (doseq [r (map #(keyword (.getName ^EReference %))
-                                 (seq (.getEReferences ecl)))]
-                    (swap! refs
-                           #(update-in %1 [%2] conj ecl)
-                           r))
-                  ((resolve eclass-fn) ecl))
-                (emf/eclassifiers)))
-              (for [[a owners] @atts]
-                ((resolve eattr-fn) a owners))
-              (for [[r owners] @refs]
-                ((resolve eref-fn) r owners)))))
+              (no-nils
+               (for [^EClass ecl (emf/eclassifiers)]
+                 (do
+                   (doseq [a (map #(keyword (.getName ^EAttribute %))
+                                  (seq (.getEAttributes ecl)))]
+                     (swap! atts
+                            #(update-in %1 [%2] conj ecl)
+                            a))
+                   (doseq [r (map #(keyword (.getName ^EReference %))
+                                  (seq (.getEReferences ecl)))]
+                     (swap! refs
+                            #(update-in %1 [%2] conj ecl)
+                            r))
+                   (when eclass-fn
+                     ((resolve eclass-fn) ecl)))))
+              (no-nils
+               (when eattr-fn
+                 (for [[a owners] @atts]
+                   ((resolve eattr-fn) a owners))))
+              (no-nils
+               (when eref-fn
+                 (for [[r owners] @refs]
+                   ((resolve eref-fn) r owners)))))))
        (in-ns '~(ns-name old-ns)))))

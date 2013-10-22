@@ -443,24 +443,26 @@
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
   [vc]
-  (for [na (class->rel-symbols vc)]
-    `(defn ~(:unique-name (meta na))
-       ~(format "A relation where `v` is a %s vertex of graph `g`." na)
-       [~'g ~'v]
-       (ccl/all
-        (typeo ~'g ~'v '~na)
-        (vertexo ~'g ~'v)))))
+  `(do
+     ~@(for [na (class->rel-symbols vc)]
+         `(defn ~(:unique-name (meta na))
+            ~(format "A relation where `v` is a %s vertex of graph `g`." na)
+            [~'g ~'v]
+            (ccl/all
+             (typeo ~'g ~'v '~na)
+             (vertexo ~'g ~'v))))))
 
 (defn ^:private create-ec-relations
   "Creates relations for the given edge class."
   [^EdgeClass ec]
-  (for [na (class->rel-symbols ec)]
-    `(defn ~(:unique-name (meta na))
-       ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
-       [~'g ~'e ~'al ~'om]
-       (ccl/all
-        (typeo ~'g ~'e '~na)
-        (edgeo ~'g ~'e ~'al ~'om)))))
+  `(do
+     ~@(for [na (class->rel-symbols ec)]
+         `(defn ~(:unique-name (meta na))
+            ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
+            [~'g ~'e ~'al ~'om]
+            (ccl/all
+             (typeo ~'g ~'e '~na)
+             (edgeo ~'g ~'e ~'al ~'om))))))
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."
