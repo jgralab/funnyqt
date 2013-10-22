@@ -205,7 +205,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          "color=" (if (*marked* v) "red" "black")
          "];\n")))
 
-(defn tg-role-name [ic]
+(defn tg-role-name [^de.uni_koblenz.jgralab.schema.IncidenceClass ic]
   (when ic
     (let [r (.getRolename ic)]
       (if (seq r)

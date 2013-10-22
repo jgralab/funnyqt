@@ -6,7 +6,8 @@
             [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.relational.util :as ru]
-            [funnyqt.utils :as u])
+            [funnyqt.utils :as u]
+            [funnyqt.utils.emf :as uemf])
   (:import
    (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject
                           EClass EPackage)
@@ -264,7 +265,7 @@
 
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
-  [[eref ecls]]
+  [eref ecls]
   (let [ts (mapv #(p/qname %) ecls)]
     `(defn ~(symbol (str "+->" (clojure.string/replace (name eref) "_" "-")))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
@@ -275,7 +276,7 @@
 
 (defn ^:private create-eattribute-relation
   "Creates relations for the given EAttribute."
-  [[attr ecls]]
+  [attr ecls]
   ;; attr is an attr name symbol, ecls the set of classes having
   ;; such an attr
   (let [ts (mapv #(p/qname %) ecls)]
@@ -311,39 +312,7 @@
   relation +is-persistent."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     (let [ecore-model (emf/load-metamodel
-                        (if (.exists (clojure.java.io/file ecore-file))
-                          ecore-file
-                          (clojure.java.io/resource ecore-file)))
-           atts (atom {}) ;; map from attribute kws to set of eclasses that have it
-           refs (atom {}) ;; map from reference kws to set of eclasses that have it
-           old-ns *ns*]
-       `(do
-          ~@(when nssym
-              `[(ns ~nssym)])
-          ;; Metamodel specific relations
-          (emf/with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
-                                   (emf/metamodel-epackages ecore-model))
-            ~@(emf/with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                                      (emf/metamodel-epackages ecore-model))
-                (concat
-                 (doall
-                  (mapcat
-                   (fn [^EClass ecl]
-                     (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                    (seq (.getEAttributes ecl)))]
-                       (swap! atts
-                              #(update-in %1 [%2] conj ecl)
-                              a))
-                     (doseq [r (map #(keyword (.getName ^EReference %))
-                                    (seq (.getEReferences ecl)))]
-                       (swap! refs
-                              #(update-in %1 [%2] conj ecl)
-                              r))
-                     (create-eclass-relations ecl))
-                   (emf/eclassifiers)))
-                 (for [^EAttribute a @atts]
-                   (create-eattribute-relation a))
-                 (for [^EReference r @refs]
-                   (create-ereference-relation r)))))
-          (in-ns '~(ns-name old-ns))))))
+     `(uemf/ecore-model-ns-generator ~ecore-file ~nssym
+                                     create-eclass-relations
+                                     create-eattribute-relation
+                                     create-ereference-relation)))

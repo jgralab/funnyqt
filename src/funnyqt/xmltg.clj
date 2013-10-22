@@ -1,4 +1,4 @@
-(ns funnyqt.utils.xmltg
+(ns funnyqt.xmltg
   "Convert XML to DOM-like TGraphs.
 
 The DOM-like schema looks like this:

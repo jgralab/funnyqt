@@ -221,35 +221,37 @@ functions `record` and `enum`."
   "Returns `ae`s AttributedElementClass or the AttributedElementClass with the
   given `qname` in the schema of `ae`.  In the arity 2 version, `ae` may be an
   attributed element, an attributed element class, or a schema."
-  (^de.uni_koblenz.jgralab.schema.AttributedElementClass [^AttributedElement ae]
-                                                         (.getAttributedElementClass ae))
-  (^de.uni_koblenz.jgralab.schema.AttributedElementClass [elem qname]
-                                                         (condp instance? elem
-                                                           AttributedElement
-                                                           (let [^AttributedElement ae elem]
-                                                             (or (-> ae .getSchema (.getAttributedElementClass (name qname)))
-                                                                 (let [qn ((aec-simple-to-qname-map (.getSchema ae)) (name qname))]
-                                                                   (-> ae .getSchema (.getAttributedElementClass qn)))
-                                                                 (u/errorf "No such attributed element class %s" (name qname))))
-                                                           AttributedElementClass
-                                                           (let [^AttributedElementClass aec elem]
-                                                             (or (-> aec .getSchema (.getAttributedElementClass (name qname)))
-                                                                 (let [qn ((aec-simple-to-qname-map (.getSchema aec)) (name qname))]
-                                                                   (-> aec .getSchema (.getAttributedElementClass qn)))
-                                                                 (u/errorf "No such attributed element class %s" (name qname))))
-                                                           Schema
-                                                           (let [^Schema s elem]
-                                                             (or (.getAttributedElementClass s (name qname))
-                                                                 (let [qn ((aec-simple-to-qname-map s) (name qname))]
-                                                                   (.getAttributedElementClass s qn))
-                                                                 (u/errorf "No such attributed element class %s" (name qname)))))))
+  (^de.uni_koblenz.jgralab.schema.AttributedElementClass
+   [^AttributedElement ae]
+   (.getAttributedElementClass ae))
+  (^de.uni_koblenz.jgralab.schema.AttributedElementClass
+   [elem qname]
+   (condp instance? elem
+     AttributedElement
+     (let [^AttributedElement ae elem]
+       (or (-> ae .getSchema (.getAttributedElementClass (name qname)))
+           (let [qn ((aec-simple-to-qname-map (.getSchema ae)) (name qname))]
+             (-> ae .getSchema (.getAttributedElementClass qn)))
+           (u/errorf "No such attributed element class %s" (name qname))))
+     AttributedElementClass
+     (let [^AttributedElementClass aec elem]
+       (or (-> aec .getSchema (.getAttributedElementClass (name qname)))
+           (let [qn ((aec-simple-to-qname-map (.getSchema aec)) (name qname))]
+             (-> aec .getSchema (.getAttributedElementClass qn)))
+           (u/errorf "No such attributed element class %s" (name qname))))
+     Schema
+     (let [^Schema s elem]
+       (or (.getAttributedElementClass s (name qname))
+           (let [qn ((aec-simple-to-qname-map s) (name qname))]
+             (.getAttributedElementClass s qn))
+           (u/errorf "No such attributed element class %s" (name qname)))))))
 
 (defn schema
   "Returns the schema of `elem` (an AttributedElement, AttributedElementClass,
   or a Domain)."
   ^de.uni_koblenz.jgralab.schema.Schema [elem]
   (condp instance? elem
-    AttributedElement      (.getSchema ^AttributedElement elem)
+      AttributedElement      (.getSchema ^AttributedElement elem)  
     AttributedElementClass (.getSchema ^AttributedElementClass elem)
     Domain                 (.getSchema ^Domain elem)))
 
@@ -1483,3 +1485,13 @@ functions `record` and `enum`."
   [gc out]
   (.write ^java.io.Writer out
           (str "#<GraphClass " (p/qname gc) ">")))
+;;# Schema-specific API
+
+#_(defmacro generate-schema-specific-api
+  "Generates a schema-specific API consisting of functions for creating
+  vertices and edges and functions for accessing properties (attributes and
+  roles)."
+  ([schema-file]
+     `(generate-schema-specific-api ~schema-file nil))
+  ([schema-file nssym]
+     nil))
