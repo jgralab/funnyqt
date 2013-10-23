@@ -6,8 +6,7 @@
             [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.relational.util :as ru]
-            [funnyqt.utils :as u]
-            [funnyqt.utils.emf :as uemf])
+            [funnyqt.utils :as u])
   (:import
    (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject
                           EClass EPackage)
@@ -313,7 +312,7 @@
   relation +is-persistent."
   ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     `(uemf/ecore-model-ns-generator ~ecore-file ~nssym
-                                     create-eclass-relations
-                                     create-eattribute-relation
-                                     create-ereference-relation)))
+     `(emf/ecore-model-ns-generator ~ecore-file ~nssym
+                                    create-eclass-relations
+                                    create-eattribute-relation
+                                    create-ereference-relation)))

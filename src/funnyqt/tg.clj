@@ -1487,9 +1487,86 @@ functions `record` and `enum`."
   (.write ^java.io.Writer out
           (str "#<GraphClass " (p/qname gc) ">")))
 
-;;# Schema-specific API
+;;# Schema-specific API generator macro
 
-(require 'funnyqt.utils.tg)
+(defn ^:private no-nils [coll]
+  (doall (remove nil? coll)))
+
+(defmacro schema-ns-generator
+  "A helper macro for generating a schema-specific API in some namespace.
+  The namespace is named `nssym`.  If that's nil, then use the current
+  namespace.
+
+  `vc-fn` has to be a function that receives a VertexClass and returns a valid
+  definition-form, e.g., a (defn stuff-with-that-vertex-class [...] ...).
+
+  `ec-fn` has to be a function that receives an EdgeClass and returns a valid
+  definition-form.
+
+  `attr-fn` is a function that receives an attribute name (as keyword) and a
+  set of attributed element classes that have such an attribute.  The function
+  should return a valid definition form.
+
+  `role-fn` is a function that receives a role name (as keyword) and a set of
+  vertex classes that have such a role.  Again, the function should return a
+  valid definition form."
+  [schema-file nssym vc-fn ec-fn attr-fn role-fn]
+  (let [^Schema schema (load-schema
+                        (if (.exists (clojure.java.io/file schema-file))
+                          schema-file
+                          (clojure.java.io/resource schema-file)))
+        atts (atom {}) ;; map from attribute names given as keywords to set
+        ;; of attributed element classes that have it
+        refs (atom {}) ;; map from role names given as keywords to set of
+        ;; [edgeclass dir] tuples that have it
+        old-ns *ns*]
+    `(do
+       ~@(when nssym
+           `[(ns ~nssym)])
+       ;; The schema specific ones
+       ~@(concat
+          (no-nils
+           (for [^VertexClass vc (seq (-> schema .getGraphClass .getVertexClasses))]
+             (do
+               (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                               (seq (.getOwnAttributeList vc)))]
+                 (swap! atts
+                        #(update-in %1 [%2] conj vc)
+                        a))
+               (when vc-fn
+                 ((resolve vc-fn) vc)))))
+          (no-nils
+           (for [^EdgeClass ec (seq (-> schema .getGraphClass .getEdgeClasses))]
+             (do
+               ;; Collect attributes
+               (doseq [a (mapv #(keyword (.getName ^Attribute %))
+                               (seq (.getOwnAttributeList ec)))]
+                 (swap! atts
+                        #(update-in %1 [%2] conj ec)
+                        a))
+               ;; Collect roles
+               (let [from-vc (-> ec .getFrom .getVertexClass)
+                     from-rn (-> ec .getFrom .getRolename)]
+                 (when (seq from-rn)
+                   (swap! refs #(update-in %1 [from-rn] conj from-vc))))
+               (let [to-vc (-> ec .getTo .getVertexClass)
+                     to-rn (-> ec .getTo .getRolename)]
+                 (when (seq to-rn)
+                   (swap! refs #(update-in %1 [to-rn] conj to-vc))))
+               (when ec-fn
+                 ((resolve ec-fn) ec)))))
+          (no-nils
+           (when attr-fn
+             (for [[a owners] @atts]
+               ((resolve attr-fn) a owners))))
+          (no-nils
+           (when role-fn
+             (for [[role owners] @refs]
+               ((resolve role-fn) role owners)))))
+       (in-ns '~(ns-name old-ns)))))
+
+;;# Schema-specific functional API
+
 
 (defn ^:private create-vc-create-fn [^VertexClass vc]
   (when-not (p/abstract? vc)
@@ -1515,22 +1592,44 @@ functions `record` and `enum`."
               ~'alpha ~'omega ~'attrs))))
 
 (defn ^:private create-attr-fns [attr owners]
-  (let [domains (set (for [^AttributedElementClass aec owners]
-                       (.getQualifiedName (.getDomain (.getAttribute aec (name attr))))))]
+  (let [gm (group-by (fn [^AttributedElementClass aec]
+                       (= "Boolean" (-> (.getAttribute aec (name attr))
+                                        .getDomain
+                                        .getQualifiedName)))
+                     owners)]
     `(do
-       ~@(when (contains? domains "Boolean")
-           `[(defn ~(symbol (str (name attr) "?")) [~'ae]
+       ~@(when (gm true)
+           `[(defn ~(symbol (str (name attr) "?"))
+               ~(format "Checks if `ae` is %s.
+  Possible types of `ae`: %s"
+                        (name attr)
+                        (str/join ", " (set (map p/qname (gm true)))))
+               [~'ae]
                (value ~'ae ~attr))])
-       ~@(when (or (not (contains? domains "Boolean"))
-                   (> (count domains) 2))
-           `[(defn ~(symbol (str (name attr))) [~'ae]
+       ~@(when (gm false)
+           `[(defn ~(symbol (str (name attr)))
+               ~(format "Returns the value of `ae`s %s attribute.
+  Possible types of `ae`: %s"
+                        (name attr)
+                        (str/join ", " (set (map p/qname (gm false)))))
+               [~'ae]
                (value ~'ae ~attr))])
-       (defn ~(symbol (str "set-" (name attr) "!")) [~'ae ~'val]
+       (defn ~(symbol (str "set-" (name attr) "!"))
+         ~(format "Sets the value of `ae`s %s attribute to `val`.
+  Possible types of `ae`: %s"
+                  (name attr)
+                  (str/join ", " (set (map p/qname owners))))
+         [~'ae ~'val]
          (set-value! ~'ae ~attr ~'val)))))
 
 (defn ^:private create-role-fns [role owners]
   ;; TODO: gotta need to check if that role is single- or multi-valued
-  )
+  `(do
+     `(defn ~(symbol (str "->" (name role)))
+        ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
+        [~'v]
+        ;; TODO: finish me.  If v's role is single-valued, use adj, else adjs.
+        )))
 
 (defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
@@ -1539,13 +1638,14 @@ functions `record` and `enum`."
   ([schema-file]
      `(generate-schema-specific-api ~schema-file nil))
   ([schema-file nssym]
-     `(funnyqt.utils.tg/schema-ns-generator ~schema-file
-                                            ~nssym
-                                            create-vc-create-fn
-                                            create-ec-create-fn
-                                            create-attr-fns
-                                            nil)))
+     `(schema-ns-generator ~schema-file
+                           ~nssym
+                           create-vc-create-fn
+                           create-ec-create-fn
+                           create-attr-fns
+                           nil)))
 
 (generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
+
 
 

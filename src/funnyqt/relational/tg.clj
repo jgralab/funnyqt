@@ -5,7 +5,6 @@
             [funnyqt.protocols :as p]
             [funnyqt.query :as q]
             [funnyqt.utils :as u]
-            [funnyqt.utils.tg :as utg]
             [funnyqt.relational :as rel]
             [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.relational.util :as ru]
@@ -494,9 +493,9 @@
   ([schema-file]
      `(generate-schema-relations ~schema-file nil))
   ([schema-file nssym]
-     `(utg/schema-ns-generator ~schema-file
-                               ~nssym
-                               create-vc-relations
-                               create-ec-relations
-                               create-attr-relation
-                               create-reference-relation)))
+     `(tg/schema-ns-generator ~schema-file
+                              ~nssym
+                              create-vc-relations
+                              create-ec-relations
+                              create-attr-relation
+                              create-reference-relation)))
