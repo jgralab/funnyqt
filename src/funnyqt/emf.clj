@@ -1161,7 +1161,43 @@
 
 (defmacro generate-ecore-model-functions
   "Generates a Ecore-model-specific API consisting of functions for creating
-  EObjects and functions for accessing properties (attributes and references)."
+  EObjects and functions for accessing properties (attributes and references).
+
+  `ecore-file` is the ecore file containing the metamodel for which to generate
+  the API.
+
+  `nssym` is a symbol denoting the new namespace in which to generate.  It may
+  be nil in which case the current namespace is used.
+
+  `alias` is an alias under which the newly generated namespace will be
+  required.
+
+  `prefix` is an optional prefix all generated functions should use.  (That's
+  mostly useful when generating in an existing namespace to prevent name
+  clashes.)
+
+  The following functions are generated.
+
+  For any EClass Foo in the metamodel, a (create-Foo! model) function is
+  generated.
+
+  For any EAttribute name attr, the following functions are generated:
+
+    (attr eo) ;; Returns the attr value of eo
+    (set-attr! eo val) ;; Sets the attr value of eo to val
+
+  For boolean attributes, the getter is named attr?.
+
+  For any EReference name ref, the following functions are generated:
+
+    (ref eo) ;; Returns the object/objects in eo's ref role
+    (set-ref! eo refed) ;; Sets eo's ref reference to refed
+    (add-ref! eo r1 r2 r3...) ;; Adds r1, r2, and r3 to eo's ref reference
+    (addall-ref! eo rs) ;; Adds all objects in rs to eo's ref reference
+
+ The add-* functions are only generated if ref occurs as a multi-valued
+ reference.  If eo's ref-reference is multi-valued, then the setter wants a
+ collection of eobjects, else a single eobject."
   ([ecore-file]
      `(generate-ecore-model-functions ~ecore-file nil nil nil))
   ([ecore-file nssym]
@@ -1176,9 +1212,3 @@
                                 create-create-fn
                                 create-eattribute-fns
                                 create-ereference-fns)))
-
-#_(clojure.pprint/pprint
-   (macroexpand
-    '(generate-ecore-model-functions "test/input/Families.ecore"
-                                     test.families.emf
-                                     fams)))

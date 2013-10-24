@@ -1730,7 +1730,42 @@ functions `record` and `enum`."
 (defmacro generate-schema-functions
   "Generates a schema-specific API consisting of functions for creating
   vertices and edges and functions for accessing properties (attributes and
-  roles)."
+  roles).
+
+  `schema-file` is the TG file containing the schema to generate an API for.
+
+  `nssym` denotes the new namespace in which to generate the API.  It may be
+  nil in which case the current namespace is used.
+
+  `alias` is an alias under which the new generated namespace is required.
+
+  `prefix` is an optional prefix added to all functions of the generated
+  API.  (That's mostly useful when generating in the current namespace.)
+
+  The API consists of the following functions.
+
+  For any VertexClass Foo, there is a (create-Foo! graph) function.
+
+  For any EdgeClass HasFoo, there is a (create-HasFoo! graph alpha omega)
+  function.
+
+  For any attribute att, there are the following functions:
+
+    (attr el) ;; returns the attr value of el
+    (set-attr! el val) ;; sets the attr value of el to val
+
+  For boolean attributes isFoo, the getter is named (isFoo? el).
+
+  For any role name role, there are the functions:
+
+    (role el) ;; returns the vertex/vertices in el's role
+    (set-role! el v) ;; sets the role
+    (add-role! el v1 v2 v3...) ;; adds v1, v2, and v3 to el's role
+    (addall-role! el vs) ;; adds all vertices in vs to el's role
+
+  The add-* functions are only generated if role occurs as a multi-valued role
+  for some VertexClass.  If role is a multi-valued role of el, then the setter
+  must be given a collection of vertices, else a single vertex."
   ([schema-file]
      `(generate-schema-functions ~schema-file nil nil nil))
   ([schema-file nssym]
@@ -1746,8 +1781,3 @@ functions `record` and `enum`."
                            create-ec-create-fn
                            create-attr-fns
                            create-role-fns)))
-
-#_(clojure.pprint/pprint
-   (macroexpand
-    '(generate-schema-functions "test/input/greqltestgraph.tg"
-                                   some.long.namespace.foo alias)))
