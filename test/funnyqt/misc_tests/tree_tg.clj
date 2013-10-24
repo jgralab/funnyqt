@@ -10,8 +10,8 @@
 (defn mintree-init
   "Returns a mintree graph with one Tree vertex."
   []
-  (let [g (create-graph (load-schema "test/input/mintree-schema.tg")
-                        "MinTree")]
+  (let [g (new-graph (load-schema "test/input/mintree-schema.tg")
+                     "MinTree")]
     (create-vertex! g 'Tree)
     g))
 

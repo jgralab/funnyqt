@@ -369,7 +369,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
   ([f attr-type-fn]
      (xml2xml-graph f attr-type-fn nil))
   ([f attr-type-fn text-type-fn]
-     (binding [*graph* (tg/create-graph
+     (binding [*graph* (tg/new-graph
                         (tg/load-schema (io/resource "xml-schema.tg")) f)
                *stack*   nil
                *current* nil

@@ -12,7 +12,7 @@ Graph Elements
 For accessing elements, see `vertex`, `edge`, `first-vertex`, `next-vertex`,
 `first-edge`, `next-edge`, `first-inc`, and `next-inc`.
 
-For creating graphs and elements, see `create-graph`, `create-vertex!`, and
+For creating graphs and elements, see `new-graph`, `create-vertex!`, and
 `create-edge!`.
 
 Sequence Functions
@@ -252,7 +252,7 @@ functions `record` and `enum`."
   or a Domain)."
   ^de.uni_koblenz.jgralab.schema.Schema [elem]
   (condp instance? elem
-      AttributedElement      (.getSchema ^AttributedElement elem)  
+    AttributedElement      (.getSchema ^AttributedElement elem)
     AttributedElementClass (.getSchema ^AttributedElementClass elem)
     Domain                 (.getSchema ^Domain elem)))
 
@@ -317,9 +317,12 @@ functions `record` and `enum`."
   VertexClass
   (p/mm-multi-valued-property? [cls prop]
     (let [dec (.getDirectedEdgeClassForFarEndRole cls (name prop))
+          _   (when-not dec
+                (u/errorf "No role %s at VertexClass %s."
+                          (name prop) (p/qname cls)))
           ec  (.getEdgeClass dec)
           dir (.getDirection dec)]
-      (> (.getMax (if (= dir EdgeDirection/OUT)
+      (> (.getMax (if (identical? dir EdgeDirection/OUT)
                     (.getTo ec)
                     (.getFrom ec)))
          1))))
@@ -1026,14 +1029,14 @@ functions `record` and `enum`."
 ;;## Creations
 
 ;; TODO: Basically, the impl should be determined by the schema.  Ask Volker!
-(defn create-graph
+(defn new-graph
   "Creates a graph with id `gid` of the given `schema` using implementation type `impl`.
   Supported impl types are :generic and :standard.  The graph id defaults to a
   creation timestamp, and the impl type to GENERIC."
   ([schema]
-     (create-graph schema (format "Created: %s" (str (java.util.Date.)))))
+     (new-graph schema (format "Created: %s" (str (java.util.Date.)))))
   ([schema gid]
-     (create-graph schema gid ImplementationType/GENERIC))
+     (new-graph schema gid ImplementationType/GENERIC))
   ([^Schema schema ^String gid impl]
      (.createGraph schema (impl-type impl) gid
                    (Integer/valueOf 500)
@@ -1124,14 +1127,21 @@ functions `record` and `enum`."
           ec (.getEdgeClass dec)
           ed (.getDirection dec)]
       (unlink! v #(p/is-instance? % ec) ed))
-    (p/add-adjs! v role vs))
+    (doseq [av vs]
+      (.addAdjacence v (name role) av)))
   (p/set-adj! [v1 role v2]
     (p/set-adjs! v1 role [v2]))
   (p/add-adjs! [v role vs]
-    (doseq [av vs]
-      (p/add-adj! v role av)))
+    (if (p/mm-multi-valued-property? (attributed-element-class v) role)
+      (doseq [av vs]
+        (.addAdjacence v (name role) av))
+      (u/errorf "Can't add to the single-value role %s of %s."
+                (name role) v)))
   (p/add-adj! [v1 role v2]
-    (.addAdjacence v1 (name role) v2)))
+    (if (p/mm-multi-valued-property? (attributed-element-class v1) role)
+      (.addAdjacence v1 (name role) v2)
+      (u/errorf "Can't add to the single-value role %s of %s."
+                (name role) v1))))
 
 ;;## Deletions
 
@@ -1549,14 +1559,14 @@ functions `record` and `enum`."
                         #(update-in %1 [%2] conj ec)
                         a))
                ;; Collect roles
-               (let [from-vc (-> ec .getFrom .getVertexClass)
+               (let [owner   (-> ec .getTo   .getVertexClass)
                      from-rn (-> ec .getFrom .getRolename)]
                  (when (seq from-rn)
-                   (swap! refs #(update-in %1 [(keyword from-rn)] conj from-vc))))
-               (let [to-vc (-> ec .getTo .getVertexClass)
-                     to-rn (-> ec .getTo .getRolename)]
+                   (swap! refs #(update-in %1 [(keyword from-rn)] conj owner))))
+               (let [owner (-> ec .getFrom .getVertexClass)
+                     to-rn (-> ec .getTo   .getRolename)]
                  (when (seq to-rn)
-                   (swap! refs #(update-in %1 [(keyword to-rn)] conj to-vc))))
+                   (swap! refs #(update-in %1 [(keyword to-rn)] conj owner))))
                (when ec-fn
                  ((resolve ec-fn) ec)))))
           (no-nils
@@ -1588,7 +1598,7 @@ functions `record` and `enum`."
 (defn ^:private create-ec-create-fn [^EdgeClass ec]
   (when-not (p/abstract? ec)
     `(defn ~(symbol (str "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
-        ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
+       ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
   Additional `attrs` may be supplied.
   `alpha` must be a %s vertex,
   and `omega` must be a %s vertex.
@@ -1634,23 +1644,76 @@ functions `record` and `enum`."
 
 (defn ^:private create-role-fns [role owners]
   (let [v (with-meta 'v {:tag `Vertex})
-        vc (with-meta 'aec {:tag `VertexClass})]
+        multi? (group-by (fn [^VertexClass vc]
+                           (p/mm-multi-valued-property? vc role))
+                         owners)]
     `(do
-       (defn ~(symbol (str "->" (name role)))
-         ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
-         [~v]
-         (let [~vc  (attributed-element-class ~v)
-               dec# (.getDirectedEdgeClassForFarEndRole ~vc ~(name role))
-               ic# (if (identical? (.getDirection dec#) EdgeDirection/IN)
-                     (.getFrom (.getEdgeClass dec#))
-                     (.getTo (.getEdgeClass dec#)))]
-           (if (== 1 (.getMax ic#))
-             (let [x# (.adjacences ~v ~(name role))]
-               (if (next x#)
-                 (u/errorf "More than one adjacent vertex found in the %s role at vertex %s"
-                           ~(name role) ~v)
-                 (first x#)))
-             (seq (.adjacences ~v ~(name role)))))))))
+       ;; GETTER
+       ~(cond
+         ;; This role is always multi-valued
+         (and (multi? true) (not (multi? false)))
+         `(defn ~(symbol (str "->" (name role)))
+            ~(format "Returns the vertices in `v`s %s role." (name role))
+            [~v]
+            (.adjacences ~v ~(name role)))
+
+         ;; This role is always single-valued
+         (and (multi? false) (not (multi? true)))
+         `(defn ~(symbol (str "->" (name role)))
+            ~(format "Returns the vertex in `v`s %s role." (name role))
+            [~v]
+            (let [x# (.adjacences ~v ~(name role))]
+              (if (next x#)
+                (u/errorf "Multiple vertices found in the single-valued role %s of %s."
+                          ~(name role) ~v)
+                (first x#))))
+
+         :else `(defn ~(symbol (str "->" (name role)))
+                  ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
+                  [~v]
+                  (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                    (.adjacences ~v ~(name role))
+                    (let [x# (.adjacences ~v ~(name role))]
+                      (if (next x#)
+                        (u/errorf "Multiple vertices found in the single-valued role %s of %s."
+                                  ~(name role) ~v)
+                        (first x#))))))
+
+       ;; SETTER
+       ~(cond
+         ;; This role is always multi-valued
+         (and (multi? true) (not (multi? false)))
+         `(defn ~(symbol (str "->set-" (name role) "!"))
+            ~(format "Sets the %s role of `v` to `refed`.
+  `refed` must be a collection of vertices." (name role))
+            [~v ~'refed]
+            (p/set-adjs! ~v ~role ~'refed))
+
+         ;; This role is always single-valued
+         (and (multi? false) (not (multi? true)))
+         `(defn ~(symbol (str "->set-" (name role) "!"))
+            ~(format "Sets the %s role of `v` to `refed`.
+  `refed` must be a single vertex." (name role))
+            [~v ~'refed]
+            (p/set-adj! ~v ~role ~'refed))
+
+         :else `(defn ~(symbol (str "->set-" (name role) "!"))
+                  ~(format "Sets the %s role of `v` to `refed`." (name role))
+                  [~v ~'refed]
+                  (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                    (p/set-adjs! ~v ~role ~'refed)
+                    (p/set-adj! ~v ~role ~'refed))))
+
+       ;; ADDER
+       ~@(when (multi? true)
+           `[(defn ~(symbol (str "->add-" (name role) "!"))
+               ~(format "Adds `refed` to `v`s %s role.
+  `refed` may be a vertex or a collection of vertices." (name role))
+               [~v ~'refed]
+               (if (coll? ~'refed)
+                 ;; the add-* methods throw on single-valued roles.
+                 (p/add-adjs! ~v ~role ~'refed)
+                 (p/add-adj! ~v ~role ~'refed)))]))))
 
 (defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
@@ -1669,5 +1732,7 @@ functions `record` and `enum`."
                            create-attr-fns
                            create-role-fns)))
 
-#_(generate-schema-specific-api "test/input/greqltestgraph.tg" some.long.namespace.foo alias)
-
+#_(clojure.pprint/pprint
+ (macroexpand
+  '(generate-schema-specific-api "test/input/greqltestgraph.tg"
+                                 some.long.namespace.foo alias)))

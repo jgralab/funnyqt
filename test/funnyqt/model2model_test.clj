@@ -63,7 +63,7 @@
    :when (male? m)
    :to   [p 'Male :model out]
    (when-let [w (wife m)]
-     (add-adj! p :wife (member2female w))))
+     (set-adj! p :wife (member2female w))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))
@@ -73,7 +73,7 @@
   (let [_ (emf/load-metamodel "test/input/Families.ecore")
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
-        ng (create-graph out-schema)
+        ng (new-graph out-schema)
         trace (time (families2genealogy in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
@@ -95,7 +95,7 @@
   (let [_ (emf/load-metamodel "test/input/Families.ecore")
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
-        ng (create-graph out-schema)
+        ng (new-graph out-schema)
         trace (time (families2genealogy-ext in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
@@ -134,7 +134,7 @@
    :when (male? m)
    :to   [p 'Male :model out]
    (when-let [w (wife m)]
-     (add-adj! p :wife (member2female w))))
+     (set-adj! p :wife (member2female w))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))
@@ -148,7 +148,7 @@
   (let [_ (emf/load-metamodel "test/input/Families.ecore")
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
-        ng (create-graph out-schema)
+        ng (new-graph out-schema)
         trace (time (families2genealogy-explicit-main in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))

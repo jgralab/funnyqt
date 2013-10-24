@@ -62,7 +62,7 @@
 (defn empty-graph [sqname gcname]
   (let [^Schema s (create-schema sqname gcname)]
     (.finish s)
-    (tg/create-graph s)))
+    (tg/new-graph s)))
 
 ;;## Creating Enum & Record domains
 

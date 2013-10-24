@@ -19,7 +19,7 @@
 ;;## Example AddressBook Graph
 
 (defn make-example-addressbook-tg []
-  (let [g (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))
+  (let [g (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
         ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
         jim (tg/create-vertex! g 'Contact
                                :id (int 1)
@@ -127,7 +127,7 @@
 
 (test/deftest test-addressbook-tg2addressbook-tg
   (let [l (make-example-addressbook-tg)
-        r (tg/create-graph (tg/load-schema "test/input/addressbook.tg"))]
+        r (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))]
     ;; Transform l to r
     (print "addressbook-tg2addressbook-tg l -> r (empty)                ")
     (time (addressbook-tg2addressbook-tg l r :right))

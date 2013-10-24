@@ -63,7 +63,7 @@
 (defn pattern-to-pattern-graph [pname argvec pattern]
   (let [callbounds (into #{} (call-binding-vars pattern))
         argset (into #{} argvec)
-        pg (let [g (tg/create-graph pattern-schema)]
+        pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
              g)
         get-by-name (fn [n]

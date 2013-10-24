@@ -182,7 +182,7 @@
 
 (def bin-tree
   (memoize
-   #(let [g (create-graph
+   #(let [g (new-graph
              (load-schema
               "test/input/binop-tree-schema.tg" :standard)
              "ExampleBinaryGraph" :standard)

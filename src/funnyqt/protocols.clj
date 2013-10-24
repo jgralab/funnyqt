@@ -151,10 +151,15 @@
   Doesn't error on intermediate unset roles."))
 
 (defprotocol IModifyAdjacencies
-  (set-adj!  [obj role obj])
-  (set-adjs! [obj role objs])
-  (add-adj!  [obj role obj])
-  (add-adjs! [obj role objs]))
+  (set-adj!  [obj role robj]
+    "Sets the single-valued `role` of `obj` to `robj`.")
+  (set-adjs! [obj role robjs]
+    "Sets the multi-valued `role` of `obj` to `robjs` (a collection of model
+  elements).")
+  (add-adj!  [obj role robj]
+    "Adds `robj` to `obj`s `role`.")
+  (add-adjs! [obj role robjs]
+    "Adds all `robjs` to `obj`s `role`."))
 
 ;;# IContainer
 

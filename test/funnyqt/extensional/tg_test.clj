@@ -27,7 +27,7 @@
   g)
 
 (deftest test-transformation-1-instance-only
-  (let [g (transformation-1-instance-only (create-graph (schema rg)))]
+  (let [g (transformation-1-instance-only (new-graph (schema rg)))]
     (is (= 4 (vcount g)))
     (is (= 3 (ecount g)))
     (is (= "Köln"      (value (vertex g 1) :name)))
@@ -88,7 +88,7 @@
   @*img*)
 
 (deftest test-families2genealogy-extensional
-  (let [g (create-graph (load-schema "test/input/genealogy-schema.tg"))
+  (let [g (new-graph (load-schema "test/input/genealogy-schema.tg"))
         _ (emf/load-metamodel "test/input/Families.ecore")
         m (emf/load-model "test/input/example.families")]
     #_(clojure.pprint/pprint (families2genealogy m g))

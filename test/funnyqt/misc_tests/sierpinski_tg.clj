@@ -9,8 +9,8 @@
 (defn sierpinski-init
   "Returns a sierpienki triangle."
   [vc ec]
-  (let [g (create-graph (load-schema "test/input/sierpinski-schema.tg" :standard)
-                        "Sierpinski" :standard)
+  (let [g (new-graph (load-schema "test/input/sierpinski-schema.tg" :standard)
+                     "Sierpinski" :standard)
         t (create-vertex! g 'V)
         l (create-vertex! g 'V)
         r (create-vertex! g 'V)]
@@ -123,4 +123,3 @@
       (run (sierpinski-init correct-vc correct-ec)
           #(trampoline (triangulate-trampolined %))
         "TRAMPO" n correct-vc correct-ec))))
-

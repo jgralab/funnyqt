@@ -1,5 +1,5 @@
 (ns ^{:pattern-expansion-context :tg}
-    funnyqt.misc-tests.mutual-exclusion-tg
+  funnyqt.misc-tests.mutual-exclusion-tg
   (:use funnyqt.tg)
   (:use funnyqt.utils)
   (:use funnyqt.protocols)
@@ -139,8 +139,8 @@
   "Returns an initial graph for the STS.
   Two Processes connected in a ring by two Next edges."
   []
-  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
-                        "Short transformation sequence.")
+  (let [g (new-graph (load-schema "test/input/mutual-exclusion-schema.tg")
+                     "Short transformation sequence.")
         p1 (create-vertex! g 'Process)
         p2 (create-vertex! g 'Process)]
     (create-edge! g 'Next p1 p2)
@@ -194,8 +194,8 @@
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
   [n]
-  (let [g (create-graph (load-schema "test/input/mutual-exclusion-schema.tg")
-                        (str "Long transformation sequence, N =" n))]
+  (let [g (new-graph (load-schema "test/input/mutual-exclusion-schema.tg")
+                     (str "Long transformation sequence, N =" n))]
     (loop [i n, lp nil]
       (if (pos? i)
         (let [r (create-vertex! g 'Resource)

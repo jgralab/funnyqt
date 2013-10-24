@@ -14,7 +14,7 @@
 
 (defn bin-tree
   []
-  (let [g (create-graph
+  (let [g (new-graph
            (load-schema "test/input/binop-tree-schema.tg" :standard)
            "ExampleBinaryGraphFunML" :standard)
         v1 (create-vertex! g 'Div)
@@ -97,10 +97,10 @@
                  (set-value! c :value (eval-exp b))
                  (relink! b c nil :in))
                (delete! [b a1 a2]))]
-             (is (== 4 (apply-repeatedly repl-bin-op tree)))
-             (is (== 1 (vcount tree)))
-             (is (== 0 (ecount tree)))
-             (is (== 1.65 (value (the (vseq tree)) :value))))))
+      (is (== 4 (apply-repeatedly repl-bin-op tree)))
+      (is (== 1 (vcount tree)))
+      (is (== 0 (ecount tree)))
+      (is (== 1.65 (value (the (vseq tree)) :value))))))
 
 (deftest test-replace-binops5
   (let [tree (bin-tree)]
@@ -118,5 +118,3 @@
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))
       (is (== 1.65 (value (the (vseq tree)) :value))))))
-
-

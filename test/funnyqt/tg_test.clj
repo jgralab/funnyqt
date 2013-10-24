@@ -48,7 +48,7 @@
            (domain rg ct)))))
 
 (deftest test-create-graph-vertex-edge-1
-  (let [g ^Graph (create-graph (schema rg) "Test graph 1")
+  (let [g ^Graph (new-graph (schema rg) "Test graph 1")
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
@@ -60,6 +60,15 @@
         e3 (create-edge! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
     (is (== 3 (.getECount g)) "Wrong edge count")))
+
+(deftest test-add-adj-throws-on-single-valued-role
+  (let [g ^Graph (new-graph (schema rg) "Test graph 1")
+        v1 (create-vertex! g 'localities.City)
+        v2 (create-vertex! g 'junctions.Crossroad)]
+    (is (thrown? Exception
+                 (add-adj! v2 :locality v1)))
+    (is (thrown? Exception
+                 (add-adjs! v2 :locality [v1])))))
 
 (deftest test-vcount
   (is (= 155 (vcount rg) (count (vseq rg))))
@@ -206,7 +215,7 @@
                               rg)
 
 (deftest test-generated-functional-api
-  (let [g (create-graph (schema rg))
+  (let [g (new-graph (schema rg))
         ^Vertex city (rg/create-City! g :name "Ebernhahn")
         ^Vertex cr1   (rg/create-Plaza! g  :name "Rathausplatz")
         ^Vertex cr2   (rg/create-Plaza! g  :name "Schulplatz")
@@ -237,4 +246,23 @@
            (first (.adjacences cr1 "locality"))
            (first (.adjacences cr2 "locality"))
            (rg/->locality cr1)
-           (rg/->locality cr2)))))
+           (rg/->locality cr2)))
+
+    (rg/->set-crossroads! city [])
+    (is (= []
+           (.adjacences city "crossroads")
+           (funnyqt.query/adjs city :crossroads)
+           (rg/->crossroads city)))
+
+    (rg/->set-crossroads! city [cr2 cr1])
+    (is (= [cr2 cr1]
+           (.adjacences city "crossroads")
+           (funnyqt.query/adjs city :crossroads)
+           (rg/->crossroads city)))
+
+    (rg/->add-crossroads! city cr1)
+    (rg/->add-crossroads! city [cr1 cr1])
+    (is (= [cr2 cr1 cr1 cr1 cr1]
+           (.adjacences city "crossroads")
+           (funnyqt.query/adjs city :crossroads)
+           (rg/->crossroads city)))))
