@@ -35,6 +35,10 @@
                      m [p-seq :familyFather :mother]))]
     (the w)))
 
+(generate-schema-functions "test/input/genealogy-schema.tg"
+                           test.functional.genealogy.tg
+                           gen-tg)
+
 (deftransformation families2genealogy
   "Transforms a family model to a genealogy model."
   [[in] [out]]
@@ -43,27 +47,27 @@
   (make-address
    :from [street town]
    :to [adr 'Address]
-   (set-value! adr :street street)
-   (set-value! adr :town   town))
+   (gen-tg/set-street! adr street)
+   (gen-tg/set-town! adr town))
   (^:top member2person
          :from [m]
          :disjuncts [member2male member2female :result p]
-         (set-value! p :fullName
-                     (str (first-name m) " "
-                          (emf/eget (family m) :lastName)))
-         (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
+         (gen-tg/set-fullName! p
+                               (str (first-name m) " "
+                                    (emf/eget (family m) :lastName)))
+         (gen-tg/set-ageGroup! p (enum-constant p (if (< (emf/eget m :age) 18)
                                                     'AgeGroup.CHILD
                                                     'AgeGroup.ADULT)))
-         (set-adj! p :address (make-address (emf/eget (family m) :street)
-                                            (emf/eget (family m) :town)))
+         (gen-tg/->set-address! p (make-address (emf/eget (family m) :street)
+                                                (emf/eget (family m) :town)))
          (when-let [ps (seq (parents-of m))]
-           (set-adjs! p :parents (map member2person ps))))
+           (gen-tg/->set-parents! p (map member2person ps))))
   (member2male
    :from [m 'Member]
    :when (male? m)
    :to   [p 'Male :model out]
    (when-let [w (wife m)]
-     (set-adj! p :wife (member2female w))))
+     (gen-tg/->set-wife! p (member2female w))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))
@@ -74,6 +78,7 @@
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
+        _ (print "families2genealogy (EMF -> TG):               ")
         trace (time (families2genealogy in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
@@ -96,6 +101,7 @@
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
+        _ (print "families2genealogy-ext (EMF -> TG):           ")
         trace (time (families2genealogy-ext in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
@@ -149,6 +155,7 @@
         in (emf/load-model "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
+        _ (print "families2genealogy-explicit-main (EMF -> TG): ")
         trace (time (families2genealogy-explicit-main in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))

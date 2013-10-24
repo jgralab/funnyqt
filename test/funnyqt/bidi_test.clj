@@ -12,9 +12,9 @@
 ;;# AddressBook to AddressBook
 
 (rtg/generate-schema-relations "test/input/addressbook.tg"
-                               test.addressbook-rels.tg ab-tg)
+                               test.relational.addressbook.tg ab-tg)
 (remf/generate-ecore-model-relations "test/input/AddressBook.ecore"
-                                     test.addressbook-rels.emf ab-emf)
+                                     test.relational.addressbook.emf ab-emf)
 
 ;;## Example AddressBook Graph
 
@@ -268,9 +268,9 @@
 ;;# UML Class Diagram to RDBMS Tables
 
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"
-                                     test.classdiagram.emf cd +)
+                                     test.relational.classdiagram.emf cd)
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
-                                     test.database.emf db +)
+                                     test.relational.database.emf db)
 
 (def cd1 (emf/load-model "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
 (def db1 (emf/load-model "test/input/uml-rdbms-bidi/m2/database01.xmi"))
@@ -278,42 +278,42 @@
 (comment
   (ccl/run* [q]
     (ccl/fresh [c v]
-      (cd/+is-persistent cd1 c v)
+      (cd/is-persistent cd1 c v)
       (ccl/== q [c v]))))
 
 (bidi/deftransformation class-diagram2database-schema
   "Transforms between class diagrams and database schemas."
   [cd db]
   (^:top package2schema
-         :left [(cd/+Package cd ?pkg)
-                (cd/+name cd ?pkg ?name)]
-         :right [(db/+Schema db ?schema)
-                 (db/+name db ?schema ?name)]
+         :left [(cd/Package cd ?pkg)
+                (cd/name cd ?pkg ?name)]
+         :right [(db/Schema db ?schema)
+                 (db/name db ?schema ?name)]
          :where [(class2table :?pkg ?pkg :?schema ?schema)])
   (class2table
-   :left [(cd/+->classifiers cd ?pkg ?class)
-          (cd/+Class cd ?class)
-          (cd/+is-persistent cd ?class true)
-          (cd/+name cd ?class ?name)]
-   :right [(db/+->tables db ?schema ?table)
-           (db/+Table db ?table)
-           (db/+name db ?table ?name)]
+   :left [(cd/->classifiers cd ?pkg ?class)
+          (cd/Class cd ?class)
+          (cd/is-persistent cd ?class true)
+          (cd/name cd ?class ?name)]
+   :right [(db/->tables db ?schema ?table)
+           (db/Table db ?table)
+           (db/name db ?table ?name)]
    :where [(attribute2column :?class ?class :?table ?table)])
   (attribute2column
-   :left [(cd/+->attrs cd ?class ?attr)
-          (cd/+Attribute cd ?attr)
-          (cd/+name cd ?attr ?name)]
-   :right [(db/+->cols db ?table ?col)
-           (db/+Column db ?col)
-           (db/+name db ?col ?name)]
+   :left [(cd/->attrs cd ?class ?attr)
+          (cd/Attribute cd ?attr)
+          (cd/name cd ?attr ?name)]
+   :right [(db/->cols db ?table ?col)
+           (db/Column db ?col)
+           (db/name db ?col ?name)]
    :where [(primary2pkey :?attr ?attr :?table ?table :?col ?col)])
   (primary2pkey
-   :left [(cd/+is-primary cd ?attr true)]
-   :right [(db/+->pkey db ?table ?col)])
+   :left [(cd/is-primary cd ?attr true)]
+   :right [(db/->pkey db ?table ?col)])
   (^:top super-attribute2column
          :only (fn [dir feature-set]
                  (= dir :right))
-         :when [(cd/+->parent cd ?subclass ?superclass)
+         :when [(cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo class2table :?class ?subclass :?table ?table)]
                  [(bidi/relateo super-attribute2column :?superclass ?subclass :?table ?table)])]
@@ -344,13 +344,13 @@
   [l r]
   (class2table
    :when [ccl/succeed]
-   :left [(cd/+->classifiers l ?pkg ?class)
-          (cd/+Class l ?class)
-          (cd/+is-persistent l ?class true)
-          (cd/+name l ?class ?name)]
-   :right [(db/+->tables r ?schema ?table)
-           (db/+Table r ?table)
-           (db/+name r ?table ?name)]
+   :left [(cd/->classifiers l ?pkg ?class)
+          (cd/Class l ?class)
+          (cd/is-persistent l ?class true)
+          (cd/name l ?class ?name)]
+   :right [(db/->tables r ?schema ?table)
+           (db/Table r ?table)
+           (db/name r ?table ?name)]
    :where [(attribute2column :?class ?class :?table ?table)]))
 
 (test/deftest test-cd2db-ext
