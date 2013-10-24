@@ -1508,20 +1508,26 @@ functions `record` and `enum`."
   The new namespace (in case nssym was given) is required using the given
   `alias` (if non-nil): (require '[nssym :as alias])
 
-  `vc-fn` has to be a function that receives a VertexClass and returns a valid
-  definition-form, e.g., a (defn stuff-with-that-vertex-class [...] ...).
+  `prefix` is an optional prefix all generated functions should have given as
+  symbol or string.  (This is mainly useful if the functions are generated in
+  the current namespace in order not to clash with standard functions such as
+  clojure.core/name.)
 
-  `ec-fn` has to be a function that receives an EdgeClass and returns a valid
-  definition-form.
+  `vc-fn` has to be a function that receives a VertexClass and `prefix` and
+  returns a valid definition-form, e.g., a (defn <prefix>do-vertex-class [...]
+  ...).
 
-  `attr-fn` is a function that receives an attribute name (as keyword) and a
-  set of attributed element classes that have such an attribute.  The function
-  should return a valid definition form.
+  `ec-fn` has to be a function that receives an EdgeClass and `prefix` and
+  returns a valid definition-form.
 
-  `role-fn` is a function that receives a role name (as keyword) and a set of
-  vertex classes that have such a role.  Again, the function should return a
-  valid definition form."
-  [schema-file nssym alias vc-fn ec-fn attr-fn role-fn]
+  `attr-fn` is a function that receives an attribute name (as keyword), a set
+  of attributed element classes that have such an attribute, and `prefix`.  The
+  function should return a valid definition form.
+
+  `role-fn` is a function that receives a role name (as keyword), a set of
+  vertex classes that have such a role, and `prefix`.  Again, the function
+  should return a valid definition form."
+  [schema-file nssym alias prefix vc-fn ec-fn attr-fn role-fn]
   (let [^Schema schema (load-schema
                         (if (.exists (clojure.java.io/file schema-file))
                           schema-file
@@ -1548,7 +1554,7 @@ functions `record` and `enum`."
                         #(update-in %1 [%2] conj vc)
                         a))
                (when vc-fn
-                 ((resolve vc-fn) vc)))))
+                 ((resolve vc-fn) vc prefix)))))
           (no-nils
            (for [^EdgeClass ec (seq (-> schema .getGraphClass .getEdgeClasses))]
              (do
@@ -1568,25 +1574,24 @@ functions `record` and `enum`."
                  (when (seq to-rn)
                    (swap! refs #(update-in %1 [(keyword to-rn)] conj owner))))
                (when ec-fn
-                 ((resolve ec-fn) ec)))))
+                 ((resolve ec-fn) ec prefix)))))
           (no-nils
            (when attr-fn
              (for [[a owners] @atts]
-               ((resolve attr-fn) a owners))))
+               ((resolve attr-fn) a owners prefix))))
           (no-nils
            (when role-fn
              (for [[role owners] @refs]
-               ((resolve role-fn) role owners)))))
+               ((resolve role-fn) role owners prefix)))))
        (in-ns '~(ns-name old-ns))
        ~@(when alias
            [`(require '~(vector nssym :as alias))]))))
 
 ;;# Schema-specific functional API
 
-
-(defn ^:private create-vc-create-fn [^VertexClass vc]
+(defn ^:private create-vc-create-fn [^VertexClass vc prefix]
   (when-not (p/abstract? vc)
-    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
+    `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
        ~(format "Create a new %s vertex in graph `g`.
   Additional `props` may be supplied.
   Shorthand for (apply create-vertex! '%s props)."
@@ -1595,9 +1600,9 @@ functions `record` and `enum`."
        [~'g ~'& ~'props]
        (apply create-vertex! ~'g '~(symbol (.getQualifiedName vc)) ~'props))))
 
-(defn ^:private create-ec-create-fn [^EdgeClass ec]
+(defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
   (when-not (p/abstract? ec)
-    `(defn ~(symbol (str "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
+    `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
        ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
   Additional `attrs` may be supplied.
   `alpha` must be a %s vertex,
@@ -1611,7 +1616,7 @@ functions `record` and `enum`."
        (apply create-edge! ~'g '~(symbol (.getQualifiedName ec))
               ~'alpha ~'omega ~'attrs))))
 
-(defn ^:private create-attr-fns [attr owners]
+(defn ^:private create-attr-fns [attr owners prefix]
   (let [bool? (group-by (fn [^AttributedElementClass aec]
                           (= "Boolean" (-> (.getAttribute aec (name attr))
                                            .getDomain
@@ -1619,7 +1624,7 @@ functions `record` and `enum`."
                         owners)]
     `(do
        ~@(when (bool? true)
-           `[(defn ~(symbol (str (name attr) "?"))
+           `[(defn ~(symbol (str prefix (name attr) "?"))
                ~(format "Checks if `ae` is %s.
   Possible types of `ae`: %s"
                         (name attr)
@@ -1627,14 +1632,14 @@ functions `record` and `enum`."
                [~'ae]
                (value ~'ae ~attr))])
        ~@(when (bool? false)
-           `[(defn ~(symbol (str (name attr)))
+           `[(defn ~(symbol (str prefix (name attr)))
                ~(format "Returns the value of `ae`s %s attribute.
   Possible types of `ae`: %s"
                         (name attr)
                         (str/join ", " (set (map p/qname (bool? false)))))
                [~'ae]
                (value ~'ae ~attr))])
-       (defn ~(symbol (str "set-" (name attr) "!"))
+       (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `ae`s %s attribute to `val`.
   Possible types of `ae`: %s"
                   (name attr)
@@ -1642,7 +1647,7 @@ functions `record` and `enum`."
          [~'ae ~'val]
          (set-value! ~'ae ~attr ~'val)))))
 
-(defn ^:private create-role-fns [role owners]
+(defn ^:private create-role-fns [role owners prefix]
   (let [v (with-meta 'v {:tag `Vertex})
         multi? (group-by (fn [^VertexClass vc]
                            (p/mm-multi-valued-property? vc role))
@@ -1652,14 +1657,14 @@ functions `record` and `enum`."
        ~(cond
          ;; This role is always multi-valued
          (and (multi? true) (not (multi? false)))
-         `(defn ~(symbol (str "->" (name role)))
+         `(defn ~(symbol (str prefix "->" (name role)))
             ~(format "Returns the vertices in `v`s %s role." (name role))
             [~v]
             (.adjacences ~v ~(name role)))
 
          ;; This role is always single-valued
          (and (multi? false) (not (multi? true)))
-         `(defn ~(symbol (str "->" (name role)))
+         `(defn ~(symbol (str prefix "->" (name role)))
             ~(format "Returns the vertex in `v`s %s role." (name role))
             [~v]
             (let [x# (.adjacences ~v ~(name role))]
@@ -1668,7 +1673,7 @@ functions `record` and `enum`."
                           ~(name role) ~v)
                 (first x#))))
 
-         :else `(defn ~(symbol (str "->" (name role)))
+         :else `(defn ~(symbol (str prefix "->" (name role)))
                   ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
                   [~v]
                   (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
@@ -1683,7 +1688,7 @@ functions `record` and `enum`."
        ~(cond
          ;; This role is always multi-valued
          (and (multi? true) (not (multi? false)))
-         `(defn ~(symbol (str "->set-" (name role) "!"))
+         `(defn ~(symbol (str prefix "->set-" (name role) "!"))
             ~(format "Sets the %s role of `v` to `ovs`.
   `ovs` must be a collection of vertices." (name role))
             [~v ~'ovs]
@@ -1691,13 +1696,13 @@ functions `record` and `enum`."
 
          ;; This role is always single-valued
          (and (multi? false) (not (multi? true)))
-         `(defn ~(symbol (str "->set-" (name role) "!"))
+         `(defn ~(symbol (str prefix "->set-" (name role) "!"))
             ~(format "Sets the %s role of `v` to `ov`.
   `ov` must be a single vertex." (name role))
             [~v ~'ov]
             (p/set-adj! ~v ~role ~'ov))
 
-         :else `(defn ~(symbol (str "->set-" (name role) "!"))
+         :else `(defn ~(symbol (str prefix "->set-" (name role) "!"))
                   ~(format "Sets the %s role of `v` to `ov`.
   If `ov` must be a single vertex or a collection of vertices depends on the
   type of `v`." (name role))
@@ -1708,28 +1713,31 @@ functions `record` and `enum`."
 
        ;; ADDER
        ~@(when (multi? true)
-           `[(defn ~(symbol (str "->add-" (name role) "!"))
+           `[(defn ~(symbol (str prefix "->add-" (name role) "!"))
                ~(format "Adds `ov` and `more` vertices to `v`s %s role." (name role))
                [~v ~'ov ~'& ~'more]
                (p/add-adj! ~v ~role ~'ov)
                (p/add-adjs! ~v ~role ~'more))
-             (defn ~(symbol (str "->addall-" (name role) "!"))
+             (defn ~(symbol (str prefix "->addall-" (name role) "!"))
                ~(format "Adds all `vs` to `v`s %s role." (name role))
                [~v ~'vs]
                (p/add-adjs! ~v ~role ~'vs))]))))
 
-(defmacro generate-schema-specific-api
+(defmacro generate-schema-functions
   "Generates a schema-specific API consisting of functions for creating
   vertices and edges and functions for accessing properties (attributes and
   roles)."
   ([schema-file]
-     `(generate-schema-specific-api ~schema-file nil))
+     `(generate-schema-functions ~schema-file nil nil nil))
   ([schema-file nssym]
-     `(generate-schema-specific-api ~schema-file ~nssym nil))
+     `(generate-schema-functions ~schema-file ~nssym nil nil))
   ([schema-file nssym alias]
+     `(generate-schema-functions ~schema-file ~nssym ~alias nil))
+  ([schema-file nssym alias prefix]
      `(schema-ns-generator ~schema-file
                            ~nssym
                            ~alias
+                           ~prefix
                            create-vc-create-fn
                            create-ec-create-fn
                            create-attr-fns
@@ -1737,5 +1745,5 @@ functions `record` and `enum`."
 
 #_(clojure.pprint/pprint
    (macroexpand
-    '(generate-schema-specific-api "test/input/greqltestgraph.tg"
+    '(generate-schema-functions "test/input/greqltestgraph.tg"
                                    some.long.namespace.foo alias)))

@@ -10,7 +10,7 @@
             [funnyqt.relational.tmp-elem :as tmp]))
 
 (generate-schema-relations "test/input/greqltestgraph.tg"
-                           test.relational.routemap.tg routemap)
+                           test.relational.routemap.tg routemap +)
 
 ;;* Basic tests
 

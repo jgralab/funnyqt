@@ -210,9 +210,9 @@
 
 ;;* Tests for the generated functional API
 
-(generate-schema-specific-api "test/input/greqltestgraph.tg"
-                              test.functional.routemap.tg
-                              rg)
+(generate-schema-functions "test/input/greqltestgraph.tg"
+                           test.functional.routemap.tg
+                           rg)
 
 (deftest test-generated-functional-api
   (let [g (new-graph (schema rg))

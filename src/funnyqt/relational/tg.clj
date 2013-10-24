@@ -429,22 +429,22 @@
 
 (defn ^:private class->rel-symbols
   "Returns a relation symbol for the class `c`."
-  [^AttributedElementClass c]
+  [^AttributedElementClass c prefix]
   (let [n (.getUniqueName c)
         fqn (.getQualifiedName c)]
     (mapv (fn [s]
             (with-meta (symbol s)
-              {:unique-name
-               (symbol (str "+" (clojure.string/replace
-                                 s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
+              {:relation-name
+               (symbol (str prefix (clojure.string/replace
+                                    s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
 (defn ^:private create-vc-relations
   "Creates relations for the given vertex class."
-  [vc]
+  [vc prefix]
   `(do
-     ~@(for [na (class->rel-symbols vc)]
-         `(defn ~(:unique-name (meta na))
+     ~@(for [na (class->rel-symbols vc prefix)]
+         `(defn ~(:relation-name (meta na))
             ~(format "A relation where `v` is a %s vertex of graph `g`." na)
             [~'g ~'v]
             (ccl/all
@@ -453,10 +453,10 @@
 
 (defn ^:private create-ec-relations
   "Creates relations for the given edge class."
-  [^EdgeClass ec]
+  [^EdgeClass ec prefix]
   `(do
-     ~@(for [na (class->rel-symbols ec)]
-         `(defn ~(:unique-name (meta na))
+     ~@(for [na (class->rel-symbols ec prefix)]
+         `(defn ~(:relation-name (meta na))
             ~(format "A relation where `e` is a %s edge from `al` to `om` in graph `g`." na)
             [~'g ~'e ~'al ~'om]
             (ccl/all
@@ -465,11 +465,11 @@
 
 (defn ^:private create-attr-relation
   "Creates relations for the given attribute."
-  [attr aecs]
+  [attr aecs prefix]
   ;; attr is an attr name keyword, aecs the set of classes having
   ;; such an attr
   (let [ts (mapv #(p/qname %) aecs)]
-    `(defn ~(symbol (str "+" (name attr)))
+    `(defn ~(symbol (str prefix (name attr)))
        ~(format "A relation where `ae` has value `val` for its %s attribute in graph `g`." attr)
        [~'g ~'ae ~'val]
        (ccl/all
@@ -478,8 +478,8 @@
 
 (defn ^:private create-reference-relation
   "Creates a relation for the given role name."
-  [role _]
-  (let [role-rel-sym (symbol (str "+->" (name role)))]
+  [role _ prefix]
+  (let [role-rel-sym (symbol (str prefix "->" (name role)))]
     `(defn ~role-rel-sym
        ~(format "A relation where `sv` references `tv` in its `%s` role." (name role))
        [~'g ~'sv ~'tv]
@@ -492,13 +492,16 @@
   If `nssym` is nil (or not given), generate them in the current namespace.
   If `nssym` was given, require that namespace as `alias`."
   ([schema-file]
-     `(generate-schema-relations ~schema-file nil))
+     `(generate-schema-relations ~schema-file nil nil nil))
   ([schema-file nssym]
-     `(generate-schema-relations ~schema-file ~nssym nil))
+     `(generate-schema-relations ~schema-file ~nssym nil nil))
   ([schema-file nssym alias]
+     `(generate-schema-relations ~schema-file ~nssym ~alias nil))
+  ([schema-file nssym alias prefix]
      `(tg/schema-ns-generator ~schema-file
                               ~nssym
                               ~alias
+                              ~prefix
                               create-vc-relations
                               create-ec-relations
                               create-attr-relation
