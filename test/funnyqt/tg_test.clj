@@ -211,7 +211,7 @@
 ;;* Tests for the generated functional API
 
 (generate-schema-specific-api "test/input/greqltestgraph.tg"
-                              de.uni-koblenz.jgralabtest.schemas.greqltestschema.RouteSchema
+                              test.functional.routemap.tg
                               rg)
 
 (deftest test-generated-functional-api
@@ -261,7 +261,7 @@
            (rg/->crossroads city)))
 
     (rg/->add-crossroads! city cr1)
-    (rg/->add-crossroads! city [cr1 cr1])
+    (rg/->addall-crossroads! city [cr1 cr1])
     (is (= [cr2 cr1 cr1 cr1 cr1]
            (.adjacences city "crossroads")
            (funnyqt.query/adjs city :crossroads)

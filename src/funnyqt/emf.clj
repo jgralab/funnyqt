@@ -1068,3 +1068,105 @@
        (in-ns '~(ns-name old-ns))
        ~@(when alias
            [`(require '~(vector nssym :as alias))]))))
+
+;;* Ecore Model specific functional API
+
+(defn ^:private create-create-fn [^EClass ec]
+  `(defn ~(symbol (str "create-" (.getName ec) "!"))
+     ~(format "Creates a new %s object and adds it to model `m`.
+  Properties are set according to `props`.
+  `m` may be nil.
+  Shorthand for (apply ecreate! m '%s props)."
+              (p/qname ec)
+              (p/qname ec))
+     ([~'m & ~'props]
+        (apply ecreate! ~'m '~(p/qname ec) ~'props))))
+
+(defn ^:private create-eattribute-fns [attr owners]
+  (let [bool? (group-by (fn [^EClass ec]
+                          (let [^EAttribute ea (.getEStructuralFeature ec (name attr))]
+                            (= "Boolean" (-> ea
+                                             .getEAttributeType
+                                             .getName))))
+                        owners)]
+    `(do
+       ~@(when (bool? true)
+           `[(defn ~(symbol (str (name attr) "?"))
+               ~(format "Checks if `eo`s is %s." (name attr))
+               [~'eo]
+               (eget ~'eo ~attr))])
+       ~@(when (bool? false)
+           `[(defn ~(symbol (name attr))
+               ~(format "Returns the value of `eo`s %s attribute." (name attr))
+               [~'eo]
+               (eget ~'eo ~attr))])
+       (defn ~(symbol (str "set-" (name attr) "!"))
+         ~(format "Sets the value of `eo`s %s attribute to `val`." (name attr))
+         [~'eo ~'val]
+         (eset! ~'eo ~attr ~'val)))))
+
+(defn ^:private create-ereference-fns [ref owners]
+  (let [multi? (group-by (fn [^EClass ec]
+                           (p/mm-multi-valued-property? ec ref))
+                         owners)]
+    `(do
+       ;; GETTER
+       (defn ~(symbol (str "->" (name ref)))
+         ~(format "Returns the %s in `eo`s %s reference."
+                  (cond
+                   ;; This ref is always multi-valued
+                   (and (multi? true) (not (multi? false))) "objects"
+                   ;; This ref is always single-valued
+                   (and (not (multi? true)) (multi? false)) "object"
+                   :else "object[s]")
+                  (name ref))
+         [~'eo]
+         (eget ~'eo ~ref))
+
+       ;; SETTER
+       (defn ~(symbol (str "->set-" (name ref) "!"))
+         ~(format "Sets `eo`s %s reference to `refed`.
+  `refed` must be a %s."
+                  (name ref)
+                  (cond
+                   ;; This ref is always multi-valued
+                   (and (multi? true) (not (multi? false))) "collection of objects"
+                   ;; This ref is always single-valued
+                   (and (not (multi? true)) (multi? false)) "single object"
+                   :else "single object or coll of objects, depending on `eo`s type"))
+         [~'eo ~'refed]
+         (eset! ~'eo ~ref ~'refed))
+
+       ;; ADDER
+       ~@(when (multi? true)
+           `[(defn ~(symbol (str "->add-" (name ref) "!"))
+               ~(format "Adds `eobj` and `more` eobjects to `eo`s %s reference."
+                        (name ref))
+               [~'eo ~'eobj ~'& ~'more]
+               (apply eadd! ~'eo ~ref ~'eobj ~'more))
+             (defn ~(symbol (str "->addall-" (name ref) "!"))
+               ~(format "Adds all `eobjs` to `eo`s %s reference."
+                        (name ref))
+               [~'eo ~'eobjs]
+               (eaddall! ~'eo ~ref ~'eobjs))]))))
+
+(defmacro generate-ecore-model-specific-api
+  "Generates a Ecore-model-specific API consisting of functions for creating
+  EObjects and functions for accessing properties (attributes and references)."
+  ([ecore-file]
+     `(generate-ecore-model-specific-api ~ecore-file nil))
+  ([ecore-file nssym]
+     `(generate-ecore-model-specific-api ~ecore-file ~nssym nil))
+  ([ecore-file nssym alias]
+     `(ecore-model-ns-generator ~ecore-file
+                                ~nssym
+                                ~alias
+                                create-create-fn
+                                create-eattribute-fns
+                                create-ereference-fns)))
+
+#_(clojure.pprint/pprint
+   (macroexpand
+    '(generate-ecore-model-specific-api "test/input/Families.ecore"
+                                        test.families.emf
+                                        fams)))

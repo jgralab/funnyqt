@@ -317,3 +317,39 @@
     (is (== 3 (count (econtentpairs fm))))
     (is (== 1 (count (ecrosspairs fm))))))
 
+;;# Test the generated api
+
+(generate-ecore-model-specific-api "test/input/Families.ecore"
+                                   test.functional.families.emf
+                                   fams)
+
+(deftest test-generated-api
+  (let [m (new-model)
+        root (fams/create-FamilyModel! m)
+        fam  (fams/create-Family! nil)
+        m1   (fams/create-Member! nil :firstName "Ben")
+        m2   (fams/create-Member! nil)]
+    (is (= "Ben"
+           (eget m1 :firstName)
+           (fams/firstName m1)))
+
+    (fams/set-firstName! m1 "Bob")
+    (is (= "Bob"
+           (eget m1 :firstName)
+           (fams/firstName m1)))
+
+    (fams/->add-sons! fam m1 m2)
+    (is (= [m1 m2]
+           (eget fam :sons)
+           (fams/->sons fam)))
+
+    (fams/->set-sons! fam [m2 m1])
+    (is (= [m2 m1]
+           (eget fam :sons)
+           (fams/->sons fam)))
+
+    (fams/->add-families! root fam)
+    (fams/->addall-members! root [m1 m2])
+    (is (= [m1 m2]
+           (eget root :members)
+           (fams/->members root)))))

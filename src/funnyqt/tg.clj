@@ -1612,26 +1612,26 @@ functions `record` and `enum`."
               ~'alpha ~'omega ~'attrs))))
 
 (defn ^:private create-attr-fns [attr owners]
-  (let [gm (group-by (fn [^AttributedElementClass aec]
-                       (= "Boolean" (-> (.getAttribute aec (name attr))
-                                        .getDomain
-                                        .getQualifiedName)))
-                     owners)]
+  (let [bool? (group-by (fn [^AttributedElementClass aec]
+                          (= "Boolean" (-> (.getAttribute aec (name attr))
+                                           .getDomain
+                                           .getQualifiedName)))
+                        owners)]
     `(do
-       ~@(when (gm true)
+       ~@(when (bool? true)
            `[(defn ~(symbol (str (name attr) "?"))
                ~(format "Checks if `ae` is %s.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (set (map p/qname (gm true)))))
+                        (str/join ", " (set (map p/qname (bool? true)))))
                [~'ae]
                (value ~'ae ~attr))])
-       ~@(when (gm false)
+       ~@(when (bool? false)
            `[(defn ~(symbol (str (name attr)))
                ~(format "Returns the value of `ae`s %s attribute.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (set (map p/qname (gm false)))))
+                        (str/join ", " (set (map p/qname (bool? false)))))
                [~'ae]
                (value ~'ae ~attr))])
        (defn ~(symbol (str "set-" (name attr) "!"))
@@ -1684,36 +1684,39 @@ functions `record` and `enum`."
          ;; This role is always multi-valued
          (and (multi? true) (not (multi? false)))
          `(defn ~(symbol (str "->set-" (name role) "!"))
-            ~(format "Sets the %s role of `v` to `refed`.
-  `refed` must be a collection of vertices." (name role))
-            [~v ~'refed]
-            (p/set-adjs! ~v ~role ~'refed))
+            ~(format "Sets the %s role of `v` to `ovs`.
+  `ovs` must be a collection of vertices." (name role))
+            [~v ~'ovs]
+            (p/set-adjs! ~v ~role ~'ovs))
 
          ;; This role is always single-valued
          (and (multi? false) (not (multi? true)))
          `(defn ~(symbol (str "->set-" (name role) "!"))
-            ~(format "Sets the %s role of `v` to `refed`.
-  `refed` must be a single vertex." (name role))
-            [~v ~'refed]
-            (p/set-adj! ~v ~role ~'refed))
+            ~(format "Sets the %s role of `v` to `ov`.
+  `ov` must be a single vertex." (name role))
+            [~v ~'ov]
+            (p/set-adj! ~v ~role ~'ov))
 
          :else `(defn ~(symbol (str "->set-" (name role) "!"))
-                  ~(format "Sets the %s role of `v` to `refed`." (name role))
-                  [~v ~'refed]
+                  ~(format "Sets the %s role of `v` to `ov`.
+  If `ov` must be a single vertex or a collection of vertices depends on the
+  type of `v`." (name role))
+                  [~v ~'ov]
                   (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
-                    (p/set-adjs! ~v ~role ~'refed)
-                    (p/set-adj! ~v ~role ~'refed))))
+                    (p/set-adjs! ~v ~role ~'ov)
+                    (p/set-adj! ~v ~role ~'ov))))
 
        ;; ADDER
        ~@(when (multi? true)
            `[(defn ~(symbol (str "->add-" (name role) "!"))
-               ~(format "Adds `refed` to `v`s %s role.
-  `refed` may be a vertex or a collection of vertices." (name role))
-               [~v ~'refed]
-               (if (coll? ~'refed)
-                 ;; the add-* methods throw on single-valued roles.
-                 (p/add-adjs! ~v ~role ~'refed)
-                 (p/add-adj! ~v ~role ~'refed)))]))))
+               ~(format "Adds `ov` and `more` vertices to `v`s %s role." (name role))
+               [~v ~'ov ~'& ~'more]
+               (p/add-adj! ~v ~role ~'ov)
+               (p/add-adjs! ~v ~role ~'more))
+             (defn ~(symbol (str "->addall-" (name role) "!"))
+               ~(format "Adds all `vs` to `v`s %s role." (name role))
+               [~v ~'vs]
+               (p/add-adjs! ~v ~role ~'vs))]))))
 
 (defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
@@ -1733,6 +1736,6 @@ functions `record` and `enum`."
                            create-role-fns)))
 
 #_(clojure.pprint/pprint
- (macroexpand
-  '(generate-schema-specific-api "test/input/greqltestgraph.tg"
-                                 some.long.namespace.foo alias)))
+   (macroexpand
+    '(generate-schema-specific-api "test/input/greqltestgraph.tg"
+                                   some.long.namespace.foo alias)))
