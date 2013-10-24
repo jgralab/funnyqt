@@ -1041,7 +1041,11 @@
            `[(ns ~nssym
                ;; Don't refer anything from clojure.core so that we don't get
                ;; warnings about redefinitions.
-               (:refer-clojure :only []))])
+               (:refer-clojure :only []))
+             ;; Remove all java.lang imports so that clashes with generated
+             ;; vars cannot occur.
+             (doseq [[sym# cls#] (ns-imports *ns*)]
+               (ns-unmap *ns* sym#))])
        (with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
                             (metamodel-epackages ecore-model))
          ~@(with-ns-uris (mapv #(.getNsURI ^EPackage %)
@@ -1176,5 +1180,5 @@
 #_(clojure.pprint/pprint
    (macroexpand
     '(generate-ecore-model-functions "test/input/Families.ecore"
-                                        test.families.emf
-                                        fams)))
+                                     test.families.emf
+                                     fams)))

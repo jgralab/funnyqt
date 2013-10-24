@@ -1542,7 +1542,11 @@ functions `record` and `enum`."
            `[(ns ~nssym
                ;; Don't refer anything from clojure.core so that we don't get
                ;; warnings about redefinitions.
-               (:refer-clojure :only []))])
+               (:refer-clojure :only []))
+             ;; Remove all java.lang imports so that clashes with generated
+             ;; vars cannot occur.
+             (doseq [[sym# cls#] (ns-imports *ns*)]
+               (ns-unmap *ns* sym#))])
        ;; The schema specific ones
        ~@(concat
           (no-nils
