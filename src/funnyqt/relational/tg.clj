@@ -487,13 +487,18 @@
 
 (defmacro generate-schema-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
+  `schema-file` is the TG file with the schema.
+
   If `nssym` is nil (or not given), generate them in the current namespace.
-  `schema-file` is the TG file with the schema."
+  If `nssym` was given, require that namespace as `alias`."
   ([schema-file]
      `(generate-schema-relations ~schema-file nil))
   ([schema-file nssym]
+     `(generate-schema-relations ~schema-file ~nssym nil))
+  ([schema-file nssym alias]
      `(tg/schema-ns-generator ~schema-file
                               ~nssym
+                              ~alias
                               create-vc-relations
                               create-ec-relations
                               create-attr-relation

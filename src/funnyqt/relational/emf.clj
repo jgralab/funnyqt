@@ -292,8 +292,10 @@
 
 (defmacro generate-ecore-model-relations
   "Generates metamodel-specific relations in the namespace denoted by `nssym`.
-  If `nssym` is nil (or not given), generate them in the current namespace.
   `ecore-file` is the ecore file containing the metamodel.
+
+  If `nssym` is nil (or not given), generate them in the current namespace, and
+  require it as `alias` (if non-nil/given).
 
   For any EClass Foo, there will be a relation (+Foo model el) that succeeds
   for all EObjects el in the model that have the type Foo.  Similarly, there
@@ -310,9 +312,12 @@
   Property names containing an underscore will result in relations with a
   hyphen instead, e.g., attribute \"is_persistent\" is translated into a
   relation +is-persistent."
-  ([ecore-file] `(generate-ecore-model-relations ~ecore-file nil))
+  ([ecore-file]
+     `(generate-ecore-model-relations ~ecore-file nil))
   ([ecore-file nssym]
-     `(emf/ecore-model-ns-generator ~ecore-file ~nssym
+     `(generate-ecore-model-relations ~ecore-file ~nssym nil))
+  ([ecore-file nssym alias]
+     `(emf/ecore-model-ns-generator ~ecore-file ~nssym ~alias
                                     create-eclass-relations
                                     create-eattribute-relation
                                     create-ereference-relation)))

@@ -1008,6 +1008,9 @@
   The `nssym` denotes the name of the namespace in which to generate the API.
   If `nssym` is nil, generate it in the current namespace.
 
+  The new namespace (in case nssym was given) is required using the given
+  `alias` (if non-nil): (require '[nssym :as alias])
+
   `eclass-fn` is a function receiving an EClass.  It should return a valid
   definition-form, e.g., a (defn stuff-with-that-eclass [...] ...).
 
@@ -1020,7 +1023,7 @@
   definition-form.
 
   The functions are called with all classes/attributes/roles of the metamodel."
-  [ecore-file nssym eclass-fn eattr-fn eref-fn]
+  [ecore-file nssym alias eclass-fn eattr-fn eref-fn]
   (let [ecore-model (load-metamodel
                      (if (.exists (clojure.java.io/file ecore-file))
                        ecore-file
@@ -1030,7 +1033,10 @@
         old-ns *ns*]
     `(do
        ~@(when nssym
-           `[(ns ~nssym)])
+           `[(ns ~nssym
+               ;; Don't refer anything from clojure.core so that we don't get
+               ;; warnings about redefinitions.
+               (:refer-clojure :only []))])
        (with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
                             (metamodel-epackages ecore-model))
          ~@(with-ns-uris (mapv #(.getNsURI ^EPackage %)
@@ -1059,4 +1065,6 @@
                (when eref-fn
                  (for [[r owners] @refs]
                    ((resolve eref-fn) r owners)))))))
-       (in-ns '~(ns-name old-ns)))))
+       (in-ns '~(ns-name old-ns))
+       ~@(when alias
+           [`(require '~(vector nssym :as alias))]))))

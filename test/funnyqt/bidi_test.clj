@@ -11,8 +11,10 @@
 
 ;;# AddressBook to AddressBook
 
-(rtg/generate-schema-relations "test/input/addressbook.tg" ab-tg)
-(remf/generate-ecore-model-relations "test/input/AddressBook.ecore" ab-emf)
+(rtg/generate-schema-relations "test/input/addressbook.tg"
+                               test.addressbook-rels.tg ab-tg)
+(remf/generate-ecore-model-relations "test/input/AddressBook.ecore"
+                                     test.addressbook-rels.emf ab-emf)
 
 ;;## Example AddressBook Graph
 
@@ -265,8 +267,10 @@
 
 ;;# UML Class Diagram to RDBMS Tables
 
-(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore" cd)
-(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore" db)
+(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"
+                                     test.classdiagram.emf cd)
+(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
+                                     test.database.emf db)
 
 (def cd1 (emf/load-model "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
 (def db1 (emf/load-model "test/input/uml-rdbms-bidi/m2/database01.xmi"))

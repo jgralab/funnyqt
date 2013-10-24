@@ -8,7 +8,8 @@
             [funnyqt.query :as q]
             [clojure.test :as t]))
 
-(generate-ecore-model-relations "test/input/Families.ecore" families)
+(generate-ecore-model-relations "test/input/Families.ecore"
+                                test.families.emf families)
 
 (t/deftest test-eobjecto
   (t/is (= (emf/eallobjects family-model)

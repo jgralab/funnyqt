@@ -26,13 +26,13 @@
 (deftest test-average-inhabitants
   (let [locs (vseq rg 'localities.Locality)]
     (is (< 0.00000000000000000001 ;; epsilon
-	   (- 91079.63636363637   ;; the GReQL computed val
-	      (/ (reduce + (map #(value %1 :inhabitants)
-				locs))))))))
+           (- 91079.63636363637   ;; the GReQL computed val
+              (/ (reduce + (map #(value %1 :inhabitants)
+                                locs))))))))
 
 (deftest test-this
   (doseq [v (vseq rg)
-	  e (iseq v)]
+          e (iseq v)]
     (is (= v (this e)))))
 
 
@@ -41,9 +41,9 @@
         hc 'localities.HasCapital
         ct 'localities.CountyTags]
     (is (= (attributed-element-class rg 'localities.Locality)
-	   (attributed-element-class rg l)))
+           (attributed-element-class rg l)))
     (is (= (attributed-element-class rg 'localities.HasCapital)
-	   (attributed-element-class rg hc)))
+           (attributed-element-class rg hc)))
     (is (= (domain rg 'localities.CountyTags)
            (domain rg ct)))))
 
@@ -74,22 +74,22 @@
 
 (deftest test-query-1
   (let [r (for [l (vseq rg 'localities.Locality)
-		:when (re-matches #".*e.*" (value l 'name))]
-	    [l (value l 'name)])]
+                :when (re-matches #".*e.*" (value l 'name))]
+            [l (value l 'name)])]
     ;; r must have 8 elems
     (is (= 8 (count r)))
     ;; the elems are...
     (is (= (map #(let [v (vertex rg %1)] [v (value v 'name)])
-		[1 2 3 4 7 9 10 11])
-	   r))))
+                [1 2 3 4 7 9 10 11])
+           r))))
 
 (deftest test-incidences
   (is (= 1 (count (iseq (vertex rg 1)))))
   (is (= 10 (count (iseq (vertex rg 12)))))
   (is (= 9 (count (iseq (vertex rg 12)
-			'localities.ContainsLocality!))))
+                        'localities.ContainsLocality!))))
   (is (= 1 (count (iseq (vertex rg 12)
-			'localities.HasCapital!))))
+                        'localities.HasCapital!))))
   (is (= 2 (count (iseq (vertex rg 6)))))
   (is (= 4 (count (iseq (vertex rg 11)))))
   (is (= 0 (count (iseq (vertex rg 6) nil :out)))))
@@ -124,7 +124,7 @@
         ecnt (ecount rg)]
     (testing "vertex induced TraversalContext by set"
       (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
-                                                   [1 12 7])))]
+                                               [1 12 7])))]
         (is (== 3 (vcount rg)))
         (is (== 2 (ecount rg)))
         (testing "on-graph 1"
@@ -147,8 +147,8 @@
       ;; Subgraph of all Locality vertices with more than 10 inhabitants.
       (let [locality? (type-matcher rg 'localities.Locality)]
         (on-subgraph [rg (vsubgraph rg
-                                      #(and (locality? %)
-                                            (> (value % :inhabitants) 10)))]
+                                    #(and (locality? %)
+                                          (> (value % :inhabitants) 10)))]
           (is (== 9 (vcount rg)))
           (testing "on-graph 3"
             (on-graph [rg nil]
@@ -162,7 +162,7 @@
         ecnt (ecount rg)]
     (testing "edge induced TraversalContext by set"
       (on-subgraph [rg (esubgraph rg (set (map #(edge rg %)
-                                                   [17 22])))]
+                                               [17 22])))]
         (is (== 3 (vcount rg)))
         (is (== 2 (ecount rg)))
         (testing "on-graph 4"
@@ -180,7 +180,7 @@
     (testing "edge induced TraversalContext by predicate"
       (let [airroute? (type-matcher rg 'connections.AirRoute)]
         (on-subgraph [rg (esubgraph rg #(and (airroute? %)
-                                                 (== (value (alpha  %) :inhabitants) 0)))]
+                                             (== (value (alpha  %) :inhabitants) 0)))]
           (testing "on-graph 5"
             (on-graph [rg]
               (is (== vcnt) (vcount rg))
@@ -190,11 +190,51 @@
 
 (deftest test-subgraph-intersection-tcs
   (on-subgraph [rg (vsubgraph rg (set (map #(vertex rg %)
-                                                          [1 12 7])))]
+                                           [1 12 7])))]
     (on-subgraph-intersection [rg (esubgraph rg (set (map #(edge rg %)
-                                                                   [22 17])))]
+                                                          [22 17])))]
       (is (== 3 (vcount rg)))
       (is (== 2 (ecount rg)))
       (on-subgraph-intersection [rg (esubgraph rg #{(edge rg 22)})]
         (is (== 2 (vcount rg)))
         (is (== 1 (ecount rg)))))))
+
+;;* Tests for the generated functional API
+
+(generate-schema-specific-api "test/input/greqltestgraph.tg"
+                              de.uni-koblenz.jgralabtest.schemas.greqltestschema.RouteSchema
+                              rg)
+
+(deftest test-generated-functional-api
+  (let [g (create-graph (schema rg))
+        ^Vertex city (rg/create-City! g :name "Ebernhahn")
+        ^Vertex cr1   (rg/create-Plaza! g  :name "Rathausplatz")
+        ^Vertex cr2   (rg/create-Plaza! g  :name "Schulplatz")
+        hcr1  (rg/create-ContainsCrossroad! g city cr1)
+        hcr2  (rg/create-ContainsCrossroad! g city cr2)]
+    (is (vertex? city))
+    (is (has-type? city 'City!))
+    (is (= "Ebernhahn" (value city :name) (rg/name city)))
+
+    (is (vertex? cr1))
+    (is (has-type? cr1 'Plaza))
+    (is (= "Rathausplatz" (value cr1 :name) (rg/name cr1)))
+
+    (is (edge? hcr1))
+    (is (has-type? hcr1 'ContainsCrossroad))
+
+    ;; both should return the city vertex
+    (is (= city
+           (set-value! city :name "Dernbach")
+           (rg/set-name! city "Dernbach")))
+    (is (= "Dernbach" (rg/name city)))
+
+    (is (= [cr1 cr2]
+           (.adjacences city "crossroads")
+           (rg/->crossroads city)))
+
+    (is (= city
+           (first (.adjacences cr1 "locality"))
+           (first (.adjacences cr2 "locality"))
+           (rg/->locality cr1)
+           (rg/->locality cr2)))))

@@ -1495,6 +1495,9 @@ functions `record` and `enum`."
   The namespace is named `nssym`.  If that's nil, then use the current
   namespace.
 
+  The new namespace (in case nssym was given) is required using the given
+  `alias` (if non-nil): (require '[nssym :as alias])
+
   `vc-fn` has to be a function that receives a VertexClass and returns a valid
   definition-form, e.g., a (defn stuff-with-that-vertex-class [...] ...).
 
@@ -1508,7 +1511,7 @@ functions `record` and `enum`."
   `role-fn` is a function that receives a role name (as keyword) and a set of
   vertex classes that have such a role.  Again, the function should return a
   valid definition form."
-  [schema-file nssym vc-fn ec-fn attr-fn role-fn]
+  [schema-file nssym alias vc-fn ec-fn attr-fn role-fn]
   (let [^Schema schema (load-schema
                         (if (.exists (clojure.java.io/file schema-file))
                           schema-file
@@ -1520,7 +1523,10 @@ functions `record` and `enum`."
         old-ns *ns*]
     `(do
        ~@(when nssym
-           `[(ns ~nssym)])
+           `[(ns ~nssym
+               ;; Don't refer anything from clojure.core so that we don't get
+               ;; warnings about redefinitions.
+               (:refer-clojure :only []))])
        ;; The schema specific ones
        ~@(concat
           (no-nils
@@ -1561,7 +1567,9 @@ functions `record` and `enum`."
            (when role-fn
              (for [[role owners] @refs]
                ((resolve role-fn) role owners)))))
-       (in-ns '~(ns-name old-ns)))))
+       (in-ns '~(ns-name old-ns))
+       ~@(when alias
+           [`(require '~(vector nssym :as alias))]))))
 
 ;;# Schema-specific functional API
 
@@ -1582,8 +1590,12 @@ functions `record` and `enum`."
     `(defn ~(symbol (str "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
         ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
   Additional `attrs` may be supplied.
+  `alpha` must be a %s vertex,
+  and `omega` must be a %s vertex.
   Shorthand for (apply create-edge! '%s props)."
                 (.getQualifiedName ec)
+                (.getQualifiedName (.getVertexClass (.getFrom ec)))
+                (.getQualifiedName (.getVertexClass (.getTo ec)))
                 (.getQualifiedName ec))
        [~'g ~'alpha ~'omega ~'& ~'attrs]
        (apply create-edge! ~'g '~(symbol (.getQualifiedName ec))
@@ -1647,12 +1659,15 @@ functions `record` and `enum`."
   ([schema-file]
      `(generate-schema-specific-api ~schema-file nil))
   ([schema-file nssym]
+     `(generate-schema-specific-api ~schema-file ~nssym nil))
+  ([schema-file nssym alias]
      `(schema-ns-generator ~schema-file
                            ~nssym
+                           ~alias
                            create-vc-create-fn
                            create-ec-create-fn
                            create-attr-fns
                            create-role-fns)))
 
-#_(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
+#_(generate-schema-specific-api "test/input/greqltestgraph.tg" some.long.namespace.foo alias)
 
