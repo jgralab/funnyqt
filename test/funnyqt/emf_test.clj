@@ -319,9 +319,9 @@
 
 ;;# Test the generated api
 
-(generate-ecore-model-specific-api "test/input/Families.ecore"
-                                   test.functional.families.emf
-                                   fams)
+(generate-ecore-model-functions "test/input/Families.ecore"
+                                test.functional.families.emf
+                                fams)
 
 (deftest test-generated-api
   (let [m (new-model)

@@ -9,7 +9,7 @@
             [clojure.test :as t]))
 
 (generate-ecore-model-relations "test/input/Families.ecore"
-                                test.relational.families.emf families)
+                                test.relational.families.emf families +)
 
 (t/deftest test-eobjecto
   (t/is (= (emf/eallobjects family-model)

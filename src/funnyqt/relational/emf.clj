@@ -240,7 +240,7 @@
 
 (defn ^:private class->rel-symbols
   "Returns a relation symbol for the eclass `c`."
-  [^EClass c]
+  [^EClass c prefix]
   (let [dup (emf/eclassifier (symbol (.getName c)))
         fqn (p/qname c)
         n (if (= dup c)
@@ -248,26 +248,26 @@
             fqn)]
     (mapv (fn [s]
             (with-meta (symbol s)
-              {:unique-name
-               (symbol (str "+" (clojure.string/replace
-                                 s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
+              {:relation-name
+               (symbol (str prefix (clojure.string/replace
+                                    s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
           [fqn (str fqn "!") (str "!" fqn) (str "!" fqn "!")])))
 
 (defn ^:private create-eclass-relations
   "Creates relations for the given eclass."
-  [ecls]
+  [ecls prefix]
   `(do
-     ~@(for [na (class->rel-symbols ecls)]
-         `(defn ~(:unique-name (meta na))
+     ~@(for [na (class->rel-symbols ecls prefix)]
+         `(defn ~(:relation-name (meta na))
             ~(format "A relation where `eo` is an %s EObject." na)
             [~'m ~'eo]
             (eobjecto ~'m ~'eo '~na)))))
 
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
-  [eref ecls]
+  [eref ecls prefix]
   (let [ts (mapv #(p/qname %) ecls)]
-    `(defn ~(symbol (str "+->" (clojure.string/replace (name eref) "_" "-")))
+    `(defn ~(symbol (str prefix "->" (clojure.string/replace (name eref) "_" "-")))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
        [~'m ~'eo ~'reo]
        (ccl/all
@@ -276,11 +276,11 @@
 
 (defn ^:private create-eattribute-relation
   "Creates relations for the given EAttribute."
-  [attr ecls]
+  [attr ecls prefix]
   ;; attr is an attr name symbol, ecls the set of classes having
   ;; such an attr
   (let [ts (mapv #(p/qname %) ecls)]
-    `(defn ~(symbol (str "+" (clojure.string/replace (name attr) "_" "-")))
+    `(defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-")))
        ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
        [~'m ~'eo ~'val]
        (ccl/all
@@ -296,6 +296,9 @@
 
   If `nssym` is nil (or not given), generate them in the current namespace, and
   require it as `alias` (if non-nil/given).
+
+  `prefix` is an optional prefix all relations should have.  (Useful if you
+  generate in the current namespace.)
 
   For any EClass Foo, there will be a relation (+Foo model el) that succeeds
   for all EObjects el in the model that have the type Foo.  Similarly, there
@@ -313,11 +316,13 @@
   hyphen instead, e.g., attribute \"is_persistent\" is translated into a
   relation +is-persistent."
   ([ecore-file]
-     `(generate-ecore-model-relations ~ecore-file nil))
+     `(generate-ecore-model-relations ~ecore-file nil nil nil))
   ([ecore-file nssym]
-     `(generate-ecore-model-relations ~ecore-file ~nssym nil))
+     `(generate-ecore-model-relations ~ecore-file ~nssym nil nil))
   ([ecore-file nssym alias]
-     `(emf/ecore-model-ns-generator ~ecore-file ~nssym ~alias
+     `(generate-ecore-model-relations ~ecore-file ~nssym ~alias nil))
+  ([ecore-file nssym alias prefix]
+     `(emf/ecore-model-ns-generator ~ecore-file ~nssym ~alias ~prefix
                                     create-eclass-relations
                                     create-eattribute-relation
                                     create-ereference-relation)))

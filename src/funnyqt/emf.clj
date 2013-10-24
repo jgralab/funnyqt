@@ -1011,19 +1011,24 @@
   The new namespace (in case nssym was given) is required using the given
   `alias` (if non-nil): (require '[nssym :as alias])
 
-  `eclass-fn` is a function receiving an EClass.  It should return a valid
-  definition-form, e.g., a (defn stuff-with-that-eclass [...] ...).
+  `prefix` is an optional prefix all generated functions should have given as
+  symbol or string.  (This is mainly useful if the functions are generated in
+  the current namespace in order not to clash with standard functions such as
+  clojure.core/name.)
 
-  `eattr-fn` is a function receiving an EAttribute name as keyword and a set of
-  EClasses that have such an attribute.  It should return a valid
-  definition-form.
+  `eclass-fn` is a function receiving an EClass and the `prefix`.  It should
+  return a valid definition-form, e.g., a (defn <prefix>do-eclass [...]  ...).
 
-  `eref-fn` is a function receiving an EReference name as keyword and a set of
-  EClasses that have such an reference.  It should return a valid
-  definition-form.
+  `eattr-fn` is a function receiving an EAttribute name as keyword, a set of
+  EClasses that have such an attribute, and the `prefix`.  It should return a
+  valid definition-form.
+
+  `eref-fn` is a function receiving an EReference name as keyword, a set of
+  EClasses that have such a reference, and the `prefix`.  It should return a
+  valid definition-form.
 
   The functions are called with all classes/attributes/roles of the metamodel."
-  [ecore-file nssym alias eclass-fn eattr-fn eref-fn]
+  [ecore-file nssym alias prefix eclass-fn eattr-fn eref-fn]
   (let [ecore-model (load-metamodel
                      (if (.exists (clojure.java.io/file ecore-file))
                        ecore-file
@@ -1056,33 +1061,33 @@
                             #(update-in %1 [%2] conj ecl)
                             r))
                    (when eclass-fn
-                     ((resolve eclass-fn) ecl)))))
+                     ((resolve eclass-fn) ecl prefix)))))
               (no-nils
                (when eattr-fn
                  (for [[a owners] @atts]
-                   ((resolve eattr-fn) a owners))))
+                   ((resolve eattr-fn) a owners prefix))))
               (no-nils
                (when eref-fn
                  (for [[r owners] @refs]
-                   ((resolve eref-fn) r owners)))))))
+                   ((resolve eref-fn) r owners prefix)))))))
        (in-ns '~(ns-name old-ns))
        ~@(when alias
            [`(require '~(vector nssym :as alias))]))))
 
 ;;* Ecore Model specific functional API
 
-(defn ^:private create-create-fn [^EClass ec]
-  `(defn ~(symbol (str "create-" (.getName ec) "!"))
+(defn ^:private create-create-fn [^EClass ec prefix]
+  `(defn ~(symbol (str prefix "create-" (.getName ec) "!"))
      ~(format "Creates a new %s object and adds it to model `m`.
   Properties are set according to `props`.
   `m` may be nil.
   Shorthand for (apply ecreate! m '%s props)."
               (p/qname ec)
               (p/qname ec))
-     ([~'m & ~'props]
-        (apply ecreate! ~'m '~(p/qname ec) ~'props))))
+     [~'m & ~'props]
+     (apply ecreate! ~'m '~(p/qname ec) ~'props)))
 
-(defn ^:private create-eattribute-fns [attr owners]
+(defn ^:private create-eattribute-fns [attr owners prefix]
   (let [bool? (group-by (fn [^EClass ec]
                           (let [^EAttribute ea (.getEStructuralFeature ec (name attr))]
                             (= "Boolean" (-> ea
@@ -1091,27 +1096,27 @@
                         owners)]
     `(do
        ~@(when (bool? true)
-           `[(defn ~(symbol (str (name attr) "?"))
+           `[(defn ~(symbol (str prefix (name attr) "?"))
                ~(format "Checks if `eo`s is %s." (name attr))
                [~'eo]
                (eget ~'eo ~attr))])
        ~@(when (bool? false)
-           `[(defn ~(symbol (name attr))
+           `[(defn ~(symbol (str prefix (name attr)))
                ~(format "Returns the value of `eo`s %s attribute." (name attr))
                [~'eo]
                (eget ~'eo ~attr))])
-       (defn ~(symbol (str "set-" (name attr) "!"))
+       (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `eo`s %s attribute to `val`." (name attr))
          [~'eo ~'val]
          (eset! ~'eo ~attr ~'val)))))
 
-(defn ^:private create-ereference-fns [ref owners]
+(defn ^:private create-ereference-fns [ref owners prefix]
   (let [multi? (group-by (fn [^EClass ec]
                            (p/mm-multi-valued-property? ec ref))
                          owners)]
     `(do
        ;; GETTER
-       (defn ~(symbol (str "->" (name ref)))
+       (defn ~(symbol (str prefix "->" (name ref)))
          ~(format "Returns the %s in `eo`s %s reference."
                   (cond
                    ;; This ref is always multi-valued
@@ -1124,7 +1129,7 @@
          (eget ~'eo ~ref))
 
        ;; SETTER
-       (defn ~(symbol (str "->set-" (name ref) "!"))
+       (defn ~(symbol (str prefix "->set-" (name ref) "!"))
          ~(format "Sets `eo`s %s reference to `refed`.
   `refed` must be a %s."
                   (name ref)
@@ -1139,34 +1144,37 @@
 
        ;; ADDER
        ~@(when (multi? true)
-           `[(defn ~(symbol (str "->add-" (name ref) "!"))
+           `[(defn ~(symbol (str prefix "->add-" (name ref) "!"))
                ~(format "Adds `eobj` and `more` eobjects to `eo`s %s reference."
                         (name ref))
                [~'eo ~'eobj ~'& ~'more]
                (apply eadd! ~'eo ~ref ~'eobj ~'more))
-             (defn ~(symbol (str "->addall-" (name ref) "!"))
+             (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
                ~(format "Adds all `eobjs` to `eo`s %s reference."
                         (name ref))
                [~'eo ~'eobjs]
                (eaddall! ~'eo ~ref ~'eobjs))]))))
 
-(defmacro generate-ecore-model-specific-api
+(defmacro generate-ecore-model-functions
   "Generates a Ecore-model-specific API consisting of functions for creating
   EObjects and functions for accessing properties (attributes and references)."
   ([ecore-file]
-     `(generate-ecore-model-specific-api ~ecore-file nil))
+     `(generate-ecore-model-functions ~ecore-file nil nil nil))
   ([ecore-file nssym]
-     `(generate-ecore-model-specific-api ~ecore-file ~nssym nil))
+     `(generate-ecore-model-functions ~ecore-file ~nssym nil nil))
   ([ecore-file nssym alias]
+     `(generate-ecore-model-functions ~ecore-file ~nssym ~alias nil))
+  ([ecore-file nssym alias prefix]
      `(ecore-model-ns-generator ~ecore-file
                                 ~nssym
                                 ~alias
+                                ~prefix
                                 create-create-fn
                                 create-eattribute-fns
                                 create-ereference-fns)))
 
 #_(clojure.pprint/pprint
    (macroexpand
-    '(generate-ecore-model-specific-api "test/input/Families.ecore"
+    '(generate-ecore-model-functions "test/input/Families.ecore"
                                         test.families.emf
                                         fams)))

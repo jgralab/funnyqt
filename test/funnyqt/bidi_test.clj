@@ -163,31 +163,31 @@
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
-         :right [(ab-emf/+AddressBook r ?addrbook2)
-                 (ab-emf/+name r ?addrbook2 ?n)]
+         :right [(ab-emf/AddressBook r ?addrbook2)
+                 (ab-emf/name r ?addrbook2 ?n)]
          :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
   (category2category
    :left [(ab-tg/ContainsCategory l ?cc ?ab1 ?cat1)
           (ab-tg/Category l ?cat1)
           (ab-tg/name l ?cat1 ?n)]
-   :right [(ab-emf/+->categories r ?ab2 ?cat2)
-           (ab-emf/+Category r ?cat2)
-           (ab-emf/+name r ?cat2 ?n)]
+   :right [(ab-emf/->categories r ?ab2 ?cat2)
+           (ab-emf/Category r ?cat2)
+           (ab-emf/name r ?cat2 ?n)]
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
            (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
   ;; The following 2 relations are of course non-sense.  They only serve to
   ;; check if the (transitive) :includes stuff works.
   (^:abstract have-same-ids3
               :left [(ab-tg/id l ?ex1 ?id)]
-              :right [(ab-emf/+id r ?ex2 ?id)])
+              :right [(ab-emf/id r ?ex2 ?id)])
   (^:abstract have-same-ids2
               :left [(ab-tg/id l ?e1 ?id)]
-              :right [(ab-emf/+id r ?e2 ?id)])
+              :right [(ab-emf/id r ?e2 ?id)])
   (^:abstract have-same-ids
               :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
                          (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
               :left [(ab-tg/id l ?entry1 ?id)]
-              :right [(ab-emf/+id r ?entry2 ?id)])
+              :right [(ab-emf/id r ?entry2 ?id)])
   (contact2contact
    :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab-tg/->contacts l ?cat1 ?contact1)
@@ -195,26 +195,26 @@
           (ab-tg/firstName l ?contact1 ?fn)
           (ab-tg/lastName l ?contact1 ?ln)
           (ab-tg/email l ?contact1 ?mail)]
-   :right [(ab-emf/+->entries r ?cat2 ?contact2)
-           (ab-emf/+Contact r ?contact2)
-           (ab-emf/+firstName r ?contact2 ?fn)
-           (ab-emf/+lastName r ?contact2 ?ln)
-           (ab-emf/+email r ?contact2 ?mail)])
+   :right [(ab-emf/->entries r ?cat2 ?contact2)
+           (ab-emf/Contact r ?contact2)
+           (ab-emf/firstName r ?contact2 ?fn)
+           (ab-emf/lastName r ?contact2 ?ln)
+           (ab-emf/email r ?contact2 ?mail)])
   (org2org
    :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
    :left [(ab-tg/->organizations l ?cat1 ?org1)
           (ab-tg/Organization l ?org1)
           (ab-tg/homepage l ?org1 ?hp)
           (ab-tg/name l ?org1 ?n)]
-   :right [(ab-emf/+->entries r ?cat2 ?org2)
-           (ab-emf/+Organization r ?org2)
-           (ab-emf/+homepage r ?org2 ?hp)
-           (ab-emf/+name r ?org2 ?n)])
+   :right [(ab-emf/->entries r ?cat2 ?org2)
+           (ab-emf/Organization r ?org2)
+           (ab-emf/homepage r ?org2 ?hp)
+           (ab-emf/name r ?org2 ?n)])
   (^:top connect-employees
          :when [(bidi/relateo org2org :?org1 ?org1 :?org2 ?org2)
                 (bidi/relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
-         :right [(ab-emf/+->employees r ?org2 ?contact2)]))
+         :right [(ab-emf/->employees r ?org2 ?contact2)]))
 
 (defn assert-same-addressbooks-tg-emf [l r]
   (test/is (= (tg/vcount l 'AddressBook)
@@ -268,9 +268,9 @@
 ;;# UML Class Diagram to RDBMS Tables
 
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"
-                                     test.classdiagram.emf cd)
+                                     test.classdiagram.emf cd +)
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
-                                     test.database.emf db)
+                                     test.database.emf db +)
 
 (def cd1 (emf/load-model "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
 (def db1 (emf/load-model "test/input/uml-rdbms-bidi/m2/database01.xmi"))
