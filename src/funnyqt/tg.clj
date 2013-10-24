@@ -1170,7 +1170,7 @@ functions `record` and `enum`."
 
 ;;# Adjancencies
 
-(defn- maybe-traverse [^Vertex v role allow-unknown-ref single-valued]
+(defn ^:private maybe-traverse [^Vertex v role allow-unknown-ref single-valued]
   (let [role (name role)]
     (if-let [^DirectedSchemaEdgeClass dec
              (.getDirectedEdgeClassForFarEndRole
@@ -1182,15 +1182,15 @@ functions `record` and `enum`."
               ub (if (= dir EdgeDirection/OUT)
                    (-> ec .getTo .getMax)
                    (-> ec .getFrom .getMax))]
-          (if (= ub 1)
-            (seq (.adjacences v role))
+          (if (== ub 1)
+            (.adjacences v role)
             (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
                       role ec ub)))
-        (seq (.adjacences v role)))
+        (.adjacences v role))
       (when-not allow-unknown-ref
         (u/errorf "No %s role at vertex %s" role v)))))
 
-(defn- zero-or-one [s]
+(defn ^:private zero-or-one [s]
   (if (next s)
     (u/errorf "More than one adjacent vertex found: %s" s)
     (first s)))
@@ -1209,15 +1209,13 @@ functions `record` and `enum`."
       this))
   (p/adjs-internal [this roles]
     (if (seq roles)
-      (when-let [a (maybe-traverse this (first roles) false false)]
-        (r/mapcat #(p/adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
+      (when-let [a (seq (maybe-traverse this (first roles) false false))]
+        (r/mapcat #(p/adjs-internal % (rest roles)) a))
       [this]))
   (p/adjs*-internal [this roles]
     (if (seq roles)
-      (when-let [a (maybe-traverse this (first roles) true false)]
-        (r/mapcat #(p/adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
+      (when-let [a (seq (maybe-traverse this (first roles) true false))]
+        (r/mapcat #(p/adjs-internal % (rest roles)) a))
       [this])))
 
 
@@ -1548,11 +1546,11 @@ functions `record` and `enum`."
                (let [from-vc (-> ec .getFrom .getVertexClass)
                      from-rn (-> ec .getFrom .getRolename)]
                  (when (seq from-rn)
-                   (swap! refs #(update-in %1 [from-rn] conj from-vc))))
+                   (swap! refs #(update-in %1 [(keyword from-rn)] conj from-vc))))
                (let [to-vc (-> ec .getTo .getVertexClass)
                      to-rn (-> ec .getTo .getRolename)]
                  (when (seq to-rn)
-                   (swap! refs #(update-in %1 [to-rn] conj to-vc))))
+                   (swap! refs #(update-in %1 [(keyword to-rn)] conj to-vc))))
                (when ec-fn
                  ((resolve ec-fn) ec)))))
           (no-nils
@@ -1623,13 +1621,24 @@ functions `record` and `enum`."
          (set-value! ~'ae ~attr ~'val)))))
 
 (defn ^:private create-role-fns [role owners]
-  ;; TODO: gotta need to check if that role is single- or multi-valued
-  `(do
-     `(defn ~(symbol (str "->" (name role)))
-        ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
-        [~'v]
-        ;; TODO: finish me.  If v's role is single-valued, use adj, else adjs.
-        )))
+  (let [v (with-meta 'v {:tag `Vertex})
+        vc (with-meta 'aec {:tag `VertexClass})]
+    `(do
+       (defn ~(symbol (str "->" (name role)))
+         ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
+         [~v]
+         (let [~vc  (attributed-element-class ~v)
+               dec# (.getDirectedEdgeClassForFarEndRole ~vc ~(name role))
+               ic# (if (identical? (.getDirection dec#) EdgeDirection/IN)
+                     (.getFrom (.getEdgeClass dec#))
+                     (.getTo (.getEdgeClass dec#)))]
+           (if (== 1 (.getMax ic#))
+             (let [x# (.adjacences ~v ~(name role))]
+               (if (next x#)
+                 (u/errorf "More than one adjacent vertex found in the %s role at vertex %s"
+                           ~(name role) ~v)
+                 (first x#)))
+             (seq (.adjacences ~v ~(name role)))))))))
 
 (defmacro generate-schema-specific-api
   "Generates a schema-specific API consisting of functions for creating
@@ -1643,9 +1652,7 @@ functions `record` and `enum`."
                            create-vc-create-fn
                            create-ec-create-fn
                            create-attr-fns
-                           nil)))
+                           create-role-fns)))
 
-(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
-
-
+#_(generate-schema-specific-api "test/input/greqltestgraph.tg" fofo)
 

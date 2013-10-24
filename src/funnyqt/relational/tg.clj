@@ -478,13 +478,12 @@
 
 (defn ^:private create-reference-relation
   "Creates a relation for the given role name."
-  [rn _]
-  (let [role-rel-sym (symbol (str "+->" rn))
-        role-rel-kw  (keyword rn)]
+  [role _]
+  (let [role-rel-sym (symbol (str "+->" (name role)))]
     `(defn ~role-rel-sym
-       ~(format "A relation where `sv` references `tv` in its `%s` role." rn)
+       ~(format "A relation where `sv` references `tv` in its `%s` role." (name role))
        [~'g ~'sv ~'tv]
-       (adjo ~'g ~'sv ~role-rel-kw ~'tv))))
+       (adjo ~'g ~'sv ~role ~'tv))))
 
 (defmacro generate-schema-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
