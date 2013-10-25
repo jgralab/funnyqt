@@ -958,7 +958,8 @@ functions `record` and `enum`."
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
-  following `v` in the current vertex's incidence sequence."
+  following `v` in the current vertex's incidence sequence.
+  `dir` may be :in, :out, or :inout (the default when omitted)."
   ([v]
      (iseq-internal v identity identity))
   ([v ts]
@@ -969,7 +970,8 @@ functions `record` and `enum`."
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `dir`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
-  preceding `v` in the current vertex's incidence sequence."
+  preceding `v` in the current vertex's incidence sequence.
+  `dir` may be :in, :out, or :inout (the default when omitted)."
   ([v]
      (riseq-internal v identity identity))
   ([v ts]
@@ -1594,31 +1596,72 @@ functions `record` and `enum`."
 ;;# Schema-specific functional API
 
 (defn ^:private create-vc-create-fn [^VertexClass vc prefix]
-  (when-not (p/abstract? vc)
-    `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
-       ~(format "Create a new %s vertex in graph `g`.
+  `(do
+     ;; CREATE FN
+     ~(when-not (p/abstract? vc)
+        `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
+           ~(format "Create a new %s vertex in graph `g`.
   Additional `props` may be supplied.
   Shorthand for (apply create-vertex! '%s props)."
-                (.getQualifiedName vc)
-                (.getQualifiedName vc))
-       [~'g ~'& ~'props]
-       (apply create-vertex! ~'g '~(symbol (.getQualifiedName vc)) ~'props))))
+                    (.getQualifiedName vc)
+                    (.getQualifiedName vc))
+           [~'g ~'& ~'props]
+           (apply create-vertex! ~'g '~(p/qname vc) ~'props)))
+     ;; VSEQ FN
+     (defn ~(symbol (str prefix "vseq-" (str/replace (.getUniqueName vc) \. \$)))
+       ~(format "Returns the lazy sequence of %s vertices in `g`."
+                (p/qname vc))
+       [~'g]
+       (vseq ~'g '~(p/qname vc)))))
 
 (defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
-  (when-not (p/abstract? ec)
-    `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
-       ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
+  `(do
+     ~(when-not (p/abstract? ec)
+        ;; CREATE FN
+        `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
+           ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
   Additional `attrs` may be supplied.
-  `alpha` must be a %s vertex,
-  and `omega` must be a %s vertex.
-  Shorthand for (apply create-edge! '%s props)."
-                (.getQualifiedName ec)
-                (.getQualifiedName (.getVertexClass (.getFrom ec)))
-                (.getQualifiedName (.getVertexClass (.getTo ec)))
-                (.getQualifiedName ec))
-       [~'g ~'alpha ~'omega ~'& ~'attrs]
-       (apply create-edge! ~'g '~(symbol (.getQualifiedName ec))
-              ~'alpha ~'omega ~'attrs))))
+  Shorthand for (apply create-edge! '%s props).
+
+  [%s] --%s--> [%s]"
+                    (p/qname ec)
+                    (p/qname ec)
+                    (p/qname (.getVertexClass (.getFrom ec)))
+                    (p/qname ec)
+                    (p/qname (.getVertexClass (.getTo ec))))
+           [~'g ~'alpha ~'omega ~'& ~'attrs]
+           (apply create-edge! ~'g '~(p/qname ec) ~'alpha ~'omega ~'attrs)))
+
+     ;; ESEQ FN
+     (defn ~(symbol (str prefix "eseq-" (str/replace (.getUniqueName ec) \. \$)))
+       ~(format "Returns the lazy sequence of %s edges in `g`.
+  `g` may be a graph or an edge.  In the latter case, returns all edges
+  following `g` in the edge sequence.
+
+  [%s] --%s--> [%s]"
+                (p/qname ec)
+                (p/qname (.getVertexClass (.getFrom ec)))
+                (p/qname ec)
+                (p/qname (.getVertexClass (.getTo ec))))
+       [~'g]
+       (eseq ~'g '~(p/qname ec)))
+
+     ;; ISEQ FN
+     (defn ~(symbol (str prefix "iseq-" (str/replace (.getUniqueName ec) \. \$)))
+       ~(format "Returns the lazy sequence of `v`s %s incidences restricted by `dir`.
+  `v` may be a vertex or an edge.  In the latter case, returns all incidences
+  following `v` in the current vertex's incidence sequence.
+  `dir` may be :in, :out, or :inout (the default).
+
+  [%s] --%s--> [%s]"
+                (p/qname ec)
+                (p/qname (.getVertexClass (.getFrom ec)))
+                (p/qname ec)
+                (p/qname (.getVertexClass (.getTo ec))))
+       ([~'v]
+          (iseq ~'v '~(p/qname ec) :inout))
+       ([~'v ~'dir]
+          (iseq ~'v '~(p/qname ec) ~'dir)))))
 
 (defn ^:private create-attr-fns [attr owners prefix]
   (let [bool? (group-by (fn [^AttributedElementClass aec]
@@ -1632,7 +1675,7 @@ functions `record` and `enum`."
                ~(format "Checks if `ae` is %s.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (set (map p/qname (bool? true)))))
+                        (str/join ", " (apply sorted-set (map p/qname (bool? true)))))
                [~'ae]
                (value ~'ae ~attr))])
        ~@(when (bool? false)
@@ -1640,14 +1683,14 @@ functions `record` and `enum`."
                ~(format "Returns the value of `ae`s %s attribute.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (set (map p/qname (bool? false)))))
+                        (str/join ", " (apply sorted-set (map p/qname (bool? false)))))
                [~'ae]
                (value ~'ae ~attr))])
        (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `ae`s %s attribute to `val`.
   Possible types of `ae`: %s"
                   (name attr)
-                  (str/join ", " (set (map p/qname owners))))
+                  (str/join ", " (apply sorted-set (map p/qname owners))))
          [~'ae ~'val]
          (set-value! ~'ae ~attr ~'val)))))
 
@@ -1655,21 +1698,28 @@ functions `record` and `enum`."
   (let [v (with-meta 'v {:tag `Vertex})
         multi? (group-by (fn [^VertexClass vc]
                            (p/mm-multi-valued-property? vc role))
-                         owners)]
+                         owners)
+        owner-string (str/join ", " (apply sorted-set (map p/qname owners)))]
     `(do
        ;; GETTER
        ~(cond
          ;; This role is always multi-valued
          (and (multi? true) (not (multi? false)))
          `(defn ~(symbol (str prefix "->" (name role)))
-            ~(format "Returns the vertices in `v`s %s role." (name role))
+            ~(format "Returns the vertices in `v`s %s role.
+  Possible types of `v`: %s"
+                     (name role)
+                     owner-string)
             [~v]
             (.adjacences ~v ~(name role)))
 
          ;; This role is always single-valued
          (and (multi? false) (not (multi? true)))
          `(defn ~(symbol (str prefix "->" (name role)))
-            ~(format "Returns the vertex in `v`s %s role." (name role))
+            ~(format "Returns the vertex in `v`s %s role.
+  Possible types of `v`: %s"
+                     (name role)
+                     owner-string)
             [~v]
             (let [x# (.adjacences ~v ~(name role))]
               (if (next x#)
@@ -1678,7 +1728,10 @@ functions `record` and `enum`."
                 (first x#))))
 
          :else `(defn ~(symbol (str prefix "->" (name role)))
-                  ~(format "Returns the vertex/vertices in `v`s %s role." (name role))
+                  ~(format "Returns the vertex/vertices in `v`s %s role.
+  Possible types of `v`: %s"
+                           (name role)
+                           owner-string)
                   [~v]
                   (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
                     (.adjacences ~v ~(name role))
@@ -1694,7 +1747,10 @@ functions `record` and `enum`."
          (and (multi? true) (not (multi? false)))
          `(defn ~(symbol (str prefix "->set-" (name role) "!"))
             ~(format "Sets the %s role of `v` to `ovs`.
-  `ovs` must be a collection of vertices." (name role))
+  `ovs` must be a collection of vertices.
+  Possible types of `v`: %s"
+                     (name role)
+                     owner-string)
             [~v ~'ovs]
             (p/set-adjs! ~v ~role ~'ovs))
 
@@ -1702,14 +1758,20 @@ functions `record` and `enum`."
          (and (multi? false) (not (multi? true)))
          `(defn ~(symbol (str prefix "->set-" (name role) "!"))
             ~(format "Sets the %s role of `v` to `ov`.
-  `ov` must be a single vertex." (name role))
+  `ov` must be a single vertex.
+  Possible types of `v`: %s"
+                     (name role)
+                     owner-string)
             [~v ~'ov]
             (p/set-adj! ~v ~role ~'ov))
 
          :else `(defn ~(symbol (str prefix "->set-" (name role) "!"))
                   ~(format "Sets the %s role of `v` to `ov`.
   If `ov` must be a single vertex or a collection of vertices depends on the
-  type of `v`." (name role))
+  type of `v`.
+  Possible types of `v`: %s"
+                           (name role)
+                           owner-string)
                   [~v ~'ov]
                   (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
                     (p/set-adjs! ~v ~role ~'ov)
@@ -1718,12 +1780,18 @@ functions `record` and `enum`."
        ;; ADDER
        ~@(when (multi? true)
            `[(defn ~(symbol (str prefix "->add-" (name role) "!"))
-               ~(format "Adds `ov` and `more` vertices to `v`s %s role." (name role))
+               ~(format "Adds `ov` and `more` vertices to `v`s %s role.
+  Possible types of `v`: %s"
+                        (name role)
+                        owner-string)
                [~v ~'ov ~'& ~'more]
                (p/add-adj! ~v ~role ~'ov)
                (p/add-adjs! ~v ~role ~'more))
              (defn ~(symbol (str prefix "->addall-" (name role) "!"))
-               ~(format "Adds all `vs` to `v`s %s role." (name role))
+               ~(format "Adds all `vs` to `v`s %s role.
+  Possible types of `v`: %s"
+                        (name role)
+                        owner-string)
                [~v ~'vs]
                (p/add-adjs! ~v ~role ~'vs))]))))
 
