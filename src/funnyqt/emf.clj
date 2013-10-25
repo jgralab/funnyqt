@@ -1209,7 +1209,7 @@
   The following functions are generated.
 
   For any EClass Foo in the metamodel, a (create-Foo! model) function is
-  generated.
+  generated, and a (eall-Foos model) function.
 
   For any EAttribute name attr, the following functions are generated:
 
