@@ -352,4 +352,9 @@
     (fams/->addall-members! root [m1 m2])
     (is (= [m1 m2]
            (eget root :members)
-           (fams/->members root)))))
+           (fams/->members root)))
+
+    (is (= (eallobjects m 'FamilyModel) (fams/eall-FamilyModels m)))
+    (is (= (eallobjects m 'Member)      (fams/eall-Members m)))
+    (is (= (eallobjects m 'Family)      (fams/eall-Families m)))
+    ))

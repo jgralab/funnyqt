@@ -2,12 +2,14 @@
   "Core functions for accessing and manipulating EMF models."
   (:require [clojure.core.cache    :as cache]
             [clojure.core.reducers :as r]
+            [clojure.string        :as str]
             [funnyqt.protocols     :as p]
             [funnyqt.emf-protocols :as ep]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
             [flatland.ordered.set  :as os]
-            [flatland.ordered.map  :as om])
+            [flatland.ordered.map  :as om]
+            inflections.core)
   (:import
    (funnyqt.emf_protocols EMFModel EcoreModel)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
@@ -1081,15 +1083,25 @@
 ;;* Ecore Model specific functional API
 
 (defn ^:private create-create-fn [^EClass ec prefix]
-  `(defn ~(symbol (str prefix "create-" (.getName ec) "!"))
-     ~(format "Creates a new %s object and adds it to model `m`.
+  `(do
+     (defn ~(symbol (str prefix "create-" (.getName ec) "!"))
+       ~(format "Creates a new %s object and adds it to model `m`.
   Properties are set according to `props`.
   `m` may be nil.
   Shorthand for (apply ecreate! m '%s props)."
-              (p/qname ec)
-              (p/qname ec))
-     [~'m & ~'props]
-     (apply ecreate! ~'m '~(p/qname ec) ~'props)))
+                (p/qname ec)
+                (p/qname ec))
+       [~'m & ~'props]
+       (apply ecreate! ~'m '~(p/qname ec) ~'props))
+
+     (defn ~(symbol (let [n (.getName ec)]
+                      (str prefix "eall-" (inflections.core/plural n))))
+       ~(format "Returns the sequence of %s objects in `m`.
+  Shorthand for (eallobjects m '%s)."
+                (p/qname ec)
+                (p/qname ec))
+       [~'m & ~'props]
+       (eallobjects ~'m '~(p/qname ec)))))
 
 (defn ^:private create-eattribute-fns [attr owners prefix]
   (let [bool? (group-by (fn [^EClass ec]
@@ -1101,61 +1113,79 @@
     `(do
        ~@(when (bool? true)
            `[(defn ~(symbol (str prefix (name attr) "?"))
-               ~(format "Checks if `eo`s is %s." (name attr))
+               ~(format "Checks if `eo`s is %s.
+  Possible types for `eo`: %s"
+                        (name attr)
+                        (str/join ", " (apply sorted-set (map p/qname (bool? true)))))
                [~'eo]
                (eget ~'eo ~attr))])
        ~@(when (bool? false)
            `[(defn ~(symbol (str prefix (name attr)))
-               ~(format "Returns the value of `eo`s %s attribute." (name attr))
+               ~(format "Returns the value of `eo`s %s attribute.
+  Possible types for `eo`: %s"
+                        (name attr)
+                        (str/join ", " (apply sorted-set (map p/qname (bool? false)))))
                [~'eo]
                (eget ~'eo ~attr))])
        (defn ~(symbol (str prefix "set-" (name attr) "!"))
-         ~(format "Sets the value of `eo`s %s attribute to `val`." (name attr))
+         ~(format "Sets the value of `eo`s %s attribute to `val`.
+  Possible types for `eo`: %s"
+                  (name attr)
+                  (str/join ", " (apply sorted-set (map p/qname owners))))
          [~'eo ~'val]
          (eset! ~'eo ~attr ~'val)))))
 
 (defn ^:private create-ereference-fns [ref owners prefix]
   (let [multi? (group-by (fn [^EClass ec]
                            (p/mm-multi-valued-property? ec ref))
-                         owners)]
+                         owners)
+        owner-string (str/join ", " (apply sorted-set (map p/qname owners)))]
     `(do
        ;; GETTER
        (defn ~(symbol (str prefix "->" (name ref)))
-         ~(format "Returns the %s in `eo`s %s reference."
+         ~(format "Returns the %s in `eo`s %s reference.
+  Possible types for `eo`: %s"
                   (cond
                    ;; This ref is always multi-valued
                    (and (multi? true) (not (multi? false))) "objects"
                    ;; This ref is always single-valued
                    (and (not (multi? true)) (multi? false)) "object"
                    :else "object[s]")
-                  (name ref))
+                  (name ref)
+                  owner-string)
          [~'eo]
          (eget ~'eo ~ref))
 
        ;; SETTER
        (defn ~(symbol (str prefix "->set-" (name ref) "!"))
          ~(format "Sets `eo`s %s reference to `refed`.
-  `refed` must be a %s."
+  `refed` must be a %s.
+  Possible types for `eo`: %s"
                   (name ref)
                   (cond
                    ;; This ref is always multi-valued
                    (and (multi? true) (not (multi? false))) "collection of objects"
                    ;; This ref is always single-valued
                    (and (not (multi? true)) (multi? false)) "single object"
-                   :else "single object or coll of objects, depending on `eo`s type"))
+                   :else "single object or coll of objects, depending on `eo`s type")
+                  owner-string)
          [~'eo ~'refed]
          (eset! ~'eo ~ref ~'refed))
 
        ;; ADDER
        ~@(when (multi? true)
            `[(defn ~(symbol (str prefix "->add-" (name ref) "!"))
-               ~(format "Adds `eobj` and `more` eobjects to `eo`s %s reference."
-                        (name ref))
+               ~(format "Adds `eobj` and `more` eobjects to `eo`s %s reference.
+  Possible types for `eo`: %s"
+                        (name ref)
+                        owner-string)
                [~'eo ~'eobj ~'& ~'more]
                (apply eadd! ~'eo ~ref ~'eobj ~'more))
              (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
-               ~(format "Adds all `eobjs` to `eo`s %s reference."
-                        (name ref))
+               ~(format "Adds all `eobjs` to `eo`s %s reference.
+  Possible types for `eo`: %s"
+                        (name ref)
+                        owner-string)
                [~'eo ~'eobjs]
                (eaddall! ~'eo ~ref ~'eobjs))]))))
 
