@@ -51,7 +51,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
        (not (*excluded* o))))
 
 (defn ^:private dot-escape [s]
-  (if s
+  (if (nil? s)
+    "null"
     (let [r (-> (str s)
                 (clojure.string/replace "\n" "\\n")
                 (clojure.string/replace "<" "&lt;")
@@ -61,8 +62,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                 (clojure.string/replace "}" "\\}"))]
       (if (string? s)
         (str "\\\"" r "\\\"")
-        r))
-    "null"))
+        r))))
 
 (defn ^:private dot-options [opts]
   (letfn [(update [m k v]
