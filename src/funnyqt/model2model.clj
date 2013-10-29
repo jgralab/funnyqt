@@ -301,7 +301,7 @@
                          :else [i o aa]))
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
                      rules-and-fns)
-        rules (apply hash-map (mapcat (fn [r] [(first r) (rule-as-map r)]) rules))
+        rules (apply om/ordered-map (mapcat (fn [r] [(first r) (rule-as-map r)]) rules))
         fns   (apply hash-map (mapcat (fn [f] [(first f) f]) fns))
         [rules fns] (if-let [extended (:extends (meta name))]
                       (do
