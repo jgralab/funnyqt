@@ -749,7 +749,9 @@ functions `record` and `enum`."
   [ae-or-rec attr-or-comp]
   (condp instance? ae-or-rec
     AttributedElement (.getAttribute ^AttributedElement ae-or-rec (name attr-or-comp))
-    Record            (.getComponent ^Record ae-or-rec (name attr-or-comp))))
+    Record            (.getComponent ^Record ae-or-rec (name attr-or-comp))
+    (throw (IllegalArgumentException.
+            ^String (format "Can't take %s value of %s." attr-or-comp ae-or-rec)))))
 
 (defn set-value!
   "Sets `ae`s (an attributed element) `attr` value to `val` and returns `ae`."
