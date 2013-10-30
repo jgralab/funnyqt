@@ -1614,7 +1614,14 @@ functions `record` and `enum`."
        ~(format "Returns the lazy sequence of %s vertices in `g`."
                 (p/qname vc))
        [~'g]
-       (vseq ~'g '~(p/qname vc)))))
+       (vseq ~'g '~(p/qname vc)))
+
+     ;; TYPE PRED
+     (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName vc) \. \$) "?"))
+       ~(format "Returns true if `v` is a %s-vertex."
+                (p/qname vc))
+       [~'v]
+       (p/has-type? ~'v '~(p/qname vc)))))
 
 (defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
   `(do
@@ -1663,7 +1670,14 @@ functions `record` and `enum`."
        ([~'v]
           (iseq ~'v '~(p/qname ec) :inout))
        ([~'v ~'dir]
-          (iseq ~'v '~(p/qname ec) ~'dir)))))
+          (iseq ~'v '~(p/qname ec) ~'dir)))
+
+     ;; TYPE PRED
+     (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName ec) \. \$) "?"))
+       ~(format "Returns true if `e` is a %s-edge."
+                (p/qname ec))
+       [~'e]
+       (p/has-type? ~'e '~(p/qname ec)))))
 
 (defn ^:private create-attr-fns [attr owners prefix]
   (let [bool? (group-by (fn [^AttributedElementClass aec]
@@ -1814,10 +1828,12 @@ functions `record` and `enum`."
 
   The API consists of the following functions.
 
-  For any VertexClass Foo, there is a (create-Foo! graph) function.
+  For any VertexClass Foo, there is a (create-Foo! graph) function, a (vseq-Foo
+  graph) sequence function, and a (isa-Foo? v) type check predicate.
 
   For any EdgeClass HasFoo, there is a (create-HasFoo! graph alpha omega)
-  function.
+  function, (eseq-HasFoo graph) and (iseq-HasFoo v dir) sequence functions, and
+  a (isa-HasFoo? e) type check predicate.
 
   For any attribute att, there are the following functions:
 

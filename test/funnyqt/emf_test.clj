@@ -333,6 +333,17 @@
            (eget m1 :firstName)
            (fams/firstName m1)))
 
+    (is (and
+         (fams/isa-Member? m1)
+         (fams/isa-Member? m2)
+         (fams/isa-Family? fam)
+         (fams/isa-FamilyModel? root)))
+
+    (is (= false
+           (fams/isa-Member? fam)
+           (fams/isa-Family? root)
+           (fams/isa-FamilyModel? m1)))
+
     (fams/set-firstName! m1 "Bob")
     (is (= "Bob"
            (eget m1 :firstName)

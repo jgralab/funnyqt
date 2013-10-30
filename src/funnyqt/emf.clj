@@ -1101,7 +1101,14 @@
                 (p/qname ec)
                 (p/qname ec))
        [~'m & ~'props]
-       (eallobjects ~'m '~(p/qname ec)))))
+       (eallobjects ~'m '~(p/qname ec)))
+
+     ;; TYPE PRED
+     (defn ~(symbol (str prefix "isa-" (.getName ec) "?"))
+       ~(format "Returns true if `eo` is a %s-EObject."
+                (p/qname ec))
+       [~'eo]
+       (p/has-type? ~'eo '~(p/qname ec)))))
 
 (defn ^:private create-eattribute-fns [attr owners prefix]
   (let [bool? (group-by (fn [^EClass ec]
@@ -1208,8 +1215,9 @@
 
   The following functions are generated.
 
-  For any EClass Foo in the metamodel, a (create-Foo! model) function is
-  generated, and a (eall-Foos model) function.
+  For any EClass Foo in the metamodel, a (create-Foo! model) function,
+  a (eall-Foos model) function, and a (isa-Foo? eo) type check predicate is
+  generated.
 
   For any EAttribute name attr, the following functions are generated:
 
