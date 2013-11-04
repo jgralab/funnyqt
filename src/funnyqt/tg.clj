@@ -1062,8 +1062,11 @@ functions `record` and `enum`."
 
 (extend-protocol p/ICreateElement
   Graph
-  (p/create-element! [g cls]
-    (create-vertex! g cls)))
+  (p/create-element!
+    ([g cls]
+       (create-vertex! g cls))
+    ([g cls prop-map]
+       (apply create-vertex! g cls (mapcat identity prop-map)))))
 
 (defn create-edge!
   "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.

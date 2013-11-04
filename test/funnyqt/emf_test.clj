@@ -317,6 +317,23 @@
     (is (== 3 (count (econtentpairs fm))))
     (is (== 1 (count (ecrosspairs fm))))))
 
+(deftest test-create-element!
+  (let [fm (new-model)
+        root (ecreate! fm 'FamilyModel)
+        f    (create-element! fm 'Family {:lastName "Doe"
+                                          :model root})
+        m    (create-element! fm 'Member {:firstName "John"
+                                          :model root
+                                          :familyFather f})]
+    (is (= 3 (count (eallobjects fm))))
+    (is (= 1
+           (count (eallobjects fm 'FamilyModel))
+           (count (eallobjects fm 'Family))
+           (count (eallobjects fm 'Member))))
+    (is (= root (eget f :model) (eget m :model)))
+    (is (= m (eget f :father)))
+    (is (= f (eget m :familyFather)))))
+
 ;;# Test the generated api
 
 (generate-ecore-model-functions "test/input/Families.ecore"

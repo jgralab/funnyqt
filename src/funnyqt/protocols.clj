@@ -77,8 +77,10 @@
 ;;# Generic creation of model elements
 
 (defprotocol ICreateElement
-  (create-element! [model cls]
-    "Creates a new element of type `cls` in `model`."))
+  (create-element! [model cls] [model cls prop-map]
+    "Creates a new element of type `cls` in `model`.
+  Properties are set according to prop-map, a map from property name keywords
+  to property values."))
 
 (defprotocol ICreateRelationship
   (create-relationship! [model cls src-elem trg-elem]

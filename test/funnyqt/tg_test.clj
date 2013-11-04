@@ -208,6 +208,14 @@
         (is (== 2 (vcount rg)))
         (is (== 1 (ecount rg)))))))
 
+(deftest test-create-element!
+  (let [g (new-graph (schema rg))
+        county (create-vertex! g 'County :name "Hessen")
+        c1 (create-element! g 'City {:name "Wiesbaden"
+                                     :county county})]
+    (is (= 2 (vcount g)))
+    (is (= 1 (ecount g) (ecount g 'ContainsLocality)))))
+
 ;;* Tests for the generated functional API
 
 (generate-schema-functions "test/input/greqltestgraph.tg"

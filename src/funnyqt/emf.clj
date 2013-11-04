@@ -777,10 +777,15 @@
 
 (extend-protocol p/ICreateElement
   EMFModel
-  (p/create-element! [model cls]
-    (let [e (ecreate! model cls)]
-      (eadd! model e)
-      e)))
+  (p/create-element!
+    ([model cls]
+       (let [e (ecreate! model cls)]
+         (eadd! model e)
+         e))
+    ([model cls prop-map]
+       (let [e (apply ecreate! model cls (mapcat identity prop-map))]
+         (eadd! model e)
+         e))))
 
 (extend-protocol p/ICreateRelationship
   EMFModel
