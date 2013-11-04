@@ -72,18 +72,42 @@
       form)))
 
 (defn ^:private create-vector [v outs]
-  (let [v (loop [v v, r []]
-            (if (seq v)
-              (if (= (first (nnext v)) :model)
-                (recur (nnext (nnext v)) (conj (into r (take 2 v))
-                                               (nth v 3)))
-                (recur (nnext v) (conj (into r (take 2 v))
-                                       (first outs))))
-              r))
-        v (partition 3 v)]
-    (vec (mapcat (fn [[sym type model]]
-                   [sym `(p/create-element! ~model ~type)])
-                 v))))
+  ;; [a 'A
+  ;;  b 'B :model foo
+  ;;  c 'C {:p1 "foo"}
+  ;;  d 'D :model foo {:p1 "foo"}
+  ;;  e 'E {:p1 "foo"} :model foo]
+  (letfn [(model? [v]
+            (or (when (= (get v 2) :model) 3)
+                (when (= (get v 4) :model) 5)))
+          (props? [v]
+            (or (when (map? (get v 2)) 2)
+                (when (map? (get v 4)) 4)))]
+    (let [v (loop [v v, r []]
+              (if (seq v)
+                (let [m (model? v)
+                      p (props? v)]
+                  (cond
+                   (and m (not p))
+                   (recur (nthnext v 4)
+                          (conj r [(first v) (second v) (nth v 3) nil]))
+                   ;;---
+                   (and (not m) p)
+                   (recur (nthnext v 3)
+                          (conj r [(first v) (second v) (first outs) (nth v 2)]))
+                   ;;---
+                   (and m p)
+                   (recur (nthnext v 5)
+                          (conj r [(first v) (second v) (nth v m) (nth v p)]))
+                   ;;---
+                   ;; no model and no props
+                   :else (recur (nthnext v 2)
+                                (conj r [(first v) (second v) (first outs) nil]))))
+                r))
+          _ (println "v =" v)]
+      (vec (mapcat (fn [[sym type model prop-map]]
+                     [sym `(p/create-element! ~model ~type ~prop-map)])
+                   v)))))
 
 (defn ^:private disjunct-rules [rule-map]
   (seq (take-while #(not= :result %) (:disjuncts rule-map))))
@@ -159,7 +183,8 @@
       :from [a 'InClass, x]
       :when (some-predicate? a)
       :when-let [x (some-fn a)]
-      :to [b 'OutClass, c 'OutClass2]
+      :to [b 'OutClass
+           c 'OutClass2]
       (do-stuff-with a b c))
 
   :from declares the number and types of elements for which this rule is
@@ -179,6 +204,15 @@
 
     :to [b 'OutClass  :model out1,
          c 'OutClass2 :model out2]
+
+  The :to vector may also specify values for the newly created element's
+  properties.  Those a specified using a map.
+
+    :to [b 'OutClass  {:name \"Some Name\", ...}
+         c 'OutClass2 {:name \"Other name\", :links b}]
+
+  If a target element specification contains both a property map and a :model
+  spec, they may occur in any order.
 
   Following these special keyword-clauses, arbitrary code may follow, e.g., to
   set attributes and references of the newly created objects by calling other

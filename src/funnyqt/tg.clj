@@ -1057,7 +1057,9 @@ functions `record` and `enum`."
                                   props)]
       (if (.getAttribute (attributed-element-class v) (name prop))
         (set-value! v prop val)
-        (p/set-adjs! v prop (if (coll? val) val [val]))))
+        (p/set-adjs! v prop (if (or (nil? val) (coll? val))
+                              val
+                              [val]))))
     v))
 
 (extend-protocol p/ICreateElement

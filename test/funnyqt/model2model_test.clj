@@ -65,9 +65,7 @@
   (member2male
    :from [m 'Member]
    :when (male? m)
-   :to   [p 'Male :model out]
-   (when-let [w (wife m)]
-     (gen-tg/->set-wife! p (member2female w))))
+   :to   [p 'Male :model out {:wife (when-let [w (wife m)] (member2female w))}])
   (member2female
    :from [m 'Member]
    :when (not (male? m))
@@ -119,9 +117,7 @@
    (emf/eget m :firstName))
   (make-address
    :from [street town]
-   :to [adr 'Address]
-   (set-value! adr :street street)
-   (set-value! adr :town   town))
+   :to [adr 'Address {:street street, :town town}])
   (member2person
          :from [m]
          :disjuncts [member2male member2female :result p]
