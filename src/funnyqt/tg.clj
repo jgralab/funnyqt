@@ -188,7 +188,7 @@ functions `record` and `enum`."
   (p/abstract? [this]
     (.isAbstract this)))
 
-(defn domain-qname
+(defn ^:private domain-qname
   "Transforms a domain p/qname given as symbol, keyword, string, or vector to a
   canonical string representation:"
   [qn]
@@ -204,14 +204,15 @@ functions `record` and `enum`."
       (domain-vector-qname qn)
       (name qn))))
 
-(def ^:private aec-simple-to-qname-map
+(def ^:private named-element-simple-to-qname-map
   (memoize
    (fn [^Schema s]
      (let [m (atom {})
            gc (.getGraphClass s)]
-       (doseq [^GraphElementClass gec (concat (.getVertexClasses gc)
-                                              (.getEdgeClasses gc))]
-         (swap! m update-in [(.getSimpleName gec)] conj (.getQualifiedName gec)))
+       (doseq [^NamedElement ne (concat (.getVertexClasses gc)
+                                        (.getEdgeClasses gc)
+                                        (.getDomains s))]
+         (swap! m update-in [(.getSimpleName ne)] conj (.getQualifiedName ne)))
        (apply hash-map (mapcat (fn [[k v]]
                                  (if (> (count v) 1)
                                    []
@@ -231,19 +232,19 @@ functions `record` and `enum`."
      AttributedElement
      (let [^AttributedElement ae elem]
        (or (-> ae .getSchema (.getAttributedElementClass (name qname)))
-           (let [qn ((aec-simple-to-qname-map (.getSchema ae)) (name qname))]
+           (let [qn ((named-element-simple-to-qname-map (.getSchema ae)) (name qname))]
              (-> ae .getSchema (.getAttributedElementClass qn)))
            (u/errorf "No such attributed element class %s" (name qname))))
      AttributedElementClass
      (let [^AttributedElementClass aec elem]
        (or (-> aec .getSchema (.getAttributedElementClass (name qname)))
-           (let [qn ((aec-simple-to-qname-map (.getSchema aec)) (name qname))]
+           (let [qn ((named-element-simple-to-qname-map (.getSchema aec)) (name qname))]
              (-> aec .getSchema (.getAttributedElementClass qn)))
            (u/errorf "No such attributed element class %s" (name qname))))
      Schema
      (let [^Schema s elem]
        (or (.getAttributedElementClass s (name qname))
-           (let [qn ((aec-simple-to-qname-map s) (name qname))]
+           (let [qn ((named-element-simple-to-qname-map s) (name qname))]
              (.getAttributedElementClass s qn))
            (u/errorf "No such attributed element class %s" (name qname)))))))
 
@@ -260,12 +261,9 @@ functions `record` and `enum`."
   "Returns the Domain `p/qname` in the schema of `elem`.  `elem` may be an
   AttributedElement, AttributedElementClass, or a Schema."
   ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
-  (if (or (instance? AttributedElement elem)
-          (instance? AttributedElementClass elem))
-    (or (.getDomain ^Schema (schema elem) (domain-qname qname))
-        (u/errorf "No such domain %s" (domain-qname qname)))
-    (or (.getDomain ^Schema elem (domain-qname qname))
-        (u/errorf "No such domain %s" (domain-qname qname)))))
+  (let [^Schema s (if (instance? Schema elem) elem (schema elem))]
+    (.getDomain s ((named-element-simple-to-qname-map s)
+                   (domain-qname qname)))))
 
 (defn schema-graph
   "Returns the SchemaGraph of schema `s`."
