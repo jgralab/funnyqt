@@ -65,7 +65,7 @@
   (member2male
    :from [m 'Member]
    :when (male? m)
-   :to   [p 'Male :model out {:wife (when-let [w (wife m)] (member2female w))}])
+   :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}])
   (member2female
    :from [m 'Member]
    :when (not (male? m))
@@ -135,7 +135,7 @@
    :from [m 'Member]
    :when (male? m)
    :let  [w (wife m)]
-   :to   [p 'Male :model out]
+   :to   [p 'Male :in out]
    (when w
      (set-adj! p :wife (member2female w))))
   (member2female
@@ -168,13 +168,13 @@
                      (^:top rule1
                             :from [x 'X]
                             :to   [a 'A
-                                   b 'B :model out2
+                                   b 'B :in out2
                                    c 'C {:name "Test"}
-                                   d 'D :model out1 {:name "Test2"}
+                                   d 'D :in out1 {:name "Test2"}
                                    e 'E
                                    f 'F {:name "Test3"}
-                                   g 'G {:name "Test4"} :model out2
+                                   g 'G {:name "Test4"} :in out2
                                    h 'H
                                    i 'I
-                                   j 'J :model out2 {:foo "Bar"}]))))))
+                                   j 'J :in out2 {:foo "Bar"}]))))))
 

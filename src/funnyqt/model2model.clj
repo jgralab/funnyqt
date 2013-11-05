@@ -73,19 +73,19 @@
 
 (defn ^:private create-vector [v outs]
   ;; [a 'A
-  ;;  b 'B :model foo
+  ;;  b 'B :in foo
   ;;  c 'C {:p1 "foo"}
-  ;;  d 'D :model foo {:p1 "foo"}
-  ;;  e 'E {:p1 "foo"} :model foo]
+  ;;  d 'D :in foo {:p1 "foo"}
+  ;;  e 'E {:p1 "foo"} :in foo]
   (letfn [(model? [v]
-            (or (when (= (get v 2) :model) 3)
-                (when (and (= (get v 3) :model)
+            (or (when (= (get v 2) :in) 3)
+                (when (and (= (get v 3) :in)
                            (map? (get v 2)))
                   4)))
           (props? [v]
             (or (when (map? (get v 2)) 2)
-                (when (and (= (get v 2) :model)
-                           (map? (get v 4)))
+                (when (and (map? (get v 4))
+                           (= (get v 2) :in))
                   4)))]
     (let [v (loop [v v, r []]
               (if (seq v)
@@ -211,11 +211,15 @@
   :to is a vector of output elements (paired with their types) that are to be
   created.
 
-  If there are multiple output models, the :to spec has to state in which model
-  a given object has to be created, e.g.,
+  If there are multiple output models, the :to spec may state in which model a
+  given object has to be created, e.g.,
 
-    :to [b 'OutClass  :model out1,
-         c 'OutClass2 :model out2]
+    :to [b 'OutClass  :in out1,
+         c 'OutClass2 :in out2]
+
+  If there are multiple output models but an element in :to doesn't specify the
+  target model explicitly, the first output model in the transformation's
+  output model vector is used as a default.
 
   The :to vector may also specify values for the newly created element's
   properties (attributes and references).  Those a specified using a map.
@@ -223,7 +227,7 @@
     :to [b 'OutClass  {:name \"Some Name\", ...},
          c 'OutClass2 {:name \"Other name\", :links b}]
 
-  If a target element specification contains both a property map and a :model
+  If a target element specification contains both a property map and a :in
   spec, they may occur in any order.
 
   Following these special keyword-clauses, arbitrary code may follow, e.g., to
@@ -273,16 +277,16 @@
   Functions
   =========
 
-  Functions are just arbitrary local helpers.  They are to be defined in the
+  Functions are just arbitrary local helpers.  They are to be defined using the
   syntax of function definitions in `letfn`, that is, they support for
-  overloading etc.
+  overloading, etc.
 
   There may be one special function called `main`.  This function must not have
   parameters.  If defined, it acts as the entry point to the transformation,
   i.e., it is called automatically and is responsible for calling the
   transformation's rules appropriately.  If there's a `main` function, the
   ^:top metadata attached to rules has no effect, that is, they are not called
-  automatically.
+  automatically anymore, but now that's the job of the `main` function.
 
   So you usually have either top-level rules or a `main` function.  The former
   is simpler and usually suffices while the latter provides more control to the
