@@ -103,8 +103,7 @@
                    ;; no model and no props
                    :else (recur (nthnext v 2)
                                 (conj r [(first v) (second v) (first outs) nil]))))
-                r))
-          _ (println "v =" v)]
+                r))]
       (vec (mapcat (fn [[sym type model prop-map]]
                      [sym `(p/create-element! ~model ~type ~prop-map)])
                    v)))))
