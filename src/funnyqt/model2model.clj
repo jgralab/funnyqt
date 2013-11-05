@@ -183,7 +183,7 @@
       :from [a 'InClass, x]
       :when (some-predicate? a)
       :when-let [x (some-fn a)]
-      :to [b 'OutClass
+      :to [b 'OutClass,
            c 'OutClass2]
       (do-stuff-with a b c))
 
@@ -206,9 +206,9 @@
          c 'OutClass2 :model out2]
 
   The :to vector may also specify values for the newly created element's
-  properties.  Those a specified using a map.
+  properties (attributes and references).  Those a specified using a map.
 
-    :to [b 'OutClass  {:name \"Some Name\", ...}
+    :to [b 'OutClass  {:name \"Some Name\", ...},
          c 'OutClass2 {:name \"Other name\", :links b}]
 
   If a target element specification contains both a property map and a :model
