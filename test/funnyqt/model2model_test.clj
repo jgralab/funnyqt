@@ -134,8 +134,9 @@
   (member2male
    :from [m 'Member]
    :when (male? m)
+   :let  [w (wife m)]
    :to   [p 'Male :model out]
-   (when-let [w (wife m)]
+   (when w
      (set-adj! p :wife (member2female w))))
   (member2female
    :from [m 'Member]
@@ -161,4 +162,19 @@
     (is (== 18 (ecount ng 'HasChild)))
     (is (== 3  (count (vseq ng 'Address))))
     #_(clojure.pprint/pprint trace)))
+
+(deftest test-valid-to-bindings
+  (is (var? (eval '(funnyqt.model2model/deftransformation complex-to-bindings [[in] [out1 out2]]
+                     (^:top rule1
+                            :from [x 'X]
+                            :to   [a 'A
+                                   b 'B :model out2
+                                   c 'C {:name "Test"}
+                                   d 'D :model out1 {:name "Test2"}
+                                   e 'E
+                                   f 'F {:name "Test3"}
+                                   g 'G {:name "Test4"} :model out2
+                                   h 'H
+                                   i 'I
+                                   j 'J :model out2 {:foo "Bar"}]))))))
 

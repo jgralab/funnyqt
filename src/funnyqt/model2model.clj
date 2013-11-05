@@ -79,29 +79,33 @@
   ;;  e 'E {:p1 "foo"} :model foo]
   (letfn [(model? [v]
             (or (when (= (get v 2) :model) 3)
-                (when (= (get v 4) :model) 5)))
+                (when (and (= (get v 3) :model)
+                           (map? (get v 2)))
+                  4)))
           (props? [v]
             (or (when (map? (get v 2)) 2)
-                (when (map? (get v 4)) 4)))]
+                (when (and (= (get v 2) :model)
+                           (map? (get v 4)))
+                  4)))]
     (let [v (loop [v v, r []]
               (if (seq v)
                 (let [m (model? v)
                       p (props? v)]
                   (cond
                    (and m (not p))
-                   (recur (nthnext v 4)
+                   (recur (subvec v 4)
                           (conj r [(first v) (second v) (nth v 3) nil]))
                    ;;---
                    (and (not m) p)
-                   (recur (nthnext v 3)
+                   (recur (subvec v 3)
                           (conj r [(first v) (second v) (first outs) (nth v 2)]))
                    ;;---
                    (and m p)
-                   (recur (nthnext v 5)
+                   (recur (subvec v 5)
                           (conj r [(first v) (second v) (nth v m) (nth v p)]))
                    ;;---
                    ;; no model and no props
-                   :else (recur (nthnext v 2)
+                   :else (recur (subvec v 2)
                                 (conj r [(first v) (second v) (first outs) nil]))))
                 r))]
       (vec (mapcat (fn [[sym type model prop-map]]
@@ -121,7 +125,7 @@
                  created)
         wl-vars (map first (partition 2 (:when-let rule-map)))
         creation-form (when (seq created)
-                        `(let ~create-vec
+                        `(let ~(vec (concat (:let rule-map) create-vec))
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
                                   assoc ~arg-vec ~retval)
                            ~@(:body rule-map)
@@ -136,7 +140,7 @@
                                        ~wl-and-creation-form)
                                     wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys rule-map))
-                              :name :from :to :when :when-let :body :disjuncts))]
+                              :name :from :let :to :when :when-let :body :disjuncts))]
       (u/errorf "Unknown keys in rule: %s" uks))
     `(~(:name rule-map) ~arg-vec
       ~(if-let [d (:disjuncts rule-map)]
@@ -147,8 +151,9 @@
                              (gensym "disj-rule-result"))
                disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
                                       (when-let [~result-spec r#]
-                                        ~@(:body rule-map)
-                                        r#))]
+                                        (let ~(vec (:let rule-map))
+                                          ~@(:body rule-map)
+                                          r#)))]
            `(when (and ~@(type-constrs a-t-m false)
                        ~(or (:when rule-map) true))
               ~(if (:when-let rule-map)
@@ -182,6 +187,8 @@
       :from [a 'InClass, x]
       :when (some-predicate? a)
       :when-let [x (some-fn a)]
+      :let  [y (some-other-fn a x),
+             z (some-other-fn2 a x y)]
       :to [b 'OutClass,
            c 'OutClass2]
       (do-stuff-with a b c))
@@ -192,9 +199,15 @@
   InClass.
   :when constrains the input elements to those satisfying some predicate.
   The :when clause is optional.
-  :when-let has a vector of variable-expr pairs.  The expressions are evaluated
-  and bound to the respective vars.  The rule may only be applied if the vars
-  are non-nil (which makes the \"when\"-part in :when-let).
+  :when-let has a vector of variable-expression pairs.  The expressions are
+  evaluated and bound to the respective vars.  The rule may only be applied if
+  the vars are non-nil (which makes the \"when\"-part in :when-let).
+  The :when-let is optional, and it is evaluated after :from and :when already
+  matched.
+  :let has a vector of variable-expression pairs.  The expressions are
+  evaluated and bound to the respective vars.  The :let is evaluated
+  after :when-let has matched, that is, the vars bound by :when-let may be used
+  in the :let expressions, but not the other way round.
   :to is a vector of output elements (paired with their types) that are to be
   created.
 
@@ -302,7 +315,7 @@
 
     (deftransformation ^{:extends foo2bar-base} foo2bar
      \"Transforms a foo model to a bar model.\"
-     [foo bar]
+     [[foo] [bar]]
      ...)
 
   The transformation foo2bar extends foo2bar-base here.  This means that
