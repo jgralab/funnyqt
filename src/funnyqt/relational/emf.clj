@@ -177,7 +177,7 @@
 
        (or (and (tmp/tmp-or-wrapper-element? geo) (tmp/tmp-or-wrapper-element? greo))
            (and (tmp/tmp-element? geo)            (ru/fresh? greo)))
-       (if (tmp/add-ref geo gref greo)
+       (if (tmp/add-ref geo gref reo)
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -188,7 +188,7 @@
                    (map #(tmp/make-wrapper m %)
                         (q/adjs (.wrapped-element ^WrapperElement geo) gref))
                    [#(let [refed (tmp/make-tmp-element m :element)]
-                       (tmp/add-ref geo gref greo)
+                       (tmp/add-ref geo gref reo)
                        refed)]))
              (remove not)))
 

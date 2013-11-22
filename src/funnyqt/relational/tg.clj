@@ -359,7 +359,7 @@
                    ;; This must not be executed if there's an existing adjacent
                    ;; vertex, so we wrap it in a function.
                    [#(let [refed (tmp/make-tmp-element g :element)]
-                       (tmp/add-ref gv grole refed)
+                       (tmp/add-ref gv grole rv)
                        refed)]))
              (remove not)))
 

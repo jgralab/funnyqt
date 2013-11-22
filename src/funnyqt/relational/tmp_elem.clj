@@ -21,6 +21,7 @@
 
 (defprotocol IRef
   (add-ref [this ref target])
+  (check-validity [this subst])
   (finalize-refs [this subst]))
 
 (defprotocol IKind
@@ -165,10 +166,12 @@
                                      #(conj (vec %1) %2)
                                      target))
                true))))
+  (check-validity [this subst]
+    (when manifested (u/errorf "Already manifested: %s" this))
+    (single-containers? (p/mm-class wrapped-element) refs subst))
   (finalize-refs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
-    (set! refs (groundify-refs refs subst))
-    (single-containers? (p/mm-class wrapped-element) refs))
+    (set! refs (groundify-refs refs subst)))
   IAlphaOmega
   (set-alpha [this a]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -301,9 +304,10 @@
                                      #(conj (vec %1) %2)
                                      target))
                true))))
+  (check-validity [this subst]
+    (single-containers? type refs subst))
   (finalize-refs [this subst]
-    (set! refs (groundify-refs refs subst))
-    (single-containers? type refs))
+    (set! refs (groundify-refs refs subst)))
   IAlphaOmega
   (set-alpha [this a]
     ;; a is either fresh or a wrapper or tmp element
@@ -402,18 +406,19 @@
                      [r vs]))
                  refs)))
 
-(defn single-containers? [type refs]
+(defn single-containers? [type refs subst]
   (loop [rs refs, ok true]
     (if (seq rs)
       (let [[r ts] (first rs)]
         (if (containment-ref? type r)
           (recur (rest rs) (and ok (funnyqt.query/forall?
-                                    #(cond
-                                      (wrapper-element? %)
-                                      (not (p/container (.wrapped-element ^WrapperElement %)))
+                                    #(let [x (cclp/walk subst %)]
+                                       (cond
+                                        (wrapper-element? x)
+                                        (not (p/container (.wrapped-element ^WrapperElement x)))
 
-                                      (tmp-element? %)
-                                      true)
+                                        (tmp-element? x)
+                                        true))
                                     ts)))
           (recur (rest rs) ok)))
       ok)))
@@ -422,14 +427,12 @@
 
 (defn finalizeo [& els]
   (fn [a]
-    (let [all-ok
-          (loop [els (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)), ok true]
-            (if (seq els)
-              (recur (rest els) (and ok
-                                     (finalize-attrs (first els) a)
-                                     (finalize-refs  (first els) a)
-                                     (finalize-alpha-and-omega (first els) a)))
-              ok))]
-      (if all-ok
-        (ccl/succeed a)
+    (let [tw-els (vec (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)))]
+      (if (q/forall? #(check-validity % a) tw-els)
+        (do
+          (doseq [el tw-els]
+            (finalize-attrs el a)
+            (finalize-refs  el a)
+            (finalize-alpha-and-omega el a))
+          (ccl/succeed a))
         (ccl/fail a)))))
