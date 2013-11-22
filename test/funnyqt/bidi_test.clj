@@ -198,15 +198,10 @@
           (ab-tg/lastName l ?contact1 ?ln)
           (ab-tg/email l ?contact1 ?mail)]
    :right [(ab-emf/->entries r ?cat2 ?contact2)
-           #_(r/echo "1 =" [?contact2])
            (ab-emf/Contact r ?contact2)
-           #_(r/echo "2 =" [?contact2])
            (ab-emf/firstName r ?contact2 ?fn)
-           #_(r/echo "3 =" [?contact2])
            (ab-emf/lastName r ?contact2 ?ln)
-           #_(r/echo "4 =" [?contact2])
-           (ab-emf/email r ?contact2 ?mail)
-           #_(r/echo "5 =" [?contact2])])
+           (ab-emf/email r ?contact2 ?mail)])
   (org2org
    :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
    :left [(ab-tg/->organizations l ?cat1 ?org1)
@@ -250,31 +245,28 @@
     (assert-same-addressbooks-tg-emf l r)
     ;; Do it again.  It shouldn't modify anything.
     (print "addressbook-tg2addressbook-emf l -> r (both already in sync) ")
-    (println "\n\n\n\n\n\n\n\n\n\n")
     (time (addressbook-tg2addressbook-emf l r :right))
-    #_(viz/print-model r :gtk)
-    #_(assert-same-addressbooks-tg-emf l r)
-    (comment
-      ;; Do it in the other direction.  Again, it shouldn't modify anything.
-      (print "addressbook-tg2addressbook-emf l <- r (both already in sync) ")
-      (time (addressbook-tg2addressbook-emf l r :left))
-      (assert-same-addressbooks-tg-emf l r)
-      ;; Now add a new Contact to the right addressbook and synchronize it to the
-      ;; left.
-      (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
-      (let [tim (emf/ecreate! nil 'Contact
-                              :id (int 6)
-                              :firstName "Tim"
-                              :lastName "Taylor"
-                              :email "tim@gmail.com")
-            cat-work (first (filter #(= (emf/eget % :name) "Work")
-                                    (emf/eallobjects r 'Category)))]
-        (p/add-adj! cat-work :entries tim))
-      (time (addressbook-tg2addressbook-emf l r :left))
-      (assert-same-addressbooks-tg-emf l r)
-      #_(do
-          (future (viz/print-model l :gtk))
-          (viz/print-model r :gtk)))))
+    (assert-same-addressbooks-tg-emf l r)
+    ;; Do it in the other direction.  Again, it shouldn't modify anything.
+    (print "addressbook-tg2addressbook-emf l <- r (both already in sync) ")
+    (time (addressbook-tg2addressbook-emf l r :left))
+    (assert-same-addressbooks-tg-emf l r)
+    ;; Now add a new Contact to the right addressbook and synchronize it to the
+    ;; left.
+    (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
+    (let [tim (emf/ecreate! nil 'Contact
+                            :id (int 6)
+                            :firstName "Tim"
+                            :lastName "Taylor"
+                            :email "tim@gmail.com")
+          cat-work (first (filter #(= (emf/eget % :name) "Work")
+                                  (emf/eallobjects r 'Category)))]
+      (p/add-adj! cat-work :entries tim))
+    (time (addressbook-tg2addressbook-emf l r :left))
+    (assert-same-addressbooks-tg-emf l r)
+    #_(do
+        (future (viz/print-model l :gtk))
+        (viz/print-model r :gtk))))
 
 ;;# UML Class Diagram to RDBMS Tables
 

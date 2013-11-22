@@ -20,6 +20,7 @@
   (finalize-attrs [this subst]))
 
 (defprotocol IRef
+  (get-refs [this])
   (add-ref [this ref target])
   (check-validity [this subst])
   (finalize-refs [this subst]))
@@ -150,6 +151,7 @@
     (set! attrs (groundify-attrs attrs subst))
     true)
   IRef
+  (get-refs [this] refs)
   (add-ref [this ref target]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; target is either fresh or a wrapper or tmp element
@@ -168,7 +170,7 @@
                true))))
   (check-validity [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
-    (single-containers? (p/mm-class wrapped-element) refs subst))
+    (single-containers? this (p/mm-class wrapped-element) subst))
   (finalize-refs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! refs (groundify-refs refs subst)))
@@ -293,6 +295,7 @@
     (set! attrs (groundify-attrs attrs subst))
     true)
   IRef
+  (get-refs [this] refs)
   (add-ref [this ref target]
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
@@ -305,7 +308,7 @@
                                      target))
                true))))
   (check-validity [this subst]
-    (single-containers? type refs subst))
+    (single-containers? this type subst))
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst)))
   IAlphaOmega
@@ -406,8 +409,12 @@
                      [r vs]))
                  refs)))
 
-(defn single-containers? [type refs subst]
-  (loop [rs refs, ok true]
+(defn single-containers? [el type subst]
+  ;; el: the tmp or wrapper element having refs
+  ;; type: el's type
+  ;; refs: the :refs vector of el
+  ;; subst: the current substitution
+  (loop [rs (get-refs el), ok true]
     (if (seq rs)
       (let [[r ts] (first rs)]
         (if (containment-ref? type r)
@@ -415,7 +422,11 @@
                                     #(let [x (cclp/walk subst %)]
                                        (cond
                                         (wrapper-element? x)
-                                        (not (p/container (.wrapped-element ^WrapperElement x)))
+                                        (let [container (p/container (.wrapped-element ^WrapperElement x))]
+                                          (or (nil? container)
+                                              (and (wrapper-element? el)
+                                                   (identical? (.wrapped-element ^WrapperElement el)
+                                                               container))))
 
                                         (tmp-element? x)
                                         true))
@@ -435,4 +446,6 @@
             (finalize-refs  el a)
             (finalize-alpha-and-omega el a))
           (ccl/succeed a))
-        (ccl/fail a)))))
+        (do
+          #_(u/errorf "invalid: %s" (vec (map (partial cclp/walk a) els)))
+          (ccl/fail a))))))
