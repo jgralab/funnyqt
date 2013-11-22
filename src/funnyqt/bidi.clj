@@ -228,13 +228,11 @@
       (let [bindings (@*relation-bindings* relation)]
         (ccl/to-stream
          (->> (map (fn [b]
-                     (let [vs (mapv #(get b % ::not-found) (keys m))]
-                       (when (q/member? ::not-found vs)
-                         (u/errorf "Unbound keys: %s"
-                                   (pr-str
-                                    (filter #(= (get b % ::not-found)
-                                                ::not-found)
-                                            (keys m)))))
+                     (let [vs (mapv #(let [el (get b % ::not-found)]
+                                       (if (= ::not-found el)
+                                         (u/errorf "Unbound key: %s" %)
+                                         el))
+                                    (keys m))]
                        (ccl/unify a (vec (vals m)) vs)))
                    bindings)
               (remove not)))))))
