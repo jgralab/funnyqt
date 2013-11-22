@@ -175,7 +175,8 @@
        (not (keyword? gref))
        (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
 
-       (and (tmp/wrapper-element? geo) (tmp/tmp-or-wrapper-element? greo))
+       (or (and (tmp/tmp-or-wrapper-element? geo) (tmp/tmp-or-wrapper-element? greo))
+           (and (tmp/tmp-element? geo)            (ru/fresh? greo)))
        (if (tmp/add-ref geo gref greo)
          (ccl/succeed a)
          (ccl/fail a))

@@ -192,20 +192,25 @@
     true)
   IManifestation
   (manifest [this]
-    (if manifested
-      wrapped-element
-      (do
-        (set! manifested true)
-        (doseq [[at val] attrs]
-          (p/set-aval! wrapped-element at val))
-        (doseq [[role rs] refs
-                :let [multi-valued (p/mm-multi-valued-property?
-                                    (p/mm-class wrapped-element) role)]]
-          (doseq [r rs]
-            (if multi-valued
-              (p/add-adj! wrapped-element role (manifest r))
-              (p/set-adj! wrapped-element role (manifest r)))))
-        wrapped-element)))
+    (try
+      (if manifested
+        wrapped-element
+        (do
+          (set! manifested true)
+          (doseq [[at val] attrs]
+            (p/set-aval! wrapped-element at val))
+          (doseq [[role rs] refs
+                  :let [multi-valued (p/mm-multi-valued-property?
+                                      (p/mm-class wrapped-element) role)]]
+            (doseq [r rs]
+              (if multi-valued
+                (p/add-adj! wrapped-element role (manifest r))
+                (p/set-adj! wrapped-element role (manifest r)))))
+          wrapped-element))
+      (catch Exception ex
+        (throw (RuntimeException. (format "%s during manifestation of %s."
+                                          (.getSimpleName (class ex)) this)
+                                  ex)))))
   (manifestation [this] wrapped-element))
 
 (def ^{:dynamic true
@@ -326,26 +331,31 @@
     true)
   IManifestation
   (manifest [this]
-    (or manifested-element
-        (do
-          (when-not type
-            (u/errorf "Can't manifest: type is nil in %s." this))
-          (set! manifested-element (cond
-                                    (= kind :element) (p/create-element! model type)
-                                    (= kind :relationship) (p/create-relationship!
-                                                            model type
-                                                            (manifest alpha) (manifest omega))
-                                    :else (u/errorf "Unknown kind %s." kind)))
-          (doseq [[at val] attrs]
-            (p/set-aval! manifested-element at val))
-          (doseq [[role rs] refs
-                  :let [multi-valued (p/mm-multi-valued-property?
-                                      (p/mm-class manifested-element) role)]]
-            (doseq [r rs]
-              (if multi-valued
-                (p/add-adj! manifested-element role r)
-                (p/set-adj! manifested-element role r))))
-          manifested-element)))
+    (try
+      (or manifested-element
+          (do
+            (when-not type
+              (u/errorf "Can't manifest: type is nil in %s." this))
+            (set! manifested-element (cond
+                                      (= kind :element) (p/create-element! model type)
+                                      (= kind :relationship) (p/create-relationship!
+                                                              model type
+                                                              (manifest alpha) (manifest omega))
+                                      :else (u/errorf "Unknown kind %s." kind)))
+            (doseq [[at val] attrs]
+              (p/set-aval! manifested-element at val))
+            (doseq [[role rs] refs
+                    :let [multi-valued (p/mm-multi-valued-property?
+                                        (p/mm-class manifested-element) role)]]
+              (doseq [r rs]
+                (if multi-valued
+                  (p/add-adj! manifested-element role (manifest r))
+                  (p/set-adj! manifested-element role (manifest r)))))
+            manifested-element))
+      (catch Exception ex
+        (throw (RuntimeException. (format "%s during manifestation of %s."
+                                          (.getSimpleName (class ex)) this)
+                                  ex)))))
   (manifestation [this] manifested-element))
 
 (defn make-tmp-element
