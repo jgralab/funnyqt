@@ -271,14 +271,14 @@
         (cond
          ;; No type set already.
          (nil? type) (do (set! type mm-class) true)
-         ;; The current type is a superclass of mm-class, so set to the more
-         ;; specific.
-         (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
          ;; The given type is a superclass of or identical to the currently set
          ;; type, so ccl/succeed without changing anything.
          (or (= mm-class type)
              (p/mm-super-class? mm-class type)) true
-             :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
+         ;; The current type is a superclass of mm-class, so set to the more
+         ;; specific.
+         (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
+         :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
   IUnset
   (unset? [this attr]
     (nil? (get attrs attr)))
