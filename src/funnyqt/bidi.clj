@@ -98,8 +98,13 @@
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
                   (ccl/run* [q#]
-                    ~@(:when map)
+                    ;; TODO: Sometimes it's faster if :when goals are before
+                    ;; source goals, and sometimes it's the other way round.
+                    ;; Maybe the user should be able to annotate the :when
+                    ;; clause with ^:first in order to force it to come before
+                    ;; the source goals.
                     ~@(get map src)
+                    ~@(:when map)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
                 ~@(insert-debug (:debug-src map))
@@ -292,8 +297,8 @@
   It is also a vector of goals.  Usually, the goals are used to retrieve and
   bind elements created by previous relations using `relateo`.  The :left
   to :right semantics are: For every set of elements in the `left` model for
-  which all :when and all :left goals succeed, there must be at least one set
-  of elements in the `right` model for which all :when and :right goals
+  which all :left and all :when goals succeed, there must be at least one set
+  of elements in the `right` model for which all :right and :when goals
   succeed.
 
   Postconditions
