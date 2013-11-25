@@ -165,7 +165,7 @@
 
        :else (do
                (set! refs (update-in refs [ref]
-                                     #(conj (vec %1) %2)
+                                     #(conj (set %1) %2)
                                      target))
                true))))
   (check-validity [this subst]
@@ -208,9 +208,11 @@
                   :let [multi-valued (p/mm-multi-valued-property?
                                       (p/mm-class wrapped-element) role)]]
             (doseq [r rs]
-              (if multi-valued
-                (p/add-adj! wrapped-element role (manifest r))
-                (p/set-adj! wrapped-element role (manifest r)))))
+              (let [mr (manifest r)]
+                (when-not (q/member? mr (q/adjs wrapped-element role))
+                  (if multi-valued
+                    (p/add-adj! wrapped-element role (manifest r))
+                    (p/set-adj! wrapped-element role (manifest r)))))))
           wrapped-element))
       (catch Exception ex
         (throw (RuntimeException. (format "%s during manifestation of %s."
@@ -304,7 +306,7 @@
        (q/member? target cur) true
        :else (do
                (set! refs (update-in refs [ref]
-                                     #(conj (vec %1) %2)
+                                     #(conj (set %1) %2)
                                      target))
                true))))
   (check-validity [this subst]
@@ -355,9 +357,10 @@
                     :let [multi-valued (p/mm-multi-valued-property?
                                         (p/mm-class manifested-element) role)]]
               (doseq [r rs]
-                (if multi-valued
-                  (p/add-adj! manifested-element role (manifest r))
-                  (p/set-adj! manifested-element role (manifest r)))))
+                (let [mr (manifest r)]
+                  (if multi-valued
+                    (p/add-adj! manifested-element role mr)
+                    (p/set-adj! manifested-element role mr)))))
             manifested-element))
       (catch Exception ex
         (throw (RuntimeException. (format "%s during manifestation of %s."
