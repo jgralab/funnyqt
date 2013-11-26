@@ -384,7 +384,7 @@
   ;; type: el's type
   ;; subst: the current substitution
   (loop [rs (get-refs el), ok true]
-    (if (seq rs)
+    (if (and ok (seq rs))
       (let [[r ts] (first rs)]
         (if (p/mm-containment-ref? type r)
           (recur (rest rs) (and ok (funnyqt.query/forall?
