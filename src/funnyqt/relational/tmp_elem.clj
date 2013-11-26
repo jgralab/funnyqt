@@ -349,7 +349,8 @@
                                       (= kind :element) (p/create-element! model type)
                                       (= kind :relationship) (p/create-relationship!
                                                               model type
-                                                              (manifest alpha) (manifest omega))
+                                                              (manifest alpha)
+                                                              (manifest omega))
                                       :else (u/errorf "Unknown kind %s." kind)))
             (doseq [[at val] attrs]
               (p/set-aval! manifested-element at val))
@@ -415,7 +416,6 @@
 (defn single-containers? [el type subst]
   ;; el: the tmp or wrapper element having refs
   ;; type: el's type
-  ;; refs: the :refs vector of el
   ;; subst: the current substitution
   (loop [rs (get-refs el), ok true]
     (if (seq rs)
