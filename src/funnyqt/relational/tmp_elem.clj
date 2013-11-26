@@ -56,6 +56,7 @@
 (declare groundify-attrs)
 (declare groundify-refs)
 (declare single-containers?)
+(declare single-valued-refs-are-single?)
 
 ;;## WrapperElement
 
@@ -136,7 +137,9 @@
                true))))
   (check-validity [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
-    (single-containers? this (p/mm-class wrapped-element) subst))
+    (let [cls (p/mm-class wrapped-element)]
+      (and (single-containers? this cls subst)
+           (single-valued-refs-are-single? this cls subst))))
   (finalize-refs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! refs (groundify-refs refs subst)))
@@ -276,7 +279,8 @@
                                      target))
                true))))
   (check-validity [this subst]
-    (single-containers? this type subst))
+    (and (single-containers? this type subst)
+         (single-valued-refs-are-single? this type subst)))
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst)))
   IAlphaOmega
@@ -379,29 +383,46 @@
                      [r vs]))
                  refs)))
 
-(defn single-containers? [el type subst]
+(defn ref-checker [el type subst ref-selector-fn predicate]
   ;; el: the tmp or wrapper element having refs
   ;; type: el's type
   ;; subst: the current substitution
   (loop [rs (get-refs el), ok true]
     (if (and ok (seq rs))
       (let [[r ts] (first rs)]
-        (if (p/mm-containment-ref? type r)
-          (recur (rest rs) (and ok (funnyqt.query/forall?
-                                    #(let [x (cclp/walk subst %)]
-                                       (cond
-                                        (wrapper-element? x)
-                                        (let [container (p/container (.wrapped-element ^WrapperElement x))]
-                                          (or (nil? container)
-                                              (and (wrapper-element? el)
-                                                   (identical? (.wrapped-element ^WrapperElement el)
-                                                               container))))
-
-                                        (tmp-element? x)
-                                        true))
-                                    ts)))
+        (if (ref-selector-fn type r)
+          (recur (rest rs) (funnyqt.query/forall? #(predicate r %) ts))
           (recur (rest rs) ok)))
       ok)))
+
+(defn single-containers? [el type subst]
+  (ref-checker el type subst p/mm-containment-ref?
+               (fn [ref target]
+                 (let [target (cclp/walk subst target)]
+                   (cond
+                    (wrapper-element? target)
+                    (let [container (p/container (.wrapped-element ^WrapperElement target))]
+                      (or (nil? container)
+                          (and (wrapper-element? el)
+                               (identical? (.wrapped-element ^WrapperElement el)
+                                           container))))
+                    (tmp-element? target)
+                    true)))))
+
+(defn single-valued-refs-are-single? [el type subst]
+  (ref-checker el type subst (complement p/mm-multi-valued-property?)
+               (fn [ref target]
+                 (let [refed (cclp/walk subst target)]
+                   (cond
+                    (wrapper-element? el)
+                    (let [cur (q/adj (.wrapped-element ^WrapperElement el) ref)]
+                      (or (nil? cur)
+                          (and (wrapper-element? refed)
+                               (identical? (.wrapped-element ^WrapperElement refed)
+                                           cur))))
+                    (tmp-element? el)
+                    (= 1 (count (set (map #(cclp/walk subst %)
+                                          (get (get-refs el) ref))))))))))
 
 ;;# Finalization
 
