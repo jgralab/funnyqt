@@ -98,13 +98,16 @@
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
                   (ccl/run* [q#]
-                    ;; TODO: Sometimes it's faster if :when goals are before
+                    ;; TODO: Sometimes it's faster if :when goals are after
                     ;; source goals, and sometimes it's the other way round.
                     ;; Maybe the user should be able to annotate the :when
-                    ;; clause with ^:first in order to force it to come before
-                    ;; the source goals.
-                    ~@(get map src)
+                    ;; clause with ^:last in order to force it to come after
+                    ;; the source goals.  Well, but for some relations,
+                    ;; changing the order is not semantically equivalent.
+                    ;; That's the case if :when binds ?foo, and the target
+                    ;; clause starts with (->role model ?foo ?bar).
                     ~@(:when map)
+                    ~@(get map src)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
               (binding [tmp/*wrapper-cache* (atom {})]
                 ~@(insert-debug (:debug-src map))
