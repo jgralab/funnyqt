@@ -40,40 +40,6 @@
   (set-omega [this o])
   (finalize-alpha-and-omega [this subst]))
 
-(defprotocol IUnset
-  (unset? [this attr]))
-
-(extend-protocol IUnset
-  de.uni_koblenz.jgralab.AttributedElement
-  (unset? [this attr]
-    (.isUnsetAttribute this (name attr)))
-  org.eclipse.emf.ecore.EObject
-  (unset? [this attr]
-    (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
-
-(defprotocol IContainmentRef
-  (containment-ref? [mm-class ref-kw]))
-
-(extend-protocol IContainmentRef
-  de.uni_koblenz.jgralab.schema.VertexClass
-  (containment-ref? [this ref-kw]
-    (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
-             dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
-      (let [ec  (.getEdgeClass dec)
-            dir (.getDirection dec)
-            ic  (if (= dir de.uni_koblenz.jgralab.EdgeDirection/OUT)
-                  (.getTo ec)
-                  (.getFrom ec))]
-        (= (.getAggregationKind ic)
-           de.uni_koblenz.jgralab.schema.AggregationKind/COMPOSITE))
-      (u/errorf "No such role %s at metamodel class %s." ref-kw this)))
-  org.eclipse.emf.ecore.EClass
-  (containment-ref? [this ref-kw]
-    (if-let [^org.eclipse.emf.ecore.EReference
-             er (.getEStructuralFeature this (name ref-kw))]
-      (.isContainment er)
-      (u/errorf "No such reference %s at metamodel class %s." ref-kw this))))
-
 (defprotocol IWrappedRelationship
   (get-src [this])
   (get-trg [this]))
@@ -134,16 +100,16 @@
       (if (vector? t)
         (q/exists? super-or-eq-to-cur? (map (partial p/mm-class model) t))
         (super-or-eq-to-cur? (p/mm-class model t)))))
-  IUnset
-  (unset? [this attr]
-    (unset? wrapped-element attr))
+  p/IUnset
+  (p/unset? [this attr]
+    (p/unset? wrapped-element attr))
   IAttr
   (add-attr [this attr val]
     (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond
-     (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
+     (p/unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
      (= (p/aval wrapped-element attr) val) true
      :else false))
   (finalize-attrs [this subst]
@@ -281,15 +247,15 @@
          ;; specific.
          (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
          :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
-  IUnset
-  (unset? [this attr]
+  p/IUnset
+  (p/unset? [this attr]
     (nil? (get attrs attr)))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond
-     (unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
+     (p/unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
      (= (get attrs attr) val) true
      :else (u/errorf "Cannot reset attribute %s from %s to %s."
                      attr (get attrs attr) val)))
@@ -420,7 +386,7 @@
   (loop [rs (get-refs el), ok true]
     (if (seq rs)
       (let [[r ts] (first rs)]
-        (if (containment-ref? type r)
+        (if (p/mm-containment-ref? type r)
           (recur (rest rs) (and ok (funnyqt.query/forall?
                                     #(let [x (cclp/walk subst %)]
                                        (cond

@@ -38,6 +38,12 @@
   (abstract? [this]
     (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
+;;# Unset properties
+
+(defprotocol IUnset
+  (unset? [this prop]
+    "Returns true iff the property `prop` (given as keyword) is unset."))
+
 ;;# Instance Check
 
 (defprotocol IInstanceOf
@@ -217,3 +223,9 @@
   (mm-multi-valued-property? [cls prop]
     "Returns true iff `prop` (given as keyword) is a multi-valued property
   of `cls`."))
+
+(defprotocol IMMContainmentRef
+  (mm-containment-ref? [mm-class ref]
+    "Returns true if `ref` (given as keyword) is a containment reference,
+  i.e., the target objects are contained my `mm-class`."))
+

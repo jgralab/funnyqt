@@ -188,6 +188,11 @@ functions `record` and `enum`."
   (p/abstract? [this]
     (.isAbstract this)))
 
+(extend-protocol p/IUnset
+  AttributedElement
+  (p/unset? [this attr]
+    (.isUnsetAttribute this (name attr))))
+
 (defn ^:private domain-qname
   "Transforms a domain p/qname given as symbol, keyword, string, or vector to a
   canonical string representation:"
@@ -324,6 +329,20 @@ functions `record` and `enum`."
                     (.getTo ec)
                     (.getFrom ec)))
          1))))
+
+(extend-protocol p/IMMContainmentRef
+  VertexClass
+  (p/mm-containment-ref? [this ref-kw]
+    (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+             dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
+      (let [ec  (.getEdgeClass dec)
+            dir (.getDirection dec)
+            ic  (if (= dir de.uni_koblenz.jgralab.EdgeDirection/OUT)
+                  (.getTo ec)
+                  (.getFrom ec))]
+        (= (.getAggregationKind ic)
+           de.uni_koblenz.jgralab.schema.AggregationKind/COMPOSITE))
+      (u/errorf "No such role %s at metamodel class %s." ref-kw this))))
 
 ;;# Graph Access
 

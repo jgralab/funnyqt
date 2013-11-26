@@ -117,6 +117,11 @@
   (p/abstract? [this]
     (.isAbstract this)))
 
+(extend-protocol p/IUnset
+  EObject
+  (p/unset? [this attr]
+    (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
+
 (defn eclassifiers
   "The lazy seq of EClassifiers."
   []
@@ -217,6 +222,14 @@
   EClass
   (p/mm-multi-valued-property? [cls prop]
     (.isMany (.getEStructuralFeature cls (name prop)))))
+
+(extend-protocol p/IMMContainmentRef
+  EClass
+  (p/mm-containment-ref? [this ref-kw]
+    (if-let [^org.eclipse.emf.ecore.EReference
+             er (.getEStructuralFeature this (name ref-kw))]
+      (.isContainment er)
+      (u/errorf "No such reference %s at metamodel class %s." ref-kw this))))
 
 ;;# Model
 
