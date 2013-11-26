@@ -59,35 +59,44 @@
       r)))
 
 (defn stro
-  [x y xy]
-  (fn [a]
-    (let [wx  (cclp/walk a x)
-	  wy  (cclp/walk a y)
-	  wxy (cclp/walk a xy)]
-      (cond
-       (and (ru/ground? wx) (ru/ground? wy) (ru/ground? wxy))
-       (if (= (str wx wy) wxy) (ccl/succeed a) (ccl/fail a))
+  ([x y xy]
+     (fn [a]
+       (let [wx  (cclp/walk a x)
+             wy  (cclp/walk a y)
+             wxy (cclp/walk a xy)]
+         (cond
+          (and (ru/ground? wx) (ru/ground? wy) (ru/ground? wxy))
+          (if (= (str wx wy) wxy) (ccl/succeed a) (ccl/fail a))
 
-       (and (ru/ground? wx) (ru/ground? wy))
-       (or (ccl/unify a [x y xy] [wx wy (str wx wy)])
-	   (ccl/fail a))
+          (and (ru/ground? wx) (ru/ground? wy))
+          (or (ccl/unify a xy (str wx wy))
+              (ccl/fail a))
 
-       (and (ru/ground? wx) (ru/ground? wxy) (string? wxy)
-	    (.startsWith ^String wxy wx))
-       (or (ccl/unify a [x y xy] [wx (subs wxy (count wx)) wxy])
-	   (ccl/fail a))
+          (and (ru/ground? wx) (ru/ground? wxy) (string? wxy)
+               (.startsWith ^String wxy wx))
+          (or (ccl/unify a y (subs wxy (count wx)))
+              (ccl/fail a))
 
-       (and (ru/ground? wy) (ru/ground? wxy) (string? wxy)
-	    (.endsWith ^String wxy wy))
-       (or (ccl/unify a [x y xy] [(subs wxy 0 (count wy)) wy wxy])
-	   (ccl/fail a))
+          (and (ru/ground? wy) (ru/ground? wxy) (string? wxy)
+               (.endsWith ^String wxy wy))
+          (or (ccl/unify a x (subs wxy 0 (- (count wxy) (count wy))))
+              (ccl/fail a))
 
-       (ru/ground? wxy)
-       (ccl/to-stream
-	(->> (map (fn [[s1 s2]]
-		    (ccl/unify a [x y xy] [s1 s2 wxy]))
-		  (str-splits wxy))
-	     (remove not)))
+          (ru/ground? wxy)
+          (ccl/to-stream
+           (->> (map (fn [[s1 s2]]
+                       (ccl/unify a [x y] [s1 s2]))
+                     (str-splits wxy))
+                (remove not)))
 
-       ;; TODO: we should not fail here...
-       :else (ccl/fail a)))))
+          ;; TODO: we should not fail here...
+          :else (ccl/fail a)))))
+  ([x y z xyz]
+     (ccl/fresh [front]
+       (ccl/conde
+        ;; This one works if x and y are ground
+        [(stro x y front)
+         (stro front z xyz)]
+        ;; This one works if xyz is ground
+        [(stro front z xyz)
+         (stro x y front)]))))
