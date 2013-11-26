@@ -345,7 +345,7 @@
        (not (keyword? grole))
        (u/errorf "tmp-adjo: role must be a ground keyword but was %s." grole)
 
-       (and (tmp/wrapper-element? gv) (tmp/tmp-or-wrapper-element? grv))
+       (and (tmp/tmp-or-wrapper-element? gv) (tmp/tmp-or-wrapper-element? grv))
        (if (tmp/add-ref gv grole rv)
          (ccl/succeed a)
          (ccl/fail a))
