@@ -397,22 +397,24 @@
                                (identical? (.wrapped-element ^WrapperElement el)
                                            container))))
                     (tmp-element? target)
-                    true)))))
+                    true
+                    :else (u/error "Shouldn't happen!"))))))
 
 (defn single-valued-refs-are-single? [el type subst]
   (ref-checker el type subst (complement p/mm-multi-valued-property?)
                (fn [ref target]
-                 (let [refed (cclp/walk subst target)]
+                 (let [target (cclp/walk subst target)]
                    (cond
                     (wrapper-element? el)
                     (let [cur (q/adj (.wrapped-element ^WrapperElement el) ref)]
                       (or (nil? cur)
-                          (and (wrapper-element? refed)
-                               (identical? (.wrapped-element ^WrapperElement refed)
+                          (and (wrapper-element? target)
+                               (identical? (.wrapped-element ^WrapperElement target)
                                            cur))))
                     (tmp-element? el)
                     (= 1 (count (set (map #(cclp/walk subst %)
-                                          (get (get-refs el) ref))))))))))
+                                          (get (get-refs el) ref)))))
+                    :else (u/error "Shouldn't happen!"))))))
 
 ;;# Finalization
 
