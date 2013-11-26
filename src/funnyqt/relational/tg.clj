@@ -51,7 +51,7 @@
 
        :else (let [[kind aec] (kind-aec-tup-from-spec g gt)
                    seqfn (cond
-                          (= kind :element) tg/vseq
+                          (= kind :element)        tg/vseq
                           (= kind :relationship)   tg/eseq
                           :else (fn [g gt]
                                   (concat (tg/vseq g gt) (tg/eseq g gt))))]
@@ -59,7 +59,7 @@
                 (->> (map #(ccl/unify a e %)
                           (concat
                            ;; Existing vertices/edges wrapped
-                           (map (partial tmp/make-wrapper g)
+                           (map (partial tmp/make-wrapper g e)
                                 (seqfn g gt))
                            ;; One new vertex/edge tmp element
                            [(tmp/make-tmp-element g kind gt)]))
@@ -127,7 +127,7 @@
               (->> (map #(ccl/unify a v %)
                         (concat
                          ;; Existing vertices wrapped
-                         (map (partial tmp/make-wrapper g)
+                         (map (partial tmp/make-wrapper g v)
                               (tg/vseq g))
                          ;; One new vertex tmp element
                          [(tmp/make-tmp-element g :element)]))
@@ -154,7 +154,7 @@
     (let [ge     (cclp/walk a e)
           galpha (cclp/walk a alpha)
           gomega (cclp/walk a omega)]
-      ;;(println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
+      #_(println (format "(tmp-edgeo g %s %s %s)" ge galpha gomega))
       (cond
        (not (or (ru/fresh? ge) (tmp/tmp-or-wrapper-element? ge)))
        (u/errorf "tmp-edgeo: e must be fresh or a ground Wrapper/TmpElement but was %s."
@@ -169,28 +169,38 @@
                  gomega)
 
        (tmp/wrapper-element? ge)
-       (ccl/unify a [alpha omega]
-                  (let [edge (.wrapped-element ^WrapperElement ge)]
-                    [(tmp/make-wrapper g (tg/alpha edge))
-                     (tmp/make-wrapper g (tg/omega edge))]))
+       ;; FIXME: This isn't really correct.  Better would be:
+       #_(ccl/unify a [alpha omega]
+                    (let [edge (.wrapped-element ^WrapperElement ge)]
+                      [(tmp/make-wrapper g (tg/alpha edge))
+                       (tmp/make-wrapper g (tg/omega edge))]))
+       ;; ... but that has the problem that alpha/omega might already be
+       ;; wrappers of the correct a/o, but not identical.  We should implement
+       ;; a way so that two WrapperElements can be equal without being
+       ;; identical.
+       (let [edge (.wrapped-element ^WrapperElement ge)
+             wa (tmp/make-wrapper g alpha (tg/alpha edge))
+             wo (tmp/make-wrapper g omega (tg/omega edge))]
+         (when (ru/fresh? alpha) (ccl/unify a alpha wa))
+         (when (ru/fresh? omega) (ccl/unify a omega wo)))
 
        (and (ru/fresh? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
        (ccl/to-stream
         (->> (map (fn [ed]
                     (ccl/unify a e ed))
                   (concat
-                   (map (partial tmp/make-wrapper g)
+                   (map (partial tmp/make-wrapper g e)
                         (filter
                          #(= (.wrapped-element ^WrapperElement gomega) (tg/omega %))
                          (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out)))
                    [(doto (tmp/make-tmp-element g :relationship)
-                      (tmp/set-alpha galpha)
-                      (tmp/set-omega gomega))]))
+                      (tmp/set-alpha alpha)
+                      (tmp/set-omega omega))]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-alpha ge galpha)
-                (tmp/set-omega ge gomega))
+       (if (and (tmp/set-alpha ge alpha)
+                (tmp/set-omega ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -200,18 +210,18 @@
                     (ccl/unify a [e omega] ed-om))
                   (concat
                    (map (fn [ed]
-                          [(tmp/make-wrapper g ed)
-                           (tmp/make-wrapper g (tg/omega ed))])
+                          [(tmp/make-wrapper g e ed)
+                           (tmp/make-wrapper g omega (tg/omega ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out))
-                   (let [ed (tmp/make-tmp-element g :relationship)]
-                     (tmp/set-alpha ed galpha)
-                     (tmp/set-omega ed gomega)
-                     [[ed gomega]])))
+                   [(let [ed (tmp/make-tmp-element g :relationship)]
+                      (tmp/set-alpha ed alpha)
+                      (tmp/set-omega ed omega)
+                      [ed gomega])]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha))
-       (if (and (tmp/set-alpha ge galpha)
-                (tmp/set-omega ge gomega))
+       (if (and (tmp/set-alpha ge alpha)
+                (tmp/set-omega ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -221,18 +231,18 @@
                     (ccl/unify a [e alpha] ed-al))
                   (concat
                    (map (fn [ed]
-                          [(tmp/make-wrapper g ed)
-                           (tmp/make-wrapper g (tg/alpha ed))])
+                          [(tmp/make-wrapper g e ed)
+                           (tmp/make-wrapper g alpha (tg/alpha ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement gomega) nil :in))
-                   (let [ed (tmp/make-tmp-element g :relationship)]
-                     (tmp/set-alpha ed galpha)
-                     (tmp/set-omega ed gomega)
-                     [[ed galpha]])))
+                   [(let [ed (tmp/make-tmp-element g :relationship)]
+                      (tmp/set-alpha ed alpha)
+                      (tmp/set-omega ed omega)
+                      [ed galpha])]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-alpha ge galpha)
-                (tmp/set-omega ge gomega))
+       (if (and (tmp/set-alpha ge alpha)
+                (tmp/set-omega ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -293,7 +303,7 @@
        (not (keyword? gat))
        (u/errorf "tmp-valueo: at must be a ground keyword but was %s." gat)
 
-       :else (if (tmp/add-attr gae gat gval)
+       :else (if (tmp/add-attr gae gat val)
                (ccl/succeed a)
                (ccl/fail a))))))
 
@@ -354,7 +364,7 @@
        (ccl/to-stream
         (->> (map #(ccl/unify a rv (if (fn? %) (%) %))
                   (concat
-                   (map #(tmp/make-wrapper g %)
+                   (map #(tmp/make-wrapper g rv %)
                         (q/adjs (.wrapped-element ^WrapperElement gv) grole))
                    ;; This must not be executed if there's an existing adjacent
                    ;; vertex, so we wrap it in a function.

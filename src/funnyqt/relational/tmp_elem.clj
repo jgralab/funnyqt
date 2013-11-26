@@ -17,12 +17,13 @@
 
 (defprotocol IAttr
   (add-attr [this attr val])
+  (check-attr-validity [this subst])
   (finalize-attrs [this subst]))
 
 (defprotocol IRef
   (get-refs [this])
   (add-ref [this ref target])
-  (check-validity [this subst])
+  (check-ref-validity [this subst])
   (finalize-refs [this subst]))
 
 (defprotocol IKind
@@ -101,18 +102,18 @@
       (if (vector? t)
         (q/exists? super-or-eq-to-cur? (map (partial p/mm-class model) t))
         (super-or-eq-to-cur? (p/mm-class model t)))))
-  p/IUnset
-  (p/unset? [this attr]
-    (p/unset? wrapped-element attr))
   IAttr
   (add-attr [this attr val]
     (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
-    (cond
-     (p/unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
-     (= (p/aval wrapped-element attr) val) true
-     :else false))
+    (set! attrs (assoc attrs attr val))
+    true)
+  (check-attr-validity [this subst]
+    (q/forall? (fn [[a v]]
+                 (or (p/unset? wrapped-element a)
+                     (= (p/aval wrapped-element a) (cclp/walk subst v))))
+               attrs))
   (finalize-attrs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! attrs (groundify-attrs attrs subst))
@@ -124,18 +125,11 @@
     ;; target is either fresh or a wrapper or tmp element
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
-    (let [cur (q/adjs wrapped-element ref)] ;; Throws if ref is no valid role name
-      (cond
-       (and (wrapper-element? target)
-            (q/member? (.wrapped-element ^WrapperElement target) cur))
-       true
-
-       :else (do
-               (set! refs (update-in refs [ref]
-                                     #(conj (set %1) %2)
-                                     target))
-               true))))
-  (check-validity [this subst]
+    (set! refs (update-in refs [ref]
+                          #(set (conj %1 %2))
+                          target))
+    true)
+  (check-ref-validity [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (let [cls (p/mm-class wrapped-element)]
       (and (single-containers? this cls subst)
@@ -150,7 +144,7 @@
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set alpha of non-relationship %s." wrapped-element))
     (cond
-     (wrapper-element? a) (= (get-src wrapped-element) (.wrapped-element ^WrapperElement a))
+     ;;(wrapper-element? a) (= (get-src wrapped-element) (.wrapped-element ^WrapperElement a))
      (tmp-element? a)     false
      :else                true))
   (set-omega [this o]
@@ -159,7 +153,7 @@
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set omega of non-relationship %s." wrapped-element))
     (cond
-     (wrapper-element? o) (= (get-trg wrapped-element) (.wrapped-element ^WrapperElement o))
+     ;;(wrapper-element? o) (= (get-trg wrapped-element) (.wrapped-element ^WrapperElement o))
      (tmp-element? o)     false
      :else                true))
   (finalize-alpha-and-omega [this subst]
@@ -175,10 +169,11 @@
             (p/set-aval! wrapped-element at val))
           (doseq [[role rs] refs
                   :let [multi-valued (p/mm-multi-valued-property?
-                                      (p/mm-class wrapped-element) role)]]
+                                      (p/mm-class wrapped-element) role)
+                        cur-refed (set (q/adjs wrapped-element role))]]
             (doseq [r rs]
               (let [mr (manifest r)]
-                (when-not (q/member? mr (q/adjs wrapped-element role))
+                (when-not (q/member? mr cur-refed)
                   (if multi-valued
                     (p/add-adj! wrapped-element role (manifest r))
                     (p/set-adj! wrapped-element role (manifest r)))))))
@@ -194,13 +189,12 @@
   WrapperElement per model object and relation."}
   *wrapper-cache* nil)
 
-(defn make-wrapper [model element]
-  (let [cur (get @*wrapper-cache* element ::not-found)]
-    (if (identical? cur ::not-found)
-      (let [w (->WrapperElement model element {} {} false)]
-        (swap! *wrapper-cache* assoc element w)
-        w)
-      cur)))
+(defn make-wrapper [model lvar element]
+  (let [cur (get (get @*wrapper-cache* lvar) element)]
+    (or cur
+        (let [w (->WrapperElement model element {} {} false)]
+          (swap! *wrapper-cache* update-in [lvar element] (fn [_] w))
+          w))))
 
 ;;## TmpElement
 
@@ -250,18 +244,17 @@
          ;; specific.
          (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
          :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
-  p/IUnset
-  (p/unset? [this attr]
-    (nil? (get attrs attr)))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond
-     (p/unset? this attr) (do (set! attrs (assoc attrs attr val)) true)
+     (nil? (get attrs attr)) (do (set! attrs (assoc attrs attr val)) true)
      (= (get attrs attr) val) true
      :else (u/errorf "Cannot reset attribute %s from %s to %s."
                      attr (get attrs attr) val)))
+  (check-attr-validity [this subst]
+    true)
   (finalize-attrs [this subst]
     (set! attrs (groundify-attrs attrs subst))
     true)
@@ -270,15 +263,12 @@
   (add-ref [this ref target]
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
-    (let [cur (get refs ref)]
-      (cond
-       (q/member? target cur) true
-       :else (do
-               (set! refs (update-in refs [ref]
-                                     #(conj (set %1) %2)
-                                     target))
-               true))))
-  (check-validity [this subst]
+    (set! refs  (update-in refs [ref]
+                           #(set (conj %1 %2))
+                           target))
+    true)
+  (check-ref-validity [this subst]
+    (when manifested-element (u/errorf "Already manifested: %s" this))
     (and (single-containers? this type subst)
          (single-valued-refs-are-single? this type subst)))
   (finalize-refs [this subst]
@@ -429,7 +419,9 @@
 (defn finalizeo [& els]
   (fn [a]
     (let [tw-els (vec (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)))]
-      (if (q/forall? #(check-validity % a) tw-els)
+      (if (q/forall? #(and (check-attr-validity % a)
+                           (check-ref-validity % a))
+                     tw-els)
         (do
           (doseq [el tw-els]
             (finalize-attrs el a)
@@ -437,5 +429,5 @@
             (finalize-alpha-and-omega el a))
           (ccl/succeed a))
         (do
-          #_(u/errorf "invalid: %s" (vec (map (partial cclp/walk a) els)))
+          #_(println (format "invalid: %s" (vec (map (partial cclp/walk a) els))))
           (ccl/fail a))))))

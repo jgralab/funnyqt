@@ -62,7 +62,7 @@
 (defn ^:private make-wrapper-bindings [syms]
   (vec (mapcat (fn [sym]
                  [sym `(if (p/model-object? ~sym)
-                         (tmp/make-wrapper *target-model* ~sym)
+                         (tmp/make-wrapper *target-model* ~sym ~sym)
                          ~sym)])
                syms)))
 
@@ -106,7 +106,7 @@
                     ~@(get map src)
                     ~@(:when map)
                     (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
-              (binding [tmp/*wrapper-cache* (or tmp/*wrapper-cache* (atom {}))]
+              (binding [tmp/*wrapper-cache* (atom {})]
                 ~@(insert-debug (:debug-src map))
                 (let [~@(make-wrapper-bindings trg-syms)
                       ~(make-destr-map trg-syms tm)

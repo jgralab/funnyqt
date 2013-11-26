@@ -29,7 +29,7 @@
           :else (ccl/to-stream
                  (->> (map #(ccl/unify a eo %)
                            (concat
-                            (map (partial tmp/make-wrapper m)
+                            (map (partial tmp/make-wrapper m eo)
                                  (emf/eallobjects m))
                             [(tmp/make-tmp-element m :element)]))
                       (remove not)))))))
@@ -54,7 +54,7 @@
           :else (ccl/to-stream
                  (->> (map #(ccl/unify a eo %)
                            (concat
-                            (map (partial tmp/make-wrapper m)
+                            (map (partial tmp/make-wrapper m eo)
                                  (emf/eallobjects m gt))
                             [(tmp/make-tmp-element m :element gt)]))
                       (remove not))))))))
@@ -119,7 +119,7 @@
        (not (keyword? gat))
        (u/errorf "tmp-valueo: az must be a ground keyword but was %s." gat)
 
-       :else (if (tmp/add-attr geo gat gval)
+       :else (if (tmp/add-attr geo gat val)
                (ccl/succeed a)
                (ccl/fail a))))))
 
@@ -185,7 +185,7 @@
        (ccl/to-stream
         (->> (map #(ccl/unify a reo (if (fn? %) (%) %))
                   (concat
-                   (map #(tmp/make-wrapper m %)
+                   (map #(tmp/make-wrapper m reo %)
                         (q/adjs (.wrapped-element ^WrapperElement geo) gref))
                    [#(let [refed (tmp/make-tmp-element m :element)]
                        (tmp/add-ref geo gref reo)
