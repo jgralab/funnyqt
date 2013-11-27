@@ -168,7 +168,7 @@
   [all-rels subst-map [incl-rel & rm]]
   (let [rm (apply hash-map rm)
         update-fn (fn [subst-map spec]
-                    (mapv #(replace subst-map %) spec))
+                    (mapv #(cw/postwalk-replace subst-map %) spec))
         spec (get all-rels incl-rel)
         spec (update-in spec [:left] (partial update-fn subst-map))
         spec (update-in spec [:right] (partial update-fn subst-map))
