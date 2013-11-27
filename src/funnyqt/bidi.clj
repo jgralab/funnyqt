@@ -40,16 +40,8 @@
 
 (def ^:dynamic *target-model*)
 
-(defn ^:private make-relation-binding-vector [syms]
-  (vec (mapcat (fn [sym]
-                 [sym `(or ~sym (ccl/lvar ~(name sym)))])
-               syms)))
-
-(defn ^:private make-destr-map
-  ([syms]
-     {:keys (vec (set syms))})
-  ([syms as]
-     {:keys (vec (set syms)) :as as}))
+(defn ^:private make-destr-map [syms as]
+  {:keys (vec (set syms)) :as as})
 
 (defn replace-tmps-and-wrappers-with-manifestations [trg-match]
   (apply hash-map
@@ -58,13 +50,6 @@
                         (tmp/manifestation v)
                         v)])
                  trg-match)))
-
-(defn ^:private make-wrapper-bindings [syms]
-  (vec (mapcat (fn [sym]
-                 [sym `(if (p/model-object? ~sym)
-                         (tmp/make-wrapper *target-model* ~sym ~sym)
-                         ~sym)])
-               syms)))
 
 (defn ^:private valid-spec-vector? [spec goals]
   (or (nil? spec)
@@ -81,7 +66,37 @@
   [code]
   (when code [code]))
 
-(defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms]
+(defn src-initializeo [args-map & lvars]
+  (fn [a]
+    (ccl/unify a (vec lvars)
+               (mapv (fn [lv]
+                       (let [val (get args-map (keyword (:oname lv)) ::unknown)]
+                         (if (= val ::unknown) lv val)))
+                     lvars))))
+
+(defn maybe-wrap [lv val]
+  (if (p/model-object? val)
+    (tmp/make-wrapper *target-model* lv val)
+    val))
+
+(defn trg-initializeo [src-match args-map & lvars]
+  (fn [a]
+    (ccl/unify a (vec lvars)
+               (mapv (fn [lv]
+                       (let [lv-kw    (keyword (:oname lv))
+                             src-val  (get src-match lv-kw ::unknown)
+                             args-val (get args-map  lv-kw ::unknown)]
+                         (cond
+                          (not= src-val  ::unknown)
+                          (maybe-wrap lv src-val)
+
+                          (not= args-val ::unknown)
+                          (maybe-wrap lv args-val)
+
+                          :else lv)))
+                     lvars))))
+
+(defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
   (let [src (if (= trg :right) :left :right)
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
@@ -98,27 +113,30 @@
            (doall
             (for [~(make-destr-map (concat wsyms src-syms) sm)
                   (ccl/run* [q#]
-                    ;; TODO: Sometimes it's faster if :when goals are after
-                    ;; source goals, and sometimes it's the other way round.
-                    ;; Maybe the user should be able to annotate the :when
-                    ;; clause with ^:last in order to force it to come after
-                    ;; the source goals.  Well, but for some relations,
-                    ;; changing the order is not semantically equivalent.
-                    ;; That's the case if :when binds ?foo, and the target
-                    ;; clause starts with (->role model ?foo ?bar).
-                    ~@(:when map)
-                    ~@(get map src)
-                    (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))]
+                    (ccl/fresh [~@(set (concat wsyms src-syms))]
+                      (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                      ;; TODO: Sometimes it's faster if :when goals are after
+                      ;; source goals, and sometimes it's the other way round.
+                      ;; Maybe the user should be able to annotate the :when
+                      ;; clause with ^:last in order to force it to come after
+                      ;; the source goals.  Well, but for some relations,
+                      ;; changing the order is not semantically equivalent.
+                      ;; That's the case if :when binds ?foo, and the target
+                      ;; clause starts with (->role model ?foo ?bar).
+                      ~@(:when map)
+                      ~@(get map src)
+                      (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
               (binding [tmp/*wrapper-cache* (atom {})]
                 ~@(insert-debug (:debug-src map))
-                (let [~@(make-wrapper-bindings trg-syms)
-                      ~(make-destr-map trg-syms tm)
+                (let [~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
                         (select-match
                          (ccl/run* [q#]
-                           ~@(get map trg)
-                           (tmp/finalizeo ~@trg-syms)
-                           (ccl/== q# ~(make-kw-result-map trg-syms)))
+                           (ccl/fresh [~@trg-syms]
+                             (trg-initializeo ~sm ~args-map ~@trg-syms)
+                             ~@(get map trg)
+                             (tmp/finalizeo ~@trg-syms)
+                             (ccl/== q# ~(make-kw-result-map trg-syms))))
                          ~relsym ~sm))]
                   ~@(insert-debug (:debug-trg map))
                   (enforce-match ~tm)
@@ -190,18 +208,18 @@
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
-        syms  (distinct (concat lsyms rsyms wsyms))]
+        syms  (distinct (concat lsyms rsyms wsyms))
+        args-map (gensym "args-map")]
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :includes
                                        :debug-entry :debug-src :debug-trg
                                        :debug-enforced :only))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     (let [relbody `(~@(insert-debug (:debug-entry m))
-                    (let ~(make-relation-binding-vector syms)
-                      (if (= *target-direction* :right)
-                        ~(do-rel-body relsym :right m wsyms lsyms rsyms)
-                        ~(do-rel-body relsym :left  m wsyms rsyms lsyms))))]
-      `(~relsym [& ~(make-destr-map syms)]
+                    (if (= *target-direction* :right)
+                      ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
+                      ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)))]
+      `(~relsym [& ~(make-destr-map syms args-map)]
                 ~@(if (nil? (:only m))
                     relbody
                     `((when (~(:only m) *target-direction* *features*)

@@ -23,14 +23,15 @@
      (echo nil lvars))
   ([prompt lvars]
      (fn [a]
+       (println "################# " (or prompt "ECHO") " #################")
+       (clojure.pprint/pprint a)
        (println (apply str
-		       prompt
-		       (interpose ", " (map (fn [^clojure.core.logic.LVar v]
-					      (if (ccl/lvar? v)
-						(let [w (cclp/walk a v)]
-						  (str (.name v) " = " w))
-						(str "### = " v)))
-					    lvars))))
+                       (map (fn [^clojure.core.logic.LVar v]
+                              (if (ccl/lvar? v)
+                                (let [w (cclp/walk a v)]
+                                  (str (:oname v) " = " w "\n"))
+                                (str "### = " v "\n")))
+                            lvars)))
        (ccl/succeed a))))
 
 (defmacro condx

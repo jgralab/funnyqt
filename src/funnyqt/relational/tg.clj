@@ -169,20 +169,10 @@
                  gomega)
 
        (tmp/wrapper-element? ge)
-       ;; FIXME: This isn't really correct.  Better would be:
-       #_(ccl/unify a [alpha omega]
+       (ccl/unify a [alpha omega]
                     (let [edge (.wrapped-element ^WrapperElement ge)]
-                      [(tmp/make-wrapper g (tg/alpha edge))
-                       (tmp/make-wrapper g (tg/omega edge))]))
-       ;; ... but that has the problem that alpha/omega might already be
-       ;; wrappers of the correct a/o, but not identical.  We should implement
-       ;; a way so that two WrapperElements can be equal without being
-       ;; identical.
-       (let [edge (.wrapped-element ^WrapperElement ge)
-             wa (tmp/make-wrapper g alpha (tg/alpha edge))
-             wo (tmp/make-wrapper g omega (tg/omega edge))]
-         (when (ru/fresh? alpha) (ccl/unify a alpha wa))
-         (when (ru/fresh? omega) (ccl/unify a omega wo)))
+                      [(tmp/make-wrapper g alpha (tg/alpha edge))
+                       (tmp/make-wrapper g omega (tg/omega edge))]))
 
        (and (ru/fresh? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
        (ccl/to-stream
@@ -246,7 +236,7 @@
          (ccl/succeed a)
          (ccl/fail a))
 
-       :else (u/errorf "(tmp-edgeo %s %s %s %s)" g ge galpha gomega)))))
+       :else (u/errorf "Can't handle (tmp-edgeo %s %s %s %s)" g ge galpha gomega)))))
 
 (defn edgeo
   "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.

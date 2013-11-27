@@ -372,4 +372,3 @@
     (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
     (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))
-

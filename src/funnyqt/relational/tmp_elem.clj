@@ -190,10 +190,10 @@
   *wrapper-cache* nil)
 
 (defn make-wrapper [model lvar element]
-  (let [cur (get (get @*wrapper-cache* lvar) element)]
+  (let [cur (get @*wrapper-cache* [lvar element])]
     (or cur
         (let [w (->WrapperElement model element {} {} false)]
-          (swap! *wrapper-cache* update-in [lvar element] (fn [_] w))
+          (swap! *wrapper-cache* assoc [lvar element] w)
           w))))
 
 ;;## TmpElement
@@ -355,7 +355,8 @@
                                       (cclp/walk subst v)
                                       v)]
                               (when (ccl/lvar? v)
-                                (u/errorf "Attribute %s can't be grounded." a))
+                                (u/errorf "Attribute %s can't be grounded with substitution %s."
+                                          a subst))
                               [a v]))
                           attrs)))
 
@@ -367,7 +368,8 @@
                                               (cclp/walk subst v)
                                               v)]
                                       (when (ccl/lvar? v)
-                                        (u/errorf "Reference %s can't be grounded." r))
+                                        (u/errorf "Reference %s can't be grounded with substitution."
+                                                  r subst))
                                       v))
                                   vs)]
                      [r vs]))
