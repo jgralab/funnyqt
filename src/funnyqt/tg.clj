@@ -773,8 +773,17 @@ functions `record` and `enum`."
 (defn set-value!
   "Sets `ae`s (an attributed element) `attr` value to `val` and returns `ae`."
   [^AttributedElement ae attr val]
-  (doto ae
-    (.setAttribute (name attr) (clj2jgval val))))
+  (let [an (name attr)]
+    (if (and (instance? Long val)
+             (-> ae
+                 .getAttributedElementClass
+                 (.getAttribute an)
+                 .getDomain
+                 .getQualifiedName
+                 (= "Integer")))
+      (.setAttribute ae an (int val))
+      (.setAttribute ae an (clj2jgval val))))
+  ae)
 
 (defn record
   "Creates a record of type `t` in the schema of element `e` with component

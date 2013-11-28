@@ -21,10 +21,6 @@
        :doc "Used only internally."}
   *target-direction*)
 
-(def ^{:dynamic true
-       :doc "Used only internally."}
-  *features*)
-
 (defn select-match [matches relation src-match]
   (when-not (seq matches)
     (u/errorf "Couldn't create a %s target match for source match: %s"
@@ -208,6 +204,14 @@
             [m]))
     m))
 
+(defn check-args
+  "Only used internally.
+  Check if the provided args in arg-map are valid (that is, in good-args)."
+  [relsym arg-map good-args]
+  (when-let [unbound-key (some #(when-not (good-args %) %) (keys arg-map))]
+    (u/errorf "Unbound keyword arg %s when calling relation %s."
+              unbound-key relsym)))
+
 (defn ^:private convert-relation [all-rels [relsym m]]
   (let [m     (embed-included-rels all-rels m)
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
@@ -222,13 +226,15 @@
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     (let [relbody `(~@(insert-debug (:debug-entry m))
                     (if (= *target-direction* :right)
-                      ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
-                      ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)))]
+                      ~(if (not= (:only m) :left)
+                         (do-rel-body relsym :right m wsyms lsyms rsyms args-map)
+                         '(comment "Skipped due to :only clause."))
+                      ~(if (not= (:only m) :right)
+                         (do-rel-body relsym :left  m wsyms rsyms lsyms args-map)
+                         '(comment "Skipped due to :only clause."))))]
       `(~relsym [& ~(make-destr-map syms args-map)]
-                ~@(if (nil? (:only m))
-                    relbody
-                    `((when (~(:only m) *target-direction* *features*)
-                        ~@relbody)))))))
+                (check-args '~relsym ~args-map ~(set (map keyword syms)))
+                ~@relbody))))
 
 (def ^{:dynamic true
        :doc "A map with the following structure:
@@ -276,14 +282,13 @@
 
 (defmacro deftransformation
   "Creates a new bidirectional transformation with the given `name` on the
-  models `left` and `right`.  The signature of the defined transformation (a
-  plain function) is
+  models `left` and `right` with possibly additional `args`.  The signature of
+  the defined transformation (a plain function) is
 
-    (transformation-name left-model right-model direction & features)
+    (transformation-name left-model right-model direction & args)
 
   `direction` is the direction in which to execute the transformation,
-  either :left or :right.  `features` is a sequence of keywords.  For more
-  information, see the docs to the :only clause far below.
+  either :left or :right.
 
   Defining Relations
   ==================
@@ -383,15 +388,15 @@
   ==========================
 
   Since not every bidirectional transformation problem is strictly bijective,
-  relations may also have an :only clause.  The value of the :only clause has
-  to be a function accepting the current transformation direction (:left
-  or :right), and the current set of features provided at the transformation
-  call.  For example, a relation
+  relations may also have an :only clause.  The value of the :only clause
+  restricts the relation to be applied only when transforming in a given
+  direction.  So a the following relation
 
-    (a2x :only (fn [dir features] (= dir :left)) ...)
+    (a2x :only :left ...)
 
   is only active when transforming in the direction of the left model, in the
-  other direction it is a no-op.
+  other direction it is a no-op.  This allows to have different relations for
+  the forward and backward transformation, which may sometimes be needed.
 
   Debugging Relations
   ===================
@@ -432,10 +437,10 @@
   because the logical variables act as named parameters and are also
   represented in the transformation trace."
 
-  {:arglists '([name [left right] & relations])}
+  {:arglists '([name [[left right] & args] & relations])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
-        [left right] (first more)
+        [[left right] & other-args] (first more)
         relations (next more)
         relations (mapify-relations relations)
         relations (if-let [extended (:extends (meta name))]
@@ -464,7 +469,7 @@
                          {::left-model-name (list 'quote left)
                           ::right-model-name (list 'quote right)
                           ::relations (list 'quote relations)})
-       [~left ~right dir# & features#]
+       [~left ~right dir# ~@other-args]
        (when-not (#{:left :right} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
@@ -472,7 +477,6 @@
                    (remove #(:abstract (meta %)) relations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
-                   *features* (set features#)
                    *relation-bindings* (atom {})]
            ~@(map (fn [r] `(~r)) top-rels)
            @*relation-bindings*)))))

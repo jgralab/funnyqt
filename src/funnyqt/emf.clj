@@ -627,8 +627,15 @@
         (.eUnset eo sfeat)
         (.addAll ^EList (.eGet eo sfeat) value)
         eo)
-      (doto eo
-        (.eSet sfeat value)))
+      (do
+        (if (and (instance? Long value)
+                 (-> sfeat
+                     .getEType
+                     .getName
+                     (= "EInt")))
+          (.eSet eo sfeat (int value))
+          (.eSet eo sfeat value))
+        eo))
     (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
 (defn eunset!

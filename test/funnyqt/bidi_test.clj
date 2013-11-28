@@ -59,7 +59,7 @@
 
 ;;## Transformation TG <-> TG
 
-(bidi/deftransformation addressbook-tg2addressbook-tg [l r]
+(bidi/deftransformation addressbook-tg2addressbook-tg [[l r]]
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
@@ -161,7 +161,7 @@
 
 ;;## Transformation TG <-> EMF
 
-(bidi/deftransformation addressbook-tg2addressbook-emf [l r]
+(bidi/deftransformation addressbook-tg2addressbook-emf [[l r]]
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
@@ -287,7 +287,7 @@
 
 (bidi/deftransformation class-diagram2database-schema
   "Transforms between class diagrams and database schemas."
-  [cd db]
+  [[cd db]]
   (^:top package2schema
          :left [(cd/Package cd ?pkg)
                 (cd/name cd ?pkg ?name)]
@@ -315,8 +315,7 @@
    :left [(cd/is-primary cd ?attr true)]
    :right [(db/->pkey db ?table ?col)])
   (^:top super-attribute2column
-         :only (fn [dir feature-set]
-                 (= dir :right))
+         :only :right
          :when [(cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo class2table :?class ?subclass :?table ?table)]
@@ -345,7 +344,7 @@
   "This transformation extends class-diagram2database-schema.  It only
   overrides class2table with the very same definition plus a
   always-succeeding :when clause, and uses different model parameter names."
-  [l r]
+  [[l r]]
   (class2table
    :when [ccl/succeed]
    :left [(cd/->classifiers l ?pkg ?class)
