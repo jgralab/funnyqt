@@ -2,6 +2,7 @@
   (:require [clojure.core.cache :as cache]
             [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp]
+            [flatland.ordered.map :as om]
             [funnyqt.query :as q]
             [funnyqt.relational.tmp-elem :as tmp]
             [funnyqt.relational.util :as ru]
@@ -10,6 +11,10 @@
             [funnyqt.protocols :as p]
             [clojure.tools.macro :as tm]
             [clojure.walk :as cw]))
+
+;; TODO: Implement a way to let the transformation writer specify attributes
+;; and single-valued refs that don't need to match and thus may be updated by
+;; the transformation.
 
 ;; Either :left or :right
 (def ^{:dynamic true
@@ -264,10 +269,10 @@
               (remove not)))))))
 
 (defn ^:private mapify-relations [rels]
-  (apply hash-map
-         (mapcat (fn [rel]
-                   [(first rel) (apply hash-map (rest rel))])
-                 rels)))
+  (into (om/ordered-map)
+        (map (fn [rel]
+               [(first rel) (apply hash-map (rest rel))])
+             rels)))
 
 (defmacro deftransformation
   "Creates a new bidirectional transformation with the given `name` on the
