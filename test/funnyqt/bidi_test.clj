@@ -76,7 +76,7 @@
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
            (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
   ;; The following 2 relations are of course non-sense.  They only serve to
-  ;; check if the (transitive) :includes stuff works.
+  ;; check if the (transitive) :extends stuff works.
   (^:abstract have-same-ids3
               :left [(ab-tg/id l ?ex1 ?id)]
               :right [(ab-tg/id r ?ex2 ?id)])
@@ -84,12 +84,12 @@
               :left [(ab-tg/id l ?e1 ?id)]
               :right [(ab-tg/id r ?e2 ?id)])
   (^:abstract have-same-ids
-              :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
-                         (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+              :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+                        (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
               :left [(ab-tg/id l ?entry1 ?id)]
               :right [(ab-tg/id r ?entry2 ?id)])
   (contact2contact
-   :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
+   :extends [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab-tg/->contacts l ?cat1 ?contact1)
           (ab-tg/Contact l ?contact1)
           (ab-tg/firstName l ?contact1 ?fn)
@@ -101,7 +101,7 @@
            (ab-tg/lastName r ?contact2 ?ln)
            (ab-tg/email r ?contact2 ?mail)])
   (org2org
-   :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
+   :extends [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
    :left [(ab-tg/ContainsOrganization l ?co1 ?cat1 ?org1)
           (ab-tg/Organization l ?org1)
           (ab-tg/homepage l ?org1 ?hp)
@@ -179,7 +179,7 @@
    :where [(contact2contact :?cat1 ?cat1 :?cat2 ?cat2)
            (org2org :?cat1 ?cat1 :?cat2 ?cat2)])
   ;; The following 2 relations are of course non-sense.  They only serve to
-  ;; check if the (transitive) :includes stuff works.
+  ;; check if the (transitive) :extends stuff works.
   (^:abstract have-same-ids3
               :left [(ab-tg/id l ?ex1 ?id)]
               :right [(ab-emf/id r ?ex2 ?id)])
@@ -187,12 +187,12 @@
               :left [(ab-tg/id l ?e1 ?id)]
               :right [(ab-emf/id r ?e2 ?id)])
   (^:abstract have-same-ids
-              :includes [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
-                         (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+              :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+                        (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
               :left [(ab-tg/id l ?entry1 ?id)]
               :right [(ab-emf/id r ?entry2 ?id)])
   (contact2contact
-   :includes [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
+   :extends [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab-tg/->contacts l ?cat1 ?contact1)
           (ab-tg/Contact l ?contact1)
           (ab-tg/firstName l ?contact1 ?fn)
@@ -204,7 +204,7 @@
            (ab-emf/lastName r ?contact2 ?ln)
            (ab-emf/email r ?contact2 ?mail)])
   (org2org
-   :includes [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
+   :extends [(have-same-ids :?entry1 ?org1 :?entry2 ?org2)]
    :left [(ab-tg/->organizations l ?cat1 ?org1)
           (ab-tg/Organization l ?org1)
           (ab-tg/homepage l ?org1 ?hp)

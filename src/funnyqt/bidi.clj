@@ -106,7 +106,7 @@
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of goals but was %s."
                   relsym kw (kw map))))
-    (doseq [kw [:where :includes]]
+    (doseq [kw [:where :extends]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
                   relsym kw (kw map))))
@@ -179,17 +179,17 @@
         spec (if (:when spec)
                (update-in spec [:when] (partial update-fn subst-map))
                spec)]
-    (if (:includes spec)
+    (if (:extends spec)
       (apply merge-with concat
              (concat
               (map (fn [irel]
                      (adapt-included-spec all-rels (adapt-subst-map subst-map irel) irel))
-                   (:includes spec))
+                   (:extends spec))
               [spec]))
       spec)))
 
 (defn ^:private embed-included-rels [all-rels m]
-  (if-let [irels (:includes m)]
+  (if-let [irels (:extends m)]
     (apply merge-with concat
            (concat
             (map (fn [irel]
@@ -220,7 +220,7 @@
         syms  (distinct (concat lsyms rsyms wsyms))
         args-map (gensym "args-map")]
     (when-let [unknown-keys (seq (disj (set (keys m))
-                                       :left :right :when :where :includes
+                                       :left :right :when :where :extends
                                        :debug-entry :debug-src :debug-trg
                                        :debug-enforced :only))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
@@ -359,29 +359,29 @@
   elements only in terms of `:when [(relateo ...)...]` and then invokes other
   relations using its :where clause.
 
-  Including other Relations
-  =========================
+  Relation Inheritance
+  ====================
 
-  A relation spec may also contain an :includes clause:
+  A relation spec may also contain an :extends clause:
 
     (foo2bar
-      :includes [(a2b :?a ?foo :?b ?bar)]
+      :extends [(a2b :?a ?foo :?b ?bar)]
       :left [(rel-with l ?foo) ...]
       :right [(rel-with r ?bar) ...])
     (^:abstract a2b
       :left [(rel-with l ?a) ...]
       :right [(rel-with r ?b) ...])
 
-  You can think of it as a kind of relation inheritance: the foo2bar relation
-  includes all :left/:right/:when/:where clauses of the a2b rule, where ?a is
-  substituted by ?foo, and ?b is substituted by ?bar.  Usually, this feature is
-  useful for refactoring relations on common attributes.
+  The foo2bar relation includes all :left/:right/:when/:where clauses of the
+  a2b rule, where ?a is substituted by ?foo, and ?b is substituted by ?bar.
+  Usually, this feature is useful for refactoring relations on common
+  attributes.
 
-  A relation may include multiple other relations, and inclusion also works
-  transitively.  Inclusions must not contain cycles.
+  A relation may extend multiple other relations, and extension works
+  transitively.  The mustn't be extension cycles.
 
   A relation that's not called explicitly in a :where clause and is only
-  included by others should be declared ^:abstract like a2b above.  Then, no
+  extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
   Conditionalizing Relations

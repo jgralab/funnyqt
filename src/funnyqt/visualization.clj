@@ -299,7 +299,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
-            \,
+            \;
             (for [[k v] opts]
               (str (name k) "=" v)))
            ";\n\n"
