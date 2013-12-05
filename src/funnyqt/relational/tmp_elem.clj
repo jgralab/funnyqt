@@ -144,7 +144,6 @@
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set alpha of non-relationship %s." wrapped-element))
     (cond
-     ;;(wrapper-element? a) (= (get-src wrapped-element) (.wrapped-element ^WrapperElement a))
      (tmp-element? a)     false
      :else                true))
   (set-omega [this o]
@@ -153,7 +152,6 @@
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set omega of non-relationship %s." wrapped-element))
     (cond
-     ;;(wrapper-element? o) (= (get-trg wrapped-element) (.wrapped-element ^WrapperElement o))
      (tmp-element? o)     false
      :else                true))
   (finalize-alpha-and-omega [this subst]

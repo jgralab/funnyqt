@@ -24,7 +24,7 @@
   ([prompt lvars]
      (fn [a]
        (println "################# " (or prompt "ECHO") " #################")
-       (clojure.pprint/pprint a)
+       #_(clojure.pprint/pprint a)
        (println (apply str
                        (map (fn [^clojure.core.logic.LVar v]
                               (if (ccl/lvar? v)
