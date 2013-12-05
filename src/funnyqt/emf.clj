@@ -487,7 +487,9 @@
                   oref (.getEOpposite ref)]
             :when (if oref
                     (src-rm oref)
-                    true)
+                    ;; no oref, but if it was given, there must be one so this
+                    ;; ref is not meant!
+                    (not src-rm))
             trg (reffn src nthere-rm)
             :when (or (nil? trg-ts) (p/has-type? trg trg-ts))]
         (do
@@ -772,7 +774,7 @@
   ([m src-rs trg-rs]
      (ep/epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
+     (ep/epairs-internal m econtents-by-ref src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
