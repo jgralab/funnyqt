@@ -14,7 +14,7 @@
                  [org.clojure/core.logic "0.8.5"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
-                 [emf-xsd-sdk "2.8.3"]
+                 [emf-xsd-sdk "2.9.1"]
                  [inflections "0.9.5"]]
   :profiles {:dev
              {:dependencies
