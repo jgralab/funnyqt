@@ -2,7 +2,7 @@
   <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
 
-# FunnyQT
+# Welcome!
 
 FunnyQT is a model querying and transformation library.  It currently supports
 the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
@@ -12,33 +12,36 @@ Current build status: [![Build Status](https://secure.travis-ci.org/jgralab/funn
 
 # Documentation
 
+Check out the [overview description](#funnyqt-overview), the
+[generated API documentation](#api-documentation), and the
+[papers about FunnyQT](#publications).
+
 ## FunnyQT Overview
+
+TODO
 
 ## API Documentation
 
-The FunnyQT API docs are
+The FunnyQT API docs generated for the current release are
 [here](http://userpages.uni-koblenz.de/~horn/funnyqt-docs/).
 
-# Getting Support
+## Publications
 
-## Contact the Author
+- _Model Querying with FunnyQT_, Tassilo Horn,
+  [ICMT 2013](http://www.model-transformation.org/ICMT2013/),
+  http://dx.doi.org/10.1007/978-3-642-38883-5_7
 
-FunnyQT is developed by Tassilo Horn ([tsdh](http://github.com/tsdh)).  If you
-want, you can get in touch with me via email, IRC (see below), or
-[G+](http://plus.google.com/u/0/+TassiloHorn).
+- _Solving the TTC 2013 Flowgraphs Case with FunnyQT_, Tassilo Horn,
+  [TTC 2013](http://planet-sl.org/ttc2013),
+  http://dx.doi.org/10.4204/EPTCS.135.7
 
-## IRC Channel
+- _Solving the Class Diagram Restructuring Transformation Case with FunnyQT_,
+  Tassilo Horn, [TTC 2013](http://planet-sl.org/ttc2013),
+  http://dx.doi.org/10.4204/EPTCS.135.9
 
-Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
-(channel `#jgralab` on `irc.freenode.net`).  If you don't have or don't want to
-install an IRC client, you can also
-[chat directly in your browser](http://webchat.freenode.net/?channels=jgralab).
-
-## Found a Bug?
-
-Although that should be quite impossible and is surely an error on your side
-`>:)`, if you found a bug or miss an important feature, file a bug report in
-the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
+- _Solving the Petri-Nets to Statecharts Transformation Case with FunnyQT_,
+  Tassilo Horn, [TTC 2013](http://planet-sl.org/ttc2013),
+  http://dx.doi.org/10.4204/EPTCS.135.11
 
 # Getting FunnyQT
 
@@ -138,6 +141,27 @@ Getting started is really simple:
     user=> (vseq g 'localities.City)
     (#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
     ```
+
+# Getting Support
+
+## Contact the Author
+
+FunnyQT is developed by Tassilo Horn ([tsdh](http://github.com/tsdh)).  If you
+want, you can get in touch with me via email, IRC (see below), or
+[G+](http://plus.google.com/u/0/+TassiloHorn).
+
+## IRC Channel
+
+Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
+(channel `#jgralab` on `irc.freenode.net`).  If you don't have or don't want to
+install an IRC client, you can also
+[chat directly in your browser](http://webchat.freenode.net/?channels=jgralab).
+
+## Found a Bug?
+
+Although that should be quite impossible and is surely an error on your side
+`>:)`, if you found a bug or miss an important feature, file a bug report in
+the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
 
 # License
 
