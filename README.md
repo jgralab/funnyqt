@@ -18,7 +18,85 @@ Check out the [overview description](#funnyqt-overview), the
 
 ## FunnyQT Overview
 
-TODO
+The FunnyQT API is structured into the following sub-APIs realized in several
+namespaces.
+
+The foundation is an extensive *core API* providing typical _model management
+services_ such as creating, loading, and storing models, accessing, creating,
+and deleting model elements, and accessing model element properties.  The core
+API is subdivided into two framework-specific namespaces (EMF or JGraLab) and
+one namespace providing functions working with either kind of model
+representation.
+
+  - _funnyqt.emf_: The EMF-specific core API
+  - _funnyqt.tg_: The TGraph-specific core API (JGraLab)
+  - _funnyqt.protocols_: Core functions working with both kinds of models/model
+    elements
+
+The *functional querying API* builds upon the core API and provides features
+such as navigation inside models in terms of role names, quantified
+expressions, and _regular path expressions_.  Like the core API, some
+framework-specific parts are outsourced into their own two querying namespaces.
+
+  - _funnyqt.query_: Generic querying services such as quantified expressions,
+    sorting functions, and generic regular path operators.
+  - _funnyqt.query.emf_: EMF-specific regular path operators
+  - _funnyqt.query.tg_: TGraph-specific regular path operators
+
+FunnyQT's *polymorphic function API* provides constructs for defining functions
+dispatching on metamodel type.
+
+  - _funnyqt.polyfns_: Polymorphic function API
+
+The *pattern-matching API* provides constructs for defining patterns using node
+and edge symbols.  When a pattern is called on some model, it returns a lazy
+sequence of all matches in the model.
+
+  - _funnyqt.pmatch_: Pattern-matching in models
+
+Based on the pattern-matching API, there's a *in-place transformation API* that
+allows to define rules consisting of a pattern and a sequence of actions.  When
+a rule is invoked, it searches for a match in the model and applies its actions
+to it.  Typical control structures such as as-long-as-possible application of a
+rule are provided as higher-order functions.
+
+  - _funnyqt.in-place_: In-place transformations
+
+FunnyQT provides two kinds of *model transformation APIs*.  The *extensional
+model transformation API* builds upon GReTL's concepts of extensional semantics
+whereas the *model2model API* realizes a rule-based approach to model
+transformations.
+
+  - _funnyqt.extensional_: Generic parts of the extensional model
+    transformation API
+  - _funnyqt.extensional.emf_: The EMF-specific parts of the extensional model
+    transformation API
+  - _funnyqt.extensional.tg_: The TGraph-specific parts of the extensional
+    model transformation API
+  - _funnyqt.model2model_: The rule-based model transformation API
+
+The *relational querying API* allows for Prolog-like logical querying of models
+using the [core.logic](http://github.com/clojure/core.logic) library.
+
+  - _funnyqt.relational_: Generic relations
+  - _funnyqt.relational.emf_: EMF-specific relations
+  - _funnyqt.relational.tg_: TGraph-specific relations
+
+Based on the relational querying API, there's a *bidirectional transformation
+API*.  Such a transformation specifies correspondences between a left and a
+right model in terms of relations between elements in those models.  Such a
+transformation can be used to generate a new right model from a given left
+model and vice versa.  Additionally, it can be used to synchronize between two
+existing models in either direction.
+
+Finally, there are some *utility and helper APIs*.
+
+  - _funnyqt.utils_: Generic utility functions
+  - _funnyqt.visualization_: Visualizing models using
+    [GraphViz](http://www.graphviz.org/)
+  - _funnyqt.xmltg_: Converting arbitrary XML documents to DOM-like TGraphs and
+    back again
+
 
 ## API Documentation
 
@@ -147,8 +225,8 @@ Getting started is really simple:
 ## Contact the Author
 
 FunnyQT is developed by Tassilo Horn ([tsdh](http://github.com/tsdh)).  If you
-want, you can get in touch with me via email, IRC (see below), or
-[G+](http://plus.google.com/u/0/+TassiloHorn).
+want, you can get in touch with me via [email](mailto:horn@uni-koblenz.de),
+[IRC](#irc-channel), or [G+](http://plus.google.com/u/0/+TassiloHorn).
 
 ## IRC Channel
 
