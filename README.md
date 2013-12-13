@@ -44,9 +44,9 @@ the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
 
 There are two ways of getting FunnyQT.  When you want to use it for writing
 your own queries and transformations, you should
-[get the latest release](#Getting a Release) available with Leiningen.  If you
+[get the latest release](#getting-a-release) available with Leiningen.  If you
 want to have the bleeding edge version from git, e.g., to validate that some
-bug has been fixed, see how to [get the git version](#Getting the Git Version).
+bug has been fixed, see how to [get the git version](#getting-the-git-version).
 
 ## Getting a Release
 
