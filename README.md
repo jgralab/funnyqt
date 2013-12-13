@@ -8,7 +8,22 @@ FunnyQT is a model querying and transformation library.  It currently supports
 the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 [Eclipse Modeling Framework](http://www.eclipse.org/modeling/emf/).
 
-Current build status: [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
+Current build status:
+[![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
+
+# Table of Contents
+
+1. [Documentation](#documentation)
+  - [FunnyQT Overview](#funnyqt-overview)
+  - [API Documentation](#api-documentation)
+  - [Publications](#publications)
+2. [Getting FunnyQT](#getting-funnyqt)
+  - [Getting a Release](#getting-a-release)
+  - [Getting the Git Version](#getting-the-git-version)
+3. [Getting Support](#getting-support)
+  - [Contact the Author](#contact-the-author)
+  - [IRC Channel](#irc-channel)
+  - [Found a Bug?](#found-a-bug)
 
 # Documentation
 
