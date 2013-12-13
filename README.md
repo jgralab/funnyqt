@@ -63,45 +63,41 @@ following steps:
 
 2. Create a new project.
 
-````
-$ lein new my-funnyqt-transform
-Generating a project called my-funnyqt-transform based on the 'default' template.
-To see other templates (app, lein plugin, etc), try `lein help new`.
-````
+
+    $ lein new my-funnyqt-transform
+    Generating a project called my-funnyqt-transform based on the 'default' template.
+    To see other templates (app, lein plugin, etc), try `lein help new`.
 
 3. Declare that your project depends on FunnyQT.  Replace 0.13.0 below with
    whatever is the the [current FunnyQT release](http://clojars.org/funnyqt).
 
-````
-$ cd my-funnyqt-transform
-$ edit project.clj
-# add funnyqt in the project :dependencies
-(defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.5.1"]
-                 [funnyqt "0.13.0"]])
-````
+    $ cd my-funnyqt-transform
+    $ edit project.clj
+    # add funnyqt in the project :dependencies
+    (defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
+      :description "FIXME: write description"
+      :url "http://example.com/FIXME"
+      :license {:name "Eclipse Public License"
+                :url "http://www.eclipse.org/legal/epl-v10.html"}
+      :dependencies [[org.clojure/clojure "1.5.1"]
+                     [funnyqt "0.13.0"]])
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
    all dependencies such as Clojure and FunnyQT.
 
-````
-$ lein repl
-nREPL server started on port 39869 on host 127.0.0.1
-REPL-y 0.3.0
-Clojure 1.5.1
-    Docs: (doc function-name-here)
-          (find-doc "part-of-name-here")
-  Source: (source function-name-here)
- Javadoc: (javadoc java-object-or-class-here)
-    Exit: Control+D or (exit) or (quit)
- Results: Stored in vars *1, *2, *3, an exception in *e
 
-user=> ;; Here you go!
-````
+    $ lein repl
+    nREPL server started on port 39869 on host 127.0.0.1
+    REPL-y 0.3.0
+    Clojure 1.5.1
+        Docs: (doc function-name-here)
+              (find-doc "part-of-name-here")
+      Source: (source function-name-here)
+     Javadoc: (javadoc java-object-or-class-here)
+        Exit: Control+D or (exit) or (quit)
+     Results: Stored in vars *1, *2, *3, an exception in *e
+
+    user=> ;; Here you go!
 
 ## Getting the Git Version
 
@@ -116,29 +112,23 @@ Getting started is really simple:
 
 2. Clone the FunnyQT git repository:
 
-````
-$ git clone https://github.com/jgralab/funnyqt.git
-````
+    $ git clone https://github.com/jgralab/funnyqt.git
 
 3. Just to be sure everything's fine, you might want to execute the test cases.
 
-```
-$ cd funnyqt
-$ lein test
-```
+    $ cd funnyqt
+    $ lein test
 
 4. You are ready to go.  Start a REPL and start hacking.
 
-```
-$ lein repl
-REPL started; server listening on localhost port 22815
-user=> (use 'funnyqt.tg)
-nil
-user=> (def g (load-graph "test/input/greqltestgraph.tg"))
-#<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
-user=> (vseq g 'localities.City)
-(#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
-```
+    $ lein repl
+    REPL started; server listening on localhost port 22815
+    user=> (use 'funnyqt.tg)
+    nil
+    user=> (def g (load-graph "test/input/greqltestgraph.tg"))
+    #<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
+    user=> (vseq g 'localities.City)
+    (#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
 
 # License
 
