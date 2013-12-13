@@ -1,3 +1,7 @@
+<object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
+  <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
+</object>
+
 # FunnyQT
 
 FunnyQT is a model querying and transformation library.  It supports (or is
