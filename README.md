@@ -63,14 +63,16 @@ following steps:
 
 2. Create a new project.
 
-
+    ```
     $ lein new my-funnyqt-transform
     Generating a project called my-funnyqt-transform based on the 'default' template.
     To see other templates (app, lein plugin, etc), try `lein help new`.
+    ```
 
 3. Declare that your project depends on FunnyQT.  Replace 0.13.0 below with
    whatever is the the [current FunnyQT release](http://clojars.org/funnyqt).
 
+    ```
     $ cd my-funnyqt-transform
     $ edit project.clj
     # add funnyqt in the project :dependencies
@@ -81,11 +83,12 @@ following steps:
                 :url "http://www.eclipse.org/legal/epl-v10.html"}
       :dependencies [[org.clojure/clojure "1.5.1"]
                      [funnyqt "0.13.0"]])
+    ```
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
    all dependencies such as Clojure and FunnyQT.
 
-
+    ```
     $ lein repl
     nREPL server started on port 39869 on host 127.0.0.1
     REPL-y 0.3.0
@@ -96,8 +99,8 @@ following steps:
      Javadoc: (javadoc java-object-or-class-here)
         Exit: Control+D or (exit) or (quit)
      Results: Stored in vars *1, *2, *3, an exception in *e
-
     user=> ;; Here you go!
+    ```
 
 ## Getting the Git Version
 
@@ -108,19 +111,24 @@ automation.
 Getting started is really simple:
 
 1. Install the `lein` shell (or bat) script as explained on the
-[Leiningen](http://leiningen.org) homepage.
+   [Leiningen](http://leiningen.org) homepage.
 
 2. Clone the FunnyQT git repository:
 
+    ```
     $ git clone https://github.com/jgralab/funnyqt.git
+    ```
 
 3. Just to be sure everything's fine, you might want to execute the test cases.
 
+    ```
     $ cd funnyqt
     $ lein test
+    ```
 
 4. You are ready to go.  Start a REPL and start hacking.
 
+    ```
     $ lein repl
     REPL started; server listening on localhost port 22815
     user=> (use 'funnyqt.tg)
@@ -129,6 +137,7 @@ Getting started is really simple:
     #<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
     user=> (vseq g 'localities.City)
     (#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
+    ```
 
 # License
 
