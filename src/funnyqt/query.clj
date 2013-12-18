@@ -288,14 +288,14 @@
 
 (defn adjs
   "Traverses `role` and more `roles` starting at `elem`.
-  Returns the seq of target objects.
-  Errors if a role is undefined or intermediate targets are nil."
+  Returns a vector of target objects.
+  Errors if a role is undefined."
   [elem role & roles]
   (into [] (p/adjs-internal elem (cons role roles))))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
-  it simply returns nil."
+  it simply returns the empty vector."
   [elem role & roles]
   (into [] (p/adjs*-internal elem (cons role roles))))
 
@@ -316,9 +316,7 @@
   `v` may be a vertex or a seq of vertices.
   `p` is a varargs seq of path descriptions."
   [v & p]
-  (u/oset (r/reduce (fn [c p]
-                      (*p-apply* c p))
-                    v p)))
+  (u/oset (r/reduce *p-apply* v p)))
 
 (defn p-opt
   "Path option starting at `v` and maybe traversing `p`.

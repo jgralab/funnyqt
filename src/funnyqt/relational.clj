@@ -1,6 +1,7 @@
 (ns funnyqt.relational
   "Generic relations"
   (:require clojure.walk
+            clojure.string
 	    [clojure.core.logic :as ccl]
 	    [clojure.core.logic.protocols :as cclp]
 	    [funnyqt.utils :as u]
@@ -25,13 +26,13 @@
      (fn [a]
        (println "################# " (or prompt "ECHO") " #################")
        #_(clojure.pprint/pprint a)
-       (println (apply str
-                       (map (fn [^clojure.core.logic.LVar v]
-                              (if (ccl/lvar? v)
-                                (let [w (cclp/walk a v)]
-                                  (str (:oname v) " = " w "\n"))
-                                (str "### = " v "\n")))
-                            lvars)))
+       (println (clojure.string/join
+                 (map (fn [^clojure.core.logic.LVar v]
+                        (if (ccl/lvar? v)
+                          (let [w (cclp/walk a v)]
+                            (str (:oname v) " = " w "\n"))
+                          (str "### = " v "\n")))
+                      lvars)))
        (ccl/succeed a))))
 
 (defmacro condx

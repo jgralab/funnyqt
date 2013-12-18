@@ -1,6 +1,7 @@
 (ns funnyqt.pmatch
   "Pattern Matching."
   (:require clojure.set
+            clojure.string
             [clojure.tools.macro :as m]
             [funnyqt.protocols   :as p]
             [funnyqt.query       :as q]
@@ -121,7 +122,7 @@
          (vertex-sym? (first pattern)) (let [sym (first pattern)
                                              [n t] (name-and-type sym)
                                              v (get-or-make-v n t)]
-                                         (when (= 0 (tg/ecount pg 'HasStartPatternVertex))
+                                         (when (zero? (tg/ecount pg 'HasStartPatternVertex))
                                            (tg/create-edge! pg 'HasStartPatternVertex
                                                             (q/the (tg/vseq pg 'Anchor)) v))
                                          (recur (rest pattern) v))
@@ -515,7 +516,7 @@
                                           (str "- " sym " is declared " freq " times\n")))
                                       (frequencies blist)))]
       (u/errorf "These symbols are declared multiple times:\n%s"
-                (apply str double-syms))
+                (clojure.string/join double-syms))
       pattern)))
 
 (def ^:dynamic *pattern-expansion-context*

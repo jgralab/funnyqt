@@ -20,8 +20,8 @@
       (and (or (contains? m :disjuncts)
                (contains? m :from)
                (contains? m :to))
-           (if (not (contains? m :from))
-             (u/errorf "All rules must contain a :from clause: %s" form)
+           (if-not (contains? m :from)
+             (u/errorf "Rules must contain a :from clause: %s" form)
              true)
            (if (contains? m :disjuncts)
              (and

@@ -254,7 +254,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                               #(conj (vec %) val)))
     "IDREFS" (set! *referent2refed-ids*
                    (update-in *referent2refed-ids* [referent-vertex]
-                              #(into (vec %) (remove empty? (clojure.string/split val #"\s+")))))
+                              #(into (vec %) (remove empty? (str/split val #"\s+")))))
     nil))
 
 (defn ^:private handle-attribute [elem ^Attribute a]
@@ -403,7 +403,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
       s)))
 
 (defn ^:private indent []
-  (.write *writer* ^String (apply str (repeat (* 2 *indent-level*) \space))))
+  (.write *writer* ^String (str/join (repeat (* 2 *indent-level*) \space))))
 
 (defn ^:private emit-text [txt]
   (set! *last-node-was-text* true)
