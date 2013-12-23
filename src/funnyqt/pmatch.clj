@@ -233,7 +233,6 @@
 
 (defn ^:private validate-bf [bf done pg]
   (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
-    ;;(tg/show-graph pg)
     (u/errorf "Some pattern elements were not reached: %s" missing))
   bf)
 
@@ -264,6 +263,7 @@
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
   [done cob]
+  ;;(println cob done)
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
@@ -378,14 +378,11 @@
                                     :when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes
-              (let [cob (tg/omega cur)
-                    allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                    forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                    allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
+              (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
                   (recur (pop stack)
-                         (apply conj-done done cur (concat allcobs allprecs))
-                         (into bf forms))
+                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
+                         (into bf (read-string (tg/value cob :form))))
                   (recur (pop stack)
                          (conj-done done cur)
                          bf))))))
@@ -476,14 +473,11 @@
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for EMF: %s" (p/describe cur))
               Precedes
-              (let [cob (tg/omega cur)
-                    allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
-                    forms (mapcat #(read-string (tg/value % :form)) allcobs)
-                    allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
+              (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
                   (recur (pop stack)
-                         (apply conj-done done cur (concat allcobs allprecs))
-                         (into bf forms))
+                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
+                         (into bf (read-string (tg/value cob :form))))
                   (recur (pop stack)
                          (conj-done done cur)
                          bf))))))
@@ -556,6 +550,7 @@
   supported by `pattern-for`.  (Only for internal use.)"
   [name pattern args]
   (let [pgraph (pattern-to-pattern-graph name args pattern)
+        ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
       (transform-fn args pgraph)
