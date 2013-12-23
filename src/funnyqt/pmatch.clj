@@ -97,7 +97,8 @@
                             (str (pr-str (fnext pattern)) "]")
                             (str "[" (str (pr-str (first pattern))  " ")
                                  (pr-str (fnext pattern)) "]")))
-           (tg/create-edge! pg 'Precedes lv v)
+           (doseq [ex-v (remove #(= v %) (tg/vseq pg))]
+             (tg/create-edge! pg 'Precedes ex-v v))
            (recur (nnext pattern) v))
          ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
          (edge-sym? (first pattern)) (let [sym (first pattern)
@@ -129,11 +130,13 @@
          :else (u/errorf "Don't know how to handle pattern part: %s" (first pattern)))))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
-          a (q/the (tg/vseq pg 'Anchor))]
-      (loop [disc (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))]
+          a (q/the (tg/vseq pg 'Anchor))
+          reachables #(tgq/reachables % [q/p-* tgq/<->])]
+      (loop [disc (filter #(p/has-type? % 'PatternVertex)
+                          (clojure.set/difference vset (reachables a)))]
         (when (seq disc)
           (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
-          (recur (clojure.set/difference vset (tgq/reachables a [q/p-* tgq/<->]))))))
+          (recur (clojure.set/difference vset (reachables a))))))
     (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
       (let [hfpv (q/the (tg/eseq pg 'HasStartPatternVertex))]
         (when (p/has-type? (tg/omega hfpv) '!ArgumentVertex)
@@ -258,6 +261,11 @@
      [(get-name target-node)
       `(distinct ~(anon-vec-transformer-fn startsym av))])))
 
+(defn ^:private deps-defined?
+  "Returns true if all nodes defined before the COB cob have been processed."
+  [done cob]
+  (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
+
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
         anon-vec-to-for (fn [start-sym av]
@@ -370,13 +378,17 @@
                                     :when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
                                                            ~(if (tg/normal-edge? cur) :out :in)))]))))
               Precedes
-              (let [cob (tg/that cur)
+              (let [cob (tg/omega cur)
                     allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                     forms (mapcat #(read-string (tg/value % :form)) allcobs)
                     allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
-                (recur (pop stack)
-                       (apply conj-done done cur (concat allcobs allprecs))
-                       (into bf forms))))))
+                (if (deps-defined? done cob)
+                  (recur (pop stack)
+                         (apply conj-done done cur (concat allcobs allprecs))
+                         (into bf forms))
+                  (recur (pop stack)
+                         (conj-done done cur)
+                         bf))))))
         (validate-bf bf done pg)))))
 
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
@@ -464,13 +476,17 @@
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for EMF: %s" (p/describe cur))
               Precedes
-              (let [cob (tg/that cur)
+              (let [cob (tg/omega cur)
                     allcobs (tgq/reachables cob [q/p-* [tgq/--> 'Precedes]])
                     forms (mapcat #(read-string (tg/value % :form)) allcobs)
                     allprecs (mapcat #(tg/iseq % 'Precedes) allcobs)]
-                (recur (pop stack)
-                       (apply conj-done done cur (concat allcobs allprecs))
-                       (into bf forms))))))
+                (if (deps-defined? done cob)
+                  (recur (pop stack)
+                         (apply conj-done done cur (concat allcobs allprecs))
+                         (into bf forms))
+                  (recur (pop stack)
+                         (conj-done done cur)
+                         bf))))))
         (validate-bf bf done pg)))))
 
 (defn bindings-to-arglist
