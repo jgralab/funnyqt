@@ -166,7 +166,7 @@
            result# ~form
            et# (- (System/nanoTime) st#)]
        (println (format (-> ~fmt
-                            (str/replace #"%T[^ ]*" (time-str et# ~(if unit
+                            (str/replace #"%T[^ ]*" (time-str et# ~(if (seq unit)
                                                                      (keyword unit)
                                                                      :auto)))
                             (str/replace "%R" (print-str result#))
