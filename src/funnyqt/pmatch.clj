@@ -466,7 +466,7 @@
                          (conj-done done trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
                                                           ~(if-let [t (get-edge-type cur)]
-                                                             `(q/adjs ~(get-name src) ~t)
+                                                             `(eget-1 ~(get-name src) ~t)
                                                              `(emf/erefs ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
@@ -474,7 +474,7 @@
                                         `[~(get-name trg) (emf/eallobjects
                                                            ~gsym ~(get-type trg))])
                                     :when (empty? ~(if-let [t (get-edge-type cur)]
-                                                     `(q/adjs ~(get-name src) ~t)
+                                                     `(eget-1 ~(get-name src) ~t)
                                                      `(emf/erefs ~(get-name src))))]))))
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for EMF: %s" (p/describe cur))
