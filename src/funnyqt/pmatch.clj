@@ -14,7 +14,9 @@
 
 ;; TODO: the anon-vec function for EMF should expand into (adjs* :foo :bar) for
 ;; -<foo>-> <> -<bar>-> instead of a nested, step-wise for.  That's only needed
-;; if there are type restrictions in between.
+;; if there are type restrictions in between.  Also, (into #{} ...) seems to be
+;; more efficient than (q/no-dups ...) [which is already much faster than
+;; (distinct ...)].
 
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
@@ -262,7 +264,7 @@
      ;;---
      :normal-v
      [(get-name target-node)
-      `(distinct ~(anon-vec-transformer-fn startsym av))])))
+      `(q/no-dups ~(anon-vec-transformer-fn startsym av))])))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
