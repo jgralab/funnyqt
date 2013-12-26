@@ -12,6 +12,10 @@
             [funnyqt.emf         :as emf]
             [funnyqt.query.emf   :as emfq]))
 
+;; TODO: the anon-vec function for EMF should expand into (adjs* :foo :bar) for
+;; -<foo>-> <> -<bar>-> instead of a nested, step-wise for.  That's only needed
+;; if there are type restrictions in between.
+
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
 ;; Then users can check if their pattern is anchored at the right node, or if
