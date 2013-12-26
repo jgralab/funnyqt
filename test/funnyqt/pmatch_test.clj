@@ -129,7 +129,7 @@
 (defpattern long-anon-pattern-emf
   {:pattern-expansion-context :emf}
   [g fam]
-  [fam --> <Member> --> <> -<sons>-> <> --> x<Family>
+  [fam --> <Member> --> <Family> -<sons>-> <> --> x<Family>
    :when (not= fam x)]
   [(emf/eget x :lastName) (emf/eget x :street)])
 

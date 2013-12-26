@@ -12,12 +12,6 @@
             [funnyqt.emf         :as emf]
             [funnyqt.query.emf   :as emfq]))
 
-;; TODO: the anon-vec function for EMF should expand into (adjs* :foo :bar) for
-;; -<foo>-> <> -<bar>-> instead of a nested, step-wise for.  That's only needed
-;; if there are type restrictions in between.  Also, (into #{} ...) seems to be
-;; more efficient than (q/no-dups ...) [which is already much faster than
-;; (distinct ...)].
-
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
 ;; Then users can check if their pattern is anchored at the right node, or if
@@ -394,6 +388,12 @@
                          bf))))))
         (validate-bf bf done pg)))))
 
+(defn eget-1
+  "Only for internal use."
+  [eo r]
+  (when-let [x (emf/eget-raw eo r)]
+    (if (instance? java.util.Collection x) x [x])))
+
 (defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
   (let [gsym (first argvec)
         get-edge-type (fn [e]
@@ -411,7 +411,7 @@
                                                (into r (when-let [t (get-type el)]
                                                          [:when `(p/has-type? ~ncs ~t)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
-                                                                 `(q/adjs* ~cs ~t)
+                                                                 `(eget-1 ~cs ~t)
                                                                  `(emf/erefs ~cs))]))))
                                     [cs r]))]
                             `(for ~r ~v)))]
@@ -466,7 +466,7 @@
                          (conj-done done trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
                                                           ~(if-let [t (get-edge-type cur)]
-                                                             `(q/adjs* ~(get-name src) ~t)
+                                                             `(q/adjs ~(get-name src) ~t)
                                                              `(emf/erefs ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
@@ -474,7 +474,7 @@
                                         `[~(get-name trg) (emf/eallobjects
                                                            ~gsym ~(get-type trg))])
                                     :when (empty? ~(if-let [t (get-edge-type cur)]
-                                                     `(q/adjs* ~(get-name src) ~t)
+                                                     `(q/adjs ~(get-name src) ~t)
                                                      `(emf/erefs ~(get-name src))))]))))
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for EMF: %s" (p/describe cur))

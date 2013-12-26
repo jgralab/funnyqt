@@ -59,7 +59,7 @@
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
-  ([model] [p -<requested>-> r -<taker>-> p]
+  ([model] [p<Process> -<requested>-> r -<taker>-> p]
      (take-rule model r p))
   ([model r p]
      (eunset! r :taker)
