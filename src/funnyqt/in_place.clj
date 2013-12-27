@@ -82,23 +82,31 @@
       (let [match (first more)
             match (pm/transform-pattern-vector name match args)
             matchsyms (pm/bindings-to-arglist match)
-            body (next more)]
+            body (next more)
+            meta-map (meta name)
+            matches     (gensym "matches")
+            on-match-fn (gensym "on-match-fn")]
         `(~args
-          (let [matches# (pm/pattern-for ~match ~matchsyms)]
+          (let [~matches (pm/pattern-for ~match ~matchsyms)
+                ~on-match-fn (fn [match#]
+                               (when-let [~matchsyms match#]
+                                 (when *on-matched-rule-fn*
+                                   (*on-matched-rule-fn* '~name ~args ~matchsyms))
+                                 (if *as-test*
+                                   (let [curmatch# (atom ~matchsyms)]
+                                     (with-meta (fn []
+                                                  (let [~matchsyms @curmatch#]
+                                                    ~@(unrecur name body)))
+                                       {:current-match-atom curmatch#
+                                        :args ~args
+                                        :all-matches ~matches}))
+                                   (do ~@body))))]
             (if *as-pattern*
-              matches#
-              (when-let [~matchsyms (first matches#)]
-                (when *on-matched-rule-fn*
-                  (*on-matched-rule-fn* '~name ~args ~matchsyms))
-                (if *as-test*
-                  (let [curmatch# (atom ~matchsyms)]
-                    (with-meta (fn []
-                                 (let [~matchsyms @curmatch#]
-                                   ~@(unrecur name body)))
-                      {:current-match-atom curmatch#
-                       :args ~args
-                       :all-matches matches#}))
-                  (do ~@body)))))))
+              ~matches
+              ~(if (:forall meta-map)
+                 `(when (seq ~matches)
+                    (mapv ~on-match-fn ~matches))
+                 `(~on-match-fn (first ~matches)))))))
       ;; No match given
       `(~args
         (cond

@@ -12,6 +12,10 @@
             [funnyqt.emf         :as emf]
             [funnyqt.query.emf   :as emfq]))
 
+;; TODO: Support an :as clause for the result spec instead of a separate form
+;; so that the in-place api can use that easily.  Also support a :distinct
+;; modifier making matches distinct using q/no-dups.
+
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
 ;; Then users can check if their pattern is anchored at the right node, or if
