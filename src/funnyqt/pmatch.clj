@@ -551,18 +551,6 @@
   {:emf pattern-graph-to-pattern-for-bindings-emf
    :tg  pattern-graph-to-pattern-for-bindings-tg})
 
-(defn transform-pattern-vector
-  "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding for
-  supported by `pattern-for`.  (Only for internal use.)"
-  [name pattern args]
-  (let [pgraph (pattern-to-pattern-graph name args pattern)
-        ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
-        transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
-    (if transform-fn
-      (transform-fn args pgraph)
-      (u/errorf "The pattern expansion context is not set.\n%s"
-                "See `*pattern-expansion-context*` in the pmatch namespace."))))
-
 (defn ^:private get-and-remove-from-vector [v key get-val]
   (loop [nv [], ov v]
     (if (seq ov)
@@ -573,19 +561,35 @@
         (recur (conj nv (first ov)) (rest ov)))
       [nv nil])))
 
+(defn transform-pattern-vector
+  "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
+  for `pattern-for`.  That vector contains metadata :distinct and :as.
+
+(Only for internal use.)"
+  [name pattern args]
+  (let [[pattern distinct] (get-and-remove-from-vector pattern :distinct false)
+        [pattern result] (get-and-remove-from-vector pattern   :as       true)
+        pgraph (pattern-to-pattern-graph name args pattern)
+        ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
+        transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
+    (if transform-fn
+      (with-meta (transform-fn args pgraph)
+        {:distinct distinct
+         :as       result})
+      (u/errorf "The pattern expansion context is not set.\n%s"
+                "See `*pattern-expansion-context*` in the pmatch namespace."))))
+
 (defn ^:private convert-spec [name args-and-pattern]
   (when (> (count args-and-pattern) 2)
     (u/errorf "Pattern %s has too many components (should have only args and pattern vector)." name))
   (let [[args pattern] args-and-pattern]
     (when-not (and (vector? args) (vector? pattern))
-      (u/errorf "Pattern %s is missing the args or pattern vector." name))
-    (let [[pattern distinct] (get-and-remove-from-vector pattern :distinct false)
-          [pattern result] (get-and-remove-from-vector pattern :as       true)
-          bf (transform-pattern-vector name pattern args)
-          iteration-code `(pattern-for ~bf ~(or result (bindings-to-arglist bf)))]
+      (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
+    (let [bf (transform-pattern-vector name pattern args)
+          iteration-code `(pattern-for ~bf ~(or (:as (meta bf)) (bindings-to-arglist bf)))]
       (verify-pattern-binding-form bf args)
       `(~args
-        ~(if distinct
+        ~(if (:distinct (meta bf))
            `(q/no-dups ~iteration-code)
            iteration-code)))))
 
@@ -715,9 +719,9 @@
                                               *pattern-expansion-context*
                                               (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
-         ~@(if (seq? (first more))
-             (mapv (partial convert-spec name) more)
-             (convert-spec name more))))))
+         ~@(if (vector? (first more))
+             (convert-spec name more)
+             (mapv (partial convert-spec name) more))))))
 
 (defmacro letpattern
   "Establishes local patterns just like `letfn` establishes local functions.
@@ -758,8 +762,8 @@
   name in case it's not bound otherwise (see that var's documentation and
   `defpattern`)."
 
-  {:arglists '([name attr-map? [args] [pattern]]
-                 [name attr-map? ([args] [pattern])+])}
+  {:arglists '([name? attr-map? [args] [pattern]]
+                 [name? attr-map? ([args] [pattern])+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]

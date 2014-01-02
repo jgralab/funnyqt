@@ -228,3 +228,12 @@
                                                (reset! a (dec (tree-count x))))
                                              x)))
                           form)))
+
+;;# Misc
+
+(defn deep-vectorify [coll]
+  (when (map? coll)
+    (errorf "Cannot deep-vectorify map %s." coll))
+  (if (coll? coll)
+    (mapv deep-vectorify coll)
+    coll))

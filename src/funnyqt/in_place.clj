@@ -22,7 +22,7 @@
 
     - r is a symbol denoting the current matching rule
     - args is the vector of the rule's input arguments
-    - match is the vector of the elements matched by the rule"}
+    - match is the current match found by the rule"}
   *on-matched-rule-fn* nil)
 
 (def ^{:dynamic true
@@ -47,8 +47,11 @@
   later to perform the rule's actions.  If there's no match, returns nil.
 
   Note that if the actions of the rule `recur` to this rule, when called with
-  `as-test` you'll get a plain, stack-consuming recursion instead because
-  `recur` would recur to the thunk, not to the rule."
+  `as-test` you get a plain, stack-consuming recursion instead because `recur`
+  would recur to the thunk, not to the rule.
+
+  Note further that when applying a ^:forall rule as test you get a vector of
+  thunks, each thunk applying the actions to one match, instead."
   [rule-app]
   `(binding [*as-test* true]
      ~rule-app))
@@ -78,36 +81,43 @@
   (let [args (first spec)
         more (next spec)]
     (if (vector? (first more))
-      ;; match vector given
-      (let [match (first more)
-            match (pm/transform-pattern-vector name match args)
-            matchsyms (pm/bindings-to-arglist match)
-            body (next more)
-            meta-map (meta name)
+      ;; pattern vector given
+      (let [pattern-vector (first more)
+            bf          (pm/transform-pattern-vector name pattern-vector args)
+            custom-as   (:as (meta bf))
+            matchsyms   (if custom-as
+                          (u/deep-vectorify custom-as)
+                          (pm/bindings-to-arglist bf))
+            body        (next more)
+            pattern     (gensym "pattern")
             matches     (gensym "matches")
-            on-match-fn (gensym "on-match-fn")]
+            action-fn   (gensym "action-fn")
+            match       (gensym "match")]
         `(~args
-          (let [~matches (pm/pattern-for ~match ~matchsyms)
-                ~on-match-fn (fn [match#]
-                               (when-let [~matchsyms match#]
-                                 (when *on-matched-rule-fn*
-                                   (*on-matched-rule-fn* '~name ~args ~matchsyms))
-                                 (if *as-test*
-                                   (let [curmatch# (atom ~matchsyms)]
-                                     (with-meta (fn []
-                                                  (let [~matchsyms @curmatch#]
-                                                    ~@(unrecur name body)))
-                                       {:current-match-atom curmatch#
-                                        :args ~args
-                                        :all-matches ~matches}))
-                                   (do ~@body))))]
+          (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern")) ~args ~pattern-vector)
+                ~matches (apply ~pattern ~args)
+                ~action-fn (fn [~match]
+                             (let [~matchsyms ~(if custom-as
+                                                 `(u/deep-vectorify ~match)
+                                                 match)]
+                               (when *on-matched-rule-fn*
+                                 (*on-matched-rule-fn* '~name ~args ~match))
+                               (if *as-test*
+                                 (let [curmatch# (atom ~matchsyms)]
+                                   (with-meta (fn []
+                                                (let [~matchsyms @curmatch#]
+                                                  ~@(unrecur name body)))
+                                     {:current-match-atom curmatch#
+                                      :args ~args
+                                      :all-matches ~matches}))
+                                 (do ~@body))))]
             (if *as-pattern*
               ~matches
-              ~(if (:forall meta-map)
-                 `(when (seq ~matches)
-                    (mapv ~on-match-fn ~matches))
-                 `(~on-match-fn (first ~matches)))))))
-      ;; No match given
+              (when (seq ~matches)
+                ~(if (:forall (meta name))
+                   `(mapv ~action-fn (doall ~matches))
+                   `(~action-fn (first ~matches))))))))
+      ;; No pattern given
       `(~args
         (cond
          *as-pattern* (u/errorf "Can't apply rule %s without pattern as pattern!" name)
@@ -130,9 +140,10 @@
                                                  pm/*pattern-expansion-context*
                                                  (:pattern-expansion-context (meta *ns*)))]
       `(fn ~@(when name [name])
-         ~@(if (seq? (first more))
-             (mapv (partial convert-spec name) more)
-             (convert-spec name more))))))
+         ~@(if (vector? (first more))
+             ;; starts with argvec, so just one def
+             (convert-spec name more)
+             (mapv (partial convert-spec name) more))))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
@@ -145,9 +156,9 @@
                                                pm/*pattern-expansion-context*
                                                (:pattern-expansion-context (meta *ns*)))]
     `(letfn [~@(map (fn [[n & more]]
-                      `(~n ~@(if (seq? (first more))
-                               (mapv (partial convert-spec n) more)
-                               (convert-spec n more))))
+                      `(~n ~@(if (vector? (first more))
+                               (convert-spec n more)
+                               (mapv (partial convert-spec n) more))))
                  rspecs)]
        ~@body)))
 
@@ -177,11 +188,18 @@
 
   Rules expand to plain Clojure functions.  When a rule gets applied, it tries
   to find a match.  If it can't find one, it returns logical false.  If it
-  finds one, it applies its `body` returning the value of the last form in
-  `body`, which should be logical true by convention.
+  finds one, it applies its `body` on the match returning the value of the last
+  form in `body`, which should be logical true by convention.
+
+  Rules may have ^:forall metadata attached to their name.  Such a rule is
+  applied to all matches at once, not only to the match which is found first.
+  Of course, the actions of such ^:forall rules must not invalidate their own
+  matches.
 
   When a rule matches, *on-matched-rule-fn* is invoked which you can use to
-  inspect matches."
+  inspect matches (i.e., for debugging).
+
+  Also see `as-pattern` and `as-test`."
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
                  [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
@@ -190,9 +208,9 @@
                                                  pm/*pattern-expansion-context*
                                                  (:pattern-expansion-context (meta *ns*)))]
       `(defn ~name ~(meta name)
-         ~@(if (seq? (first more))
-             (mapv (partial convert-spec name) more)
-             (convert-spec name more))))))
+         ~@(if (vector? (first more))
+             (convert-spec name more)
+             (mapv (partial convert-spec name) more))))))
 
 ;;# Higher order rule application functions
 
