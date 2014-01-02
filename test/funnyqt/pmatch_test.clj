@@ -33,6 +33,27 @@
   (is (= 3 (count (families-with-fathers-tg fg (constantly true)))))
   (is (= 2 (count (families-with-fathers-tg fg #(= "Smith" (tg/value % :lastName)))))))
 
+(defpattern same-family-tg
+  {:pattern-expansion-context :tg}
+  [g]
+  [f<Family> --> m1<Member>
+   f --> m2<Member>
+   :when (not= m1 m2)])
+
+(defpattern same-family-distinct-tg
+  {:pattern-expansion-context :tg}
+  [g]
+  [f<Family> --> m1<Member>
+   f --> m2<Member>
+   :when (not= m1 m2)
+   :as #{m1 m2}
+   :distinct])
+
+(deftest test-same-family-tg
+  (is (= 62
+         (* 2 (count (same-family-distinct-tg fg)))
+         (count (same-family-tg fg)))))
+
 (defpattern given-fam-with-all-members-tg
   {:pattern-expansion-context :tg}
   [g fam]
@@ -112,6 +133,27 @@
   (is (= 3 (count (families-with-fathers-emf fm))))
   (is (= 3 (count (families-with-fathers-emf fm (constantly true)))))
   (is (= 2 (count (families-with-fathers-emf fm #(= "Smith" (emf/eget % :lastName)))))))
+
+(defpattern same-family-emf
+  {:pattern-expansion-context :emf}
+  [g]
+  [f<Family> --> m1<Member>
+   f --> m2<Member>
+   :when (not= m1 m2)])
+
+(defpattern same-family-distinct-emf
+  {:pattern-expansion-context :emf}
+  [g]
+  [f<Family> --> m1<Member>
+   f --> m2<Member>
+   :when (not= m1 m2)
+   :as #{m1 m2}
+   :distinct])
+
+(deftest test-same-family-emf
+  (is (= 62
+         (* 2 (count (same-family-distinct-emf fm)))
+         (count (same-family-emf fm)))))
 
 (defpattern given-fam-with-all-members-emf
   {:pattern-expansion-context :emf}
