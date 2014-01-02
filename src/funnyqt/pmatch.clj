@@ -12,10 +12,6 @@
             [funnyqt.emf         :as emf]
             [funnyqt.query.emf   :as emfq]))
 
-;; TODO: Support an :as clause for the result spec instead of a separate form
-;; so that the in-place api can use that easily.  Also support a :distinct
-;; modifier making matches distinct using q/no-dups.
-
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
 ;; Then users can check if their pattern is anchored at the right node, or if
@@ -526,7 +522,7 @@
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
-(defn ^:private verify-pattern-vector
+(defn ^:private verify-pattern-binding-form
   "Ensure that the pattern vector doesn't declare bindings twice, which would
   be a bug."
   [pattern args]
@@ -567,35 +563,67 @@
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
-(defn ^:private convert-spec [name [args pattern resultform]]
-  (when-not (and (vector? args) (vector? pattern))
-    (u/errorf "Pattern %s is missing the args or pattern vector." name))
-  (let [bf (transform-pattern-vector name pattern args)]
-    (verify-pattern-vector bf args)
-    `(~args
-      (pattern-for ~bf ~(or resultform (bindings-to-arglist bf))))))
+(defn ^:private get-and-remove-from-vector [v key get-val]
+  (loop [nv [], ov v]
+    (if (seq ov)
+      (if (= key (first ov))
+        (if get-val
+          [(vec (concat nv (nnext ov))) (fnext ov)]
+          [(vec (concat nv (next ov))) (first ov)])
+        (recur (conj nv (first ov)) (rest ov)))
+      [nv nil])))
+
+(defn ^:private convert-spec [name args-and-pattern]
+  (when (> (count args-and-pattern) 2)
+    (u/errorf "Pattern %s has too many components (should have only args and pattern vector)." name))
+  (let [[args pattern] args-and-pattern]
+    (when-not (and (vector? args) (vector? pattern))
+      (u/errorf "Pattern %s is missing the args or pattern vector." name))
+    (let [[pattern distinct] (get-and-remove-from-vector pattern :distinct false)
+          [pattern result] (get-and-remove-from-vector pattern :as       true)
+          bf (transform-pattern-vector name pattern args)
+          iteration-code `(pattern-for ~bf ~(or result (bindings-to-arglist bf)))]
+      (verify-pattern-binding-form bf args)
+      `(~args
+        ~(if distinct
+           `(q/no-dups ~iteration-code)
+           iteration-code)))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
-  an `args` vector, and a `pattern` vector.  When invoked, it returns a lazy seq
-  of all matches of `pattern`.
+  an `args` vector, and a `pattern` vector.  When applied to a model, it
+  returns the lazy seq of all matches.
 
   `pattern` is a vector of symbols for nodes and edges.
 
-    v<V>:            A node of type V identified as v
-    v<V> -e<E>-> v:  An edge of type E starting and ending at node v of type V
+    v<V>            ; A node of type V identified as v
+    v<V> -e<E>-> v  ; An edge of type E starting and ending at node v of type V
 
-  Both the identifier (v and e above) and the type enclosed in angle brackets
+  Both the identifiers (v and e above) and the types enclosed in angle brackets
   are optional.  So this is a valid pattern, too.
 
-    [v --> <V> -<E>-> <> --> x<X>]: An arbitrary node that is connected to an
-                                    X-node x via some arbitrary forward edge
-                                    leading to some V-node from which an E-edge
-                                    leads some arbitrary other node from which
-                                    another arbitrary edge leads to x.
+    [v --> <V> -<E>-> <> --> x<X>] ; An arbitrary node that is connected to
+                                   ; an X-node x via some arbitrary forward
+                                   ; edge leading to some V-node from which
+                                   ; an E-edge leads some arbitrary other
+                                   ; node from which another arbitrary edge
+                                   ; leads to x.
 
   Such sequences of anonymous paths, i.e., edges and nodes without identifier,
-  must be anchored at named nodes like above (v and x).
+  must be anchored at named nodes like above (v and x).  Note that anonymous
+  paths result in fewer matches than if the intermediate nodes/edges were
+  named.  E.g., in a model with four nodes n1, n2, n3, and n4, and the edges n1
+  --> n2, n1 --> n3, n2 --> n4, and n3 --> n4, the pattern
+
+    [a --> b --> c]
+
+  has two matches [n1 n2 n4], and [n1 n3 n4].  In contrast, the pattern
+
+    [a --> <> --> c]
+
+  has only one match [n1 n4], because the anonymous intermediate node only
+  enforces the existence of a path from a to c without creating a match for
+  every such path.
 
   Patterns may also include the arguments given to the defpattern, in which
   case those are assumed to be bound to one single node or edge, depending on
@@ -603,7 +631,7 @@
   edge.
 
   Patters may further include arbitrary constraints that must hold for a valid
-  match using the following syntax:
+  match using :when clauses:
 
     [v --> w
      :when (pred1? v)
@@ -611,8 +639,9 @@
 
   Patterns may contain negative edges indicated by edge symbols with name !.
   Those must not exist for a match to succeed.  For example, the following
-  declares that there must be a Foo edge from v to w, but w has no outgoing
-  edges at all, and v and w must not be connected with a forward Bar edge.
+  declares that there must be a Foo edge from v to w, but w must have no
+  outgoing edges at all, and v and w must not be connected with a forward Bar
+  edge.
 
     [v -<Foo>-> w -!-> <>
      v -!<Bar>-> w]
@@ -623,25 +652,51 @@
      :let [a (foo v), b (bar v)]
      :when-let [c (baz w)]]
 
-  Hereby, the variables bound by :let (a and b) are taken as is whereas the
-  variables bound by :when-let must be logically true in order to match.
+  Hereby, the variables bound by :let (a and b) are taken as-is whereas the
+  variables bound by :when-let must be logically true in order to match.  That
+  is, in the example above, a and b could be nil, but c has to be logically
+  true (i.e., not nil and not false) for a match to occur.
 
-  Finally, patterns may also include calls to other patterns and usual
-  comprehension binding forms using :call, i.e., pairs of variables and
-  expressions.
+  Patterns may also include calls to other patterns and usual comprehension
+  binding forms using :call, i.e., pairs of variables and expressions.
 
     [v --> w
      :call [u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]]
 
-  The result of a pattern is a lazy sequence of matches.  Each match is either
-  defined by `result-spec` if that's given, or it defaults to a vector of
-  matched elements in the order of declaration.  For example, the pattern
+  By default, the matches of a pattern are represented as vectors containing
+  the matched elements in the order of their declaration in the pattern.
 
-    (defpattern foo [a d]
-      [a -e<E>-> b<B> <-f<F>- c<C>
-       b <-- d])
+    [v --> w
+     :when-let [u (foobar w)]]
 
-  results in a lazy seq of [a e b f c d] vectors.
+  So in the example above, each match is represented as a vector of the form [v
+  w u]. However, the :as clause allows to define a custom match representation:
+
+    [v --> w
+     :when-let [u (foobar w)]
+     :as {:u u, :v v, :w w}]
+
+  In that example, the matches are represented using a map from pattern
+  variable name to matched element.  Note that matches don't need to contain
+  only the matched elements.  They could also return, e.g., attribute values of
+  those.
+
+  Finally, a pattern may contain a :distinct modifier.  If there is one, the
+  lazy seq of matches which is the result of a applying the pattern won't
+  contain duplicates (where \"duplicates\" in defined by the :as clause).
+  Let's clarify that with an example.  Consider a model with only two nodes n1
+  and n2.  There are the following three edges: n1 --> n1, n1 --> n2, n1 -->
+  n2, and n2 --> n1.  Then the effects of :distinct (in combination with :as)
+  are as follows:
+
+    [x --> y]    => 4 matches: [n1 n1], [n1 n2], [n1 n2], [n2 n1]
+
+    [x --> y     => 3 matches: [n1 n1], [n1 n2], [n2 n1]
+     :distinct]
+
+    [x --> y     => 2 matches: #{n1 n1}, #{n1 n2}
+     :as #{x y}
+     :distinct]
 
   The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
   models, is controlled by the option `:pattern-expansion-context` with
@@ -652,8 +707,8 @@
   possible to bind `*pattern-expansion-context*` to `:tg` or `:emf` otherwise.
   Note that this binding has to be available at compile-time."
 
-  {:arglists '([name doc-string? attr-map? [args] [pattern] result-spec?]
-                 [name doc-string? attr-map? ([args] [pattern] result-spec?)+])}
+  {:arglists '([name doc-string? attr-map? [args] [pattern]]
+                 [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
@@ -668,9 +723,9 @@
   "Establishes local patterns just like `letfn` establishes local functions.
   Every pattern in the `patterns` vector is specified as:
 
-    (pattern-name [args] [pattern-spec] result-form)
+    (pattern-name [args] [pattern-spec])
 
-  The result form is optional.
+  For the syntax and semantics of patterns, see the `defpattern` docs.
 
   Following the patterns vector, an `attr-map` may be given for specifying the
   `*pattern-expansion-context*` in case it's not bound otherwise (see that
@@ -694,17 +749,17 @@
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
   The syntax is
 
-    (pattern pattern-name? attr-map? [args] [pattern-spec] result-form?)
-    (pattern pattern-name? attr-map? ([args] [pattern-spec] result-form?)+)
+    (pattern pattern-name? attr-map? [args] [pattern-spec])
+    (pattern pattern-name? attr-map? ([args] [pattern-spec])+)
 
-  The `result-form` is optional.
+  For the syntax and semantics of patterns, see the `defpattern` docs.
 
   The `*pattern-expansion-context*` may be given as metadata to the pattern
   name in case it's not bound otherwise (see that var's documentation and
   `defpattern`)."
 
-  {:arglists '([name attr-map? [args] [pattern] result-spec?]
-                 [name attr-map? ([args] [pattern] result-spec?)+])}
+  {:arglists '([name attr-map? [args] [pattern]]
+                 [name attr-map? ([args] [pattern])+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]

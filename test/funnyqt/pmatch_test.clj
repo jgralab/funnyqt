@@ -64,8 +64,8 @@
                     [f<Family> -hf<HasFather>-> m<Member>])
                  ([g famconst]
                     [f<Family> -hf<HasFather>-> m<Member>
-                     :when (famconst f)]
-                    [f hf m]))]
+                     :when (famconst f)
+                     :as [f hf m]]))]
     {:pattern-expansion-context :tg}
     (is (= 3 (count (families-with-fathers-simple fg))))
     (is (= 3 (count (families-with-fathers fg))))
@@ -80,8 +80,8 @@
                                           [f<Family> -hf<HasFather>-> m<Member>])
                                        ([g famconst]
                                           [f<Family> -hf<HasFather>-> m<Member>
-                                           :when (famconst f)]
-                                            [f hf m]))]
+                                           :when (famconst f)
+                                           :as [f hf m]]))]
     (is (= 3 (count (families-with-fathers-simple fg))))
     (is (= 3 (count (families-with-fathers fg))))
     (is (= 3 (count (families-with-fathers fg (constantly true)))))
@@ -130,15 +130,15 @@
   {:pattern-expansion-context :emf}
   [g fam]
   [fam --> <Member> --> <Family> -<sons>-> <> --> x<Family>
-   :when (not= fam x)]
-  [(emf/eget x :lastName) (emf/eget x :street)])
+   :when (not= fam x)
+   :as [(emf/eget x :lastName) (emf/eget x :street)]])
 
 (deftest test-long-anon-pattern-emf
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
-                                        (= "Smithway 17" (emf/eget f :street))))
+                                         (= "Smithway 17" (emf/eget f :street))))
                             (emf/eallobjects fm 'Family)))
         ofsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
-                                         (= "Smith Avenue 4" (emf/eget f :street))))
+                                          (= "Smith Avenue 4" (emf/eget f :street))))
                              (emf/eallobjects fm 'Family)))
         r (long-anon-pattern-emf fm fsmith)]
     (is (= 1 (count r)))
@@ -152,8 +152,8 @@
                     [f<Family> -<father>-> m<Member>])
                  ([g famconst]
                     [f<Family> -<father>-> m<Member>
-                     :when (famconst f)]
-                    [f m]))]
+                     :when (famconst f)
+                     :as [f m]]))]
     {:pattern-expansion-context :emf}
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
@@ -169,8 +169,8 @@
                                           [f<Family> -<father>-> m<Member>])
                                        ([g famconst]
                                           [f<Family> -<father>-> m<Member>
-                                           :when (famconst f)]
-                                            [f m]))]
+                                           :when (famconst f)
+                                           :as [f m]]))]
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
