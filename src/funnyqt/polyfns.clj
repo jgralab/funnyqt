@@ -33,10 +33,7 @@ behavior.  If no optional default behavior is specified, an exception is
 thrown."
   (:require [clojure.tools.macro  :as tm]
             [funnyqt.utils        :as u]
-            [funnyqt.tg           :as tg]
-            [funnyqt.emf          :as emf]
-            [funnyqt.protocols    :as p]
-            [flatland.ordered.map :as om]))
+            [funnyqt.protocols    :as p]))
 
 ;;# Utility protocols
 
@@ -89,7 +86,7 @@ thrown."
            (build-polyfn-dispatch-table #'~name ~type-var))
          (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
            (if-let [f# (dispatch-map# ~type-var)]
-             (f# ~(first argvec))
+             (f# ~@argvec)
              (do
                ~@(or body
                      `[(u/errorf "No polyfn implementation defined for type %s"
@@ -113,8 +110,8 @@ thrown."
        (when-not (symbol? ~type)
          (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
                    ~type (class ~type)))
-       (let [^String n# (clojure.core/name ~type)
-             spec-map# (::polyfn-spec-table (meta #'~name))
+       (let [^String n#    (clojure.core/name ~type)
+             spec-map#     (::polyfn-spec-table (meta #'~name))
              dispatch-map# (::polyfn-dispatch-table (meta #'~name))]
          (when (or (.startsWith n# "!")
                    (.endsWith n# "!"))
