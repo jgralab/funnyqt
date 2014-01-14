@@ -23,15 +23,15 @@
 
 ;;# Simple type predicates
 
-(definline eobject?
+(defn eobject?
   "Returns true if `eo` is an EObject."
   [eo]
-  `(instance? EObject ~eo))
+  (instance? EObject eo))
 
-(definline eclass?
+(defn eclass?
   "Returns true if `eo` is an EClass."
   [eo]
-  `(instance? EClass ~eo))
+  (instance? EClass eo))
 
 (extend-protocol p/IModelObject
   EObject
@@ -189,7 +189,7 @@
 (extend-protocol p/IMMClasses
   EClass
   (p/mm-classes [cls]
-    (filter eclass? (eclassifiers))))
+    (eclasses)))
 
 (extend-protocol p/IMMClass
   EObject
