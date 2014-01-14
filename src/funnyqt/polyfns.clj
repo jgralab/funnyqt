@@ -77,8 +77,8 @@ thrown."
         body        (next more)
         type-var    (gensym "type__")]
     `(defn ~name ~(assoc (meta name)
-                    ::polyfn-spec-table (atom {})
-                    ::polyfn-dispatch-table (atom nil))
+                    ::polyfn-spec-table     `(atom {})
+                    ::polyfn-dispatch-table `(atom nil))
        ~argvec
        (let [meta-map# (meta #'~name)
              ~type-var (p/mm-class ~(first argvec))]

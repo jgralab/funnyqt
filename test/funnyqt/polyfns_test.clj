@@ -1,71 +1,79 @@
 (ns funnyqt.polyfns-test
-  (:require [funnyqt.tg :as tg])
-  (:use funnyqt.polyfns)
-  (:use [funnyqt.tg-test :only [jg]])
-  (:use clojure.test)
-  (:require [criterium.core :as c]))
+  (:require [funnyqt.tg        :as tg])
+  (:require [funnyqt.protocols :as p])
+  (:require [funnyqt.polyfns   :refer :all])
+  (:require [funnyqt.utils     :as u])
+  (:use [funnyqt.tg-test       :only [rg]])
+  (:use clojure.test))
 
-;; TODO: Write tests!
+(declare-polyfn aec-name-no-default [elem])
 
-(declare-polyfn aec-name [elem]
+(declare-polyfn aec-name-with-default [elem]
                 "--undefined--")
 
-(defpolyfn aec-name 'containers.CompilationUnit
-  [elem]
-  "containers.CompilationUnit")
+(defpolyfn aec-name-no-default 'junctions.Junction [elem]
+  "Junction")
+(defpolyfn aec-name-with-default 'junctions.Junction [elem]
+  "Junction")
 
-(defpolyfn aec-name 'imports.ClassifierImport
-  [elem]
-  "imports.ClassifierImport")
+(defpolyfn aec-name-no-default 'localities.Locality [elem]
+  "Locality")
+(defpolyfn aec-name-with-default 'localities.Locality [elem]
+  "Locality")
 
-(defpolyfn aec-name 'classifiers.ConcreteClassifier
-  [elem]
-  "classifiers.ConcreteClassifier")
+(defpolyfn aec-name-no-default 'localities.City [elem]
+  "City")
+(defpolyfn aec-name-with-default 'localities.City [elem]
+  "City")
 
-(defpolyfn aec-name 'classifiers.Class
-  [elem]
-  "classifiers.Class")
+(defpolyfn aec-name-no-default 'connections.Connection [elem]
+  "Connection")
+(defpolyfn aec-name-with-default 'connections.Connection [elem]
+  "Connection")
 
-(defpolyfn aec-name 'operators.Assignment
-  [elem]
-  "operators.Assignment")
+(try
+  (aec-name-no-default (tg/first-vertex rg))
+  (catch Exception e
+    (if (re-matches #"2 polyfns are applicable.*" (.getMessage e))
+      (println "Tie in polyfn impls successfully detected.")
+      (u/errorf "Tie in polyfn impls for aec-name-no-default not detected!"))))
 
-(defpolyfn aec-name 'expressions.Expression
-  [elem]
-  "expressions.Expression")
+(try
+  (aec-name-with-default (tg/first-vertex rg))
+  (catch Exception e
+    (if (re-matches #"2 polyfns are applicable.*" (.getMessage e))
+      (println "Tie in polyfn impls successfully detected.")
+      (u/errorf "Tie in polyfn impls for aec-name-with-default not detected!"))))
 
-(defpolyfn aec-name 'expressions.CastExpression
-  [elem]
-  "expressions.CastExpression")
+(defpolyfn aec-name-no-default 'junctions.Airport [e]
+  "Airport")
+(defpolyfn aec-name-with-default 'junctions.Airport [e]
+  "Airport")
 
-(defpolyfn aec-name 'expressions.AdditiveExpression
-  [elem]
-  "expressions.AdditiveExpression")
+(deftest test-polyfns-tg
+  (doseq [x (tg/vseq rg '[:and Junction !Airport])]
+    (is (= "Junction" (aec-name-no-default x)))
+    (is (= "Junction" (aec-name-with-default x))))
 
-(defpolyfn aec-name 'statements.Conditional
-  [elem]
-  "statements.Conditional")
+  (doseq [x (tg/vseq rg 'Airport)]
+    (is (= "Airport" (aec-name-no-default x)))
+    (is (= "Airport" (aec-name-with-default x))))
 
-(defpolyfn aec-name 'statements.Throw
-  [elem]
-  "statements.Throw")
+  (doseq [x (tg/vseq rg '[:and Locality !City !Airport])]
+    (is (= "Locality" (aec-name-no-default x)))
+    (is (= "Locality" (aec-name-with-default x))))
 
-(deftest time-polyfns
-  ;; 1. Execution time mean : 208.373278 ms
-  ;;    Execution time mean : 189.096473 ms
-  ;;    Execution time mean : 196.353706 ms
-  #_(c/bench (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))
-  (dotimes [i 10]
-    (print (format "%s. run: " i))
-    (time (dorun (map aec-name (concat (tg/vseq jg) (tg/eseq jg)))))))
+  (doseq [x (tg/vseq rg 'City)]
+    (is (= "City" (aec-name-no-default x)))
+    (is (= "City" (aec-name-with-default x))))
 
-(deftest test-polyfn-aec-name
-  (doseq [el (tg/vseq jg 'Class)]
-    (is (= "classifiers.Class" (aec-name el))))
-  (doseq [el (tg/vseq jg '[classifiers.Enumeration classifiers.Interface])]
-    (is (= "classifiers.ConcreteClassifier" (aec-name el))))
-  (doseq [el (tg/vseq jg '[:nor expressions.Expression operators.Assignment
-                           classifiers.ConcreteClassifier imports.ClassifierImport
-                           containers.CompilationUnit statements.Conditional
-                           statements.Throw])]
-    (is (= "--undefined--" (aec-name el)))))
+  (doseq [x (tg/eseq rg 'Connection)]
+    (is (= "Connection" (aec-name-no-default x)))
+    (is (= "Connection" (aec-name-with-default x))))
+
+  (doseq [x (tg/vseq rg 'County)]
+    (is (thrown-with-msg? Exception
+                          #"No polyfn implementation defined"
+                          (aec-name-no-default x)))
+    (is (= "--undefined--" (aec-name-with-default x)))))
+
