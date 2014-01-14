@@ -58,17 +58,24 @@
   (alter-var-root #'type-matcher-cache
                   (constantly (cache/soft-cache-factory (hash-map)))))
 
+(defn ^:private get-uri [f]
+  (cond
+   (instance? java.io.File f)
+   (URI/createFileURI (.getPath ^java.io.File f))
+
+   (instance? java.net.URL f)
+   (URI/createURI (.toString f))
+
+   :else (URI/createFileURI f)))
+
 (defn load-metamodel
-  "Loads the EcoreModel from the ecore file `f`.
+  "Loads the EcoreModel from the ecore file or java.net.URL `f`.
   All EPackages are registered."
   [f]
   ;; Reset the caches, since now the names might not be unique anymore.
   (reset-all-emf-caches)
 
-  (let [f (if (instance? java.io.File f)
-            (.getPath ^java.io.File f)
-            f)
-        uri (URI/createFileURI f)
+  (let [uri (get-uri f)
         res (XMIResourceImpl. uri)]
     (doto (ep/->EcoreModel res)
       ep/load-and-register-internal)))
@@ -275,12 +282,9 @@
      (ep/->EMFModel (XMIResourceImpl. xmifile))))
 
 (defn load-model
-  "Loads an EMFModel from the XMI file `f`."
+  "Loads an EMFModel from the XMI file or java.net.URL `f`."
   [f]
-  (let [f (if (instance? java.io.File f)
-            (.getPath ^java.io.File f)
-            f)
-        uri (URI/createFileURI f)
+  (let [uri (get-uri f)
         res (XMIResourceImpl. uri)]
     (doto (ep/->EMFModel res)
       ep/init-model-internal)))
