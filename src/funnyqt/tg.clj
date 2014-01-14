@@ -353,60 +353,71 @@ functions `record` and `enum`."
 
 ;;## General type predicates
 
-(definline graph?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn graph?
   "Returns logical true if `g` is a Graph."
   [g]
-  `(instance? Graph ~g))
+  (instance? Graph g))
 
-(definline schema?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn schema?
   "Returns logical true if `s` is a Schema."
   [g]
-  `(instance? Schema ~g))
+  (instance? Schema g))
 
-(definline vertex?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn vertex?
   "Returns logical true if `v` is a Vertex."
   [v]
-  `(instance? Vertex ~v))
+  (instance? Vertex v))
 
-(definline edge?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn edge?
   "Returns logical true if `e` is an Edge."
   [e]
-  `(instance? Edge ~e))
+  (instance? Edge e))
 
-(definline graph-element?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn graph-element?
   "Returns logical true if `ge` is a GraphElement."
   [ge]
-  `(instance? GraphElement ~ge))
+  (instance? GraphElement ge))
 
-(definline attributed-element?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn attributed-element?
   "Returns logical true if `ae` is an AttributedElement."
   [ae]
-  `(instance? AttributedElement ~ae))
+  (instance? AttributedElement ae))
 
-(definline graph-class?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn graph-class?
   "Returns logical true if `g` is a GraphClass."
   [g]
-  `(instance? GraphClass ~g))
+  (instance? GraphClass g))
 
-(definline vertex-class?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn vertex-class?
   "Returns logical true if `v` is a VertexClass."
   [v]
-  `(instance? VertexClass ~v))
+  (instance? VertexClass v))
 
-(definline edge-class?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn edge-class?
   "Returns logical true if `e` is an EdgeClass."
   [e]
-  `(instance? EdgeClass ~e))
+  (instance? EdgeClass e))
 
-(definline graph-element-class?
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn graph-element-class?
   "Returns logical true if `ge` is a GraphElementClass."
   [ge]
-  `(instance? GraphElementClass ~ge))
+  (instance? GraphElementClass ge))
 
-(definline attributed-element-class?
-  "Returns logical true if `ae` is an AttributedElementClass."
-  [ae]
-  `(instance? AttributedElementClass ~ae))
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn attributed-element-class?
+  "Returns logical true if `aec` is an AttributedElementClass."
+  [aec]
+  (instance? AttributedElementClass aec))
 
 ;;## Type Checks
 

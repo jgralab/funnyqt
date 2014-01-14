@@ -23,11 +23,13 @@
 
 ;;# Simple type predicates
 
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
 (defn eobject?
   "Returns true if `eo` is an EObject."
   [eo]
   (instance? EObject eo))
 
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
 (defn eclass?
   "Returns true if `eo` is an EClass."
   [eo]
@@ -268,9 +270,10 @@
 
 ;;## EMF Model
 
-(definline emf-model? [m]
+;; TODO: convert back to definline when that's fixed, see CLJ-1227.
+(defn emf-model? [m]
   "Returns true if `m` is an EMFModel."
-  `(instance? EMFModel ~m))
+  (instance? EMFModel m))
 
 (defn new-model
   "Creates and returns a new, empty EMFModel.
