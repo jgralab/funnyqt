@@ -10,15 +10,15 @@
    [org.eclipse.emf.common.util URI EList]
    [org.eclipse.emf.ecore EPackage EObject EModelElement]))
 
-(deftest test-load-metamodel
-  (let [mm (load-metamodel "test/input/Families.ecore")]
-    (is (instance? funnyqt.emf_protocols.EcoreModel mm))
+(deftest test-load-ecore-resource
+  (let [mm (load-ecore-resource "test/input/Families.ecore")]
+    (is (instance? org.eclipse.emf.ecore.resource.Resource mm))
     ;; Restricting to our custom one by its nsURI...
     (with-ns-uris ["http://families/1.0"]
       (is (== 1 (count (epackages)))))))
 
-(def family-mm (load-metamodel "test/input/Families.ecore"))
-(def family-model (load-model "test/input/example.families"))
+(load-ecore-resource "test/input/Families.ecore")
+(def family-model (load-resource "test/input/example.families"))
 
 (deftest test-eclassifiers
   (with-ns-uris ["http://families/1.0"]
@@ -52,28 +52,6 @@
     (doseq [[k v] [[:a "a"] [:b "b"] [:c "c"] [:d "d"]]]
       (.put em k v))
     em))
-
-(deftest test-emf2clj-conversion
-  ;; UniqueEList -> OrderedSet
-  (let [uel (make-uniqueelist)
-        clj-uel (emf2clj uel)]
-    (is (instance? flatland.ordered.set.OrderedSet clj-uel))
-    (is (== (count uel) (count clj-uel)))
-    (is (= (seq uel) (seq clj-uel))))
-  ;; EList -> vector
-  (let [el (make-elist)
-        clj-el (emf2clj el)]
-    (is (vector? clj-el))
-    (is (== (count el) (count clj-el)))
-    (is (= (seq el) clj-el)))
-  ;; EMap -> IPersistentMap
-  (let [^org.eclipse.emf.common.util.EMap em (make-emap)
-        clj-em (emf2clj em)]
-    (is (map? clj-em))
-    (is (== (count em) (count clj-em)))
-    (doseq [k (keys clj-em)]
-      (is (.containsKey em k))
-      (is (= (.get em k) (clj-em k))))))
 
 (deftest test-econtents-eallcontents
   (let [all   (eallobjects family-model)
@@ -227,7 +205,7 @@
   "Creates a more or less random FamilyModel with `fnum` families and `mnum`
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
-  (let [m (new-model) ;; Also test the generic creation function...
+  (let [m (new-resource) ;; Also test the generic creation function...
         fm (create-element! m 'FamilyModel)
         make-family (fn [i]
                       (ecreate! nil 'Family
@@ -300,7 +278,7 @@
     (is (== (* 2 i) (count (econtents fm 'Member))))))
 
 (deftest test-stressy-add-remove
-  (let [fm (new-model)
+  (let [fm (new-resource)
         root (ecreate! fm 'FamilyModel)
         f   (ecreate! nil 'Member)
         fam (ecreate! nil 'Family)
@@ -318,7 +296,7 @@
     (is (== 1 (count (ecrosspairs fm))))))
 
 (deftest test-create-element!
-  (let [fm (new-model)
+  (let [fm (new-resource)
         root (ecreate! fm 'FamilyModel)
         f    (create-element! fm 'Family {:lastName "Doe"
                                           :model root})
@@ -341,7 +319,7 @@
                                 fams)
 
 (deftest test-generated-api
-  (let [m (new-model)
+  (let [m (new-resource)
         root (fams/create-FamilyModel! m)
         fam  (fams/create-Family! nil)
         m1   (fams/create-Member! nil :firstName "Ben")
@@ -386,3 +364,70 @@
     (is (= (eallobjects m 'Member)      (fams/eall-Members m)))
     (is (= (eallobjects m 'Family)      (fams/eall-Families m)))
     ))
+
+(load-ecore-resource "test/input/AddressBook.ecore")
+
+(deftest test-super-subclass-fns
+  (with-ns-uris #{"http://addressbook/1.0"}
+    (let [named   (eclassifier 'NamedElement)
+          entry   (eclassifier 'Entry)
+          ab      (eclassifier 'AddressBook)
+          cat     (eclassifier 'Category)
+          contact (eclassifier 'Contact)
+          org     (eclassifier 'Organization)]
+      (is (= #{cat ab org}
+             (esubclasses named)
+             (eallsubclasses named)))
+      (is (= #{org contact}
+             (esubclasses entry)
+             (eallsubclasses entry)))
+      (is (= #{}
+             (esuperclasses entry)
+             (eallsuperclasses entry)))
+      (is (= #{named entry}
+             (esuperclasses org)
+             (eallsuperclasses org)))
+      (is (= #{entry}
+             (esuperclasses contact)
+             (eallsuperclasses contact))))))
+
+(deftest test-ns-uri-restrictions
+  (is (thrown-with-msg? Exception #"No such EPackage nsURI"
+                        (eclassifier {"invalid uri" 'Foo})))
+  (is (thrown-with-msg? Exception #"No such EPackage nsURI"
+                        (with-ns-uris ["invalid uri"]
+                          (eclassifier 'Foo))))
+  (is (thrown-with-msg? Exception #"No such EClassifier"
+                        (eclassifier {"http://addressbook/1.0" 'Member})))
+  (is (thrown-with-msg? Exception #"No such EClassifier"
+                        (with-ns-uris ["http://addressbook/1.0"]
+                          (eclassifier 'Member))))
+  (is (= (eclassifier 'Member)
+         (with-ns-uris ["http://families/1.0"]
+           (eclassifier 'Member))
+         (eclassifier {"http://families/1.0" 'Member})))
+  (is (thrown-with-msg? Exception #"No such EClassifier"
+                        (eclassifier {"http://addressbook/1.0" 'Member})))
+  (is (thrown-with-msg? Exception #"No such EClassifier"
+                        (with-ns-uris ["http://addressbook/1.0"]
+                          (eclassifier 'Member))))
+  (is (= (eallobjects family-model '[Member Family])
+         (eallobjects family-model
+                      '{"http://addressbook/1.0"
+                        [:or {"http://families/1.0" Member}
+                         {"http://families/1.0" Family}]})))
+  (is (thrown-with-msg? Exception #"No such EClassifier"
+                        (eallobjects family-model
+                                     '{"http://addressbook/1.0"
+                                       [:or {"http://families/1.0" Member}
+                                        Family]})))
+  (is (= (eclassifier 'AddressBook)
+         (eclassifier {"http://addressbook/1.0" 'AddressBook})
+         (with-ns-uris ["http://addressbook/1.0"]
+           (eclassifier 'AddressBook))))
+  (is (= (eallobjects family-model '[Family Member])
+         (eallobjects family-model '[Family Member])
+         (eallobjects family-model '{"http://families/1.0" [Family Member]})))
+  (is (= (eallobjects family-model 'Member)
+         (eallobjects family-model 'Member)
+         (eallobjects family-model '{"http://families/1.0" Member}))))

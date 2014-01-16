@@ -18,16 +18,24 @@
 
 ;; Either :left or :right
 (def ^{:dynamic true
-       :doc "Used only internally."}
+       :doc "Only for internal use.
+  The current direction of the transformation execution.
+  Either :left or :right."}
   *target-direction*)
 
-(defn select-match [matches relation src-match]
+(defn select-match
+  "Only for internal use.
+  Simply returns the first match.  Throws an exception if there's none."
+  [matches relation src-match]
   (when-not (seq matches)
     (u/errorf "Couldn't create a %s target match for source match: %s"
               (.getSimpleName (class relation)) src-match))
   (first matches))
 
-(defn enforce-match [match]
+(defn enforce-match
+  "Only for internal use.
+  Manifests the temporary and wrapper elements in `match`."
+  [match]
   (doseq [el (vals match)
           :when (tmp/tmp-or-wrapper-element? el)]
     ;;(println "Enforcing" (tmp/as-map el))
@@ -39,12 +47,18 @@
                    [(keyword (name qs)) qs])
                  syms)))
 
-(def ^:dynamic *target-model*)
+(def ^{:dynamic true
+       :doc "Only for internal use.
+  The current target model of the transformation execution.
+  Depends on `*target-direction*, so it's either the :right or the :left modes."}
+  *target-model*)
 
 (defn ^:private make-destr-map [syms as]
   {:keys (vec (set syms)) :as as})
 
-(defn replace-tmps-and-wrappers-with-manifestations [trg-match]
+(defn replace-tmps-and-wrappers-with-manifestations
+  "Only for internal use."
+  [trg-match]
   (apply hash-map
          (mapcat (fn [[k v]]
                    [k (if (tmp/tmp-or-wrapper-element? v)
@@ -67,7 +81,9 @@
   [code]
   (when code [code]))
 
-(defn src-initializeo [args-map & lvars]
+(defn src-initializeo
+  "Only for internal use."
+  [args-map & lvars]
   (fn [a]
     (ccl/unify a (vec lvars)
                (mapv (fn [lv]
@@ -75,12 +91,18 @@
                          (if (= val ::unknown) lv val)))
                      lvars))))
 
-(defn maybe-wrap [lv val]
+(defn maybe-wrap
+  "Wraps `val` in bound to the logic variable `lv` in a WrapperElement if it is
+  a model object.  Else returns `val` unchanged.
+  Only for internal use."
+  [lv val]
   (if (p/model-object? val)
     (tmp/make-wrapper *target-model* lv val)
     val))
 
-(defn trg-initializeo [src-match args-map & lvars]
+(defn trg-initializeo
+  "Only for internal use."
+  [src-match args-map & lvars]
   (fn [a]
     (ccl/unify a (vec lvars)
                (mapv (fn [lv]
@@ -205,7 +227,7 @@
     m))
 
 (defn check-args
-  "Only used internally.
+  "Only for internal use.
   Check if the provided args in arg-map are valid (that is, in good-args)."
   [relsym arg-map good-args]
   (when-let [unbound-key (some #(when-not (good-args %) %) (keys arg-map))]
@@ -237,14 +259,17 @@
                 ~@relbody))))
 
 (def ^{:dynamic true
-       :doc "A map with the following structure:
+       :doc "Only for internal use.
+  A map with the following structure:
 
     {relation1 bindings, relation2 bindings, ...}
 
   where bindings is:
 
-    ({:?lsym1 val1, :?rsym1 rval2, ...}
-     ...)"}
+    ({:?lsym1 lval1, :?rsym1 rval2, ...}
+     ...)
+
+  Access this information with the relation `relateo`."}
   *relation-bindings*)
 
 (defn relateo

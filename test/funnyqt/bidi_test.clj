@@ -239,7 +239,7 @@
 
 (test/deftest test-addressbook-tg2addressbook-emf
   (let [l (make-example-addressbook-tg)
-        r (emf/new-model)]
+        r (emf/new-resource)]
     ;; Transform l to r
     (print "addressbook-tg2addressbook-emf l -> r (empty)                ")
     (time (addressbook-tg2addressbook-emf l r :right))
@@ -276,8 +276,8 @@
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
                                      test.relational.database.emf db)
 
-(def cd1 (emf/load-model "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
-(def db1 (emf/load-model "test/input/uml-rdbms-bidi/m2/database01.xmi"))
+(def cd1 (emf/load-resource "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
+(def db1 (emf/load-resource "test/input/uml-rdbms-bidi/m2/database01.xmi"))
 
 (comment
   (ccl/run* [q]
@@ -324,7 +324,7 @@
                  (super-attribute2column :?subclass ?superclass :?table ?table)]))
 
 (test/deftest test-cd2db
-  (let [result-db (emf/new-model)]
+  (let [result-db (emf/new-resource)]
     (class-diagram2database-schema cd1 result-db :right)
     (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
     (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
@@ -332,7 +332,7 @@
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd
-  (let [result-cd (emf/new-model)]
+  (let [result-cd (emf/new-resource)]
     (class-diagram2database-schema result-cd db1 :left)
     (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
     (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
@@ -357,7 +357,7 @@
    :where [(attribute2column :?class ?class :?table ?table)]))
 
 (test/deftest test-cd2db-ext
-  (let [result-db (emf/new-model)]
+  (let [result-db (emf/new-resource)]
     (class-diagram2database-schema-ext cd1 result-db :right)
     (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
     (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
@@ -365,7 +365,7 @@
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd-ext
-  (let [result-cd (emf/new-model)]
+  (let [result-cd (emf/new-resource)]
     (class-diagram2database-schema-ext result-cd db1 :left)
     (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
     (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))

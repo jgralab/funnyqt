@@ -110,8 +110,8 @@
 
 ;;# EMF
 
-(emf/load-metamodel "test/input/Families.ecore")
-(def fm (emf/load-model "test/input/example.families"))
+(emf/load-ecore-resource "test/input/Families.ecore")
+(def fm (emf/load-resource "test/input/example.families"))
 
 (defpattern families-with-fathers-simple-emf
   {:pattern-expansion-context :emf}

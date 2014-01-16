@@ -8,7 +8,7 @@
   (:use funnyqt.query.emf)
   (:use clojure.test))
 
-(def mutual-exclusion-mm (load-metamodel "test/input/MutualExclusion.ecore"))
+(load-ecore-resource "test/input/MutualExclusion.ecore")
 
 ;;* Rules
 
@@ -146,7 +146,7 @@
   "Returns an initial graph for the STS.
   Two Processes connected in a ring by two Next edges."
   []
-  (let [m (new-model)
+  (let [m (new-resource)
         p1 (ecreate! m 'Process)
         p2 (ecreate! m 'Process)]
     (eset! p1 :name "p1")
@@ -210,7 +210,7 @@
   n Next edges organize the processes in a token ring.
   n HeldBy edges assign to each process a resource."
   [n]
-  (let [m (new-model)]
+  (let [m (new-resource)]
     (loop [i n, lp nil]
       (if (pos? i)
         (let [r (ecreate! m 'Resource)

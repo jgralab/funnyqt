@@ -60,8 +60,8 @@
                       (remove not))))))))
 
 (defn eobjecto
-  "A relation where EObject `e` has the type `t`, an EClass name in EMFModel `m`.
-  In fact, `t` may be any type specification (see
+  "A relation where EObject `e` has the type `t`, an EClass name in Resouce or
+  ResourceSet `m`.  In fact, `t` may be any type specification (see
   `funnyqt.protocols/type-matcher`)."
   ([m eo]
      (if tmp/*make-tmp-elements*
@@ -125,7 +125,7 @@
 
 (defn valueo
   "A relation where EObject `eo` has value `val` for its `at` attribute in
-  EMFModel `m`."
+  EMF Resource or ResourceSet `m`."
   [m eo at val]
   (if tmp/*make-tmp-elements*
     (tmp-valueo m eo at val)
@@ -196,8 +196,8 @@
                        geo gref greo)))))
 
 (defn adjo
-  "A relation where `eo` references `reo` with its `ref` reference in EMFModel
-  `m`."
+  "A relation where `eo` references `reo` with its `ref` reference in the EMF
+  Resource or ResourceSet `m`."
   [m eo ref reo]
   (if tmp/*make-tmp-elements*
     (tmp-adjo m eo ref reo)

@@ -87,10 +87,11 @@
                      [[child parent] (resolve-alpha parent) (resolve-omega child)])))
   @*img*)
 
+(emf/load-ecore-resource "test/input/Families.ecore")
+
 (deftest test-families2genealogy-extensional
   (let [g (new-graph (load-schema "test/input/genealogy-schema.tg"))
-        _ (emf/load-metamodel "test/input/Families.ecore")
-        m (emf/load-model "test/input/example.families")]
+        m (emf/load-resource "test/input/example.families")]
     #_(clojure.pprint/pprint (families2genealogy m g))
     (families2genealogy m g)
     (is (= 13 (vcount g 'Person)))

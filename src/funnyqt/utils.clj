@@ -78,9 +78,9 @@
   [^String name]
   (let [neg (.startsWith name "!")
         ext (.endsWith   name "!")
-        name (.substring name
-                         (if neg 1 0)
-                         (if ext (dec (.length name)) (.length name) ))]
+        name (symbol (.substring name
+                                 (if neg 1 0)
+                                 (if ext (dec (.length name)) (.length name) )))]
     [neg name ext]))
 
 (defn split-qname

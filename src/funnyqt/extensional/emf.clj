@@ -4,7 +4,6 @@
             [funnyqt.utils         :as u]
             [funnyqt.protocols     :as p]
             [funnyqt.emf           :as emf]
-            [funnyqt.emf-protocols :as ep]
             [funnyqt.extensional   :as e])
   (:import
    (org.eclipse.emf.ecore EObject EClass EStructuralFeature EReference)))
@@ -13,16 +12,24 @@
 ;;# Dynamic vars
 
 (def ^{:dynamic true
+       :arglists '([archetype])
        :doc "Resolves the image of the given archetype in the img function
-  corresponding to the EClass of the current attribute."}
+  corresponding to the EClass of the current attribute.  This function is only
+  bound inside `set-values!` and `add-values!`."}
   resolve-eobject)
 
 (def ^{:dynamic true
-       :doc "todo"}
+       :arglists '([archetype])
+       :doc "Returns the image of the given `archetype` in the image function
+  of the current EReference.  This function is only bound inside
+  `set-values!` and `add-values!`."}
   resolve-target)
 
 (def ^{:dynamic true
-       :doc "todo"}
+       :arglists '([archetypes])
+       :doc "Returns the images of the given collection of `archetypes` in the
+  image function of the current EReference.  This function is only bound inside
+  `set-values!` and `add-values!`.."}
   resolve-all-targets)
 
 ;;# Utility Functions
@@ -91,17 +98,17 @@
                                        "Can't call `resolve-all-targets` for EAttribute %s!"
                                        featureqn))]
         (doseq [[elem val]
-                (binding [resolve-eobject (partial img-internal ec)
-                          resolve-target resolve-target-fn
+                (binding [resolve-eobject     (partial img-internal ec)
+                          resolve-target      resolve-target-fn
                           resolve-all-targets resolve-all-targets-fn]
                   (doall (valfn)))]
           (action elem attrname val)))
       (u/errorf "%s has no EStructuralFeature %s." (print-str ec) attrname))))
 
-(defn set-features!
+(defn set-values!
   [m featureqn valfn]
   (internal-modify-feature-fn m featureqn valfn emf/eset!))
 
-(defn add-features!
+(defn add-values!
   [m featureqn valfn]
   (internal-modify-feature-fn m featureqn valfn emf/eaddall!))

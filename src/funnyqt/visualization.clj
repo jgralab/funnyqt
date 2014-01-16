@@ -13,7 +13,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
    (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
    (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
    (org.eclipse.emf.ecore EObject EAttribute EReference)
-   (funnyqt.emf_protocols EMFModel)
+   (org.eclipse.emf.ecore.resource Resource ResourceSet)
    (java.awt Image)
    (javax.swing ImageIcon)))
 
@@ -276,9 +276,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
   is added automatically.
 
-  By default, there is an entry for EMFModel and one for Graph."
-  {EMFModel emf-dot-model
-   Graph    tg-dot-model})
+  By default, there is an entry for an EMF Resource, an EMF ResourceSet and one
+  for a JGraLab Graph."
+  {Resource    emf-dot-model
+   ResourceSet emf-dot-model
+   Graph       tg-dot-model})
 
 (defn ^:private dot-model [m opts]
   (let [opts (dot-options opts)]
@@ -311,7 +313,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
            "}"))))
 
 (defn print-model
-  "Prints a visualization of model `m` (a TGraph or EMFModel) to the file `f`.
+  "Prints a visualization of model `m` (a TGraph or EMF Resource or ResourceSet)
+  to the file `f`.
   The file type is determined by its extension (dot, xdot, ps, svg, svgz, png,
   gif, pdf).
 

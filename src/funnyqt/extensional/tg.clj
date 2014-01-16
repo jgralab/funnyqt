@@ -12,18 +12,24 @@
 ;;# Dynamic vars
 
 (def ^{:dynamic true
-       :doc "Resolves the image of the given archetype in the img function
-  corresponding to the start vertex class."}
+       :arglists '([archetype])
+       :doc "Resolves the image of the given `archetype` in the img function
+  corresponding to the start vertex class.  This function is only bound in
+  `create-edges!`."}
   resolve-alpha)
 
 (def ^{:dynamic true
-       :doc "Resolves the image of the given archetype in the img function
-  corresponding to the end vertex class."}
+       :arglists '([archetype])
+       :doc "Resolves the image of the given `archetype` in the img function
+  corresponding to the target vertex class.  This function is only bound in
+  `create-edges!`."}
   resolve-omega)
 
 (def ^{:dynamic true
-       :doc "Resolves the image of the given archetype in the img function
-  corresponding to the attributed element class of the current attribute."}
+       :arglists '([archetype])
+       :doc "Resolves the image of the given `archetype` in the img function
+  corresponding to the attributed element class of the current attribute.  This
+  function is only bound in `set-values!`."}
   resolve-element)
 
 ;;# Utility Functions

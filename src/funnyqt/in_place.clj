@@ -26,7 +26,7 @@
   *on-matched-rule-fn* nil)
 
 (def ^{:dynamic true
-       :doc "Only used internally.  See `as-pattern' macro."}
+       :doc "Only for internal use.  See `as-pattern' macro."}
   *as-pattern* false)
 
 (defmacro as-pattern
@@ -38,7 +38,7 @@
      ~rule-app))
 
 (def ^{:dynamic true
-       :doc "Only used internally.  See `as-test' macro."}
+       :doc "Only for internal use.  See `as-test' macro."}
   *as-test* false)
 
 (defmacro as-test
@@ -419,11 +419,10 @@
   [model rule-vars & args]
   (loop [pos nil, posp (promise)]
     (let [rule-thunk-tups (mapcat (fn [rv]
-                                    (let [thunk (as-test (apply @rv args))]
-                                      (when thunk
-                                        [[rv thunk]])))
+                                    (when-let [thunk (as-test (apply @rv args))]
+                                      [[rv thunk]]))
                                   rule-vars)
-          t   (promise)]
+          t (promise)]
       (if (seq rule-thunk-tups)
         (select-rule-dialog model rule-thunk-tups t pos posp)
         (println "None of the rules is applicable."))

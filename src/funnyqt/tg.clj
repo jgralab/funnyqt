@@ -36,12 +36,13 @@ set them, use `set-value!`.  All clojure collections and maps are automatically
 converted to JGraLab's pcollections.  In case of RecordDomains and EnumDomains,
 whose values are instances of generated classes, there are the constructor
 functions `record` and `enum`."
-  (:require [clojure.core.cache    :as cache]
-            [clojure.core.reducers :as r]
-            [clojure.string        :as str]
-            [funnyqt.query         :as q]
-            [funnyqt.protocols     :as p]
-            [funnyqt.utils         :as u])
+  (:require [clojure.core.cache         :as cache]
+            [clojure.core.reducers      :as r]
+            [clojure.string             :as str]
+            [funnyqt.query              :as q]
+            [funnyqt.protocols          :as p]
+            [funnyqt.protocols.internal :as pi]
+            [funnyqt.utils              :as u])
   (:import
    (java.awt.event KeyEvent KeyListener)
    (java.util Collection)
@@ -1251,27 +1252,27 @@ functions `record` and `enum`."
     (u/errorf "More than one adjacent vertex found: %s" s)
     (first s)))
 
-(extend-protocol p/IAdjacencies
+(extend-protocol pi/IAdjacenciesInternal
   Vertex
-  (p/adj-internal [this roles]
+  (pi/adj-internal [this roles]
     (if (seq roles)
       (when-let [target (zero-or-one (maybe-traverse this (first roles) false true))]
         (recur target (rest roles)))
       this))
-  (p/adj*-internal [this roles]
+  (pi/adj*-internal [this roles]
     (if (seq roles)
       (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
         (recur target (rest roles)))
       this))
-  (p/adjs-internal [this roles]
+  (pi/adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (seq (maybe-traverse this (first roles) false false))]
-        (r/mapcat #(p/adjs-internal % (rest roles)) a))
+        (r/mapcat #(pi/adjs-internal % (rest roles)) a))
       [this]))
-  (p/adjs*-internal [this roles]
+  (pi/adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (seq (maybe-traverse this (first roles) true false))]
-        (r/mapcat #(p/adjs-internal % (rest roles)) a))
+        (r/mapcat #(pi/adjs*-internal % (rest roles)) a))
       [this])))
 
 

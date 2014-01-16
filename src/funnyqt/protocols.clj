@@ -1,7 +1,6 @@
 (ns funnyqt.protocols
   "Generic protocols extended upon many different types.")
 
-
 ;;# Describing Elements
 
 (defprotocol IDescribable
@@ -143,20 +142,7 @@
        this)))
 
 
-;;# IAdjacencies
-
-(defprotocol IAdjacencies
-  "A protocol for retrieving adjacent elements."
-  (adj-internal [this roles]
-    "Gets the adjacent element of `this` navigating `roles`.")
-  (adjs-internal [this roles]
-    "Gets all adjacent elements of `this` navigating `roles`.")
-  (adj*-internal [this roles]
-    "Gets the adjacent element of `this` navigating `roles`.
-  Doesn't error on intermediate unset roles.")
-  (adjs*-internal [this roles]
-    "Gets all adjacent elements of `this` navigating `roles`.
-  Doesn't error on intermediate unset roles."))
+;;# IModifyAdjacencies
 
 (defprotocol IModifyAdjacencies
   (set-adj!  [obj role robj]

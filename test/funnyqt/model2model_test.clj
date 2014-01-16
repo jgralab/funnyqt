@@ -8,6 +8,8 @@
   (:use funnyqt.model2model)
   (:use clojure.test))
 
+(emf/load-ecore-resource "test/input/Families.ecore")
+
 (defn family
   "Returns the main family of member m."
   [m]
@@ -72,8 +74,7 @@
    :to   [p 'Female]))
 
 (deftest test-families2genealogy
-  (let [_ (emf/load-metamodel "test/input/Families.ecore")
-        in (emf/load-model "test/input/example.families")
+  (let [in (emf/load-resource "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
         _ (print "families2genealogy (EMF -> TG):               ")
@@ -95,8 +96,7 @@
         (emf/eget m :firstName))))
 
 (deftest test-families2genealogy-ext
-  (let [_ (emf/load-metamodel "test/input/Families.ecore")
-        in (emf/load-model "test/input/example.families")
+  (let [in (emf/load-resource "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
         _ (print "families2genealogy-ext (EMF -> TG):           ")
@@ -148,8 +148,7 @@
      (member2person m))))
 
 (deftest test-families2genealogy-explicit-main
-  (let [_ (emf/load-metamodel "test/input/Families.ecore")
-        in (emf/load-model "test/input/example.families")
+  (let [in (emf/load-resource "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
         _ (print "families2genealogy-explicit-main (EMF -> TG): ")

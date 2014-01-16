@@ -43,28 +43,29 @@
                     (fn []
                       (filter (complement male?)
                               (eallobjects m 'Member))))
-  (set-features! tm 'Person.fullName
-                 (fn []
-                   (for [mem (eallobjects m 'Member)]
-                     [(resolve-eobject mem)
-                      (str (eget mem :firstName) " "
-                           (eget (family mem) :lastName))])))
-  (set-features! tm 'Male.wife
-                 (fn []
-                   (for [mem (filter wife (eallobjects m 'Member))]
-                     [(resolve-eobject mem) (resolve-target (wife mem))])))
-  (add-features! tm 'Person.parents
-                 (fn []
-                   (for [child (eallobjects m 'Member)
-                         :let [parents (parents-of child)]
-                         :when parents]
-                     [(resolve-eobject child) (resolve-all-targets parents)]))))
+  (set-values! tm 'Person.fullName
+               (fn []
+                 (for [mem (eallobjects m 'Member)]
+                   [(resolve-eobject mem)
+                    (str (eget mem :firstName) " "
+                         (eget (family mem) :lastName))])))
+  (set-values! tm 'Male.wife
+               (fn []
+                 (for [mem (filter wife (eallobjects m 'Member))]
+                   [(resolve-eobject mem) (resolve-target (wife mem))])))
+  (add-values! tm 'Person.parents
+               (fn []
+                 (for [child (eallobjects m 'Member)
+                       :let [parents (parents-of child)]
+                       :when parents]
+                   [(resolve-eobject child) (resolve-all-targets parents)]))))
+
+(load-ecore-resource "test/input/Genealogy.ecore")
+(load-ecore-resource "test/input/Families.ecore")
 
 (deftest test-families2genealogy-extensional
-  (let [tmm (load-metamodel "test/input/Genealogy.ecore")
-        tm (new-model)
-        _ (load-metamodel "test/input/Families.ecore")
-        m (load-model "test/input/example.families")]
+  (let [tm (new-resource)
+        m (load-resource "test/input/example.families")]
     #_(clojure.pprint/pprint (families2genealogy m tm))
     (families2genealogy m tm)
     (is (= 13 (count (eallobjects tm 'Person))))

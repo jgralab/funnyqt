@@ -4,14 +4,13 @@
             [clojure.core.reducers :as r]
             [clojure.string        :as str]
             [funnyqt.protocols     :as p]
-            [funnyqt.emf-protocols :as ep]
+            [funnyqt.protocols.internal :as pi]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
             [flatland.ordered.set  :as os]
             [flatland.ordered.map  :as om]
             inflections.core)
   (:import
-   (funnyqt.emf_protocols EMFModel EcoreModel)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
    (org.eclipse.emf.ecore.util EcoreUtil)
    (org.eclipse.emf.common.util URI EList UniqueEList EMap)
@@ -31,9 +30,14 @@
 
 ;; TODO: convert back to definline when that's fixed, see CLJ-1227.
 (defn eclass?
-  "Returns true if `eo` is an EClass."
-  [eo]
-  (instance? EClass eo))
+  "Returns true if `ec` is an EClass."
+  [ec]
+  (instance? EClass ec))
+
+(defn epackage?
+  "Returns true if `ep` is an EPackage."
+  [ep]
+  (instance? EPackage ep))
 
 (extend-protocol p/IModelObject
   EObject
@@ -41,56 +45,11 @@
 
 ;;# Metamodel Access
 
-(def ^:private eclassifier-cache
-  "A cache from EClassifier names to EClassifiers."
-  (cache/soft-cache-factory (hash-map)))
+(def ^:dynamic *ns-uris*
+  "A set of namespace URIs to which the classifier lookup should be restricted.
+  Also see `with-ns-uris'."
+  nil)
 
-(def ^:private type-matcher-cache
-  "A cache from type-specs to type-matchers."
-  (cache/soft-cache-factory (hash-map)))
-
-(defn reset-all-emf-caches
-  "Resets all EMF specific caches:
-
-    1. the eclassifier-cache
-    2. the type-matcher-cache"
-  []
-  (alter-var-root #'eclassifier-cache
-                  (constantly (cache/soft-cache-factory (hash-map))))
-  (alter-var-root #'type-matcher-cache
-                  (constantly (cache/soft-cache-factory (hash-map)))))
-
-(defn ^:private get-uri [f]
-  (cond
-   (instance? java.io.File f)
-   (URI/createFileURI (.getPath ^java.io.File f))
-
-   (instance? java.net.URL f)
-   (URI/createURI (.toString f))
-
-   :else (URI/createFileURI f)))
-
-(defn load-metamodel
-  "Loads the EcoreModel from the ecore file or java.net.URL `f`.
-  All EPackages are registered."
-  [f]
-  ;; Reset the caches, since now the names might not be unique anymore.
-  (reset-all-emf-caches)
-
-  (let [uri (get-uri f)
-        res (XMIResourceImpl. uri)]
-    (doto (ep/->EcoreModel res)
-      ep/load-and-register-internal)))
-
-(def ^{:arglists '([ecore-model file])
-       :doc "Saves the metamodel `ecore-model` to `file`."}
-  save-metamodel ep/save-metamodel-internal)
-
-(def ^{:arglists '([ecore-model])
-       :doc "Returns a seq of the metamodel `ecore-model`s EPackages."}
-  metamodel-epackages ep/metamodel-epackages-internal)
-
-(def ^:dynamic *ns-uris* nil)
 (defmacro with-ns-uris
   "Restricts the EClassifier lookup in the dynamic scope of `body` to those
   contained in top-level EPackages registered with the given URIs at the
@@ -99,27 +58,137 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
-(defn epackages
-  "The lazy seq of all registered EPackages."
+(defmacro ^:private with-system-class-loader [& body]
+  `(let [^Thread curt# (Thread/currentThread)
+         curcl# (.getContextClassLoader curt#)
+         syscl# (ClassLoader/getSystemClassLoader)]
+     (if (= curcl# syscl#)
+       ~@body
+       (do
+         (.setContextClassLoader curt# syscl#)
+         (try
+           ~@body
+           (finally (.setContextClassLoader curt# curcl#)))))))
+
+;; Caches
+
+(defrecord ^:private CacheEntry [ns-uris spec])
+
+;; TODO: convert to definline when that's fixed, see CLJ-1227.
+(defn ^:private make-cache-entry [ns-uris nm]
+  (->CacheEntry (or ns-uris *ns-uris*) nm))
+
+(def ^:private +eclassifier-cache+
+  "A cache from EClassifier names to EClassifiers."
+  (cache/soft-cache-factory (hash-map)))
+
+(def ^:private +type-matcher-cache+
+  "A cache from type-specs to type-matchers."
+  (cache/soft-cache-factory (hash-map)))
+
+(defn ^:private reset-all-emf-caches
+  "Resets all EMF specific caches:
+
+    1. the +eclassifier-cache+
+    2. the +type-matcher-cache+"
   []
-  (ep/with-system-class-loader
-    (map #(.getEPackage EPackage$Registry/INSTANCE %)
-         (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
+  (alter-var-root #'+eclassifier-cache+
+                  (constantly (cache/soft-cache-factory (hash-map))))
+  (alter-var-root #'+type-matcher-cache+
+                  (constantly (cache/soft-cache-factory (hash-map)))))
+
+(defn ^:private create-uri [f]
+  (cond
+   (instance? URI f)
+   f
+
+   (instance? java.io.File f)
+   (URI/createURI (.getPath ^java.io.File f))
+
+   (instance? java.net.URL f)
+   (URI/createURI (.toString ^java.net.URL f))
+
+   :else (URI/createURI f)))
+
+(defn ^:private register-epackages
+  "Registeres the given packages at the EPackage$Registry by their nsURI.
+  Skips packages that are already registered."
+  [pkgs]
+  (with-system-class-loader
+    (doseq [^EPackage p pkgs]
+      (when-let [uri (.getNsURI p)]
+        (when (seq uri)
+          (when-not (.containsKey EPackage$Registry/INSTANCE uri)
+            (.put EPackage$Registry/INSTANCE uri p)))))))
+
+(defn esubpackages
+  "Returns all direct subpackages of EPackage `ep`."
+  [^EPackage ep]
+  (seq (.getESubpackages ep)))
+
+(defn eallsubpackages
+  "Returns all direct and indirect subpackages of EPackage `ep`."
+  [^EPackage ep]
+  (let [subs (esubpackages ep)]
+    (concat subs (mapcat esubpackages subs))))
+
+(defn ^:private all-epackages-in-resource [^Resource r]
+  (let [ps (.getContents r)]
+    (concat ps (mapcat eallsubpackages ps))))
+
+(defn load-ecore-resource
+  "Loads an Ecore model from the ecore file or java.net.URL `f`.
+  All EPackages are registered.  The Ecore model is returned as a Resource."
+  [f]
+  ;; Reset the caches, since now the names might not be unique anymore.
+  (reset-all-emf-caches)
+  (let [uri (create-uri f)
+        res (XMIResourceImpl. uri)]
+    (.load res nil)
+    (register-epackages
+     (all-epackages-in-resource res))
+    res))
+
+(defn epackages
+  "The lazy seq of all registered EPackages and their subpackages."
+  []
+  (with-system-class-loader
+    (mapcat (fn [uri]
+              (if-let [p (.getEPackage EPackage$Registry/INSTANCE uri)]
+                (into [p] (eallsubpackages p))
+                (u/errorf "No such EPackage nsURI: %s" uri)))
+            (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
+
+(defn ^:private ns-uris-and-type-spec [name]
+  (if (map? name)
+    (if (== (count name) 1)
+      (let [[ns-uris n :as tup] (first name)]
+        (if (coll? ns-uris)
+          tup
+          [[ns-uris] n]))
+      (u/errorf "Broken type spec: %s" name))
+    [nil name]))
 
 (defn epackage
-  "Returns the EPackage with the given (simple or qualified) `name`."
+  "Returns the EPackage with the given (simple or qualified) `name`.
+  In case there are several packages with the same (qualified) name, you can
+  also disambiguate using {\"http://ns/uri\" pkg-name}, or by using
+  `with-ns-uris`."
   [name]
-  (let [name (clojure.core/name name)
-        ffn (if (.contains name ".")
-              (fn [^EPackage p] (= (clojure.core/name (p/qname p)) name))
-              (fn [^EPackage p] (= (.getName p) name)))
-        qkgs (filter ffn (epackages))]
-    (when-not (seq qkgs)
-      (u/errorf "No such package %s." name))
-    (when (nnext qkgs)
-      (u/errorf "Multiple packages named %s: %s\n%s" name qkgs
-                "Restrict the search space using `with-ns-uris`."))
-    (first qkgs)))
+  (let [[ns-uris name] (ns-uris-and-type-spec name)]
+    (binding [*ns-uris* (if ns-uris ns-uris *ns-uris*)]
+      (let [name (clojure.core/name name)
+            ffn (if (.contains name ".")
+                  (fn [^EPackage p] (= (clojure.core/name (p/qname p)) name))
+                  (fn [^EPackage p] (= (.getName p) name)))
+            qkgs (filter ffn (epackages))]
+        (when-not (seq qkgs)
+          (u/errorf "No such package %s." name))
+        (when (nnext qkgs)
+          (u/errorf "Multiple packages named %s: %s\n%s%s" name qkgs
+                    "Restrict the search space using `with-ns-uris` "
+                    "or use {\"http://ns/uri\" pkg-name}."))
+        (first qkgs)))))
 
 (extend-protocol p/IAbstractness
   EClass
@@ -132,7 +201,8 @@
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
 (defn eclassifiers
-  "The lazy seq of EClassifiers."
+  "Returns the lazy seq of EClassifiers known by the global registry.
+  Also see: `with-ns-uris`"
   []
   (mapcat (fn [^EPackage ep]
             (.getEClassifiers ep))
@@ -144,40 +214,63 @@
   (.eClass eo))
 
 (defn eclasses
-  "The lazy seq of EClasses."
+  "Returns the lazy seq of EClasses known by the global registry.
+  Also see: `with-ns-uris`"
   []
   (filter eclass? (eclassifiers)))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
-  `name` may be a simple or qualified name.  Throws an exception if no such
-  classifier could be found, or if the given simple name is ambiguous."
+  `name` may be a simple, qualified name, or a map of the form {nsURI name}.
+  In the latter case, the lookup is restricted to the package with the given
+  nsURI (and its subpackages).
+  Throws an exception if no such classifier could be found, or if the given
+  simple name is ambiguous.
+  Also see: `with-ns-uris`"
   [name]
-  (if-let [ecls (cache/lookup eclassifier-cache name)]
-    (do (cache/hit eclassifier-cache name) ecls)
-    (let [^String n (clojure.core/name name)
-          ld (.lastIndexOf n ".")]
-      (if (>= ld 0)
-        (if-let [^EPackage ep (epackage (subs n 0 ld))]
-          (or (.getEClassifier ep (subs n (inc ld)))
-              (u/errorf "No such EClassifier %s in %s." n (print-str ep)))
-          (u/errorf "No such EPackage %s." (subs n 0 ld)))
-        (let [classifiers (filter (fn [^EClassifier ec]
-                                    (= (.getName ec) n))
-                                  (eclassifiers))]
-          (cond
-           (empty? classifiers) (u/errorf "No such EClassifier %s." n)
-           (next classifiers)   (u/errorf "EClassifier %s is ambiguous: %s\n%s"
-                                          n (print-str classifiers)
-                                          "Restrict the search space using `with-ns-uris`.")
-           :else (let [ecls (first classifiers)]
-                   (cache/miss eclassifier-cache name ecls)
-                   ecls)))))))
+  (let [[ns-uris nm] (ns-uris-and-type-spec name)
+        cache-entry (make-cache-entry ns-uris nm)]
+    (if-let [ecls (cache/lookup +eclassifier-cache+ cache-entry)]
+      (do (cache/hit +eclassifier-cache+ cache-entry) ecls)
+      (binding [*ns-uris* (if ns-uris ns-uris *ns-uris*)]
+        (let [^String n (clojure.core/name nm)
+              ld (.lastIndexOf n ".")]
+          (if (>= ld 0)
+            (let [^EPackage ep (epackage (subs n 0 ld))]
+              (or (.getEClassifier ep (subs n (inc ld)))
+                  (u/errorf "No such EClassifier %s in %s." n (print-str ep))))
+            (let [classifiers (filter (fn [^EClassifier ec]
+                                        (= (.getName ec) n))
+                                      (eclassifiers))]
+              (cond
+               (empty? classifiers) (u/errorf "No such EClassifier %s." n)
+               (next classifiers)   (u/errorf "EClassifier %s is ambiguous: %s\n%s%s"
+                                              n (print-str classifiers)
+                                              "Restrict the search space using `with-ns-uris` "
+                                              "or by using {\"http://ns/uri\" qname}.")
+               :else (let [ecls (first classifiers)]
+                       (cache/miss +eclassifier-cache+ cache-entry ecls)
+                       ecls)))))))))
+
+(defn esuperclasses
+  "Returns the direct super classes of the given EClass `ecls`."
+  [^EClass ecls]
+  (into #{} (.getESuperTypes ecls)))
+
+(defn eallsuperclasses
+  "Returns the direct and indirect super classes of the given EClass `ecls`."
+  [^EClass ecls]
+  (into #{} (.getEAllSuperTypes ecls)))
+
+(defn esubclasses
+  "Returns the direct sub-EClasses of the given EClass `ecls`."
+  [^EClass ecls]
+  (into #{} (filter #(contains? (esuperclasses %) ecls) (eclasses))))
 
 (defn eallsubclasses
-  "Returns the (direct and indirect) sub-EClasses of the given EClass."
+  "Returns the direct and indirect sub-EClasses of the given EClass `ecls`."
   [^EClass ecls]
-  (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses)))
+  (into #{} (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses))))
 
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
@@ -207,11 +300,11 @@
        (.eClass this))
     ([this qn]
        (eclassifier qn)))
-  EMFModel
+  ResourceSet
   (p/mm-class
     ([this qn]
        (eclassifier qn)))
-  EcoreModel
+  Resource
   (p/mm-class
     ([this qn]
        (eclassifier qn))))
@@ -242,12 +335,26 @@
 
 ;;# Model
 
-(def ^{:arglists '([model] [model file])}
-  save-model
-  "In the arity 1 version, saves `model` which has to be associated with a file
-  already.  In the arity 2 version, saves `model` to `file` (a string denoting
-  a file name)."
-  ep/save-model-internal)
+(defn save-resource
+  "Saves `resource`.  If given an `uri`, saves to the file denoted by it."
+  ([^Resource resource]
+     (if-let [uri (.getURI resource)]
+       ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
+       ;; http://www.eclipse.org/forums/index.php/m/405881/
+       (let [l (.getContents resource)
+             ^java.util.ListIterator li (.listIterator l)]
+         (while (.hasNext li)
+           (let [^EObject o (.next li)]
+             (when (.eContainer o)
+               (.remove li))))
+         (println "Saving model to" (.toFileString uri))
+         (.save resource nil))
+       (u/error (str "You tried to call save-resource on a Resource not associated "
+                     "with a file!\n"))))
+  ([^Resource resource uri]
+     (let [uri (create-uri uri)]
+       (.setURI resource uri)
+       (save-resource resource))))
 
 ;;## Qualified Names
 
@@ -268,29 +375,20 @@
   (p/qname [o]
     (p/qname (.eClass o))))
 
-;;## EMF Model
+;;## EMF Model Resources
 
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn emf-model? [m]
-  "Returns true if `m` is an EMFModel."
-  (instance? EMFModel m))
+(defn new-resource
+  "Creates and returns a new, empty Resource."
+  []
+  (XMIResourceImpl.))
 
-(defn new-model
-  "Creates and returns a new, empty EMFModel.
-  If `xmifile` is given (a file name as string), set it as file URI used by
-  `save-model`."
-  ([]
-     (ep/->EMFModel (XMIResourceImpl.)))
-  ([^String xmifile]
-     (ep/->EMFModel (XMIResourceImpl. xmifile))))
-
-(defn load-model
-  "Loads an EMFModel from the XMI file or java.net.URL `f`."
+(defn load-resource
+  "Loads an EMF model from the XMI file or java.net.URL `f`."
   [f]
-  (let [uri (get-uri f)
+  (let [uri (create-uri f)
         res (XMIResourceImpl. uri)]
-    (doto (ep/->EMFModel res)
-      ep/init-model-internal)))
+    (.load res (.getDefaultLoadOptions res))
+    res))
 
 ;;## Type Checks
 
@@ -317,6 +415,9 @@
    (fn? ts)      ts
    (u/qname? ts) (type-matcher-emf-1 ts)
    (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
+   (map? ts)     (let [[ns-uris ts] (first ts)]
+                   (binding [*ns-uris* (if ns-uris [ns-uris] *ns-uris*)]
+                     (type-matcher-emf ts)))
    (coll? ts)    (if (seq ts)
                    (let [f (first ts)
                          [op r] (case f
@@ -330,23 +431,24 @@
                      (apply op t-matchers))
                    ;; Empty collection given: (), [], that's also ok
                    identity)
-   :else (u/errorf "Don't know how to create an EMF p/type-matcher for %s" ts)))
+   :else (u/errorf "Don't know how to create an EMF type-matcher for %s" ts)))
+
+(defn ^:private type-matcher-cached [_ ts]
+  (let [[ns-uris ts-1] (ns-uris-and-type-spec ts)
+        cache-entry (make-cache-entry ns-uris ts-1)]
+    (if-let [tm (cache/lookup +type-matcher-cache+ cache-entry)]
+      (do (cache/hit +type-matcher-cache+ cache-entry) tm)
+      (let [tm (type-matcher-emf ts)]
+        (cache/miss +type-matcher-cache+ cache-entry tm)
+        tm))))
 
 (extend-protocol p/ITypeMatcher
   EObject
   (p/type-matcher [m ts]
-    (if-let [tm (cache/lookup type-matcher-cache ts)]
-      (do (cache/hit type-matcher-cache ts) tm)
-      (let [tm (type-matcher-emf ts)]
-        (cache/miss type-matcher-cache ts tm)
-        tm)))
-  EMFModel
+    (type-matcher-cached m ts))
+  Resource
   (p/type-matcher [m ts]
-    (if-let [tm (cache/lookup type-matcher-cache ts)]
-      (do (cache/hit type-matcher-cache ts) tm)
-      (let [tm (type-matcher-emf ts)]
-        (cache/miss type-matcher-cache ts tm)
-        tm))))
+    (type-matcher-cached m ts)))
 
 (extend-protocol p/IInstanceOf
   EObject
@@ -354,60 +456,93 @@
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
   (p/has-type? [obj spec]
-    ((p/type-matcher obj spec) obj)))
+    ((type-matcher-cached obj spec) obj)))
 
 ;;## Traversal Stuff
 
-(extend-protocol ep/IEContents
+(defprotocol ^:private IEContents
+  "A protocol for getting the contents of Resources, ResourceSets and EObjects."
+  (^:private eallcontents-internal [this tm]
+    "Returns a seq of all directly and indirectly contained EObjects whose type
+  matches the type spec `ts` (see `funnyqt.protocols/type-matcher`).")
+  (^:private econtents-internal [this tm]
+    "Returns a seq of all directly contained EObjects whose type matches the
+  type spec `ts` (see `funnyqt.protocols/type-matcher`).")
+  (^:private econtainer-internal [this]
+    "Returns the EObject containing this.")
+  (^:private eallobjects-internal [this tm]
+    "Returns a seq of all objects matching the type specification `ts` (see
+  `funnyqt.protocols/type-matcher`) that are contained in this Resource."))
+
+(extend-protocol IEContents
   EObject
-  (ep/econtents-internal [this ts]
+  (econtents-internal [this ts]
     (filter (p/type-matcher this ts)
             (seq (.eContents this))))
-  (ep/eallcontents-internal [this ts]
+  (eallcontents-internal [this ts]
     (filter (p/type-matcher this ts)
-            (iterator-seq (.eAllContents this))))
-  (ep/econtainer-internal [this]
+            (iterator-seq
+             (EcoreUtil/getAllProperContents this true))))
+  (econtainer-internal [this]
     (.eContainer this))
 
-  EMFModel
-  (ep/econtents-internal [this ts]
+  Resource
+  (econtents-internal [this ts]
     (filter (p/type-matcher this ts)
-            (seq (.getContents ^Resource (.resource this)))))
-  (ep/eallcontents-internal [this ts]
+            (seq (.getContents this))))
+  (eallcontents-internal [this ts]
     (filter (p/type-matcher this ts)
-            (iterator-seq (EcoreUtil/getAllProperContents
-                           ^Resource (.resource this) true))))
-  (ep/eallobjects-internal [this ts]
-    (ep/eallcontents-internal this ts))
+            (iterator-seq
+             (EcoreUtil/getAllProperContents this true))))
+  (eallobjects-internal [this ts]
+    (eallcontents-internal this ts))
+
+  ResourceSet
+  (eallcontents-internal [this ts]
+    (filter (p/type-matcher this ts)
+            (iterator-seq
+             (EcoreUtil/getAllProperContents this true))))
+  (eallobjects-internal [this ts]
+    (eallcontents-internal this ts))
 
   clojure.lang.IPersistentCollection
-  (ep/econtents-internal [this tm]
-    (mapcat #(ep/econtents-internal % tm) this))
-  (ep/eallcontents-internal [this tm]
-    (mapcat #(ep/eallcontents-internal % tm) this)))
+  (econtents-internal [this tm]
+    (mapcat #(econtents-internal % tm) this))
+  (eallcontents-internal [this tm]
+    (mapcat #(eallcontents-internal % tm) this)))
 
 (defn eallcontents
-  "Returns a seq of `x`s direct and indirect contents matching the type spec
-`ts`."
+  "Returns a lazy seq of `x`s direct and indirect contents matching the type
+  spec `ts`.  `x` may be an EObject, a Collection, a Resource, or a
+  ResourceSet."
   ([x]
-     (ep/eallcontents-internal x identity))
+     (eallcontents-internal x identity))
   ([x ts]
-     (ep/eallcontents-internal x ts)))
+     (eallcontents-internal x ts)))
 
 (defn econtents
-  "Returns a seq of `x`s direct contents matching the type spec `ts`."
+  "Returns a lazy seq of `x`s direct contents matching the type spec `ts`.
+  `x` may be an EObject, a Collection, a Resource, or a ResourceSet."
   ([x]
-     (ep/econtents-internal x identity))
+     (econtents-internal x identity))
   ([x ts]
-     (ep/econtents-internal x ts)))
+     (econtents-internal x ts)))
 
 (defn eallobjects
-  "Returns a seq of all objects in `m` that match the type spec `ts`."
-  ([m] (ep/eallobjects-internal m identity))
-  ([m ts] (ep/eallobjects-internal m ts)))
+  "Returns a lazy seq of all EObjects in `m` that match the type spec `ts`.
+  `m` may be a Resource or a ResourceSet."
+  ([m] (eallobjects-internal m identity))
+  ([m ts] (eallobjects-internal m ts)))
 
 (extend-protocol p/IElements
-  EMFModel
+  Resource
+  (p/elements
+    ([this]
+       (eallobjects this))
+    ([this ts]
+       (eallobjects this ts)))
+
+  ResourceSet
   (p/elements
     ([this]
        (eallobjects this))
@@ -416,12 +551,12 @@
 
 (def ^{:doc "Returns the EObject containing `eo`."
        :arglists '([eo])}
-  econtainer ep/econtainer-internal)
+  econtainer econtainer-internal)
 
 (extend-protocol p/IContainer
   EObject
   (p/container [this]
-    (ep/econtainer-internal this)))
+    (econtainer-internal this)))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
@@ -434,7 +569,7 @@
     someERef      => accept only this EReference
     :foo          => accept only references named foo
     [:foo :bar]   => accept both foo and bar refs
-    (fn [r] ...)   => simply use that"
+    (fn [r] ...)  => simply use that"
   [rs]
   (cond
    (nil? rs)        identity
@@ -475,35 +610,66 @@
   [refed reffn rm container]
   (filter (fn [o] (q/member? refed (reffn o rm)))
           (cond
-           (instance? EMFModel container) (eallobjects container)
+           (instance? Resource container) (eallobjects container)
            (coll? container)              container
-           :else (u/errorf "container is neither an EMFModel nor a collection: %s"
+           :else (u/errorf "container is neither a Resource nor a collection: %s"
                            container))))
 
-(extend-protocol ep/IEReferences
-  EMFModel
-  (ep/epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
-    (let [done (atom #{})
-          src-rm (eref-matcher src-rs)
-          trg-rm (eref-matcher trg-rs)]
-      (for [^EObject src (eallobjects this src-ts)
-            ^EReference ref (seq (-> src .eClass .getEAllReferences))
-            :when (not (q/member? ref @done))
-            :when (trg-rm ref)
-            :let [nthere-rm (eref-matcher ref)
-                  oref (.getEOpposite ref)]
-            :when (if oref
-                    (src-rm oref)
-                    ;; no oref, but if it was given, there must be one so this
-                    ;; ref is not meant!
-                    (not src-rm))
-            trg (reffn src nthere-rm)
-            :when (or (nil? trg-ts) (p/has-type? trg trg-ts))]
-        (do
-          (when oref (swap! done conj oref))
-          [src trg]))))
+(defn ^:private epairs-internal-1 [this reffn src-rs trg-rs src-ts trg-ts]
+  (let [done (atom #{})
+        src-rm (eref-matcher src-rs)
+        trg-rm (eref-matcher trg-rs)]
+    (for [^EObject src (eallobjects this src-ts)
+          ^EReference ref (seq (-> src .eClass .getEAllReferences))
+          :when (not (q/member? ref @done))
+          :when (trg-rm ref)
+          :let [nthere-rm (eref-matcher ref)
+                oref (.getEOpposite ref)]
+          :when (if oref
+                  (src-rm oref)
+                  ;; no oref, but if it was given, there must be one so this
+                  ;; ref is not meant!
+                  (not src-rm))
+          trg (reffn src nthere-rm)
+          :when (or (nil? trg-ts) (p/has-type? trg trg-ts))]
+      (do
+        (when oref (swap! done conj oref))
+        [src trg]))))
+
+(defprotocol ^:private IEReferences
+  (^:private epairs-internal [this reffn src-rm trg-rm src-ts trg-ts]
+    "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
+  May be restricted by reference matchers and type specs on source and target.
+  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
+  `econtents-internal`.")
+  (^:private ecrossrefs-internal [this rm]
+    "Returns a seq of cross-referenced EObjects accepted by reference-matcher
+  `rm`.  Cross-referenced objects are those that are referenced by a
+  non-containment relationship.")
+  (^:private erefs-internal [this rm]
+    "Returns a seq of referenced EObjects accepted by reference-matcher `rm`.
+  In contrast to ecrossrefs-internal, containment refs are not excluded.")
+  (^:private inv-ecrossrefs-internal [this rm container]
+    "Returns a seq of EObjects that cross-reference `this` with a ref matching
+  `rm`.  Cross-referenced objects are those that are referenced by a
+  non-containment relationship.  If `container` is nil, check only opposites of
+  this object's ref, else do a search over the contents of `container`, which
+  may be a Resource, ResourceSet, or a collection of EObjects.")
+  (^:private inv-erefs-internal [this rm container]
+    "Returns a seq of EObjects that reference `this` with a ref matching `rm`.
+  If `container` is nil, check only opposites of this object's ref, else do a
+  search over the contents of `container`, which may be a Resource,
+  ResourceSet, or a collection of EObjects."))
+
+(extend-protocol IEReferences
+  Resource
+  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
+    (epairs-internal-1 this reffn src-rs trg-rs src-ts trg-ts))
+  ResourceSet
+  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
+    (epairs-internal-1 this reffn src-rs trg-rs src-ts trg-ts))
   EObject
-  (ep/ecrossrefs-internal [this rm]
+  (ecrossrefs-internal [this rm]
     (mapcat (fn [^EReference r]
               (if-let [x (.eGet this r)]
                 (if (.isMany r)
@@ -514,7 +680,7 @@
                              (not (.isContainer ref))
                              (rm ref))]
               ref)))
-  (ep/erefs-internal [this rm]
+  (erefs-internal [this rm]
     (mapcat (fn [^EReference r]
               (if-let [x (.eGet this r)]
                 (if (.isMany r)
@@ -523,17 +689,17 @@
             (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
                   :when (rm ref)]
               ref)))
-  (ep/inv-erefs-internal [this rm container]
+  (inv-erefs-internal [this rm container]
     (if container
-      (search-ereferencers this ep/erefs-internal rm container)
+      (search-ereferencers this erefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
-        (ep/erefs-internal this (eref-matcher opposites))
+        (erefs-internal this (eref-matcher opposites))
         (u/error "No opposite EReferences found."))))
-  (ep/inv-ecrossrefs-internal [this rm container]
+  (inv-ecrossrefs-internal [this rm container]
     (if container
-      (search-ereferencers this ep/ecrossrefs-internal rm container)
+      (search-ereferencers this ecrossrefs-internal rm container)
       (if-let [opposites (eopposite-refs this rm)]
-        (ep/ecrossrefs-internal this (eref-matcher opposites))
+        (ecrossrefs-internal this (eref-matcher opposites))
         (u/error "No opposite EReferences found.")))))
 
 (defn ecrossrefs
@@ -541,9 +707,9 @@
   restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
   see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
   ([eo]
-     (ep/ecrossrefs-internal eo identity))
+     (ecrossrefs-internal eo identity))
   ([eo rs]
-     (ep/ecrossrefs-internal eo (eref-matcher rs))))
+     (ecrossrefs-internal eo (eref-matcher rs))))
 
 (defn erefs
   "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
@@ -551,58 +717,70 @@
   `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
   containment refs."
   ([eo]
-     (ep/erefs-internal eo identity))
+     (erefs-internal eo identity))
   ([eo rs]
-     (ep/erefs-internal eo (eref-matcher rs))))
+     (erefs-internal eo (eref-matcher rs))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
   matching `rs` (see `eref-matcher`).  If no `container` is given, then only
   check the opposite refs of `eo`.  Else, all objects in `container` are tested
-  if they reference `eo`.  `container` may be either an EMFModel or a
-  collection of EObjects."
+  if they reference `eo`.  `container` may be either a Resource or a collection
+  of EObjects."
   ([eo]
-     (ep/inv-erefs-internal eo identity nil))
+     (inv-erefs-internal eo identity nil))
   ([eo rs]
-     (ep/inv-erefs-internal eo (eref-matcher rs) nil))
+     (inv-erefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (ep/inv-erefs-internal eo (eref-matcher rs) container)))
+     (inv-erefs-internal eo (eref-matcher rs) container)))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
   EReference matching `rs` (see `eref-matcher`).  If no `container` is given,
   then only check the opposite refs of `eo`.  Else, all objects in `container`
-  are tested if they cross-reference `eo`. `container` may be either an
-  EMFModel or a collection of EObjects."
+  are tested if they cross-reference `eo`. `container` may be either a Resource
+  or a collection of EObjects."
   ([eo]
-     (ep/inv-ecrossrefs-internal eo identity nil))
+     (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
-     (ep/inv-ecrossrefs-internal eo (eref-matcher rs) nil))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
   ([eo rs container]
-     (ep/inv-ecrossrefs-internal eo (eref-matcher rs) container)))
+     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
 
-(extend-protocol ep/IEMFValues2ClojureValues
+(defprotocol ^:private IEMFValues2ClojureValues
+  (^:private emf2clj-internal [this]
+    "Converts an EMF thingy to a clojure thingy.
+
+  EMF Type     | Clojure Type
+  -------------+-------------
+  UniqueEList  | ordered-set
+  EMap         | ordered-map
+  EList        | vector
+
+  All other objects are kept as-is."))
+
+(extend-protocol IEMFValues2ClojureValues
   UniqueEList
-  (ep/emf2clj-internal [this] (into (os/ordered-set) (seq this)))
+  (emf2clj-internal [this] (into (os/ordered-set) (seq this)))
   EMap
-  (ep/emf2clj-internal [this] (into (om/ordered-map) (seq this)))
+  (emf2clj-internal [this] (into (om/ordered-map) (seq this)))
   EList
-  (ep/emf2clj-internal [this] (into (vector) this))
+  (emf2clj-internal [this] (into (vector) this))
   EObject
-  (ep/emf2clj-internal [this] this)
+  (emf2clj-internal [this] this)
   Number
-  (ep/emf2clj-internal [this] this)
+  (emf2clj-internal [this] this)
   String
-  (ep/emf2clj-internal [this] this)
+  (emf2clj-internal [this] this)
   Boolean
-  (ep/emf2clj-internal [this] this)
+  (emf2clj-internal [this] this)
   nil
-  (ep/emf2clj-internal [_] nil))
+  (emf2clj-internal [_] nil))
 
-(defn emf2clj
+(defn ^:private emf2clj
   "Converts an EMF value (e.g., an EList) to an appropriate clojure value."
   [val]
-  (ep/emf2clj-internal val))
+  (emf2clj-internal val))
 
 (defn eget-raw
   "Returns the value of `eo`s structural feature `sf`.
@@ -624,7 +802,7 @@
   The value is converted to some clojure type (see IEMFValues2ClojureValues protocol).
   Throws an exception, if there's no EStructuralFeature `sf`."
   [^EObject eo sf]
-  (ep/emf2clj-internal (eget-raw eo sf)))
+  (emf2clj-internal (eget-raw eo sf)))
 
 (defn eset!
   "Sets `eo`s structural feature `sf` to `value` and returns `eo`.
@@ -660,30 +838,30 @@
 
 (defn eadd!
   "Adds `value` and `more` values to `eo`s list of attribute/reference values
-  denoted by `sf` and returns `eo`.  Throws an exception, if there's no
-  EStructuralFeature `sf`.
+  denoted by EStructuralFeature `sf`.  Returns `eo` again.  Throws an exception
+  if there's no EStructuralFeature `sf`.
 
-  In the arity-2 version, adds `obj` to `model` and returns `obj`."
+  In the arity-2 version, adds `obj` to `resource` and returns `obj`."
   ([eo sf value & more]
      (let [^EList l (eget-raw eo sf)]
        (.add l value)
        (when (seq more)
          (.addAll l more))
        eo))
-  ([^EMFModel model obj]
-     (.add (.getContents ^Resource (.resource model))
+  ([^Resource resource obj]
+     (.add (.getContents resource)
            obj)
      obj))
 
 (defn eaddall!
   "Adds all values in `coll` to `eo`s `sf` structural feature.
-  In the arity 2 variant, adds all EObjects in `coll` to `model`."
+  In the arity 2 variant, adds all EObjects in `coll` to `resource`."
   ([eo sf coll]
      (let [^EList l (eget-raw eo sf)]
        (.addAll l coll)
        eo))
-  ([^EMFModel model coll]
-     (.addAll (.getContents ^Resource (.resource model))
+  ([^Resource resource coll]
+     (.addAll (.getContents resource)
               coll)))
 
 (defn eremove!
@@ -699,8 +877,8 @@
        (when (seq more)
          (.removeAll l more))
        eo))
-  ([^EMFModel model obj]
-     (.remove (.getContents ^Resource (.resource model))
+  ([^Resource resource obj]
+     (.remove (.getContents resource)
               obj)))
 
 ;;### Generic attribute access
@@ -710,7 +888,7 @@
   (p/aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (if (instance? EAttribute sf)
-        (ep/emf2clj-internal (.eGet this sf))
+        (emf2clj-internal (.eGet this sf))
         (if (nil? sf)
           (u/errorf "No such attribute %s at object %s." attr this)
           (u/errorf "%s is no attribute of object %s." sf this)))))
@@ -729,19 +907,20 @@
 ;;## Edges, i.e., src/trg tuples
 
 (defn eallpairs
-  "Returns the seq of all edges in terms of [src trg] pairs.
+  "Returns the seq of all edges in terms of [src trg] pairs in `m`.
   This includes both containment as well as crossreferences.  Restrictions may
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
-  specs plus type specs `src-ts` and `trg-ts`."
+  specs plus type specs `src-ts` and `trg-ts`.  `m` may be a Resource or
+  ResourceSet."
   ([m]
-     (ep/epairs-internal m ep/erefs-internal identity identity nil nil))
+     (epairs-internal m erefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (ep/epairs-internal m ep/erefs-internal src-rs trg-rs nil nil))
+     (epairs-internal m erefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (ep/epairs-internal m ep/erefs-internal src-rs trg-rs src-ts trg-ts)))
+     (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (extend-protocol p/IRelationships
-  EMFModel
+  Resource
   (p/relationships
     ([this]
        (eallpairs this))
@@ -753,15 +932,16 @@
          (eallpairs this src-role trg-role src-cls trg-cls)))))
 
 (defn ecrosspairs
-  "Returns the seq of all cross-reference edges in terms of [src trg] pairs.
-  Restrictions may be defined in terms of reference specs `src-rs` and
-  `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
+  "Returns the seq of all cross-reference edges in `m` in terms of [src trg] pairs.
+  `m` may be a Resource or ResourceSet.  Restrictions may be defined in terms
+  of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
+  `src-ts` and `trg-ts`."
   ([m]
-     (ep/epairs-internal m ep/ecrossrefs-internal identity identity nil nil))
+     (epairs-internal m ecrossrefs-internal identity identity nil nil))
   ([m src-rs trg-rs]
-     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs nil nil))
+     (epairs-internal m ecrossrefs-internal src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (ep/epairs-internal m ep/ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
+     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (defn ^:private econtents-by-ref
   [^EObject eo rm]
@@ -772,16 +952,16 @@
             r)))
 
 (defn econtentpairs
-  "Returns the seq of all containment edges in terms of [src trg] pairs.
-  src is the parent, trg is the child.
+  "Returns the seq of all containment edges in `m` in terms of [src trg] pairs.
+  `m` may be a Resource or ResourceSet.  src is the parent, trg is the child.
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([m]
-     (ep/epairs-internal m econtents-by-ref identity identity nil nil))
+     (epairs-internal m econtents-by-ref identity identity nil nil))
   ([m src-rs trg-rs]
-     (ep/epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
+     (epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
   ([m src-rs trg-rs src-ts trg-ts]
-     (ep/epairs-internal m econtents-by-ref src-rs trg-rs src-ts trg-ts)))
+     (epairs-internal m econtents-by-ref src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
@@ -805,7 +985,7 @@
     eo))
 
 (extend-protocol p/ICreateElement
-  EMFModel
+  Resource
   (p/create-element!
     ([model cls]
        (let [e (ecreate! model cls)]
@@ -817,7 +997,7 @@
          e))))
 
 (extend-protocol p/ICreateRelationship
-  EMFModel
+  Resource
   (p/create-relationship! [this refkw from to]
     (let [^EClass ec (eclass from)
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
@@ -889,28 +1069,28 @@
     (when-not allow-unknown-ref
       (u/errorf "No such structural feature '%s' at %s." ref eo))))
 
-(extend-protocol p/IAdjacencies
+(extend-protocol pi/IAdjacenciesInternal
   EObject
-  (p/adj-internal [this roles]
+  (pi/adj-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) false true))]
         (recur a (rest roles)))
       this))
-  (p/adj*-internal [this roles]
+  (pi/adj*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (p/adjs-internal [this roles]
+  (pi/adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) false false)]
-        (r/mapcat #(p/adjs-internal % (rest roles))
+        (r/mapcat #(pi/adjs-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this]))
-  (p/adjs*-internal [this roles]
+  (pi/adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) true false)]
-        (r/mapcat #(p/adjs*-internal % (rest roles))
+        (r/mapcat #(pi/adjs*-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this])))
 
@@ -1065,10 +1245,7 @@
 
   The functions are called with all classes/attributes/roles of the metamodel."
   [ecore-file nssym alias prefix eclass-fn eattr-fn eref-fn]
-  (let [ecore-model (load-metamodel
-                     (if (.exists (clojure.java.io/file ecore-file))
-                       ecore-file
-                       (clojure.java.io/resource ecore-file)))
+  (let [ecore-model (load-ecore-resource ecore-file)
         atts (atom {}) ;; map from attribute kws to set of eclasses that have it
         refs (atom {}) ;; map from reference kws to set of eclasses that have it
         old-ns *ns*]
@@ -1083,9 +1260,9 @@
              (doseq [[sym# cls#] (ns-imports *ns*)]
                (ns-unmap *ns* sym#))])
        (with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
-                            (metamodel-epackages ecore-model))
+                            (all-epackages-in-resource ecore-model))
          ~@(with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                               (metamodel-epackages ecore-model))
+                               (all-epackages-in-resource ecore-model))
              (concat
               (no-nils
                (for [^EClass ecl (eclassifiers)]

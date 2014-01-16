@@ -2,7 +2,8 @@
   "Generic functions like quantified expressions."
   (:require [clojure.core.reducers :as r]
             [funnyqt.utils :as u]
-            [funnyqt.protocols :as p]))
+            [funnyqt.protocols :as p]
+            [funnyqt.protocols.internal :as pi]))
 
 ;;# Type Case
 
@@ -284,7 +285,7 @@
             false))
         sorted))))
 
-;;# IAdjacencies
+;;# Adjacencies
 
 ;; Those are implemented in funnyqt.tg and funnyqt.emf
 
@@ -294,26 +295,26 @@
   Errors if a role is undefined, intermediate targets are nil, or there are
   more elements that can be reached that way."
   [elem role & roles]
-  (p/adj-internal elem (cons role roles)))
+  (pi/adj-internal elem (cons role roles)))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
   simply returns nil."
   [elem role & roles]
-  (p/adj*-internal elem (cons role roles)))
+  (pi/adj*-internal elem (cons role roles)))
 
 (defn adjs
   "Traverses `role` and more `roles` starting at `elem`.
   Returns a vector of target objects.
   Errors if a role is undefined."
   [elem role & roles]
-  (into [] (p/adjs-internal elem (cons role roles))))
+  (into [] (pi/adjs-internal elem (cons role roles))))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
   it simply returns the empty vector."
   [elem role & roles]
-  (into [] (p/adjs*-internal elem (cons role roles))))
+  (into [] (pi/adjs*-internal elem (cons role roles))))
 
 ;;# Regular Path Expressions
 
