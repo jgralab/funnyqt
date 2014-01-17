@@ -1,7 +1,7 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.in-place.tg-test
   (:use funnyqt.query)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)

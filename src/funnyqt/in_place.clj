@@ -4,7 +4,6 @@
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
-            [funnyqt.protocols     :as p]
             [funnyqt.pmatch        :as pm])
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout

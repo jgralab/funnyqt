@@ -2,7 +2,7 @@
   (:require [funnyqt.emf :as emf])
   (:require [funnyqt.query.emf :as emfq])
   (:require [funnyqt.visualization :as viz])
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use funnyqt.tg)
   (:use funnyqt.query)
   (:use funnyqt.model2model)

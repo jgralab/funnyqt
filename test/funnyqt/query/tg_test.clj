@@ -1,6 +1,6 @@
 (ns funnyqt.query.tg-test
   (:use funnyqt.query)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use funnyqt.utils)
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)

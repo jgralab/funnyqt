@@ -1,12 +1,12 @@
 (ns funnyqt.relational.tmp-elem
-  (:require [funnyqt.tg :as tg]
-            [funnyqt.emf :as emf]
-            [funnyqt.query :as q]
-            [funnyqt.utils :as u]
-            [funnyqt.protocols :as p]
-            [clojure.core.logic :as ccl]
+  (:require [funnyqt.tg                   :as tg]
+            [funnyqt.emf                  :as emf]
+            [funnyqt.query                :as q]
+            [funnyqt.utils                :as u]
+            [funnyqt.generic              :as g]
+            [clojure.core.logic           :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [funnyqt.relational.util :as ru]))
+            [funnyqt.relational.util      :as ru]))
 
 (def ^:dynamic *make-tmp-elements* false)
 
@@ -96,12 +96,12 @@
   IType
   (set-type [this t]
     (when manifested (u/errorf "Already manifested: %s" this))
-    (let [cur-class (p/mm-class wrapped-element)
+    (let [cur-class (g/mm-class wrapped-element)
           super-or-eq-to-cur? #(or (= % cur-class)
-                                   (p/mm-super-class? % cur-class))]
+                                   (g/mm-super-class? % cur-class))]
       (if (vector? t)
-        (q/exists? super-or-eq-to-cur? (map (partial p/mm-class model) t))
-        (super-or-eq-to-cur? (p/mm-class model t)))))
+        (q/exists? super-or-eq-to-cur? (map (partial g/mm-class model) t))
+        (super-or-eq-to-cur? (g/mm-class model t)))))
   IAttr
   (add-attr [this attr val]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -111,8 +111,8 @@
     true)
   (check-attr-validity [this subst]
     (q/forall? (fn [[a v]]
-                 (or (p/unset? wrapped-element a)
-                     (= (p/aval wrapped-element a) (cclp/walk subst v))))
+                 (or (g/unset? wrapped-element a)
+                     (= (g/aval wrapped-element a) (cclp/walk subst v))))
                attrs))
   (finalize-attrs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
@@ -131,7 +131,7 @@
     true)
   (check-ref-validity [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
-    (let [cls (p/mm-class wrapped-element)]
+    (let [cls (g/mm-class wrapped-element)]
       (and (single-containers? this cls subst)
            (single-valued-refs-are-single? this cls subst))))
   (finalize-refs [this subst]
@@ -164,17 +164,17 @@
         (do
           (set! manifested true)
           (doseq [[at val] attrs]
-            (p/set-aval! wrapped-element at val))
+            (g/set-aval! wrapped-element at val))
           (doseq [[role rs] refs
-                  :let [multi-valued (p/mm-multi-valued-property?
-                                      (p/mm-class wrapped-element) role)
-                        cur-refed (set (q/adjs wrapped-element role))]]
+                  :let [multi-valued (g/mm-multi-valued-property?
+                                      (g/mm-class wrapped-element) role)
+                        cur-refed (set (g/adjs wrapped-element role))]]
             (doseq [r rs]
               (let [mr (manifest r)]
                 (when-not (q/member? mr cur-refed)
                   (if multi-valued
-                    (p/add-adj! wrapped-element role (manifest r))
-                    (p/set-adj! wrapped-element role (manifest r)))))))
+                    (g/add-adj! wrapped-element role (manifest r))
+                    (g/set-adj! wrapped-element role (manifest r)))))))
           wrapped-element))
       (catch Exception ex
         (throw (RuntimeException. (format "%s during manifestation of %s."
@@ -230,18 +230,18 @@
       ;; the current type must be a subclass or equal to one of the given
       ;; types, and if there's no current type, it must be a subclass or
       ;; equal to one of the given classes in the future.
-      (let [mm-class (p/mm-class model (second (u/type-with-modifiers (name t))))]
+      (let [mm-class (g/mm-class model (second (u/type-with-modifiers (name t))))]
         (cond
          ;; No type set already.
          (nil? type) (do (set! type mm-class) true)
          ;; The given type is a superclass of or identical to the currently set
          ;; type, so ccl/succeed without changing anything.
          (or (= mm-class type)
-             (p/mm-super-class? mm-class type)) true
+             (g/mm-super-class? mm-class type)) true
          ;; The current type is a superclass of mm-class, so set to the more
          ;; specific.
-         (p/mm-super-class? type mm-class) (do (set! type mm-class) true)
-         :else (u/errorf "Cannot reset type from %s to %s." (p/qname type) t)))))
+         (g/mm-super-class? type mm-class) (do (set! type mm-class) true)
+         :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
   (add-attr [this attr val]
     (when-not (keyword? attr)
@@ -304,22 +304,22 @@
             (when-not type
               (u/errorf "Can't manifest: type is nil in %s." this))
             (set! manifested-element (cond
-                                      (= kind :element) (p/create-element! model type)
-                                      (= kind :relationship) (p/create-relationship!
+                                      (= kind :element) (g/create-element! model type)
+                                      (= kind :relationship) (g/create-relationship!
                                                               model type
                                                               (manifest alpha)
                                                               (manifest omega))
                                       :else (u/errorf "Unknown kind %s." kind)))
             (doseq [[at val] attrs]
-              (p/set-aval! manifested-element at val))
+              (g/set-aval! manifested-element at val))
             (doseq [[role rs] refs
-                    :let [multi-valued (p/mm-multi-valued-property?
-                                        (p/mm-class manifested-element) role)]]
+                    :let [multi-valued (g/mm-multi-valued-property?
+                                        (g/mm-class manifested-element) role)]]
               (doseq [r rs]
                 (let [mr (manifest r)]
                   (if multi-valued
-                    (p/add-adj! manifested-element role mr)
-                    (p/set-adj! manifested-element role mr)))))
+                    (g/add-adj! manifested-element role mr)
+                    (g/set-adj! manifested-element role mr)))))
             manifested-element))
       (catch Exception ex
         (throw (RuntimeException. (format "%s during manifestation of %s."
@@ -386,12 +386,12 @@
       ok)))
 
 (defn single-containers? [el type subst]
-  (ref-checker el type subst p/mm-containment-ref?
+  (ref-checker el type subst g/mm-containment-ref?
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
                    (cond
                     (wrapper-element? target)
-                    (let [container (p/container (.wrapped-element ^WrapperElement target))]
+                    (let [container (g/container (.wrapped-element ^WrapperElement target))]
                       (or (nil? container)
                           (and (wrapper-element? el)
                                (identical? (.wrapped-element ^WrapperElement el)
@@ -401,12 +401,12 @@
                     :else (u/error "Shouldn't happen!"))))))
 
 (defn single-valued-refs-are-single? [el type subst]
-  (ref-checker el type subst (complement p/mm-multi-valued-property?)
+  (ref-checker el type subst (complement g/mm-multi-valued-property?)
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
                    (cond
                     (wrapper-element? el)
-                    (let [cur (q/adj (.wrapped-element ^WrapperElement el) ref)]
+                    (let [cur (g/adj (.wrapped-element ^WrapperElement el) ref)]
                       (or (nil? cur)
                           (and (wrapper-element? target)
                                (identical? (.wrapped-element ^WrapperElement target)

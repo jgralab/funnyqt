@@ -2,7 +2,6 @@
   "Specify TGraphs extensionally."
   (:require clojure.set
             [funnyqt.tg          :as tg]
-            [funnyqt.protocols   :as p]
             [funnyqt.extensional :as e]
             [funnyqt.utils       :as u])
   (:import

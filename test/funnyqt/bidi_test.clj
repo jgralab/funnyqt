@@ -8,7 +8,7 @@
             [funnyqt.tg :as tg]
             [funnyqt.emf :as emf]
             [funnyqt.visualization :as viz]
-            [funnyqt.protocols :as p]))
+            [funnyqt.generic :as p]))
 
 ;;# AddressBook to AddressBook
 

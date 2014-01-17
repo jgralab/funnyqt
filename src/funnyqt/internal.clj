@@ -1,4 +1,4 @@
-(ns funnyqt.protocols.internal
+(ns funnyqt.internal
   "Protocols for implementation internals only.")
 
 (defprotocol IAdjacenciesInternal

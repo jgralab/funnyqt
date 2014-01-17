@@ -40,8 +40,8 @@ functions `record` and `enum`."
             [clojure.core.reducers      :as r]
             [clojure.string             :as str]
             [funnyqt.query              :as q]
-            [funnyqt.protocols          :as p]
-            [funnyqt.protocols.internal :as pi]
+            [funnyqt.generic            :as g]
+            [funnyqt.internal           :as i]
             [funnyqt.utils              :as u])
   (:import
    (java.awt.event KeyEvent KeyListener)
@@ -123,7 +123,7 @@ functions `record` and `enum`."
               (format "Loading schema %s, and compiling for implementation type %s."
                       file it))
            (.compile s CodeGeneratorConfiguration/MINIMAL)
-           (let [qn  (name (p/qname s))
+           (let [qn  (name (g/qname s))
                  scm (SchemaClassManager/instance qn)
                  sc  (Class/forName qn true scm)
                  im  (.getMethod sc "instance" (into-array Class []))]
@@ -151,51 +151,51 @@ functions `record` and `enum`."
 
 ;;# Schema Access
 
-(extend-protocol p/IQualifiedName
+(extend-protocol g/IQualifiedName
   AttributedElementClass
-  (p/qname [aec]
+  (g/qname [aec]
     (symbol (.getQualifiedName aec)))
 
   AttributedElement
-  (p/qname [ae]
-    (p/qname (.getAttributedElementClass ae)))
+  (g/qname [ae]
+    (g/qname (.getAttributedElementClass ae)))
 
   Schema
-  (p/qname [s]
+  (g/qname [s]
     (symbol (.getQualifiedName s)))
 
   ListDomain
-  (p/qname [cd]
+  (g/qname [cd]
     (vector 'List
-            (p/qname (.getBaseDomain cd))))
+            (g/qname (.getBaseDomain cd))))
 
   SetDomain
-  (p/qname [cd]
+  (g/qname [cd]
     (vector 'Set
-            (p/qname (.getBaseDomain cd))))
+            (g/qname (.getBaseDomain cd))))
 
   MapDomain
-  (p/qname [cd]
+  (g/qname [cd]
     (vector 'Map
-            (p/qname (.getKeyDomain cd))
-            (p/qname (.getValueDomain cd))))
+            (g/qname (.getKeyDomain cd))
+            (g/qname (.getValueDomain cd))))
 
   Domain
-  (p/qname [d]
+  (g/qname [d]
     (symbol (.getQualifiedName d))))
 
-(extend-protocol p/IAbstractness
+(extend-protocol g/IAbstractness
   GraphElementClass
-  (p/abstract? [this]
+  (g/abstract? [this]
     (.isAbstract this)))
 
-(extend-protocol p/IUnset
+(extend-protocol g/IUnset
   AttributedElement
-  (p/unset? [this attr]
+  (g/unset? [this attr]
     (.isUnsetAttribute this (name attr))))
 
 (defn ^:private domain-qname
-  "Transforms a domain p/qname given as symbol, keyword, string, or vector to a
+  "Transforms a domain g/qname given as symbol, keyword, string, or vector to a
   canonical string representation:"
   [qn]
   (letfn [(domain-vector-qname [v]
@@ -264,7 +264,7 @@ functions `record` and `enum`."
     Domain                 (.getSchema ^Domain elem)))
 
 (defn domain
-  "Returns the Domain `p/qname` in the schema of `elem`.  `elem` may be an
+  "Returns the Domain `g/qname` in the schema of `elem`.  `elem` may be an
   AttributedElement, AttributedElementClass, or a Schema."
   ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
   (let [^Schema s (if (instance? Schema elem) elem (schema elem))]
@@ -280,20 +280,20 @@ functions `record` and `enum`."
 
 ;;# Generic Metamodel Access
 
-(extend-protocol p/IMetaModelObject
+(extend-protocol g/IMetaModelObject
   AttributedElementClass
-  (p/meta-model-object? [this] true))
+  (g/meta-model-object? [this] true))
 
-(extend-protocol p/IMMClasses
+(extend-protocol g/IMMClasses
   GraphElementClass
-  (p/mm-classes [aec]
+  (g/mm-classes [aec]
     (let [^GraphClass gc (.getGraphClass aec)]
       (concat (.getVertexClasses gc)
               (.getEdgeClasses gc)))))
 
-(extend-protocol p/IMMClass
+(extend-protocol g/IMMClass
   AttributedElement
-  (p/mm-class
+  (g/mm-class
     ([this]
        (.getAttributedElementClass this))
     ([this qn]
@@ -301,29 +301,29 @@ functions `record` and `enum`."
          cls
          (u/errorf "No such AttributedElementClass: %s." qn))))
   Schema
-  (p/mm-class
+  (g/mm-class
     ([this qn]
        (if-let [cls (.getAttributedElementClass this (name qn))]
          cls
          (u/errorf "No such AttributedElementClass: %s." qn)))))
 
-(extend-protocol p/IMMDirectSuperClasses
+(extend-protocol g/IMMDirectSuperClasses
   GraphElementClass
-  (p/mm-direct-super-classes [this]
+  (g/mm-direct-super-classes [this]
     (seq (.getDirectSuperClasses this))))
 
-(extend-protocol p/IMMSuperClassOf
+(extend-protocol g/IMMSuperClassOf
   GraphElementClass
-  (p/mm-super-class? [this sub]
+  (g/mm-super-class? [this sub]
     (.isSuperClassOf this sub)))
 
-(extend-protocol p/IMMMultiValuedProperty
+(extend-protocol g/IMMMultiValuedProperty
   VertexClass
-  (p/mm-multi-valued-property? [cls prop]
+  (g/mm-multi-valued-property? [cls prop]
     (let [dec (.getDirectedEdgeClassForFarEndRole cls (name prop))
           _   (when-not dec
                 (u/errorf "No role %s at VertexClass %s."
-                          (name prop) (p/qname cls)))
+                          (name prop) (g/qname cls)))
           ec  (.getEdgeClass dec)
           dir (.getDirection dec)]
       (> (.getMax (if (identical? dir EdgeDirection/OUT)
@@ -331,9 +331,9 @@ functions `record` and `enum`."
                     (.getFrom ec)))
          1))))
 
-(extend-protocol p/IMMContainmentRef
+(extend-protocol g/IMMContainmentRef
   VertexClass
-  (p/mm-containment-ref? [this ref-kw]
+  (g/mm-containment-ref? [this ref-kw]
     (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
              dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
       (let [ec  (.getEdgeClass dec)
@@ -433,10 +433,10 @@ functions `record` and `enum`."
     (if neg
       (if exact
         (fn [x] (not (identical? type (attributed-element-class x))))
-        (fn [x] (not (p/is-instance? x type))))
+        (fn [x] (not (g/is-instance? x type))))
       (if exact
         (fn [x] (identical? type (attributed-element-class x)))
-        (fn [x] (p/is-instance? x type))))))
+        (fn [x] (g/is-instance? x type))))))
 
 (defn ^:private type-matcher-tg-1
   [g ts]
@@ -458,7 +458,7 @@ functions `record` and `enum`."
                    (apply op t-matchers))
                  ;; Empty collection given: (), [], that's also ok
                  identity)
-   :else (u/errorf "Don't know how to create a TG p/type-matcher for %s" ts)))
+   :else (u/errorf "Don't know how to create a TG funnyqt.generic/type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-tg [^Graph g ts]
   (let [^Schema s (schema g)
@@ -471,33 +471,33 @@ functions `record` and `enum`."
           tm))
       (type-matcher-tg-1 g ts))))
 
-(extend-protocol p/ITypeMatcher
+(extend-protocol g/ITypeMatcher
   GraphElement
-  (p/type-matcher [ge ts]
+  (g/type-matcher [ge ts]
     (type-matcher-tg (graph ge) ts))
   Graph
-  (p/type-matcher [g ts]
+  (g/type-matcher [g ts]
     (type-matcher-tg g ts)))
 
-(extend-protocol p/IInstanceOf
+(extend-protocol g/IInstanceOf
   Graph
-  (p/is-instance? [object class]
+  (g/is-instance? [object class]
     (and (instance? GraphClass class)
          (.isInstanceOf object class)))
-  (p/has-type? [obj spec]
-    ((p/type-matcher obj spec) obj))
+  (g/has-type? [obj spec]
+    ((g/type-matcher obj spec) obj))
   Vertex
-  (p/is-instance? [object class]
+  (g/is-instance? [object class]
     (and (instance? VertexClass class)
          (.isInstanceOf object class)))
-  (p/has-type? [obj spec]
-    ((p/type-matcher obj spec) obj))
+  (g/has-type? [obj spec]
+    ((g/type-matcher obj spec) obj))
   Edge
-  (p/is-instance? [object class]
+  (g/is-instance? [object class]
     (and (instance? EdgeClass class)
          (.isInstanceOf object class)))
-  (p/has-type? [obj spec]
-    ((p/type-matcher obj spec) obj)))
+  (g/has-type? [obj spec]
+    ((g/type-matcher obj spec) obj)))
 
 
 ;;## Containment
@@ -821,14 +821,14 @@ functions `record` and `enum`."
 
 ;;### Generic attribute access
 
-(extend-protocol p/IAttributeValueAccess
+(extend-protocol g/IAttributeValueAccess
   AttributedElement
-  (p/aval [this attr]
+  (g/aval [this attr]
     (value this attr))
-  (p/set-aval! [this attr val]
+  (g/set-aval! [this attr val]
     (set-value! this attr val))
   Record
-  (p/aval [this attr]
+  (g/aval [this attr]
     (value this attr)))
 
 ;;## Element Order
@@ -918,7 +918,7 @@ functions `record` and `enum`."
   ([g]
      (vseq-internal g identity))
   ([g ts]
-     (vseq-internal g (p/type-matcher g ts))))
+     (vseq-internal g (g/type-matcher g ts))))
 
 (defn rvseq
   "Returns the lazy reversed seq of vertices of `g` restricted by the type spec `ts`.
@@ -927,7 +927,7 @@ functions `record` and `enum`."
   ([g]
      (rvseq-internal g identity))
   ([g ts]
-     (rvseq-internal g (p/type-matcher g ts))))
+     (rvseq-internal g (g/type-matcher g ts))))
 
 (defn ^:private eseq-internal-1 [e tm]
   (lazy-seq
@@ -960,7 +960,7 @@ functions `record` and `enum`."
   ([g]
      (eseq-internal g identity))
   ([g ts]
-     (eseq-internal g (p/type-matcher g ts))))
+     (eseq-internal g (g/type-matcher g ts))))
 
 (defn reseq
   "Returns the lazy reversed seq of edges of `e` restricted by `ts`.
@@ -969,7 +969,7 @@ functions `record` and `enum`."
   ([g]
      (reseq-internal g identity))
   ([g ts]
-     (reseq-internal g (p/type-matcher g ts))))
+     (reseq-internal g (g/type-matcher g ts))))
 
 (defn ^:private iseq-internal-1 [e tm dm]
   (lazy-seq
@@ -1003,9 +1003,9 @@ functions `record` and `enum`."
   ([v]
      (iseq-internal v identity identity))
   ([v ts]
-     (iseq-internal v (p/type-matcher v ts) identity))
+     (iseq-internal v (g/type-matcher v ts) identity))
   ([v ts dir]
-     (iseq-internal v (p/type-matcher v ts) (direction-matcher dir))))
+     (iseq-internal v (g/type-matcher v ts) (direction-matcher dir))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `dir`.
@@ -1015,38 +1015,38 @@ functions `record` and `enum`."
   ([v]
      (riseq-internal v identity identity))
   ([v ts]
-     (riseq-internal v (p/type-matcher v ts) identity))
+     (riseq-internal v (g/type-matcher v ts) identity))
   ([v ts dir]
-     (riseq-internal v (p/type-matcher v ts) (direction-matcher dir))))
+     (riseq-internal v (g/type-matcher v ts) (direction-matcher dir))))
 
-(extend-protocol p/IElements
+(extend-protocol g/IElements
   Graph
-  (p/elements
+  (g/elements
     ([this]
        (vseq this))
     ([this ts]
        (vseq this ts))))
 
-(extend-protocol p/IRelationships
+(extend-protocol g/IRelationships
   Graph
-  (p/relationships
+  (g/relationships
     ([this]
        (eseq this))
     ([this ts]
        (eseq this ts))))
 
-(extend-protocol p/IContainer
+(extend-protocol g/IContainer
   Vertex
-  (p/container [v]
+  (g/container [v]
     (loop [^Edge inc (first-inc v)]
       (when inc
         (if (= AggregationKind/COMPOSITE (.getThisAggregationKind inc))
           (that inc)
           (recur (next-inc inc)))))))
 
-(extend-protocol p/IModelObject
+(extend-protocol g/IModelObject
   GraphElement
-  (p/model-object? [this] true))
+  (g/model-object? [this] true))
 
 ;;## Vertex, edge counts, degree
 
@@ -1097,14 +1097,14 @@ functions `record` and `enum`."
                                   props)]
       (if (.getAttribute (attributed-element-class v) (name prop))
         (set-value! v prop val)
-        (p/set-adjs! v prop (if (or (nil? val) (coll? val))
+        (g/set-adjs! v prop (if (or (nil? val) (coll? val))
                               val
                               [val]))))
     v))
 
-(extend-protocol p/ICreateElement
+(extend-protocol g/ICreateElement
   Graph
-  (p/create-element!
+  (g/create-element!
     ([g cls]
        (create-vertex! g cls))
     ([g cls prop-map]
@@ -1125,9 +1125,9 @@ functions `record` and `enum`."
       (set-value! e attr val))
     e))
 
-(extend-protocol p/ICreateRelationship
+(extend-protocol g/ICreateRelationship
   Graph
-  (p/create-relationship! [this cls from to]
+  (g/create-relationship! [this cls from to]
     (create-edge! this cls from to)))
 
 (defn set-alpha!
@@ -1158,14 +1158,14 @@ functions `record` and `enum`."
   ([^Vertex v ts]
      (unlink! v ts identity))
   ([^Vertex v ts ds]
-     (let [tm (p/type-matcher v ts)
+     (let [tm (g/type-matcher v ts)
            dm (direction-matcher ds)]
        (while (when-let [e (first-inc v tm dm)]
-                (p/delete! e))))))
+                (g/delete! e))))))
 
-(extend-protocol p/IModifyAdjacencies
+(extend-protocol g/IModifyAdjacencies
   Vertex
-  (p/set-adjs! [v role vs]
+  (g/set-adjs! [v role vs]
     (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
           dec (.getDirectedEdgeClassForFarEndRole
                ^VertexClass (attributed-element-class v)
@@ -1173,36 +1173,36 @@ functions `record` and `enum`."
           _  (when-not dec (u/errorf "No %s role at vertex %s." role v))
           ec (.getEdgeClass dec)
           ed (.getDirection dec)]
-      (unlink! v #(p/is-instance? % ec) ed))
+      (unlink! v #(g/is-instance? % ec) ed))
     (doseq [av vs]
       (.addAdjacence v (name role) av)))
-  (p/set-adj! [v1 role v2]
-    (p/set-adjs! v1 role [v2]))
-  (p/add-adjs! [v role vs]
-    (if (p/mm-multi-valued-property? (attributed-element-class v) role)
+  (g/set-adj! [v1 role v2]
+    (g/set-adjs! v1 role [v2]))
+  (g/add-adjs! [v role vs]
+    (if (g/mm-multi-valued-property? (attributed-element-class v) role)
       (doseq [av vs]
         (.addAdjacence v (name role) av))
       (u/errorf "Can't add to the single-value role %s of %s."
                 (name role) v)))
-  (p/add-adj! [v1 role v2]
-    (if (p/mm-multi-valued-property? (attributed-element-class v1) role)
+  (g/add-adj! [v1 role v2]
+    (if (g/mm-multi-valued-property? (attributed-element-class v1) role)
       (.addAdjacence v1 (name role) v2)
       (u/errorf "Can't add to the single-value role %s of %s."
                 (name role) v1))))
 
 ;;## Deletions
 
-(extend-protocol p/IDeletable
+(extend-protocol g/IDeletable
   Vertex
-  (p/delete!
+  (g/delete!
     ([v] (.delete v) v)
     ([v recursive]
        ;; Not recursive, so delete all incidences first.
        (when-not recursive
          (unlink! v))
-       (p/delete! v)))
+       (g/delete! v)))
   Edge
-  (p/delete!
+  (g/delete!
     ([e]   (.delete e) e)
     ([e _] (.delete e) e)))
 
@@ -1211,13 +1211,13 @@ functions `record` and `enum`."
 (defn relink!
   "Relinks all incidences of vertex `from` to vertex `to` and returns `from`.
   The incidences can be restricted by type spec `ts` and `dir` (see
-  `p/type-matcher` and `direction-matcher`)."
+  `funnyqt.generic/type-matcher` and `direction-matcher`)."
   ([from to]
      (relink! from to identity identity))
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts dir]
-     (let [tm (p/type-matcher from ts)
+     (let [tm (g/type-matcher from ts)
            dm (direction-matcher dir)]
        (loop [inc (first-inc from tm dm)]
          (when inc
@@ -1252,27 +1252,27 @@ functions `record` and `enum`."
     (u/errorf "More than one adjacent vertex found: %s" s)
     (first s)))
 
-(extend-protocol pi/IAdjacenciesInternal
+(extend-protocol i/IAdjacenciesInternal
   Vertex
-  (pi/adj-internal [this roles]
+  (i/adj-internal [this roles]
     (if (seq roles)
       (when-let [target (zero-or-one (maybe-traverse this (first roles) false true))]
         (recur target (rest roles)))
       this))
-  (pi/adj*-internal [this roles]
+  (i/adj*-internal [this roles]
     (if (seq roles)
       (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
         (recur target (rest roles)))
       this))
-  (pi/adjs-internal [this roles]
+  (i/adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (seq (maybe-traverse this (first roles) false false))]
-        (r/mapcat #(pi/adjs-internal % (rest roles)) a))
+        (r/mapcat #(i/adjs-internal % (rest roles)) a))
       [this]))
-  (pi/adjs*-internal [this roles]
+  (i/adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (seq (maybe-traverse this (first roles) true false))]
-        (r/mapcat #(pi/adjs*-internal % (rest roles)) a))
+        (r/mapcat #(i/adjs*-internal % (rest roles)) a))
       [this])))
 
 
@@ -1372,7 +1372,7 @@ functions `record` and `enum`."
   ([g pred precalc]
      (cond
       (fn? pred)          (vsubgraph-tc g pred precalc)
-      (u/type-spec? pred) (vsubgraph-tc g (p/type-matcher g pred) precalc)
+      (u/type-spec? pred) (vsubgraph-tc g (g/type-matcher g pred) precalc)
       (coll? pred)        (vsubgraph-tc g #(q/member? % pred) precalc)
       :default            (u/error (str "Don't know how to handle predicate " pred)))))
 
@@ -1411,7 +1411,7 @@ functions `record` and `enum`."
   ([g pred precalc]
      (cond
       (fn? pred)          (esubgraph-tc g pred precalc)
-      (u/type-spec? pred) (esubgraph-tc g (p/type-matcher g pred) precalc)
+      (u/type-spec? pred) (esubgraph-tc g (g/type-matcher g pred) precalc)
       (coll? pred)        (esubgraph-tc g #(q/member? % pred) precalc)
       :default            (u/error (str "Don't know how to handle predicate " pred)))))
 
@@ -1422,7 +1422,7 @@ functions `record` and `enum`."
   [^AttributedElementClass aec]
   (into (sorted-map)
         (for [^Attribute attr (.getOwnAttributeList aec)]
-          [(keyword (.getName attr)) (p/describe (.getDomain attr))])))
+          [(keyword (.getName attr)) (g/describe (.getDomain attr))])))
 
 (defn- slot-desc
   [^AttributedElement e]
@@ -1442,38 +1442,38 @@ functions `record` and `enum`."
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
             (.getDirectSubClasses gec))))
 
-(extend-protocol p/IDescribable
+(extend-protocol g/IDescribable
   Graph
-  (p/describe [this]
+  (g/describe [this]
     {:type 'Graph
-     :qname (symbol (p/qname this))
+     :qname (symbol (g/qname this))
      :slots (slot-desc this)})
   Vertex
-  (p/describe [this]
+  (g/describe [this]
     {:type 'Vertex
-     :qname (symbol (p/qname this))
+     :qname (symbol (g/qname this))
      :slots (slot-desc this)})
   Edge
-  (p/describe [this]
+  (g/describe [this]
     {:type 'Edge
-     :qname (symbol (p/qname this))
+     :qname (symbol (g/qname this))
      :slots (slot-desc this)
      :alpha (.getAlpha this)
      :omega (.getOmega this)})
   GraphClass
-  (p/describe [this]
+  (g/describe [this]
     {:type 'GraphClass
      :qname (symbol (.getQualifiedName this))
      :attributes (attr-desc this)})
   VertexClass
-  (p/describe [this]
+  (g/describe [this]
     {:type 'VertexClass
      :qname (symbol (.getQualifiedName this))
      :attributes (attr-desc this)
      :super-classes (super-classes this)
      :sub-classes (sub-classes this)})
   EdgeClass
-  (p/describe [this]
+  (g/describe [this]
     {:type 'EdgeClass
      :qname (symbol (.getQualifiedName this))
      :attributes (attr-desc this)
@@ -1482,26 +1482,26 @@ functions `record` and `enum`."
      :super-classes (super-classes this)
      :sub-classes (sub-classes this)})
   de.uni_koblenz.jgralab.schema.BasicDomain
-  (p/describe [this]
+  (g/describe [this]
     (-> this .getQualifiedName symbol))
   RecordDomain
-  (p/describe [this]
+  (g/describe [this]
     {:type 'Record
      :qname (symbol (.getQualifiedName this))
      :components (into (sorted-map)
                        (for [^de.uni_koblenz.jgralab.schema.RecordDomain$RecordComponent
                              c (.getComponents this)]
-                         [(keyword (.getName c)) (p/describe (.getDomain c))]))})
+                         [(keyword (.getName c)) (g/describe (.getDomain c))]))})
   de.uni_koblenz.jgralab.schema.EnumDomain
-  (p/describe [this]
+  (g/describe [this]
     {:type 'Enum
      :qname (symbol (.getQualifiedName this))
      :constants (vec (.getConsts this))})
   de.uni_koblenz.jgralab.schema.CollectionDomain
-  (p/describe [this]
+  (g/describe [this]
     (symbol (.getQualifiedName this)))
   de.uni_koblenz.jgralab.schema.MapDomain
-  (p/describe [this]
+  (g/describe [this]
     (symbol (-> this
                 .getQualifiedName
                 (clojure.string/replace #"\s" "")
@@ -1512,35 +1512,35 @@ functions `record` and `enum`."
 (defmethod print-method Vertex
   [v out]
   (.write ^java.io.Writer out
-          (str "#<v" (id v) ": " (p/qname v) ">")))
+          (str "#<v" (id v) ": " (g/qname v) ">")))
 
 (defmethod print-method Edge
   [e out]
   (.write ^java.io.Writer out
           (str "#<" (if (normal-edge? e) "+" "-") "e"
-               (Math/abs ^int (id e)) ": " (p/qname e) ">")))
+               (Math/abs ^int (id e)) ": " (g/qname e) ">")))
 
 (defmethod print-method Graph
   [^Graph g out]
   (.write ^java.io.Writer out
           (str "#<Graph " (id g)
                " (" (.getGraphVersion g)
-               "): " (p/qname g) ">")))
+               "): " (g/qname g) ">")))
 
 (defmethod print-method VertexClass
   [vc out]
   (.write ^java.io.Writer out
-          (str "#<VertexClass " (p/qname vc) ">")))
+          (str "#<VertexClass " (g/qname vc) ">")))
 
 (defmethod print-method EdgeClass
   [ec out]
   (.write ^java.io.Writer out
-          (str "#<EdgeClass " (p/qname ec) ">")))
+          (str "#<EdgeClass " (g/qname ec) ">")))
 
 (defmethod print-method GraphClass
   [gc out]
   (.write ^java.io.Writer out
-          (str "#<GraphClass " (p/qname gc) ">")))
+          (str "#<GraphClass " (g/qname gc) ">")))
 
 ;;# Schema-specific API generator macro
 
@@ -1643,7 +1643,7 @@ functions `record` and `enum`."
 (defn ^:private create-vc-create-fn [^VertexClass vc prefix]
   `(do
      ;; CREATE FN
-     ~(when-not (p/abstract? vc)
+     ~(when-not (g/abstract? vc)
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
            ~(format "Create a new %s vertex in graph `g`.
   Additional `props` may be supplied.
@@ -1651,24 +1651,24 @@ functions `record` and `enum`."
                     (.getQualifiedName vc)
                     (.getQualifiedName vc))
            [~'g ~'& ~'props]
-           (apply create-vertex! ~'g '~(p/qname vc) ~'props)))
+           (apply create-vertex! ~'g '~(g/qname vc) ~'props)))
      ;; VSEQ FN
      (defn ~(symbol (str prefix "vseq-" (str/replace (.getUniqueName vc) \. \$)))
        ~(format "Returns the lazy sequence of %s vertices in `g`."
-                (p/qname vc))
+                (g/qname vc))
        [~'g]
-       (vseq ~'g '~(p/qname vc)))
+       (vseq ~'g '~(g/qname vc)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName vc) \. \$) "?"))
        ~(format "Returns true if `v` is a %s-vertex."
-                (p/qname vc))
+                (g/qname vc))
        [~'v]
-       (p/has-type? ~'v '~(p/qname vc)))))
+       (g/has-type? ~'v '~(g/qname vc)))))
 
 (defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
   `(do
-     ~(when-not (p/abstract? ec)
+     ~(when-not (g/abstract? ec)
         ;; CREATE FN
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
            ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
@@ -1676,13 +1676,13 @@ functions `record` and `enum`."
   Shorthand for (apply create-edge! '%s props).
 
   [%s] --%s--> [%s]"
-                    (p/qname ec)
-                    (p/qname ec)
-                    (p/qname (.getVertexClass (.getFrom ec)))
-                    (p/qname ec)
-                    (p/qname (.getVertexClass (.getTo ec))))
+                    (g/qname ec)
+                    (g/qname ec)
+                    (g/qname (.getVertexClass (.getFrom ec)))
+                    (g/qname ec)
+                    (g/qname (.getVertexClass (.getTo ec))))
            [~'g ~'alpha ~'omega ~'& ~'attrs]
-           (apply create-edge! ~'g '~(p/qname ec) ~'alpha ~'omega ~'attrs)))
+           (apply create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attrs)))
 
      ;; ESEQ FN
      (defn ~(symbol (str prefix "eseq-" (str/replace (.getUniqueName ec) \. \$)))
@@ -1691,12 +1691,12 @@ functions `record` and `enum`."
   following `g` in the edge sequence.
 
   [%s] --%s--> [%s]"
-                (p/qname ec)
-                (p/qname (.getVertexClass (.getFrom ec)))
-                (p/qname ec)
-                (p/qname (.getVertexClass (.getTo ec))))
+                (g/qname ec)
+                (g/qname (.getVertexClass (.getFrom ec)))
+                (g/qname ec)
+                (g/qname (.getVertexClass (.getTo ec))))
        [~'g]
-       (eseq ~'g '~(p/qname ec)))
+       (eseq ~'g '~(g/qname ec)))
 
      ;; ISEQ FN
      (defn ~(symbol (str prefix "iseq-" (str/replace (.getUniqueName ec) \. \$)))
@@ -1706,21 +1706,21 @@ functions `record` and `enum`."
   `dir` may be :in, :out, or :inout (the default).
 
   [%s] --%s--> [%s]"
-                (p/qname ec)
-                (p/qname (.getVertexClass (.getFrom ec)))
-                (p/qname ec)
-                (p/qname (.getVertexClass (.getTo ec))))
+                (g/qname ec)
+                (g/qname (.getVertexClass (.getFrom ec)))
+                (g/qname ec)
+                (g/qname (.getVertexClass (.getTo ec))))
        ([~'v]
-          (iseq ~'v '~(p/qname ec) :inout))
+          (iseq ~'v '~(g/qname ec) :inout))
        ([~'v ~'dir]
-          (iseq ~'v '~(p/qname ec) ~'dir)))
+          (iseq ~'v '~(g/qname ec) ~'dir)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName ec) \. \$) "?"))
        ~(format "Returns true if `e` is a %s-edge."
-                (p/qname ec))
+                (g/qname ec))
        [~'e]
-       (p/has-type? ~'e '~(p/qname ec)))))
+       (g/has-type? ~'e '~(g/qname ec)))))
 
 (defn ^:private create-attr-fns [attr owners prefix]
   (let [bool? (group-by (fn [^AttributedElementClass aec]
@@ -1734,7 +1734,7 @@ functions `record` and `enum`."
                ~(format "Checks if `ae` is %s.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (apply sorted-set (map p/qname (bool? true)))))
+                        (str/join ", " (apply sorted-set (map g/qname (bool? true)))))
                [~'ae]
                (value ~'ae ~attr))])
        ~@(when (bool? false)
@@ -1742,23 +1742,23 @@ functions `record` and `enum`."
                ~(format "Returns the value of `ae`s %s attribute.
   Possible types of `ae`: %s"
                         (name attr)
-                        (str/join ", " (apply sorted-set (map p/qname (bool? false)))))
+                        (str/join ", " (apply sorted-set (map g/qname (bool? false)))))
                [~'ae]
                (value ~'ae ~attr))])
        (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `ae`s %s attribute to `val`.
   Possible types of `ae`: %s"
                   (name attr)
-                  (str/join ", " (apply sorted-set (map p/qname owners))))
+                  (str/join ", " (apply sorted-set (map g/qname owners))))
          [~'ae ~'val]
          (set-value! ~'ae ~attr ~'val)))))
 
 (defn ^:private create-role-fns [role owners prefix]
   (let [v (with-meta 'v {:tag `Vertex})
         multi? (group-by (fn [^VertexClass vc]
-                           (p/mm-multi-valued-property? vc role))
+                           (g/mm-multi-valued-property? vc role))
                          owners)
-        owner-string (str/join ", " (apply sorted-set (map p/qname owners)))]
+        owner-string (str/join ", " (apply sorted-set (map g/qname owners)))]
     `(do
        ;; GETTER
        ~(cond
@@ -1792,7 +1792,7 @@ functions `record` and `enum`."
                            (name role)
                            owner-string)
                   [~v]
-                  (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                  (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
                     (.adjacences ~v ~(name role))
                     (let [x# (.adjacences ~v ~(name role))]
                       (if (next x#)
@@ -1811,7 +1811,7 @@ functions `record` and `enum`."
                      (name role)
                      owner-string)
             [~v ~'ovs]
-            (p/set-adjs! ~v ~role ~'ovs))
+            (g/set-adjs! ~v ~role ~'ovs))
 
          ;; This role is always single-valued
          (and (multi? false) (not (multi? true)))
@@ -1822,7 +1822,7 @@ functions `record` and `enum`."
                      (name role)
                      owner-string)
             [~v ~'ov]
-            (p/set-adj! ~v ~role ~'ov))
+            (g/set-adj! ~v ~role ~'ov))
 
          :else `(defn ~(symbol (str prefix "->set-" (name role) "!"))
                   ~(format "Sets the %s role of `v` to `ov`.
@@ -1832,9 +1832,9 @@ functions `record` and `enum`."
                            (name role)
                            owner-string)
                   [~v ~'ov]
-                  (if (p/mm-multi-valued-property? (attributed-element-class ~v) ~role)
-                    (p/set-adjs! ~v ~role ~'ov)
-                    (p/set-adj! ~v ~role ~'ov))))
+                  (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                    (g/set-adjs! ~v ~role ~'ov)
+                    (g/set-adj! ~v ~role ~'ov))))
 
        ;; ADDER
        ~@(when (multi? true)
@@ -1844,15 +1844,15 @@ functions `record` and `enum`."
                         (name role)
                         owner-string)
                [~v ~'ov ~'& ~'more]
-               (p/add-adj! ~v ~role ~'ov)
-               (p/add-adjs! ~v ~role ~'more))
+               (g/add-adj! ~v ~role ~'ov)
+               (g/add-adjs! ~v ~role ~'more))
              (defn ~(symbol (str prefix "->addall-" (name role) "!"))
                ~(format "Adds all `vs` to `v`s %s role.
   Possible types of `v`: %s"
                         (name role)
                         owner-string)
                [~v ~'vs]
-               (p/add-adjs! ~v ~role ~'vs))]))))
+               (g/add-adjs! ~v ~role ~'vs))]))))
 
 (defmacro generate-schema-functions
   "Generates a schema-specific API consisting of functions for creating

@@ -1,16 +1,16 @@
 (ns funnyqt.bidi
-  (:require [clojure.core.cache :as cache]
-            [clojure.core.logic :as ccl]
+  (:require [clojure.core.cache           :as cache]
+            [clojure.core.logic           :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [flatland.ordered.map :as om]
-            [funnyqt.query :as q]
-            [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.relational.util :as ru]
-            [funnyqt.utils :as u]
-            [funnyqt.tg :as tg]
-            [funnyqt.protocols :as p]
-            [clojure.tools.macro :as tm]
-            [clojure.walk :as cw]))
+            [flatland.ordered.map         :as om]
+            [funnyqt.query                :as q]
+            [funnyqt.relational.tmp-elem  :as tmp]
+            [funnyqt.relational.util      :as ru]
+            [funnyqt.utils                :as u]
+            [funnyqt.tg                   :as tg]
+            [funnyqt.generic              :as g]
+            [clojure.tools.macro          :as tm]
+            [clojure.walk                 :as cw]))
 
 ;; TODO: Implement a way to let the transformation writer specify attributes
 ;; and single-valued refs that don't need to match and thus may be updated by
@@ -96,7 +96,7 @@
   a model object.  Else returns `val` unchanged.
   Only for internal use."
   [lv val]
-  (if (p/model-object? val)
+  (if (g/model-object? val)
     (tmp/make-wrapper *target-model* lv val)
     val))
 

@@ -1,7 +1,7 @@
 (ns funnyqt.emf-test
   (:use funnyqt.emf)
   (:use funnyqt.query)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use flatland.ordered.set)
   (:use flatland.ordered.map)
   (:use clojure.test)
@@ -64,7 +64,7 @@
     (is (== 13 (count mems)))
     ;; The FamilyModel is the container of all Members and Families.
     (doseq [x (concat mems fams)]
-      (is (the fmods) (econtainer x)))
+      (is (= (the fmods) (econtainer x))))
     ;; In this concrete case, this is true
     (is (= (eallcontents family-model '!FamilyModel)
            (econtents (econtents family-model))))

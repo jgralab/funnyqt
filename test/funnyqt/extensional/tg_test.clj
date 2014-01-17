@@ -1,8 +1,9 @@
 (ns funnyqt.extensional.tg-test
   (:use funnyqt.tg)
-  (:require [funnyqt.emf :as emf])
+  (:require [funnyqt.emf       :as emf]
+            [funnyqt.query.emf :as emfq]
+            [funnyqt.generic   :as g])
   (:use funnyqt.query.tg)
-  (:require [funnyqt.query.emf :as emfq])
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.query)
@@ -38,14 +39,14 @@
 (defn family
   "Returns the main family of member m."
   [m]
-  (or (adj m :familyFather) (adj m :familyMother)
-      (adj m :familySon)    (adj m :familyDaughter)))
+  (or (g/adj m :familyFather) (g/adj m :familyMother)
+      (g/adj m :familySon)    (g/adj m :familyDaughter)))
 
 (defn male?
   "Returns true, iff member m is male."
   [m]
-  (or (adj m :familyFather)
-      (adj m :familySon)))
+  (or (g/adj m :familyFather)
+      (g/adj m :familySon)))
 
 (defn parents-of
   "Returns the set of parent members of m."
@@ -58,7 +59,7 @@
 (defn wife
   "Returns the wife member of member m."
   [m]
-  (adj m :familyFather :mother))
+  (g/adj m :familyFather :mother))
 
 (deftransformation families2genealogy [m g]
   (create-vertices! g 'Male

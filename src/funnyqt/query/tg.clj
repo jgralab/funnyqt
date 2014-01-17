@@ -62,11 +62,11 @@ can compute that like so:
          (count locs)))"
   (:require clojure.string
             [clojure.core.reducers :as r]
-            [funnyqt.tg :as tg]
-            [funnyqt.protocols :as p]
-            [funnyqt.utils :as u]
-            [flatland.ordered.set :as os]
-            [funnyqt.query :as q])
+            [funnyqt.tg            :as tg]
+            [funnyqt.generic       :as g]
+            [funnyqt.utils         :as u]
+            [flatland.ordered.set  :as os]
+            [funnyqt.query         :as q])
   (:import
    (de.uni_koblenz.jgralab.algolib.algorithms.search IterativeDepthFirstSearch)
    (de.uni_koblenz.jgralab.algolib.functions.entries PermutationEntry)
@@ -94,19 +94,19 @@ can compute that like so:
    (coll? p) (apply (first p) v (rest p))
    ;; adjacences / that-role names
    (u/prop-name? p) (into (os/ordered-set)
-                          (r/mapcat #(q/adjs* % p) (u/oset v)))
+                          (r/mapcat #(g/adjs* % p) (u/oset v)))
    :else (u/errorf "Don't know how to apply %s." p)))
 
 (defn- p-restr-tg
   "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
-  ts is a type specification (see `funnyqt.protocols/type-matcher`)."
+  ts is a type specification (see `funnyqt.generic/type-matcher`)."
   ([vs ts]
      (p-restr-tg vs ts identity))
   ([vs ts pred]
      (let [vs (u/oset vs)]
        (u/oset
         (if (seq vs)
-          (let [tm (p/type-matcher (first vs) ts)]
+          (let [tm (g/type-matcher (first vs) ts)]
             (into (os/ordered-set)
                   (r/filter (every-pred tm pred) vs)))
           vs)))))
@@ -134,7 +134,7 @@ can compute that like so:
                            (if (seq that-aks)
                              #(q/member? (.getThatAggregationKind ^Edge %) that-aks)
                              identity))
-            tm (p/type-matcher (first vs) ts)
+            tm (g/type-matcher (first vs) ts)
             dm (tg/direction-matcher dir)]
         (into
          (os/ordered-set)

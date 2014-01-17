@@ -4,11 +4,11 @@
 Using the function `print-model`, TGraph and EMF models can be visualized,
 either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (:require clojure.java.shell
-            [funnyqt.protocols :as p]
-            [funnyqt.emf :as emf]
-            [funnyqt.tg  :as tg]
-            [funnyqt.query :as q]
-            [funnyqt.utils :as u])
+            [funnyqt.generic :as g]
+            [funnyqt.emf     :as emf]
+            [funnyqt.tg      :as tg]
+            [funnyqt.query   :as q]
+            [funnyqt.utils   :as u])
   (:import
    (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
    (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
@@ -112,7 +112,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (let [h (emf-dot-id eo)]
       (str "  " h
            " [label=\"{{:" (if *print-qualified-names*
-                             (p/qname eo)
+                             (g/qname eo)
                              (.getName (.eClass eo)))
            "}|"
            (emf-dot-attributes eo)
@@ -197,7 +197,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (str "  v" (tg/id v)
          " [label=\"{{v" (tg/id v) ": "
          (if *print-qualified-names*
-           (p/qname v)
+           (g/qname v)
            (.getSimpleName (.getAttributedElementClass v)))
          "}|"
          (tg-dot-attributes v)
@@ -225,7 +225,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (str "  v" (tg/id (tg/alpha e)) " -> v" (tg/id (tg/omega e))
            " [id=e" (tg/id e) ", label=\"e" (tg/id e) ": "
            (if *print-qualified-names*
-             (p/qname e)
+             (g/qname e)
              (.getSimpleName (.getAttributedElementClass e)))
            "\\l"
            (tg-dot-attributes e)

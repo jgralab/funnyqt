@@ -1,12 +1,12 @@
 (ns funnyqt.relational.emf
-  (:require [clojure.core.logic :as ccl]
+  (:require [clojure.core.logic           :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [funnyqt.protocols :as p]
-            [funnyqt.emf :as emf]
-            [funnyqt.query :as q]
-            [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.relational.util :as ru]
-            [funnyqt.utils :as u])
+            [funnyqt.generic              :as g]
+            [funnyqt.emf                  :as emf]
+            [funnyqt.query                :as q]
+            [funnyqt.relational.tmp-elem  :as tmp]
+            [funnyqt.relational.util      :as ru]
+            [funnyqt.utils                :as u])
   (:import
    (org.eclipse.emf.ecore EStructuralFeature EAttribute EReference EObject
                           EClass EPackage)
@@ -62,7 +62,7 @@
 (defn eobjecto
   "A relation where EObject `e` has the type `t`, an EClass name in Resouce or
   ResourceSet `m`.  In fact, `t` may be any type specification (see
-  `funnyqt.protocols/type-matcher`)."
+  `funnyqt.generic/type-matcher`)."
   ([m eo]
      (if tmp/*make-tmp-elements*
        (tmp-eobjecto m eo)
@@ -86,12 +86,12 @@
             (ccl/fail a)
 
             (and (ru/ground? geo) (ru/ground? gt))
-            (if (p/has-type? geo gt)
+            (if (g/has-type? geo gt)
               (ccl/succeed a)
               (ccl/fail a))
 
             (ru/ground? geo)
-            (ccl/unify a t (p/qname geo))
+            (ccl/unify a t (g/qname geo))
 
             (ru/ground? gt)
             (ccl/to-stream
@@ -100,7 +100,7 @@
 
             :else (ccl/to-stream
                    (->> (for [elem (emf/eallobjects m t)]
-                          (ccl/unify a [eo t] [elem (p/qname elem)]))
+                          (ccl/unify a [eo t] [elem (g/qname elem)]))
                         (remove not)))))))))
 
 (defn ^:private attribute-list [eo]
@@ -186,7 +186,7 @@
         (->> (map #(ccl/unify a reo (if (fn? %) (%) %))
                   (concat
                    (map #(tmp/make-wrapper m reo %)
-                        (q/adjs (.wrapped-element ^WrapperElement geo) gref))
+                        (g/adjs (.wrapped-element ^WrapperElement geo) gref))
                    [#(let [refed (tmp/make-tmp-element m :element)]
                        (tmp/add-ref geo gref reo)
                        refed)]))
@@ -217,7 +217,7 @@
 
          (and (ru/ground? geo) (ru/ground? gref))
          (ccl/to-stream
-          (->> (for [refed (funnyqt.query/adjs* geo gref)]
+          (->> (for [refed (funnyqt.generic/adjs* geo gref)]
                  (ccl/unify a [reo] [refed]))
                (remove not)))
 
@@ -225,7 +225,7 @@
          (ccl/to-stream
           (->> (for [^EReference reference (reference-list geo)
                      :let [rn (keyword (.getName reference))]
-                     refed (funnyqt.query/adjs* geo rn)]
+                     refed (funnyqt.generic/adjs* geo rn)]
                  (ccl/unify a [ref reo] [rn refed]))
                (remove not)))
 
@@ -233,7 +233,7 @@
                 (->> (for [^EObject elem (emf/eallobjects m)
                            ^EReference reference (reference-list elem)
                            :let [rn (keyword (.getName reference))]
-                           refed (funnyqt.query/adjs* elem rn)]
+                           refed (funnyqt.generic/adjs* elem rn)]
                        (ccl/unify a [eo ref reo] [elem rn refed]))
                      (remove not))))))))
 
@@ -243,7 +243,7 @@
   "Returns a relation symbol for the eclass `c`."
   [^EClass c prefix]
   (let [dup (emf/eclassifier (symbol (.getName c)))
-        fqn (p/qname c)
+        fqn (g/qname c)
         n (if (= dup c)
             (.getName c)
             fqn)]
@@ -267,7 +267,7 @@
 (defn ^:private create-ereference-relation
   "Creates relations for the given EReference."
   [eref ecls prefix]
-  (let [ts (mapv #(p/qname %) ecls)]
+  (let [ts (mapv #(g/qname %) ecls)]
     `(defn ~(symbol (str prefix "->" (clojure.string/replace (name eref) "_" "-")))
        ~(format "A relation where `eo` includes `reo` in its %s reference." eref)
        [~'m ~'eo ~'reo]
@@ -280,7 +280,7 @@
   [attr ecls prefix]
   ;; attr is an attr name symbol, ecls the set of classes having
   ;; such an attr
-  (let [ts (mapv #(p/qname %) ecls)]
+  (let [ts (mapv #(g/qname %) ecls)]
     `(defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-")))
        ~(format "A relation where `eo` has value `val` for its %s attribute." attr)
        [~'m ~'eo ~'val]

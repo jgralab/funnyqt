@@ -1,13 +1,13 @@
 (ns funnyqt.relational.tg
-  (:require [clojure.core.logic :as ccl]
+  (:require [clojure.core.logic           :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [funnyqt.tg :as tg]
-            [funnyqt.protocols :as p]
-            [funnyqt.query :as q]
-            [funnyqt.utils :as u]
-            [funnyqt.relational :as rel]
-            [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.relational.util :as ru]
+            [funnyqt.tg                   :as tg]
+            [funnyqt.generic              :as g]
+            [funnyqt.query                :as q]
+            [funnyqt.utils                :as u]
+            [funnyqt.relational           :as rel]
+            [funnyqt.relational.tmp-elem  :as tmp]
+            [funnyqt.relational.util      :as ru]
             clojure.java.io)
   (:import
    (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
@@ -68,7 +68,7 @@
 (defn typeo
   "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
   element class name.  In fact, `t` may be any type specification (see
-  `funnyqt.protocols/type-matcher`).  The graph `g` must be ground."
+  `funnyqt.generic/type-matcher`).  The graph `g` must be ground."
   [g e t]
   (if tmp/*make-tmp-elements*
     (tmp-typeo g e t)
@@ -81,10 +81,10 @@
          (ccl/fail a)
 
          (and (ru/ground? ge) (ru/ground? gt))
-         (if (p/has-type? ge gt) (ccl/succeed a) (ccl/fail a))
+         (if (g/has-type? ge gt) (ccl/succeed a) (ccl/fail a))
 
          (ru/ground? ge)
-         (ccl/unify a t (p/qname ge))
+         (ccl/unify a t (g/qname ge))
 
          (ru/ground? gt)
          (if (symbol? gt)
@@ -106,7 +106,7 @@
 
          :else (ccl/to-stream
                 (->> (for [elem (concat (tg/vseq g) (tg/eseq g))]
-                       (ccl/unify a [e t] [elem (p/qname elem)]))
+                       (ccl/unify a [e t] [elem (g/qname elem)]))
                      (remove not))))))))
 
 (defn tmp-vertexo [g v]
@@ -355,7 +355,7 @@
         (->> (map #(ccl/unify a rv (if (fn? %) (%) %))
                   (concat
                    (map #(tmp/make-wrapper g rv %)
-                        (q/adjs (.wrapped-element ^WrapperElement gv) grole))
+                        (g/adjs (.wrapped-element ^WrapperElement gv) grole))
                    ;; This must not be executed if there's an existing adjacent
                    ;; vertex, so we wrap it in a function.
                    [#(let [refed (tmp/make-tmp-element g :element)]
@@ -389,7 +389,7 @@
 
          (and (ru/ground? gv) (ru/ground? grole))
          (ccl/to-stream
-          (->> (for [refed (funnyqt.query/adjs* gv grole)]
+          (->> (for [refed (funnyqt.generic/adjs* gv grole)]
                  (ccl/unify a [rv] [refed]))
                (remove not)))
 
@@ -468,7 +468,7 @@
   [attr aecs prefix]
   ;; attr is an attr name keyword, aecs the set of classes having
   ;; such an attr
-  (let [ts (mapv #(p/qname %) aecs)]
+  (let [ts (mapv #(g/qname %) aecs)]
     `(defn ~(symbol (str prefix (name attr)))
        ~(format "A relation where `ae` has value `val` for its %s attribute in graph `g`." attr)
        [~'g ~'ae ~'val]

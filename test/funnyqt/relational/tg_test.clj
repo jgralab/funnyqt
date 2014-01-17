@@ -5,8 +5,9 @@
         funnyqt.relational.tg
         funnyqt.relational
         [funnyqt.tg-test :only [rg]])
-  (:require [funnyqt.tg :as tg]
-            [funnyqt.query :as q]
+  (:require [funnyqt.tg                  :as tg]
+            [funnyqt.query               :as q]
+            [funnyqt.generic             :as g]
             [funnyqt.relational.tmp-elem :as tmp]))
 
 (generate-schema-relations "test/input/greqltestgraph.tg"
@@ -60,12 +61,12 @@
              (== q [?elem ?val]))))))
 
 (deftest test-adjo
-  (is (= (q/adjs (tg/vertex rg 12) :localities)
+  (is (= (g/adjs (tg/vertex rg 12) :localities)
          (run* [q]
            (adjo rg (tg/vertex rg 12) :localities q))
          (run* [q]
            (routemap/+->localities rg (tg/vertex rg 12) q))))
-  (is (= (q/adjs (tg/vertex rg 12) :capital)
+  (is (= (g/adjs (tg/vertex rg 12) :capital)
          (run* [q]
            (adjo rg (tg/vertex rg 12) :capital q))
          (run* [q]

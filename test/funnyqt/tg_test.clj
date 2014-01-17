@@ -1,7 +1,7 @@
 (ns funnyqt.tg-test
   (:use [flatland.ordered.set])
   (:use [funnyqt.tg])
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use [clojure.test])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)))
 
@@ -138,8 +138,8 @@
         (is (== 2 (ecount rg)))
         (testing "on-graph 1"
           (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))
+            (is (== vcnt (vcount rg)))
+            (is (== ecnt (ecount rg)))))
         (testing "vertex/edge on subgraph"
           ;; These are all in
           (is (= [1 7 12] (map id (vseq rg))))
@@ -150,8 +150,8 @@
         (is (== 3 (ecount rg)))
         (testing "on-graph 2"
           (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
+            (is (== vcnt (vcount rg)))
+            (is (== ecnt (ecount rg)))))))
     (testing "vertex induced TraversalContext by predicate"
       ;; Subgraph of all Locality vertices with more than 10 inhabitants.
       (let [locality? (type-matcher rg 'localities.Locality)]
@@ -161,8 +161,8 @@
           (is (== 9 (vcount rg)))
           (testing "on-graph 3"
             (on-graph [rg nil]
-              (is (== vcnt) (vcount rg))
-              (is (== ecnt) (ecount rg))))
+              (is (== vcnt (vcount rg)))
+              (is (== ecnt (ecount rg)))))
           (is (== 0 (ecount rg))))))))
 
 
@@ -176,24 +176,24 @@
         (is (== 2 (ecount rg)))
         (testing "on-graph 4"
           (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
+            (is (== vcnt (vcount rg)))
+            (is (== ecnt (ecount rg)))))))
     (testing "edge induced TraversalContext by type"
       (on-subgraph [rg (esubgraph rg 'connections.AirRoute)]
         (is (== 3 (vcount rg)))
         (is (== 3 (ecount rg)))
         (testing "on-graph 5"
           (on-graph [rg]
-            (is (== vcnt) (vcount rg))
-            (is (== ecnt) (ecount rg))))))
+            (is (== vcnt (vcount rg)))
+            (is (== ecnt (ecount rg)))))))
     (testing "edge induced TraversalContext by predicate"
       (let [airroute? (type-matcher rg 'connections.AirRoute)]
         (on-subgraph [rg (esubgraph rg #(and (airroute? %)
                                              (== (value (alpha  %) :inhabitants) 0)))]
           (testing "on-graph 5"
             (on-graph [rg]
-              (is (== vcnt) (vcount rg))
-              (is (== ecnt) (ecount rg))))
+              (is (== vcnt (vcount rg)))
+              (is (== ecnt (ecount rg)))))
           (is (== 2 (vcount rg)))
           (is (== 1 (ecount rg))))))))
 
@@ -265,18 +265,18 @@
     (rg/->set-crossroads! city [])
     (is (= []
            (.adjacences city "crossroads")
-           (funnyqt.query/adjs city :crossroads)
+           (funnyqt.generic/adjs city :crossroads)
            (rg/->crossroads city)))
 
     (rg/->set-crossroads! city [cr2 cr1])
     (is (= [cr2 cr1]
            (.adjacences city "crossroads")
-           (funnyqt.query/adjs city :crossroads)
+           (funnyqt.generic/adjs city :crossroads)
            (rg/->crossroads city)))
 
     (rg/->add-crossroads! city cr1)
     (rg/->addall-crossroads! city [cr1 cr1])
     (is (= [cr2 cr1 cr1 cr1 cr1]
            (.adjacences city "crossroads")
-           (funnyqt.query/adjs city :crossroads)
+           (funnyqt.generic/adjs city :crossroads)
            (rg/->crossroads city)))))

@@ -4,7 +4,7 @@
   (:use funnyqt.query.emf)
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.emf)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use clojure.test))
 
 ;; The Family2Genealogy transformation from EMF to EMF

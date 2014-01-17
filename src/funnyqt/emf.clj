@@ -3,8 +3,8 @@
   (:require [clojure.core.cache    :as cache]
             [clojure.core.reducers :as r]
             [clojure.string        :as str]
-            [funnyqt.protocols     :as p]
-            [funnyqt.protocols.internal :as pi]
+            [funnyqt.generic       :as g]
+            [funnyqt.internal      :as i]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
             [flatland.ordered.set  :as os]
@@ -39,9 +39,9 @@
   [ep]
   (instance? EPackage ep))
 
-(extend-protocol p/IModelObject
+(extend-protocol g/IModelObject
   EObject
-  (p/model-object? [this] true))
+  (g/model-object? [this] true))
 
 ;;# Metamodel Access
 
@@ -179,7 +179,7 @@
     (binding [*ns-uris* (if ns-uris ns-uris *ns-uris*)]
       (let [name (clojure.core/name name)
             ffn (if (.contains name ".")
-                  (fn [^EPackage p] (= (clojure.core/name (p/qname p)) name))
+                  (fn [^EPackage p] (= (clojure.core/name (g/qname p)) name))
                   (fn [^EPackage p] (= (.getName p) name)))
             qkgs (filter ffn (epackages))]
         (when-not (seq qkgs)
@@ -190,14 +190,14 @@
                     "or use {\"http://ns/uri\" pkg-name}."))
         (first qkgs)))))
 
-(extend-protocol p/IAbstractness
+(extend-protocol g/IAbstractness
   EClass
-  (p/abstract? [this]
+  (g/abstract? [this]
     (.isAbstract this)))
 
-(extend-protocol p/IUnset
+(extend-protocol g/IUnset
   EObject
-  (p/unset? [this attr]
+  (g/unset? [this attr]
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
 (defn eclassifiers
@@ -284,50 +284,50 @@
 
 ;;# Generic Metamodel Access
 
-(extend-protocol p/IMetaModelObject
+(extend-protocol g/IMetaModelObject
   EClass
-  (p/meta-model-object? [this] true))
+  (g/meta-model-object? [this] true))
 
-(extend-protocol p/IMMClasses
+(extend-protocol g/IMMClasses
   EClass
-  (p/mm-classes [cls]
+  (g/mm-classes [cls]
     (eclasses)))
 
-(extend-protocol p/IMMClass
+(extend-protocol g/IMMClass
   EObject
-  (p/mm-class
+  (g/mm-class
     ([this]
        (.eClass this))
     ([this qn]
        (eclassifier qn)))
   ResourceSet
-  (p/mm-class
+  (g/mm-class
     ([this qn]
        (eclassifier qn)))
   Resource
-  (p/mm-class
+  (g/mm-class
     ([this qn]
        (eclassifier qn))))
 
-(extend-protocol p/IMMDirectSuperClasses
+(extend-protocol g/IMMDirectSuperClasses
   EClass
-  (p/mm-direct-super-classes [this]
+  (g/mm-direct-super-classes [this]
     (seq (.getESuperTypes this))))
 
-(extend-protocol p/IMMSuperClassOf
+(extend-protocol g/IMMSuperClassOf
   EClass
-  (p/mm-super-class? [this sub]
+  (g/mm-super-class? [this sub]
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 
-(extend-protocol p/IMMMultiValuedProperty
+(extend-protocol g/IMMMultiValuedProperty
   EClass
-  (p/mm-multi-valued-property? [cls prop]
+  (g/mm-multi-valued-property? [cls prop]
     (.isMany (.getEStructuralFeature cls (name prop)))))
 
-(extend-protocol p/IMMContainmentRef
+(extend-protocol g/IMMContainmentRef
   EClass
-  (p/mm-containment-ref? [this ref-kw]
+  (g/mm-containment-ref? [this ref-kw]
     (if-let [^org.eclipse.emf.ecore.EReference
              er (.getEStructuralFeature this (name ref-kw))]
       (.isContainment er)
@@ -358,22 +358,22 @@
 
 ;;## Qualified Names
 
-(extend-protocol p/IQualifiedName
+(extend-protocol g/IQualifiedName
   EClassifier
-  (p/qname [this]
-    (symbol (str (p/qname (.getEPackage this))
+  (g/qname [this]
+    (symbol (str (g/qname (.getEPackage this))
                  "." (.getName this))))
 
   EPackage
-  (p/qname [this]
+  (g/qname [this]
     (loop [p (.getESuperPackage this), n (.getName this)]
       (if p
         (recur (.getESuperPackage p) (str (.getName p) "." n))
         (symbol n))))
 
   EObject
-  (p/qname [o]
-    (p/qname (.eClass o))))
+  (g/qname [o]
+    (g/qname (.eClass o))))
 
 ;;## EMF Model Resources
 
@@ -393,7 +393,7 @@
 ;;## Type Checks
 
 (defn ^:private type-matcher-emf-1
-  "Returns a matcher for p/elements Foo, !Foo, Foo!, !Foo!."
+  "Returns a matcher for elements Foo, !Foo, Foo!, !Foo!."
   [c]
   (let [v     (u/type-with-modifiers (name c))
         neg   (v 0)
@@ -442,20 +442,20 @@
         (cache/miss +type-matcher-cache+ cache-entry tm)
         tm))))
 
-(extend-protocol p/ITypeMatcher
+(extend-protocol g/ITypeMatcher
   EObject
-  (p/type-matcher [m ts]
+  (g/type-matcher [m ts]
     (type-matcher-cached m ts))
   Resource
-  (p/type-matcher [m ts]
+  (g/type-matcher [m ts]
     (type-matcher-cached m ts)))
 
-(extend-protocol p/IInstanceOf
+(extend-protocol g/IInstanceOf
   EObject
-  (p/is-instance? [object class]
+  (g/is-instance? [object class]
     (and (instance? EClass class)
          (.isInstance ^EClass class object)))
-  (p/has-type? [obj spec]
+  (g/has-type? [obj spec]
     ((type-matcher-cached obj spec) obj)))
 
 ;;## Traversal Stuff
@@ -464,23 +464,23 @@
   "A protocol for getting the contents of Resources, ResourceSets and EObjects."
   (^:private eallcontents-internal [this tm]
     "Returns a seq of all directly and indirectly contained EObjects whose type
-  matches the type spec `ts` (see `funnyqt.protocols/type-matcher`).")
+  matches the type spec `ts` (see `funnyqt.generic/type-matcher`).")
   (^:private econtents-internal [this tm]
     "Returns a seq of all directly contained EObjects whose type matches the
-  type spec `ts` (see `funnyqt.protocols/type-matcher`).")
+  type spec `ts` (see `funnyqt.generic/type-matcher`).")
   (^:private econtainer-internal [this]
     "Returns the EObject containing this.")
   (^:private eallobjects-internal [this tm]
     "Returns a seq of all objects matching the type specification `ts` (see
-  `funnyqt.protocols/type-matcher`) that are contained in this Resource."))
+  `funnyqt.generic/type-matcher`) that are contained in this Resource."))
 
 (extend-protocol IEContents
   EObject
   (econtents-internal [this ts]
-    (filter (p/type-matcher this ts)
+    (filter (g/type-matcher this ts)
             (seq (.eContents this))))
   (eallcontents-internal [this ts]
-    (filter (p/type-matcher this ts)
+    (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
   (econtainer-internal [this]
@@ -488,10 +488,10 @@
 
   Resource
   (econtents-internal [this ts]
-    (filter (p/type-matcher this ts)
+    (filter (g/type-matcher this ts)
             (seq (.getContents this))))
   (eallcontents-internal [this ts]
-    (filter (p/type-matcher this ts)
+    (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
   (eallobjects-internal [this ts]
@@ -499,7 +499,7 @@
 
   ResourceSet
   (eallcontents-internal [this ts]
-    (filter (p/type-matcher this ts)
+    (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
   (eallobjects-internal [this ts]
@@ -534,16 +534,16 @@
   ([m] (eallobjects-internal m identity))
   ([m ts] (eallobjects-internal m ts)))
 
-(extend-protocol p/IElements
+(extend-protocol g/IElements
   Resource
-  (p/elements
+  (g/elements
     ([this]
        (eallobjects this))
     ([this ts]
        (eallobjects this ts)))
 
   ResourceSet
-  (p/elements
+  (g/elements
     ([this]
        (eallobjects this))
     ([this ts]
@@ -553,9 +553,9 @@
        :arglists '([eo])}
   econtainer econtainer-internal)
 
-(extend-protocol p/IContainer
+(extend-protocol g/IContainer
   EObject
-  (p/container [this]
+  (g/container [this]
     (econtainer-internal this)))
 
 (defn eref-matcher
@@ -631,7 +631,7 @@
                   ;; ref is not meant!
                   (not src-rm))
           trg (reffn src nthere-rm)
-          :when (or (nil? trg-ts) (p/has-type? trg trg-ts))]
+          :when (or (nil? trg-ts) (g/has-type? trg trg-ts))]
       (do
         (when oref (swap! done conj oref))
         [src trg]))))
@@ -883,16 +883,16 @@
 
 ;;### Generic attribute access
 
-(extend-protocol p/IAttributeValueAccess
+(extend-protocol g/IAttributeValueAccess
   EObject
-  (p/aval [this attr]
+  (g/aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (if (instance? EAttribute sf)
         (emf2clj-internal (.eGet this sf))
         (if (nil? sf)
           (u/errorf "No such attribute %s at object %s." attr this)
           (u/errorf "%s is no attribute of object %s." sf this)))))
-  (p/set-aval! [this attr val]
+  (g/set-aval! [this attr val]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (cond
        (nil? sf)
@@ -919,9 +919,9 @@
   ([m src-rs trg-rs src-ts trg-ts]
      (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
 
-(extend-protocol p/IRelationships
+(extend-protocol g/IRelationships
   Resource
-  (p/relationships
+  (g/relationships
     ([this]
        (eallpairs this))
     ([this [src-rs [s t]]]
@@ -984,9 +984,9 @@
       (eadd! model eo))
     eo))
 
-(extend-protocol p/ICreateElement
+(extend-protocol g/ICreateElement
   Resource
-  (p/create-element!
+  (g/create-element!
     ([model cls]
        (let [e (ecreate! model cls)]
          (eadd! model e)
@@ -996,9 +996,9 @@
          (eadd! model e)
          e))))
 
-(extend-protocol p/ICreateRelationship
+(extend-protocol g/ICreateRelationship
   Resource
-  (p/create-relationship! [this refkw from to]
+  (g/create-relationship! [this refkw from to]
     (let [^EClass ec (eclass from)
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
       (if (.isMany sf)
@@ -1007,22 +1007,22 @@
 
 ;;## Generic setting of props
 
-(extend-protocol p/IModifyAdjacencies
+(extend-protocol g/IModifyAdjacencies
   EObject
-  (p/set-adjs! [o role os]
+  (g/set-adjs! [o role os]
     (eset! o role os))
-  (p/set-adj! [o1 role o2]
+  (g/set-adj! [o1 role o2]
     (eset! o1 role o2))
-  (p/add-adjs! [o role os]
+  (g/add-adjs! [o role os]
     (apply eadd! o role (first os) (rest os)))
-  (p/add-adj! [o1 role o2]
+  (g/add-adj! [o1 role o2]
     (eadd! o1 (name role) o2)))
 
 ;;## EObject Deletion
 
-(extend-protocol p/IDeletable
+(extend-protocol g/IDeletable
   EObject
-  (p/delete!
+  (g/delete!
     ([this]
        (EcoreUtil/delete this true)
        this)
@@ -1037,9 +1037,9 @@
   contents of `eo`.
 
   If `eo` isn't cross-referenced unidirectional, this is equivalent
-  to `(p/delete! eo)` but faster.  If `eo` is cross-referenced unidirectional,
-  these objects will still reference `eo` after the call, so use `p/delete!`
-  instead of `edelete!` in that case."
+  to `(funnyqt.generic/delete! eo)` but faster.  If `eo` is cross-referenced
+  unidirectional, these objects will still reference `eo` after the call, so
+  use `funnyqt.generic/delete!` instead of `edelete!` in that case."
   ([^EObject eo]
      (edelete! eo true))
   ([^EObject eo recursively]
@@ -1069,37 +1069,37 @@
     (when-not allow-unknown-ref
       (u/errorf "No such structural feature '%s' at %s." ref eo))))
 
-(extend-protocol pi/IAdjacenciesInternal
+(extend-protocol i/IAdjacenciesInternal
   EObject
-  (pi/adj-internal [this roles]
+  (i/adj-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) false true))]
         (recur a (rest roles)))
       this))
-  (pi/adj*-internal [this roles]
+  (i/adj*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (pi/adjs-internal [this roles]
+  (i/adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) false false)]
-        (r/mapcat #(pi/adjs-internal % (rest roles))
+        (r/mapcat #(i/adjs-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this]))
-  (pi/adjs*-internal [this roles]
+  (i/adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) true false)]
-        (r/mapcat #(pi/adjs*-internal % (rest roles))
+        (r/mapcat #(i/adjs*-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this])))
 
 ;;# Describing EObjects and EClasses
 
-(extend-protocol p/IDescribable
+(extend-protocol g/IDescribable
   EClass
-  (p/describe [this]
-    {:name (p/qname this)
+  (g/describe [this]
+    {:name (g/qname this)
      :abstract (.isAbstract this)
      :interface (.isInterface this)
      :superclasses (seq (.getESuperTypes this))
@@ -1112,8 +1112,8 @@
                               [(keyword (.getName ref)) (.getEReferenceType ref)])
                             (seq (.getEReferences this))))})
   EObject
-  (p/describe [this]
-    {:eclass (p/qname this)
+  (g/describe [this]
+    {:eclass (g/qname this)
      :container (econtainer this)
      :attr-slots (into {}
                        (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
@@ -1147,7 +1147,7 @@
   [^EClass ec ^java.io.Writer out]
   (.write out
           (str "#<EClass "
-               (p/qname ec)
+               (g/qname ec)
                (feature-str
                 [[(.isAbstract ec)  :abstract]
                  [(.isInterface ec) :interface]])
@@ -1156,7 +1156,7 @@
 (defmethod print-method EEnum
   [^EEnum en ^java.io.Writer out]
   (.write out
-          (str "#<EEnum " (p/qname en)
+          (str "#<EEnum " (g/qname en)
                #_(feature-str
                   [[(.isSerializable en) :serializable]])
                ">")))
@@ -1164,7 +1164,7 @@
 (defmethod print-method EDataType
   [^EDataType edt ^java.io.Writer out]
   (.write out
-          (str "#<EDataType " (p/qname edt)
+          (str "#<EDataType " (g/qname edt)
                #_(feature-str
                   [[(.isSerializable edt) :serializable]])
                ">")))
@@ -1176,7 +1176,7 @@
                (if (instance? EcorePackage ep)
                  "EcorePackage "
                  "EPackage ")
-               (p/qname ep)
+               (g/qname ep)
                (let [m (into {}
                              (map (fn [[v k]]
                                     (when v
@@ -1300,26 +1300,26 @@
   Properties are set according to `props`.
   `m` may be nil.
   Shorthand for (apply ecreate! m '%s props)."
-                (p/qname ec)
-                (p/qname ec))
+                (g/qname ec)
+                (g/qname ec))
        [~'m & ~'props]
-       (apply ecreate! ~'m '~(p/qname ec) ~'props))
+       (apply ecreate! ~'m '~(g/qname ec) ~'props))
 
      (defn ~(symbol (let [n (.getName ec)]
                       (str prefix "eall-" (inflections.core/plural n))))
        ~(format "Returns the sequence of %s objects in `m`.
   Shorthand for (eallobjects m '%s)."
-                (p/qname ec)
-                (p/qname ec))
+                (g/qname ec)
+                (g/qname ec))
        [~'m & ~'props]
-       (eallobjects ~'m '~(p/qname ec)))
+       (eallobjects ~'m '~(g/qname ec)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (.getName ec) "?"))
        ~(format "Returns true if `eo` is a %s-EObject."
-                (p/qname ec))
+                (g/qname ec))
        [~'eo]
-       (p/has-type? ~'eo '~(p/qname ec)))))
+       (g/has-type? ~'eo '~(g/qname ec)))))
 
 (defn ^:private create-eattribute-fns [attr owners prefix]
   (let [bool? (group-by (fn [^EClass ec]
@@ -1334,7 +1334,7 @@
                ~(format "Checks if `eo`s is %s.
   Possible types for `eo`: %s"
                         (name attr)
-                        (str/join ", " (apply sorted-set (map p/qname (bool? true)))))
+                        (str/join ", " (apply sorted-set (map g/qname (bool? true)))))
                [~'eo]
                (eget ~'eo ~attr))])
        ~@(when (bool? false)
@@ -1342,22 +1342,22 @@
                ~(format "Returns the value of `eo`s %s attribute.
   Possible types for `eo`: %s"
                         (name attr)
-                        (str/join ", " (apply sorted-set (map p/qname (bool? false)))))
+                        (str/join ", " (apply sorted-set (map g/qname (bool? false)))))
                [~'eo]
                (eget ~'eo ~attr))])
        (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `eo`s %s attribute to `val`.
   Possible types for `eo`: %s"
                   (name attr)
-                  (str/join ", " (apply sorted-set (map p/qname owners))))
+                  (str/join ", " (apply sorted-set (map g/qname owners))))
          [~'eo ~'val]
          (eset! ~'eo ~attr ~'val)))))
 
 (defn ^:private create-ereference-fns [ref owners prefix]
   (let [multi? (group-by (fn [^EClass ec]
-                           (p/mm-multi-valued-property? ec ref))
+                           (g/mm-multi-valued-property? ec ref))
                          owners)
-        owner-string (str/join ", " (apply sorted-set (map p/qname owners)))]
+        owner-string (str/join ", " (apply sorted-set (map g/qname owners)))]
     `(do
        ;; GETTER
        (defn ~(symbol (str prefix "->" (name ref)))

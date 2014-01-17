@@ -1,6 +1,6 @@
 (ns funnyqt.pmatch-test
   (:use funnyqt.pmatch)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:require [funnyqt.tg        :as tg]
             [funnyqt.query.tg  :as tgq]
             [funnyqt.emf       :as emf]
@@ -75,7 +75,7 @@
   (let [fsmith (tg/vertex fg 12)
         r (long-anon-pattern-tg fg fsmith)]
     (is (= 1 (count r)))
-    (is (= [(tg/vertex fg 12) (tg/vertex fg 1)]))))
+    (is (= (first r) [(tg/vertex fg 12) (tg/vertex fg 1)]))))
 
 (deftest test-letpattern-tg
   (letpattern [(families-with-fathers-simple [g]

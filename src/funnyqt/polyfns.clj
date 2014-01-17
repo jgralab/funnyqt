@@ -31,21 +31,21 @@ invokes the second implementation, both (foo objOfTypeC) and (foo objOfTypeD)
 invoke the third implementation, and (foo objOfTypeE) invokes the default
 behavior.  If no optional default behavior is specified, an exception is
 thrown."
-  (:require [clojure.tools.macro  :as tm]
-            [funnyqt.utils        :as u]
-            [funnyqt.protocols    :as p]))
+  (:require [clojure.tools.macro :as tm]
+            [funnyqt.utils       :as u]
+            [funnyqt.generic     :as g]))
 
 ;;# Utility protocols
 
 (defn find-polyfn-impl [m t]
   (loop [ts [t]]
     (when (seq ts)
-      (let [fns (remove nil? (map #(m (p/qname %)) ts))]
+      (let [fns (remove nil? (map #(m (g/qname %)) ts))]
         (if (seq fns)
           (if (fnext fns)
             (u/errorf "%s polyfns are applicable for type %s" (count fns) t)
             (first fns))
-          (recur (set (mapcat p/mm-direct-super-classes ts))))))))
+          (recur (set (mapcat g/mm-direct-super-classes ts))))))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
   (let [meta-map (meta polyfn-var)
@@ -55,7 +55,7 @@ thrown."
     (time (let [dm (apply hash-map (mapcat (fn [c]
                                              (when-let [pfn (find-polyfn-impl spec-map c)]
                                                [c pfn]))
-                                           (p/mm-classes cls)))]
+                                           (g/mm-classes cls)))]
             (swap! dispatch-map-atom (constantly dm))))))
 
 ;;# Polyfns
@@ -81,7 +81,7 @@ thrown."
                     ::polyfn-dispatch-table `(atom nil))
        ~argvec
        (let [meta-map# (meta #'~name)
-             ~type-var (p/mm-class ~(first argvec))]
+             ~type-var (g/mm-class ~(first argvec))]
          (when-not (deref (::polyfn-dispatch-table meta-map#))
            (build-polyfn-dispatch-table #'~name ~type-var))
          (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]

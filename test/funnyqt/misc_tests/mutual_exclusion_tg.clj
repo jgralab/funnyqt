@@ -2,7 +2,7 @@
   funnyqt.misc-tests.mutual-exclusion-tg
   (:use funnyqt.tg)
   (:use funnyqt.utils)
-  (:use funnyqt.protocols)
+  (:use funnyqt.generic)
   (:use funnyqt.in-place)
   (:use funnyqt.pmatch)
   (:use funnyqt.query.tg)

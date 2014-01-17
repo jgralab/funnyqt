@@ -3,7 +3,7 @@
   (:require clojure.set
             clojure.string
             [clojure.tools.macro :as m]
-            [funnyqt.protocols   :as p]
+            [funnyqt.generic     :as g]
             [funnyqt.query       :as q]
             [funnyqt.utils       :as u]
             [funnyqt.tg          :as tg]
@@ -115,7 +115,7 @@
                                                       (if (= :out (edge-dir sym))
                                                         [lv nv]
                                                         [nv lv]))]
-                                         (when (and n (not (p/has-type? e 'NegPatternEdge)))
+                                         (when (and n (not (g/has-type? e 'NegPatternEdge)))
                                            (tg/set-value! e :name (name n)))
                                          (when t (tg/set-value! e :type (name t))))
                                        (recur (nnext pattern) nv))
@@ -132,14 +132,14 @@
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
           reachables #(tgq/reachables % [q/p-* tgq/<->])]
-      (loop [disc (filter #(p/has-type? % 'PatternVertex)
+      (loop [disc (filter #(g/has-type? % 'PatternVertex)
                           (clojure.set/difference vset (reachables a)))]
         (when (seq disc)
           (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
           (recur (clojure.set/difference vset (reachables a))))))
     (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
       (let [hfpv (q/the (tg/eseq pg 'HasStartPatternVertex))]
-        (when (p/has-type? (tg/omega hfpv) '!ArgumentVertex)
+        (when (g/has-type? (tg/omega hfpv) '!ArgumentVertex)
           (println
            (format "The pattern %s could perform better by anchoring it at an argument node."
                    (tg/value pg :patternName))))))
@@ -205,11 +205,11 @@
     (symbol n)))
 
 (defn ^:private anon? [elem]
-  (or (p/has-type? elem 'NegPatternEdge)
+  (or (g/has-type? elem 'NegPatternEdge)
       (not (get-name elem))))
 
 (defn ^:private get-type [elem]
-  (when (p/has-type? elem '[PatternVertex PatternEdge NegPatternEdge])
+  (when (g/has-type? elem '[PatternVertex PatternEdge NegPatternEdge])
     (when-let [t (tg/value elem :type)]
       `'~(symbol t))))
 
@@ -247,12 +247,12 @@
                         ~(anon-vec-transformer-fn startsym av))]
      ;;---
      ;; Not already done ArgumentVertex, so declare it!
-     (p/has-type? target-node 'ArgumentVertex)
+     (g/has-type? target-node 'ArgumentVertex)
      [:when-let `[~(get-name target-node) ~(get-name target-node)]
       :when `(q/member? ~(get-name target-node)
                         ~(anon-vec-transformer-fn startsym av))]
      ;;---
-     (p/has-type? target-node 'CallBoundVertex)
+     (g/has-type? target-node 'CallBoundVertex)
      [:when `(q/member? ~(get-name target-node)
                         ~(anon-vec-transformer-fn startsym av))]
      ;;---
@@ -279,7 +279,7 @@
                                              (if (tg/vertex? el)
                                                (into r `[:let [~ncs (tg/that ~cs)]
                                                          ~@(when-let [t (get-type el)]
-                                                             [:when `(p/has-type? ~ncs ~t)])])
+                                                             [:when `(g/has-type? ~ncs ~t)])])
                                                (into r `[~ncs (tg/iseq ~cs ~(get-type el)
                                                                        ~(if (tg/normal-edge? el)
                                                                           :out :in))]))))
@@ -292,7 +292,7 @@
         (let [cur (peek stack)]
           (if (done cur)
             (recur (pop stack) done bf)
-            (case (p/qname cur)
+            (case (g/qname cur)
               Anchor
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
@@ -335,14 +335,14 @@
                                                        `(tg/that ~(get-name cur))
                                                        (anon-vec trg done) done)
                                  ;;---
-                                 (p/has-type? trg 'ArgumentVertex)
+                                 (g/has-type? trg 'ArgumentVertex)
                                  [:when-let [(get-name trg) (get-name trg)]
                                   :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  ;;---
                                  :else (concat
                                         [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                         (when-let [t (get-type trg)]
-                                          `[:when (p/has-type? ~(get-name trg) ~t)])))))))
+                                          `[:when (g/has-type? ~(get-name trg) ~t)])))))))
               ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
@@ -352,14 +352,14 @@
                               (cond
                                (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
-                               (p/has-type? trg 'ArgumentVertex)
+                               (g/has-type? trg 'ArgumentVertex)
                                [:when-let [(get-name trg) (get-name trg)]
                                 :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
                                :else (concat
                                       [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                       (when-let [t (get-type trg)]
-                                        `[:when (p/has-type? ~(get-name trg) ~t)]))))))
+                                        `[:when (g/has-type? ~(get-name trg) ~t)]))))))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -409,7 +409,7 @@
                                              (rest av)
                                              (if (tg/vertex? el)
                                                (into r (when-let [t (get-type el)]
-                                                         [:when `(p/has-type? ~ncs ~t)]))
+                                                         [:when `(g/has-type? ~ncs ~t)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(eget-1 ~cs ~t)
                                                                  `(emf/erefs ~cs))]))))
@@ -418,7 +418,7 @@
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named for EMF: %s"
-                (mapv p/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
+                (mapv g/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
     (loop [stack [(q/the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -426,7 +426,7 @@
         (let [cur (peek stack)]
           (if (done cur)
             (recur (pop stack) done bf)
-            (case (p/qname cur)
+            (case (g/qname cur)
               Anchor
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -456,7 +456,7 @@
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
-                (u/errorf "Edges mustn't be named for EMF: %s" (p/describe cur)))
+                (u/errorf "Edges mustn't be named for EMF: %s" (g/describe cur)))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -477,7 +477,7 @@
                                                      `(eget-1 ~(get-name src) ~t)
                                                      `(emf/erefs ~(get-name src))))]))))
               ArgumentEdge
-              (u/errorf "There mustn't be argument edges for EMF: %s" (p/describe cur))
+              (u/errorf "There mustn't be argument edges for EMF: %s" (g/describe cur))
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)

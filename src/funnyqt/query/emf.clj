@@ -1,12 +1,12 @@
 (ns funnyqt.query.emf
   "More sophisticated constructs for querying EMF models."
   (:require [clojure.core.reducers :as r]
-            [funnyqt.emf :as emf]
-            [funnyqt.utils :as u]
-            [funnyqt.query :as q]
-            [funnyqt.protocols :as p]
-            [flatland.ordered.set :as os]
-            [flatland.ordered.map :as om])
+            [funnyqt.emf           :as emf]
+            [funnyqt.utils         :as u]
+            [funnyqt.query         :as q]
+            [funnyqt.generic       :as g]
+            [flatland.ordered.set  :as os]
+            [flatland.ordered.map  :as om])
   (:import
    (org.eclipse.emf.ecore EObject EReference EStructuralFeature)))
 
@@ -14,7 +14,7 @@
 
 (defn <>--
   "Returns the (direct) contents of EObject`obj` restricted by the type
-  specification `ts` (see `funnyqt.protocols/type-matcher` for details).  `obj`
+  specification `ts` (see `funnyqt.generic/type-matcher` for details).  `obj`
   may also be a collection of EObjects."
   ([obj]
      (u/oset (mapcat emf/econtents (u/oset obj))))
@@ -88,7 +88,7 @@
 
 (defn ^:private p-restr-emf
   "EObject restriction concerning `ts` and `pred` on each object in `objs`.
-  ts is a type specification (see `funnyqt.protocols/type-matcher`), `pred` a
+  ts is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
   predicate."
   ([objs ts]
      (p-restr-emf objs ts identity))
@@ -96,7 +96,7 @@
      (let [objs (u/oset objs)]
        (u/oset
         (if (seq objs)
-          (let [tm (p/type-matcher (first objs) ts)]
+          (let [tm (g/type-matcher (first objs) ts)]
             (filter (every-pred tm pred)
                     objs))
           objs)))))

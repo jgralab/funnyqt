@@ -14,13 +14,13 @@ IDREFS, all references will be represented as References edges in the Graph.
 
 If the XML file has no DTD, you can influence the resolution by providing an
 `attr-type-fn` and/or an `text-type-fn` as documented in `xml2xml-graph`."
-  (:require [clojure.string    :as str]
-            [clojure.java.io   :as io]
-            [funnyqt.utils     :as u]
-            [funnyqt.protocols :as p]
-            [funnyqt.tg        :as tg]
-            [funnyqt.query.tg  :as qtg]
-            [funnyqt.query     :as q])
+  (:require [clojure.string   :as str]
+            [clojure.java.io  :as io]
+            [funnyqt.utils    :as u]
+            [funnyqt.generic  :as g]
+            [funnyqt.tg       :as tg]
+            [funnyqt.query.tg :as qtg]
+            [funnyqt.query    :as q])
   (:import
    (javax.xml.stream XMLInputFactory XMLEventReader XMLStreamConstants)
    (javax.xml.stream.events StartDocument EndDocument StartElement EndElement
@@ -34,7 +34,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
 (defn ^:private ns-get [what e]
   (if-let [n (tg/value e what)]
     n
-    (when-let [p (q/adj e (if (p/has-type? e 'Element)
+    (when-let [p (g/adj e (if (g/has-type? e 'Element)
                             :parent :element))]
       (recur what p))))
 
@@ -91,9 +91,9 @@ If the XML file has no DTD, you can influence the resolution by providing an
   `qualified-name`), an expanded (see `expanded-name`) or declared name (see
   `declared-name`), or a local name."
   ([e]
-     (q/adjs e :children))
+     (g/adjs e :children))
   ([e qn]
-     (filter-by-name qn (q/adjs e :children))))
+     (filter-by-name qn (g/adjs e :children))))
 
 (defn siblings
   "Returns the sibling Element vertices of Element or Text `e`.
@@ -112,8 +112,8 @@ If the XML file has no DTD, you can influence the resolution by providing an
      (siblings e nil))
   ([e qn]
      (let [all (if qn
-                 (filter-by-name qn (q/adjs (q/adj e :parent) :contents))
-                 (q/adjs (q/adj e :parent) :contents))
+                 (filter-by-name qn (g/adjs (g/adj e :parent) :contents))
+                 (g/adjs (g/adj e :parent) :contents))
            right (atom false)
            [l r] (partition-by (fn [s]
                                  (or @right
@@ -128,10 +128,10 @@ If the XML file has no DTD, you can influence the resolution by providing an
   matches, the local names are compared, too."
   [elem attr-name]
   (if-let [attr (first (filter #(= (declared-name %) (name attr-name))
-                               (q/adjs elem :attributes)))]
+                               (g/adjs elem :attributes)))]
     (tg/value attr :value)
     (if-let [attrs (seq (filter #(= (tg/value % :name) (name attr-name))
-                                (q/adjs elem :attributes)))]
+                                (g/adjs elem :attributes)))]
       (tg/value (q/the attrs) :value)
       (u/errorf "No such attribute %s at element %s." elem attr-name))))
 
@@ -144,10 +144,10 @@ If the XML file has no DTD, you can influence the resolution by providing an
       :attrs (apply hash-map
                     (mapcat (fn [a]
                               [(keyword (expanded-name a)) (tg/value a :value)])
-                            (q/adjs e :attributes)))
+                            (g/adjs e :attributes)))
       :children (if with-children
                   (map #(describe-element % false)
-                       (q/adjs e :children))
+                       (g/adjs e :children))
                   :skipped)}))
 
 ;;# Parsing XML -> XMLGraph
@@ -200,7 +200,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
         (.startsWith f "@") (children start (subs f 1))
         ;; @members.17
         (re-matches #"[0-9]+" f) (nth (if (tg/vertex? start)
-                                        (q/adjs start :children)
+                                        (g/adjs start :children)
                                         start)
                                       (Long/valueOf f))
         ;; @members[firstName='Hugo'] where firstName is an attribute set as
@@ -309,7 +309,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                 (.isWhiteSpace ev))
     (let [txt (tg/create-vertex! *graph* 'Text)
           data (.getData ev)
-          parent (q/adj *current* :parent)
+          parent (g/adj *current* :parent)
           t (if *text-type-fn*
               (*text-type-fn* (qualified-name parent) (qualified-name *current*) data)
               "CDATA")]
@@ -397,7 +397,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                                (format "%s=\"%s\""
                                        (declared-name a)
                                        (xml-escape-chars (tg/value a :value))))
-                             (q/adjs elem :attributes)))]
+                             (g/adjs elem :attributes)))]
     (if (seq s)
       (str " " s)
       s)))
@@ -422,7 +422,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
   (indent)
   (let [has-contents (seq (tg/iseq elem 'HasContent :out))
         contains-text-first (when-let [i (first (tg/iseq elem 'HasContent :out))]
-                              (p/has-type? i 'HasText))]
+                              (g/has-type? i 'HasText))]
     (.write *writer* (format "<%s%s%s%s>%s"
                              (declared-name elem)
                              (namespaces-str elem)
@@ -432,8 +432,8 @@ If the XML file has no DTD, you can influence the resolution by providing an
                                "" "\n")))
     (when has-contents
       (binding [*indent-level* (inc *indent-level*)]
-        (doseq [c (q/adjs elem :contents)]
-          (if (p/has-type? c 'Text)
+        (doseq [c (g/adjs elem :contents)]
+          (if (g/has-type? c 'Text)
             (emit-text c)
             (emit-element c))))
       (when-not *last-node-was-text*

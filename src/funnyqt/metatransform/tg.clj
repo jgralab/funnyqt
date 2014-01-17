@@ -3,7 +3,7 @@
   (:require clojure.set
             clojure.pprint
             [clojure.tools.macro :as m]
-            [funnyqt.protocols :as p]
+            [funnyqt.generic :as p]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.query :as q]
@@ -37,8 +37,8 @@
   [g aec]
   (cond
    (instance? GraphClass aec)  [g]
-   (instance? VertexClass aec) (tg/vseq g (funnyqt.protocols/qname aec))
-   (instance? EdgeClass aec)   (tg/eseq g (funnyqt.protocols/qname aec))
+   (instance? VertexClass aec) (tg/vseq g (funnyqt.generic/qname aec))
+   (instance? EdgeClass aec)   (tg/eseq g (funnyqt.generic/qname aec))
    :else (u/errorf "Cannot handle %s." aec)))
 
 (defmacro with-open-schema [g & body]

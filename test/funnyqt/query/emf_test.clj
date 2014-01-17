@@ -1,5 +1,6 @@
 (ns funnyqt.query.emf-test
   (:refer-clojure :exclude [parents])
+  (:require [funnyqt.generic :as g])
   (:use funnyqt.utils)
   (:use funnyqt.query)
   (:use flatland.ordered.set)
@@ -22,15 +23,15 @@
 
 (deftest test-adj
   (is (every? #(= %
-                  (adj % :father :familyFather)
-                  (adj % :mother :familyMother)
-                  (the (adjs % :father :familyFather))
-                  (the (adjs % :mother :familyMother))
+                  (g/adj % :father :familyFather)
+                  (g/adj % :mother :familyMother)
+                  (the (g/adjs % :father :familyFather))
+                  (the (g/adjs % :mother :familyMother))
                   (eget (eget % :father) :familyFather)
                   (eget (eget % :mother) :familyMother))
               (eallobjects family-model 'Family)))
   ;; Multivalued refs should throw
-  (is (thrown? Exception (adj (first (econtents family-model)) :members))))
+  (is (thrown? Exception (g/adj (first (econtents family-model)) :members))))
 
 (defn get-member
   [first-name]

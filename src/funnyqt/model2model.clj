@@ -1,6 +1,6 @@
 (ns funnyqt.model2model
   (:require [funnyqt.utils        :as u]
-            [funnyqt.protocols    :as p]
+            [funnyqt.generic    :as p]
             [funnyqt.query        :as q]
             [clojure.tools.macro  :as tm]
             [flatland.ordered.map :as om]))
@@ -27,7 +27,7 @@
              (and
               (or (vector? (:disjuncts m))
                   (u/errorf ":disjuncts must be a vector: %s" form))
-              (if (or (contains? m :to))
+              (if (contains? m :to)
                 (u/errorf (str ":disjuncts rules may have a :when/:when-let clause "
                                "and a body, but no :to: %s")
                           form)

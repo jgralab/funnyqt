@@ -1,6 +1,6 @@
 (ns funnyqt.polyfns-test
   (:require [funnyqt.tg        :as tg])
-  (:require [funnyqt.protocols :as p])
+  (:require [funnyqt.generic :as p])
   (:require [funnyqt.polyfns   :refer :all])
   (:require [funnyqt.utils     :as u])
   (:use [funnyqt.tg-test       :only [rg]])

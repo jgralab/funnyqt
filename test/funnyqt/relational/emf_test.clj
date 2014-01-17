@@ -4,9 +4,10 @@
         funnyqt.relational.emf
         funnyqt.relational
         [funnyqt.emf-test :only [family-model]])
-  (:require [funnyqt.emf :as emf]
-            [funnyqt.query :as q]
-            [clojure.test :as t]))
+  (:require [funnyqt.emf     :as emf]
+            [funnyqt.query   :as q]
+            [funnyqt.generic :as g]
+            [clojure.test    :as t]))
 
 (generate-ecore-model-relations "test/input/Families.ecore"
                                 test.relational.families.emf families +)
@@ -44,7 +45,7 @@
 (t/deftest test-adjo
   (let [fam-carter (q/the #(= "Carter" (emf/eget % :lastName))
                           (emf/eallobjects family-model 'Family))]
-    (t/is (= (q/adjs fam-carter :daughters)
+    (t/is (= (g/adjs fam-carter :daughters)
              (run* [q]
                (adjo family-model fam-carter :daughters q))
              (run* [q]
