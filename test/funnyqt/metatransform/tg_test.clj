@@ -62,7 +62,7 @@
 
 ;;** Inheritance hierarchy
 
-(defn- top-sibs-bottom [g]
+(defn ^:private top-sibs-bottom [g]
   (create-vertex-class! g {:qname 'Top} (fn [] [:t]))
   (create-vertex-class! g {:qname 'Sibling1} (fn [] [:s1]))
   (create-vertex-class! g {:qname 'Sibling2} (fn [] [:s2]))

@@ -104,13 +104,13 @@
            (reachables dennis [--> [:model :familyFather :familySon]])
            (reachables dennis [<-- [:members :father :sons]])))))
 
-(defn- parents
+(defn ^:private parents
   [m]
   (reachables m [p-seq
                  [p-alt :familySon :familyDaughter]
                  [p-alt :father :mother]]))
 
-(defn- aunts-or-uncles
+(defn ^:private aunts-or-uncles
   [m r]
   (let [ps (parents m)]
     (reachables ps [p-seq
@@ -118,11 +118,11 @@
                     r
                     [p-restr nil #(not (member? % ps))]])))
 
-(defn- aunts
+(defn ^:private aunts
   [m]
   (aunts-or-uncles m :daughters))
 
-(defn- uncles
+(defn ^:private uncles
   [m]
   (aunts-or-uncles m :sons))
 

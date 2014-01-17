@@ -1332,7 +1332,7 @@ functions `record` and `enum`."
        ~@body
        (finally (.setTraversalContext g# old-tc#)))))
 
-(defn- vsubgraph-tc
+(defn ^:private vsubgraph-tc
   "Returns a TraversalContext of a vertex induced subgraph restricted by `pred`
   on the vertices.  All vertices satisfying `pred` are accepted plus all edges
   between accepted vertices."
@@ -1376,7 +1376,7 @@ functions `record` and `enum`."
       (coll? pred)        (vsubgraph-tc g #(q/member? % pred) precalc)
       :default            (u/error (str "Don't know how to handle predicate " pred)))))
 
-(defn- esubgraph-tc
+(defn ^:private esubgraph-tc
   "Returns a TraversalContext of an edge induced subgraph restricted by `pred`
   on the edges.  All edges satisfying `pred` are accepted plus all vertices
   that are connected to at least one accepted edge.  If `precalc` is non-nil,
@@ -1417,14 +1417,14 @@ functions `record` and `enum`."
 
 ;;# Describe Schema and Graph Elements
 
-(defn- attr-desc
+(defn ^:private attr-desc
   "Returns a map of aec's own attributes as name-domain pairs."
   [^AttributedElementClass aec]
   (into (sorted-map)
         (for [^Attribute attr (.getOwnAttributeList aec)]
           [(keyword (.getName attr)) (g/describe (.getDomain attr))])))
 
-(defn- slot-desc
+(defn ^:private slot-desc
   [^AttributedElement e]
   (let [aec (.getAttributedElementClass e)]
     (into (sorted-map)
@@ -1432,12 +1432,12 @@ functions `record` and `enum`."
             (let [n (.getName attr)]
               [(keyword n) (value e n)])))))
 
-(defn- super-classes
+(defn ^:private super-classes
   [^GraphElementClass gec]
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
             (.getDirectSuperClasses gec))))
 
-(defn- sub-classes
+(defn ^:private sub-classes
   [^GraphElementClass gec]
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
             (.getDirectSubClasses gec))))

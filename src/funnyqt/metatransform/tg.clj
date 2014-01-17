@@ -26,14 +26,14 @@
 
 ;;# Utility functions
 
-(defn- on-attributes-fn
+(defn ^:private on-attributes-fn
   "`f` : AttributedElement x Object[] -> Object[]"
   [f]
   (reify InternalAttributesArrayAccess$OnAttributesFunction
     (invoke [_ ae ary]
       (f ae ary))))
 
-(defn- element-seq
+(defn ^:private element-seq
   [g aec]
   (cond
    (instance? GraphClass aec)  [g]
@@ -54,7 +54,7 @@
 
 ;;## Create a new schema & empty graph
 
-(defn- create-schema [sqname gcname]
+(defn ^:private create-schema [sqname gcname]
   (let [[prefix sname] (u/split-qname sqname)]
     (doto (SchemaImpl. sname prefix)
       (.createGraphClass (name gcname)))))
@@ -94,7 +94,7 @@
 
 ;;### Creating
 
-(defn- create-vc!
+(defn ^:private create-vc!
   [g {:keys [qname abstract]}]
   (with-open-schema g
     (-> (.getGraphClass ^Schema (tg/schema g))
@@ -121,7 +121,7 @@
 
 ;;### Creating
 
-(defn- create-ec!
+(defn ^:private create-ec!
   [^Graph g {:keys [qname abstract
                     from from-multis from-role from-kind
                     to to-multis to-role to-kind]}]
@@ -168,7 +168,7 @@
 
 ;;### Creating
 
-(defn- fix-attr-array-after-add!
+(defn ^:private fix-attr-array-after-add!
   "Resizes the attributes array of all `elems` after adding the `new-attrs`."
   [elems & new-attrs]
   (when (seq new-attrs)
@@ -192,7 +192,7 @@
         (doseq [^Attribute a new-attrs]
           (.setDefaultValue a e))))))
 
-(defn- create-attr!
+(defn ^:private create-attr!
   [g {:keys [qname domain default]}]
   (with-open-schema g
     (let [[qn aname _] (u/split-qname qname)
@@ -216,7 +216,7 @@
 
 ;;### Renaming
 
-(defn- old-attr-idx-map
+(defn ^:private old-attr-idx-map
   "Returns a map with `aec` and all its subclasses as keys, and the indices of
   attribute `aname` as values."
   [^AttributedElementClass aec aname]
@@ -284,13 +284,13 @@
 
 ;;### Creating
 
-(defn- attr-name-dom-map
+(defn ^:private attr-name-dom-map
   [^AttributedElementClass aec]
   (apply hash-map (mapcat (fn [^Attribute a]
                             [(.getName a) (.getDomain a)])
                           (.getAttributeList aec))))
 
-(defn- handle-attribute-clashes
+(defn ^:private handle-attribute-clashes
   [^AttributedElementClass super ^AttributedElementClass sub]
   (let [supmap (attr-name-dom-map super)
         supkeys (set (keys supmap))

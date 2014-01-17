@@ -32,21 +32,21 @@
     (is family)
     (is person)))
 
-(defn- make-uniqueelist
+(defn ^:private make-uniqueelist
   []
   (let [ul (org.eclipse.emf.common.util.UniqueEList.)]
     (doseq [i [0 1 2 3 4 1 5 6 7 7 3 2 8 1 0 0 9 0]]
       (.add ul i))
     ul))
 
-(defn- make-elist
+(defn ^:private make-elist
   []
   (let [el (org.eclipse.emf.common.util.BasicEList.)]
       (doseq [item [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9]]
         (.add el item))
       el))
 
-(defn- make-emap
+(defn ^:private make-emap
   []
   (let [em (org.eclipse.emf.common.util.BasicEMap.)]
     (doseq [[k v] [[:a "a"] [:b "b"] [:c "c"] [:d "d"]]]

@@ -212,7 +212,7 @@
 
 (defprotocol BinTreeEval (eval-exp [this]))
 
-(defn- schema-class [g qn]
+(defn ^:private schema-class [g qn]
   (.getSchemaClass
    ^AttributedElementClass (attributed-element-class g qn)))
 

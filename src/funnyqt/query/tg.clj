@@ -85,7 +85,7 @@ can compute that like so:
 
 ;;# Path Functions
 
-(defn- p-apply-tg
+(defn ^:private p-apply-tg
   [v p]
   (cond
    ;; funs: -->
@@ -97,7 +97,7 @@ can compute that like so:
                           (r/mapcat #(g/adjs* % p) (u/oset v)))
    :else (u/errorf "Don't know how to apply %s." p)))
 
-(defn- p-restr-tg
+(defn ^:private p-restr-tg
   "Vertex restriction concerning `ts` and `pred` on each vertex in `vs`.
   ts is a type specification (see `funnyqt.generic/type-matcher`)."
   ([vs ts]
@@ -120,7 +120,7 @@ can compute that like so:
             q/*p-restr* p-restr-tg]
     (q/*p-apply* v p)))
 
-(defn- ---
+(defn ^:private ---
   "Returns the vertices reachable from `v` via incidences with direction `dir`
   and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
   [v dir this-aks that-aks ts pred]

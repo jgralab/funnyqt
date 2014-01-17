@@ -22,7 +22,7 @@
     (is (empty? (filter #(not= 1 (degree % 'HasAttribute :in))
                         (vseq g 'Attribute))))))
 
-(defn- asserts-for-idrefs-example
+(defn ^:private asserts-for-idrefs-example
   [g]
   (is (== 112 (vcount g)))
   (is (== 1   (vcount g 'RootElement)))

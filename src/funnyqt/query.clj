@@ -86,7 +86,7 @@
   ([pred s]
      (the (filter pred s))))
 
-(defn- pred-seq-internal
+(defn ^:private pred-seq-internal
   [s p acc]
   (lazy-seq
    (if (seq s)
@@ -101,7 +101,7 @@
   [s]
   (pred-seq-internal s nil []))
 
-(defn- succ-seq-internal
+(defn ^:private succ-seq-internal
   [s acc]
   (lazy-seq
    (if (seq s)
@@ -115,7 +115,7 @@
   [s]
   (succ-seq-internal s []))
 
-(defn- pred-succ-seq-internal
+(defn ^:private pred-succ-seq-internal
   [s pp p acc]
   (lazy-seq
    (if (seq s)
