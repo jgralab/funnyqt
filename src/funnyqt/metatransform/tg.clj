@@ -36,9 +36,9 @@
 (defn ^:private element-seq
   [g aec]
   (cond
-   (instance? GraphClass aec)  [g]
-   (instance? VertexClass aec) (tg/vseq g (funnyqt.generic/qname aec))
-   (instance? EdgeClass aec)   (tg/eseq g (funnyqt.generic/qname aec))
+   (tg/graph-class? aec)  [g]
+   (tg/vertex-class? aec) (tg/vseq g (funnyqt.generic/qname aec))
+   (tg/edge-class? aec)   (tg/eseq g (funnyqt.generic/qname aec))
    :else (u/errorf "Cannot handle %s." aec)))
 
 (defmacro with-open-schema [g & body]
@@ -220,7 +220,7 @@
   "Returns a map with `aec` and all its subclasses as keys, and the indices of
   attribute `aname` as values."
   [^AttributedElementClass aec aname]
-  (if (instance? GraphClass aec)
+  (if (tg/graph-class? aec)
     {aec (.getAttributeIndex aec aname)}
     (reduce (fn [m ^GraphElementClass sub]
               (assoc m sub (.getAttributeIndex sub aname)))
@@ -238,7 +238,7 @@
     ;; Check that no subclass (or even this class) contains attribute `newname`
     (when (.containsAttribute aec (name newname))
       (u/errorf "%s already has a %s attribute." aec (name newname)))
-    (when (instance? GraphElementClass aec)
+    (when (tg/graph-element-class? aec)
       (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
         (when (.containsAttribute sub (name newname))
           (u/errorf "%s subclass %s already has a %s attribute."

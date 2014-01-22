@@ -149,6 +149,74 @@ functions `record` and `enum`."
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
+;;# General type predicates
+
+(defn graph?
+  "Returns logical true if `g` is a Graph."
+  {:inline (fn [x] `(instance? Graph ~x))}
+  [g]
+  (instance? Graph g))
+
+(defn schema?
+  "Returns logical true if `s` is a Schema."
+  {:inline (fn [x] `(instance? Schema ~x))}
+  [s]
+  (instance? Schema s))
+
+(defn vertex?
+  "Returns logical true if `v` is a Vertex."
+  {:inline (fn [x] `(instance? Vertex ~x))}
+  [v]
+  (instance? Vertex v))
+
+(defn edge?
+  "Returns logical true if `e` is an Edge."
+  {:inline (fn [x] `(instance? Edge ~x))}
+  [e]
+  (instance? Edge e))
+
+(defn graph-element?
+  "Returns logical true if `ge` is a GraphElement."
+  {:inline (fn [x] `(instance? GraphElement ~x))}
+  [ge]
+  (instance? GraphElement ge))
+
+(defn attributed-element?
+  "Returns logical true if `ae` is an AttributedElement."
+  {:inline (fn [x] `(instance? AttributedElement ~x))}
+  [ae]
+  (instance? AttributedElement ae))
+
+(defn graph-class?
+  "Returns logical true if `gc` is a GraphClass."
+  {:inline (fn [x] `(instance? GraphClass ~x))}
+  [gc]
+  (instance? GraphClass gc))
+
+(defn vertex-class?
+  "Returns logical true if `vc` is a VertexClass."
+  {:inline (fn [x] `(instance? VertexClass ~x))}
+  [vc]
+  (instance? VertexClass vc))
+
+(defn edge-class?
+  "Returns logical true if `ec` is an EdgeClass."
+  {:inline (fn [x] `(instance? EdgeClass ~x))}
+  [ec]
+  (instance? EdgeClass ec))
+
+(defn graph-element-class?
+  "Returns logical true if `gec` is a GraphElementClass."
+  {:inline (fn [x] `(instance? GraphElementClass ~x))}
+  [gec]
+  (instance? GraphElementClass gec))
+
+(defn attributed-element-class?
+  "Returns logical true if `aec` is an AttributedElementClass."
+  {:inline (fn [x] `(instance? AttributedElementClass ~x))}
+  [aec]
+  (instance? AttributedElementClass aec))
+
 ;;# Schema Access
 
 (extend-protocol g/IQualifiedName
@@ -267,7 +335,7 @@ functions `record` and `enum`."
   "Returns the Domain `g/qname` in the schema of `elem`.  `elem` may be an
   AttributedElement, AttributedElementClass, or a Schema."
   ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
-  (let [^Schema s (if (instance? Schema elem) elem (schema elem))]
+  (let [^Schema s (if (schema? elem) elem (schema elem))]
     (.getDomain s ((named-element-simple-to-qname-map s)
                    (domain-qname qname)))))
 
@@ -352,74 +420,6 @@ functions `record` and `enum`."
   [^GraphElement ge]
   (.getGraph ge))
 
-;;## General type predicates
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn graph?
-  "Returns logical true if `g` is a Graph."
-  [g]
-  (instance? Graph g))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn schema?
-  "Returns logical true if `s` is a Schema."
-  [g]
-  (instance? Schema g))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn vertex?
-  "Returns logical true if `v` is a Vertex."
-  [v]
-  (instance? Vertex v))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn edge?
-  "Returns logical true if `e` is an Edge."
-  [e]
-  (instance? Edge e))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn graph-element?
-  "Returns logical true if `ge` is a GraphElement."
-  [ge]
-  (instance? GraphElement ge))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn attributed-element?
-  "Returns logical true if `ae` is an AttributedElement."
-  [ae]
-  (instance? AttributedElement ae))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn graph-class?
-  "Returns logical true if `g` is a GraphClass."
-  [g]
-  (instance? GraphClass g))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn vertex-class?
-  "Returns logical true if `v` is a VertexClass."
-  [v]
-  (instance? VertexClass v))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn edge-class?
-  "Returns logical true if `e` is an EdgeClass."
-  [e]
-  (instance? EdgeClass e))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn graph-element-class?
-  "Returns logical true if `ge` is a GraphElementClass."
-  [ge]
-  (instance? GraphElementClass ge))
-
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
-(defn attributed-element-class?
-  "Returns logical true if `aec` is an AttributedElementClass."
-  [aec]
-  (instance? AttributedElementClass aec))
-
 ;;## Type Checks
 
 (defn ^:private type-matcher-tg-2
@@ -482,19 +482,19 @@ functions `record` and `enum`."
 (extend-protocol g/IInstanceOf
   Graph
   (g/is-instance? [object class]
-    (and (instance? GraphClass class)
+    (and (graph-class? class)
          (.isInstanceOf object class)))
   (g/has-type? [obj spec]
     ((g/type-matcher obj spec) obj))
   Vertex
   (g/is-instance? [object class]
-    (and (instance? VertexClass class)
+    (and (vertex-class? class)
          (.isInstanceOf object class)))
   (g/has-type? [obj spec]
     ((g/type-matcher obj spec) obj))
   Edge
   (g/is-instance? [object class]
-    (and (instance? EdgeClass class)
+    (and (edge-class? class)
          (.isInstanceOf object class)))
   (g/has-type? [obj spec]
     ((g/type-matcher obj spec) obj)))
@@ -803,7 +803,7 @@ functions `record` and `enum`."
   must specify all components, and be sure that if a component is of type
   Integer, then use `Integer/valueOf'."
   [e t m]
-  (let [^Graph g (if (instance? Graph e) e (graph e))]
+  (let [^Graph g (if (graph? e) e (graph e))]
     (.createRecord g
                    ^RecordDomain (domain e t)
                    ^java.util.Map (zipmap (map name (keys m))
@@ -813,7 +813,7 @@ functions `record` and `enum`."
   "Returns the enum constant `c` in the schema of element `e`.
   `c` is the qualified name of the constant, e.g., my.Enum.CONSTANT."
   [^AttributedElement e c]
-  (let [^Graph g (if (instance? Graph e) e (graph e))
+  (let [^Graph g (if (graph? e) e (graph e))
         [enum constant _] (u/split-qname c)]
     (.getEnumConstant g
                       ^EnumDomain (domain e enum)

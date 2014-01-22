@@ -139,7 +139,7 @@
              (and (ru/ground? geo) (ru/ground? gat)
                   (not (when-let [sf (.getEStructuralFeature
                                       (.eClass ^EObject geo) ^String (name gat))]
-                         (instance? EAttribute sf)))))
+                         (emf/eattribute? sf)))))
          (ccl/fail a)
 
          (and (ru/ground? geo) (ru/ground? gat))
@@ -212,7 +212,7 @@
              (and (ru/ground? geo) (ru/ground? gref)
                   (not (when-let [sf (.getEStructuralFeature
                                       (.eClass ^EObject geo) ^String (name gref))]
-                         (instance? EReference sf)))))
+                         (emf/ereference? sf)))))
          (ccl/fail a)
 
          (and (ru/ground? geo) (ru/ground? gref))

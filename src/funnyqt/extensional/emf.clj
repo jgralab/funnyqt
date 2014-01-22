@@ -87,11 +87,11 @@
   (let [[ecname attrname _] (u/split-qname featureqn)
         ^EClass ec (emf/eclassifier ecname)]
     (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String attrname)]
-      (let [resolve-target-fn (if (instance? EReference sf)
+      (let [resolve-target-fn (if (emf/ereference? sf)
                                 (partial img-internal (.getEReferenceType ^EReference sf))
                                 #(u/errorf "Can't call `resolve-target` for EAttribute %s!"
                                            featureqn))
-            resolve-all-targets-fn (if (instance? EReference sf)
+            resolve-all-targets-fn (if (emf/ereference? sf)
                                      (partial map resolve-target-fn)
                                      #(u/errorf
                                        "Can't call `resolve-all-targets` for EAttribute %s!"

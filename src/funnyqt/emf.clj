@@ -22,22 +22,35 @@
 
 ;;# Simple type predicates
 
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
 (defn eobject?
   "Returns true if `eo` is an EObject."
+  {:inline (fn [x] `(instance? EObject ~x))}
   [eo]
   (instance? EObject eo))
 
-;; TODO: convert back to definline when that's fixed, see CLJ-1227.
 (defn eclass?
   "Returns true if `ec` is an EClass."
+  {:inline (fn [x] `(instance? EClass ~x))}
   [ec]
   (instance? EClass ec))
 
 (defn epackage?
   "Returns true if `ep` is an EPackage."
+  {:inline (fn [x] `(instance? EPackage ~x))}
   [ep]
   (instance? EPackage ep))
+
+(defn ereference?
+  "Returns true if `er` is an EReference."
+  {:inline (fn [x] `(instance? EReference ~x))}
+  [er]
+  (instance? EReference er))
+
+(defn eattribute?
+  "Returns true if `ea` is an EAttribute."
+  {:inline (fn [x] `(instance? EAttribute ~x))}
+  [ea]
+  (instance? EAttribute ea))
 
 (extend-protocol g/IModelObject
   EObject
@@ -74,9 +87,8 @@
 
 (defrecord ^:private CacheEntry [ns-uris spec])
 
-;; TODO: convert to definline when that's fixed, see CLJ-1227.
-(defn ^:private make-cache-entry [ns-uris nm]
-  (->CacheEntry (or ns-uris *ns-uris*) nm))
+(defmacro ^:private make-cache-entry [ns-uris nm]
+  `(CacheEntry. (or ~ns-uris *ns-uris*) ~nm))
 
 (def ^:private +eclassifier-cache+
   "A cache from EClassifier names to EClassifiers."
@@ -453,7 +465,7 @@
 (extend-protocol g/IInstanceOf
   EObject
   (g/is-instance? [object class]
-    (and (instance? EClass class)
+    (and (eclass? class)
          (.isInstance ^EClass class object)))
   (g/has-type? [obj spec]
     ((type-matcher-cached obj spec) obj)))
@@ -577,7 +589,7 @@
    (u/prop-name? rs)  (let [n (name rs)]
                         (fn [^EReference ref]
                           (= n (.getName ref))))
-   (instance? EReference rs) (fn [r] (= rs r))
+   (ereference? rs) (fn [r] (= rs r))
    (coll? rs)       (if (seq rs)
                       (apply some-fn (map eref-matcher rs))
                       ;; Empty collection given: (), [], that's also ok
@@ -887,7 +899,7 @@
   EObject
   (g/aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
-      (if (instance? EAttribute sf)
+      (if (eattribute? sf)
         (emf2clj-internal (.eGet this sf))
         (if (nil? sf)
           (u/errorf "No such attribute %s at object %s." attr this)
@@ -898,7 +910,7 @@
        (nil? sf)
        (u/errorf "No such attribute %s at object %s." attr this)
 
-       (instance? EReference sf)
+       (ereference? sf)
        (u/errorf "%s is no attribute of object %s but a reference." sf this)
 
        :else (eset! this attr val)))))
@@ -974,10 +986,11 @@
   props are set using `eset!`, the value of a multi-valued reference must be a
   collection of EObjects."
   [model ecls & props]
-  (let [eo (EcoreUtil/create (if (instance? EClass ecls)
+  (let [eo (EcoreUtil/create (if (eclass? ecls)
                                ecls
                                (eclassifier ecls)))]
-    (doseq [[prop val] (partition 2 2 (repeatedly #(u/errorf "attr-vals not paired: %s" props))
+    (doseq [[prop val] (partition 2 2
+                                  (repeatedly #(u/errorf "attr-vals not paired: %s" props))
                                   props)]
       (eset! eo prop val))
     (when model
@@ -1057,7 +1070,7 @@
 
 (defn ^:private eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
   (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
-    (if (instance? EReference sf)
+    (if (ereference? sf)
       (if single-valued
         (let [ub (.getUpperBound sf)]
           (if (== 1 ub)
