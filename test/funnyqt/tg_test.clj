@@ -1,7 +1,7 @@
 (ns funnyqt.tg-test
   (:use [flatland.ordered.set])
   (:use [funnyqt.tg])
-  (:use funnyqt.generic)
+  (:require [funnyqt.generic :as g])
   (:use [clojure.test])
   (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)))
 
@@ -53,11 +53,11 @@
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
         ;; Also test the generic create function...
-        v4 (create-element! g 'junctions.Crossroad)
+        v4 (g/create-element! g 'junctions.Crossroad)
         e1 (create-edge! g 'localities.ContainsCrossroad v1 v2)
         ;; Also test the generic adj setter function...
-        e2 (add-adj! v3 :crossroads v4)
-        e3 (create-edge! g 'connections.Street v2 v4)]
+        e2 (g/add-adj! v3 :crossroads v4)
+        e3 (g/create-relationship! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
     (is (== 3 (.getECount g)) "Wrong edge count")))
 
@@ -66,9 +66,9 @@
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)]
     (is (thrown? Exception
-                 (add-adj! v2 :locality v1)))
+                 (g/add-adj! v2 :locality v1)))
     (is (thrown? Exception
-                 (add-adjs! v2 :locality [v1])))))
+                 (g/add-adjs! v2 :locality [v1])))))
 
 (deftest test-vcount
   (is (= 155 (vcount rg) (count (vseq rg))))
@@ -110,14 +110,14 @@
         cityc (attributed-element-class city)
         hw    (edge g 28)
         hwc   (attributed-element-class hw)]
-    (is (is-instance? g gc))
-    (is (is-instance? city cityc))
-    (is (is-instance? hw hwc))
+    (is (g/is-instance? g gc))
+    (is (g/is-instance? city cityc))
+    (is (g/is-instance? hw hwc))
 
     (let [loc (attributed-element-class g 'localities.Locality)]
-      (is (not (is-instance? g loc)))
-      (is (is-instance? city loc))
-      (is (not (is-instance? hw loc))))))
+      (is (not (g/is-instance? g loc)))
+      (is (g/is-instance? city loc))
+      (is (not (g/is-instance? hw loc))))))
 
 (deftest test-class-access
   (let [g rg]
@@ -125,6 +125,10 @@
            (attributed-element-class g 'Locality)))
     (is (= (attributed-element-class g 'connections.AirRoute)
            (attributed-element-class g 'AirRoute)))))
+
+(deftest test-enum-constant
+  (is (= (enum-constant rg 'Month.JAN) (g/enum-constant rg 'Month.JAN)))
+  (is (= (enum-constant rg 'Month.DEC) (g/enum-constant rg 'Month.DEC))))
 
 ;;** Traversal Context
 
@@ -154,7 +158,7 @@
             (is (== ecnt (ecount rg)))))))
     (testing "vertex induced TraversalContext by predicate"
       ;; Subgraph of all Locality vertices with more than 10 inhabitants.
-      (let [locality? (type-matcher rg 'localities.Locality)]
+      (let [locality? (g/type-matcher rg 'localities.Locality)]
         (on-subgraph [rg (vsubgraph rg
                                     #(and (locality? %)
                                           (> (value % :inhabitants) 10)))]
@@ -187,7 +191,7 @@
             (is (== vcnt (vcount rg)))
             (is (== ecnt (ecount rg)))))))
     (testing "edge induced TraversalContext by predicate"
-      (let [airroute? (type-matcher rg 'connections.AirRoute)]
+      (let [airroute? (g/type-matcher rg 'connections.AirRoute)]
         (on-subgraph [rg (esubgraph rg #(and (airroute? %)
                                              (== (value (alpha  %) :inhabitants) 0)))]
           (testing "on-graph 5"
@@ -211,7 +215,7 @@
 (deftest test-create-element!
   (let [g (new-graph (schema rg))
         county (create-vertex! g 'County :name "Hessen")
-        c1 (create-element! g 'City {:name "Wiesbaden"
+        c1 (g/create-element! g 'City {:name "Wiesbaden"
                                      :county county})]
     (is (= 2 (vcount g)))
     (is (= 1 (ecount g) (ecount g 'ContainsLocality)))))
@@ -230,12 +234,12 @@
         hcr1  (rg/create-ContainsCrossroad! g city cr1)
         hcr2  (rg/create-ContainsCrossroad! g city cr2)]
     (is (vertex? city))
-    (is (has-type? city 'City!))
+    (is (g/has-type? city 'City!))
     (is (= "Ebernhahn" (value city :name) (rg/name city)))
 
     (is (vertex? cr1))
     (is (and
-         (has-type? cr1 'Plaza)
+         (g/has-type? cr1 'Plaza)
          (rg/isa-Plaza? cr1)
          (rg/isa-Junction? cr1)
          (not (rg/isa-City? cr1))
@@ -244,7 +248,7 @@
     (is (= "Rathausplatz" (value cr1 :name) (rg/name cr1)))
 
     (is (edge? hcr1))
-    (is (has-type? hcr1 'ContainsCrossroad))
+    (is (g/has-type? hcr1 'ContainsCrossroad))
 
     ;; both should return the city vertex
     (is (= city

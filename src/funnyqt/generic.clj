@@ -80,6 +80,14 @@
   is also framework specific.  For TGraphs it's a seq of Edges, for EMF it's a
   seq of [src-eobject trg-eobject] tuples."))
 
+;;# Generic access to enumeration constants
+
+(defprotocol IEnumConstant
+  (enum-constant [m const]
+    "Returns the enumeration constant with the qualified name `const` in the
+  metamodel of model `m`.
+  In case of EMF, `m` is ignored."))
+
 ;;# Generic creation of model elements
 
 (defprotocol ICreateElement

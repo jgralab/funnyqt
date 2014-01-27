@@ -2,7 +2,7 @@
   (:require [funnyqt.emf :as emf])
   (:require [funnyqt.query.emf :as emfq])
   (:require [funnyqt.visualization :as viz])
-  (:use funnyqt.generic)
+  (:require [funnyqt.generic :as g])
   (:use funnyqt.tg)
   (:use funnyqt.query)
   (:use funnyqt.model2model)
@@ -127,17 +127,17 @@
          (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
                                                     'AgeGroup.CHILD
                                                     'AgeGroup.ADULT)))
-         (set-adj! p :address (make-address (emf/eget (family m) :street)
-                                            (emf/eget (family m) :town)))
+         (g/set-adj! p :address (make-address (emf/eget (family m) :street)
+                                              (emf/eget (family m) :town)))
          (when-let [ps (seq (parents-of m))]
-           (set-adjs! p :parents (map member2person ps))))
+           (g/set-adjs! p :parents (map member2person ps))))
   (member2male
    :from [m 'Member]
    :when (male? m)
    :let  [w (wife m)]
    :to   [p 'Male :in out]
    (when w
-     (set-adj! p :wife (member2female w))))
+     (g/set-adj! p :wife (member2female w))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))

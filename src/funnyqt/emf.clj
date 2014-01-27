@@ -294,6 +294,17 @@
                     (print-str enum-cls) elit))
       (u/errorf "No such EEnum %s." eenum))))
 
+(extend-protocol g/IEnumConstant
+  EObject
+  (g/enum-constant [el const]
+    (eenum-literal const))
+  Resource
+  (g/enum-constant [el const]
+    (eenum-literal const))
+  nil
+  (g/enum-constant [el const]
+    (eenum-literal const)))
+
 ;;# Generic Metamodel Access
 
 (extend-protocol g/IMetaModelObject

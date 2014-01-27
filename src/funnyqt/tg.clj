@@ -819,6 +819,11 @@ functions `record` and `enum`."
                       ^EnumDomain (domain e enum)
                       ^String constant)))
 
+(extend-protocol g/IEnumConstant
+  AttributedElement
+  (g/enum-constant [el const]
+    (enum-constant el const)))
+
 ;;### Generic attribute access
 
 (extend-protocol g/IAttributeValueAccess

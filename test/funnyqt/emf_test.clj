@@ -431,3 +431,13 @@
   (is (= (eallobjects family-model 'Member)
          (eallobjects family-model 'Member)
          (eallobjects family-model '{"http://families/1.0" Member}))))
+
+(load-ecore-resource "test/input/Genealogy.ecore")
+
+(deftest test-eenum-constant
+  (is (instance? org.eclipse.emf.ecore.EEnumLiteral (eenum-literal 'AgeGroup.ADULT)))
+  (is (instance? org.eclipse.emf.ecore.EEnumLiteral (eenum-literal 'AgeGroup.CHILD)))
+  (is (= (eenum-literal 'AgeGroup.CHILD)
+         (funnyqt.generic/enum-constant nil 'AgeGroup.CHILD)))
+  (is (= (eenum-literal 'AgeGroup.ADULT)
+         (funnyqt.generic/enum-constant nil 'AgeGroup.ADULT))))

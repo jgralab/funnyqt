@@ -2,7 +2,7 @@
   funnyqt.misc-tests.mutual-exclusion-tg
   (:use funnyqt.tg)
   (:use funnyqt.utils)
-  (:use funnyqt.generic)
+  (:require [funnyqt.generic :as g])
   (:use funnyqt.in-place)
   (:use funnyqt.pmatch)
   (:use funnyqt.query.tg)
@@ -24,7 +24,7 @@
   "Matches a sequence of 3 connected processes and deletes the middle one."
   [g] [p1<Process> -n1<Next>-> p -n2<Next>-> p2]
   (set-omega! n1 p2)
-  (delete! p))
+  (g/delete! p))
 
 (defrule mount-rule
   "Matches a process and creates and assigns a resource to it."
@@ -34,7 +34,7 @@
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
   [g] [r<Resource> -t<Token>-> p]
-  (delete! r))
+  (g/delete! r))
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
@@ -58,7 +58,7 @@
   ([g r t p] [p -rq<Request>-> r]
      (take-rule g r t p rq))
   ([g r t p rq]
-     (delete! [t rq])
+     (g/delete! [t rq])
      ;; Return a vec of the resource, HeldBy and process for param passing
      [r (create-edge! g 'HeldBy r p) p]))
 
@@ -70,7 +70,7 @@
      (release-rule g r hb p))
   ([g r hb p]
      (when (empty? (iseq p 'Request))
-       (delete! hb)
+       (g/delete! hb)
        [r (create-edge! g 'Release r p) p])))
 
 (defrule give-rule
@@ -81,7 +81,7 @@
   ([g r rel p1] [p1 -n<Next>-> p2]
      (give-rule g r rel p1 n p2))
   ([g r rel p1 n p2]
-     (delete! rel)
+     (g/delete! rel)
      [r (create-edge! g 'Token r p2) p2]))
 
 (defrule blocked-rule
@@ -109,12 +109,12 @@
   "Removes the blocked state if nothing is held anymore."
   [g] [r<Resource> -b<Blocked>-> p
        :when (empty? (iseq p 'HeldBy))]
-  (delete! b))
+  (g/delete! b))
 
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
   [g] [r<Resource> -hb<HeldBy>-> p <-b<Blocked>- r]
-  (delete! [hb b])
+  (g/delete! [hb b])
   (create-edge! g 'Release r p))
 
 (defn apply-mutual-exclusion-sts
@@ -165,7 +165,7 @@
   ([g r2 h2 p2] [p2 <-h1- r1 <-rq<Request>- p1]
      (release-star-rule g r2 h2 p2 h1 r1 rq p1))
   ([g r2 h2 p2 h1 r1 rq p1]
-     (delete! h1)
+     (g/delete! h1)
      (create-edge! g 'Release r1 p2)))
 
 (defn apply-mutual-exclusion-lts

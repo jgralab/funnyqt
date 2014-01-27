@@ -1,7 +1,7 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.in-place.tg-test
   (:use funnyqt.query)
-  (:use funnyqt.generic)
+  (:require [funnyqt.generic :as g])
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.query.tg)
@@ -40,7 +40,7 @@
   (let [c (create-vertex! g 'Const)]
     (set-value! c :value (eval-exp b))
     (relink! b c nil :in))
-  (delete! [b a1 a2]))
+  (g/delete! [b a1 a2]))
 
 (deftest test-replace-binops
   (let [tree (bin-tree)]
@@ -60,7 +60,7 @@
                      (let [c (create-vertex! g 'Const)]
                        (set-value! c :value (eval-exp b))
                        (relink! b c nil :in))
-                     (delete! [b a1 a2]))
+                     (g/delete! [b a1 a2]))
                tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
@@ -81,7 +81,7 @@
                           (let [c (create-vertex! g 'Const)]
                             (set-value! c :value (eval-exp b))
                             (relink! b c nil :in))
-                          (delete! [b a1 a2])))
+                          (g/delete! [b a1 a2])))
                tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
@@ -96,7 +96,7 @@
                (let [c (create-vertex! g 'Const)]
                  (set-value! c :value (eval-exp b))
                  (relink! b c nil :in))
-               (delete! [b a1 a2]))]
+               (g/delete! [b a1 a2]))]
       (is (== 4 (apply-repeatedly repl-bin-op tree)))
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))
@@ -113,7 +113,7 @@
                   (let [c (create-vertex! g 'Const)]
                     (set-value! c :value (eval-exp b))
                     (relink! b c nil :in))
-                  (delete! [b a1 a2])))]
+                  (g/delete! [b a1 a2])))]
       (is (== 4 (apply-repeatedly repl-bin-op tree)))
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))

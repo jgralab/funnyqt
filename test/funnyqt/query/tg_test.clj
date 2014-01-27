@@ -1,6 +1,6 @@
 (ns funnyqt.query.tg-test
   (:use funnyqt.query)
-  (:use funnyqt.generic)
+  (:require [funnyqt.generic :as g])
   (:use funnyqt.utils)
   (:use funnyqt.tg)
   (:use funnyqt.query.tg)
@@ -18,13 +18,13 @@
 
 (deftest test-adjs
   (is (member? (vertex rg 6)
-	       (adjs (vertex rg 12)
-                     :localities)))
-  (is (= 131 (count (adjs (vertex rg 12)
-                          :localities :crossroads))))
+	       (g/adjs (vertex rg 12)
+                       :localities)))
+  (is (= 131 (count (g/adjs (vertex rg 12)
+                            :localities :crossroads))))
   (is (member? (vertex rg 39)
-	       (adjs (vertex rg 12)
-                     :localities :crossroads))))
+	       (g/adjs (vertex rg 12)
+                       :localities :crossroads))))
 
 (deftest test-avg-founding-year
   (is (== 13480/11
@@ -157,8 +157,8 @@
 	      [p-restr 'classifiers.Class
 	       (fn [v]
 		 (empty? (filter
-			  #(has-type? %1 'modifiers.Abstract)
-			  (adjs v :annotationsAndModifiers))))]]))))))
+			  #(g/has-type? %1 'modifiers.Abstract)
+			  (g/adjs v :annotationsAndModifiers))))]]))))))
 
 (defn coupled-classes
   "Given a Class `c`, calculates all coupled classes."
@@ -204,11 +204,11 @@
   (let [eval-args #(map eval-bin-tree
                         (--> % 'HasArg))]
     (cond
-     (has-type? v 'Const) (value v :value)
-     (has-type? v 'Add)   (reduce + (eval-args v))
-     (has-type? v 'Sub)   (reduce - (eval-args v))
-     (has-type? v 'Mul)   (reduce * (eval-args v))
-     (has-type? v 'Div)   (reduce / (eval-args v)))))
+     (g/has-type? v 'Const) (value v :value)
+     (g/has-type? v 'Add)   (reduce + (eval-args v))
+     (g/has-type? v 'Sub)   (reduce - (eval-args v))
+     (g/has-type? v 'Mul)   (reduce * (eval-args v))
+     (g/has-type? v 'Div)   (reduce / (eval-args v)))))
 
 (defprotocol BinTreeEval (eval-exp [this]))
 
