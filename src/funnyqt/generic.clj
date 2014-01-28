@@ -166,6 +166,20 @@
   [elem role & roles]
   (i/adj*-internal elem (cons role roles)))
 
+(defn reducible-adjs
+  "Traverses `role` and more `roles` starting at `elem`.
+  Returns a reducible collection (see clojure.core.reducers).
+  Errors if a role is undefined."
+  [elem role & roles]
+  (i/adjs-internal elem (cons role roles)))
+
+(defn reducible-adjs*
+  "Like `adjs`, but doesn't error if some role is not defined.  In that case,
+  it simply returns the empty vector.
+  Returns a reducible collection (see clojure.core.reducers)."
+  [elem role & roles]
+  (i/adjs*-internal elem (cons role roles)))
+
 (defn adjs
   "Traverses `role` and more `roles` starting at `elem`.
   Returns a vector of target objects.
@@ -178,7 +192,6 @@
   it simply returns the empty vector."
   [elem role & roles]
   (into [] (i/adjs*-internal elem (cons role roles))))
-
 
 ;;# IModifyAdjacencies
 
