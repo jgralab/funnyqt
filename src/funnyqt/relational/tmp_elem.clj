@@ -22,7 +22,7 @@
 
 (defprotocol IRef
   (get-refs [this])
-  (add-ref [this ref target])
+  (add-ref [this ref target may-override])
   (check-ref-validity [this subst])
   (finalize-refs [this subst]))
 
@@ -72,7 +72,7 @@
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
                          ^:unsynchronized-mutable manifested
-                         ^:unsynchronized-mutable overridable-attrs]
+                         ^:unsynchronized-mutable overridable-properties]
   Object
   (toString [this]
     (str "WrapperElement@" (Integer/toHexString (hash this)) (as-map this)))
@@ -109,11 +109,11 @@
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (when may-override
-      (set! overridable-attrs (conj overridable-attrs attr)))
+      (set! overridable-properties (conj overridable-properties attr)))
     (set! attrs (assoc attrs attr val)))
   (check-attr-validity [this subst]
     (q/forall? (fn [[a v]]
-                 (or (overridable-attrs a)
+                 (or (overridable-properties a)
                      (g/unset? wrapped-element a)
                      (= (g/aval wrapped-element a) (cclp/walk subst v))))
                attrs))
@@ -123,11 +123,13 @@
     true)
   IRef
   (get-refs [this] refs)
-  (add-ref [this ref target]
+  (add-ref [this ref target may-override]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; target is either fresh or a wrapper or tmp element
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
+    (when may-override
+      (set! overridable-properties (conj overridable-properties ref)))
     (set! refs (update-in refs [ref]
                           #(set (conj %1 %2))
                           target)))
@@ -135,7 +137,7 @@
     (when manifested (u/errorf "Already manifested: %s" this))
     (let [cls (g/mm-class wrapped-element)]
       (and (single-containers? this cls subst)
-           (single-valued-refs-are-single? this cls subst))))
+           (single-valued-refs-are-single? this cls overridable-properties subst))))
   (finalize-refs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! refs (groundify-refs refs subst)))
@@ -260,7 +262,7 @@
     true)
   IRef
   (get-refs [this] refs)
-  (add-ref [this ref target]
+  (add-ref [this ref target _]
     (when-not (keyword? ref)
       (u/errorf "ref must be given as keyword but was %s." ref))
     (set! refs  (update-in refs [ref]
@@ -270,7 +272,7 @@
   (check-ref-validity [this subst]
     (when manifested-element (u/errorf "Already manifested: %s" this))
     (and (single-containers? this type subst)
-         (single-valued-refs-are-single? this type subst)))
+         (single-valued-refs-are-single? this type nil subst)))
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst)))
   IAlphaOmega
@@ -402,7 +404,7 @@
                     true
                     :else (u/error "Shouldn't happen!"))))))
 
-(defn single-valued-refs-are-single? [el type subst]
+(defn single-valued-refs-are-single? [el type overridable-props subst]
   (ref-checker el type subst (complement g/mm-multi-valued-property?)
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
@@ -412,10 +414,11 @@
                       (or (nil? cur)
                           (and (wrapper-element? target)
                                (identical? (.wrapped-element ^WrapperElement target)
-                                           cur))))
+                                           cur))
+                          (and overridable-props (overridable-props ref))))
                     (tmp-element? el)
-                    (= 1 (count (set (map #(cclp/walk subst %)
-                                          (get (get-refs el) ref)))))
+                    (== 1 (count (set (map #(cclp/walk subst %)
+                                           (get (get-refs el) ref)))))
                     :else (u/error "Shouldn't happen!"))))))
 
 ;;# Finalization

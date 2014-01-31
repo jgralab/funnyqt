@@ -1,14 +1,14 @@
 (ns funnyqt.bidi-test
-  (:require [clojure.test :as test]
-            [clojure.core.logic :as ccl]
-            [funnyqt.bidi :as bidi]
-            [funnyqt.relational :as r]
-            [funnyqt.relational.tg :as rtg]
+  (:require [clojure.test           :as test]
+            [clojure.core.logic     :as ccl]
+            [funnyqt.bidi           :as bidi]
+            [funnyqt.relational     :as r]
+            [funnyqt.relational.tg  :as rtg]
             [funnyqt.relational.emf :as remf]
-            [funnyqt.tg :as tg]
-            [funnyqt.emf :as emf]
-            [funnyqt.visualization :as viz]
-            [funnyqt.generic :as p]))
+            [funnyqt.tg             :as tg]
+            [funnyqt.emf            :as emf]
+            [funnyqt.visualization  :as viz]
+            [funnyqt.generic        :as g]))
 
 ;;# AddressBook to AddressBook
 
@@ -152,7 +152,7 @@
                                  :email "tim@gmail.com")
           cat-work (first (filter #(= (tg/value % :name) "Work")
                                   (tg/vseq r 'Category)))]
-      (p/add-adj! cat-work :contacts tim))
+      (g/add-adj! cat-work :contacts tim))
     (time (addressbook-tg2addressbook-tg l r :left))
     (assert-same-addressbooks-tg-tg l r)
     #_(do
@@ -262,7 +262,7 @@
                             :email "tim@gmail.com")
           cat-work (first (filter #(= (emf/eget % :name) "Work")
                                   (emf/eallobjects r 'Category)))]
-      (p/add-adj! cat-work :entries tim))
+      (g/add-adj! cat-work :entries tim))
     (time (addressbook-tg2addressbook-emf l r :left))
     (assert-same-addressbooks-tg-emf l r)
     #_(do
@@ -348,6 +348,93 @@
       (test/is (= "John" (emf/eget john :firstName)))
       (test/is (= "Doe" (emf/eget john :lastName)))
       (test/is (= "jdoe@gmail.com" (emf/eget john :email))))))
+
+;;## Tests for single-valued role modifications (TG <-> TG)
+
+(bidi/deftransformation single-valued-role-override-ab-tg2ab-tg [[l r]]
+  (^:top addressbook2addressbook
+         :left [(ab-tg/AddressBook l ?addrbook1)
+                (ab-tg/name l ?addrbook1 ?n)]
+         :right [(ab-tg/AddressBook r ?addrbook2)
+                 (ab-tg/name r ?addrbook2 ?n)]
+         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+  (category2category
+   :left [(ab-tg/Category l ?cat1)
+          (ab-tg/->addressBook* l ?cat1 ?ab1)
+          (ab-tg/name l ?cat1 ?n)]
+   :right [(ab-tg/Category r ?cat2)
+           (ab-tg/->addressBook* r ?cat2 ?ab2)
+           (ab-tg/name r ?cat2 ?n)]))
+
+(test/deftest test-single-valued-role-override-ab-tg2ab-tg
+  (let [l (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
+        r (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
+        get-private (fn [g]
+                      (first (filter #(= "Private" (tg/value % :name))
+                                     (tg/vseq g 'Category))))]
+    (tg/create-vertex! l 'AddressBook :name "AB1"
+                       :categories
+                       [(tg/create-vertex! l 'Category :name "Private")])
+    (single-valued-role-override-ab-tg2ab-tg l r :right)
+    (test/is (= 2 (tg/vcount r)))
+    (let [priv (get-private r)]
+      (test/is (= "Private" (tg/value priv :name)))
+      ;; Now create a new AddressBook AB2 and assign Private there.
+      (let [ab2 (tg/create-vertex! r 'AddressBook :name "AB2")]
+        (tg/unlink! priv)
+        (g/add-adj! ab2 :categories priv)))
+    ;; Propagate the change back to the left model where Private should be
+    ;; reassigned to the AB2 AddressBook.
+    (single-valued-role-override-ab-tg2ab-tg l r :left)
+    ;;(viz/print-model l "/home/horn/l.pdf")
+    ;; Now we have 3 vertices: 2 AddressBooks and one Contact.
+    (test/is (= 3 (tg/vcount l)))
+    (let [priv (get-private l)]
+      (test/is (= "Private" (tg/value priv :name)))
+      (test/is (== 1 (count (g/adjs priv :addressBook)))))))
+
+;;## Tests for single-valued role modifications (TG <-> TG)
+
+(bidi/deftransformation single-valued-role-override-ab-emf2ab-emf [[l r]]
+  (^:top addressbook2addressbook
+         :left [(ab-emf/AddressBook l ?addrbook1)
+                (ab-emf/name l ?addrbook1 ?n)]
+         :right [(ab-emf/AddressBook r ?addrbook2)
+                 (ab-emf/name r ?addrbook2 ?n)]
+         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+  (category2category
+   :left [(ab-emf/Category l ?cat1)
+          (ab-emf/->addressBook* l ?cat1 ?ab1)
+          (ab-emf/name l ?cat1 ?n)]
+   :right [(ab-emf/Category r ?cat2)
+           (ab-emf/->addressBook* r ?cat2 ?ab2)
+           (ab-emf/name r ?cat2 ?n)]))
+
+(test/deftest test-single-valued-role-override-ab-emf2ab-emf
+  (let [l (emf/new-resource)
+        r (emf/new-resource)
+        get-private (fn [m]
+                      (first (filter #(= "Private" (emf/eget % :name))
+                                     (emf/eallobjects m 'Category))))]
+    (emf/ecreate! l 'AddressBook :name "AB1"
+                  :categories
+                  [(emf/ecreate! l 'Category :name "Private")])
+    (single-valued-role-override-ab-emf2ab-emf l r :right)
+    (test/is (= 2 (count (emf/eallobjects r))))
+    (let [priv (get-private r)]
+      (test/is (= "Private" (emf/eget priv :name)))
+      ;; Now create a new AddressBook AB2 and assign Private there.
+      (let [ab2 (emf/ecreate! r 'AddressBook :name "AB2")]
+        (emf/eset! ab2 :categories [priv])))
+    ;; Propagate the change back to the left model where Private should be
+    ;; reassigned to the AB2 AddressBook.
+    (single-valued-role-override-ab-emf2ab-emf l r :left)
+    ;; Now we have 3 objs: 2 AddressBooks and one Contact.
+    (test/is (= 3 (count (emf/eallobjects l))))
+    (let [priv (get-private l)]
+      (test/is (= "Private" (emf/eget priv :name)))
+      (test/is (== 1 (count (g/adjs priv :addressBook)))))))
+
 
 ;;# UML Class Diagram to RDBMS Tables
 

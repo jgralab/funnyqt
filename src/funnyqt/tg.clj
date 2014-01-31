@@ -1159,9 +1159,9 @@ functions `record` and `enum`."
   "Unlinks the given vertex, i.e., deletes all incident edges matching `ts` and
   `ds`."
   ([^Vertex v]
-     (unlink! v identity identity))
+     (unlink! v identity nil))
   ([^Vertex v ts]
-     (unlink! v ts identity))
+     (unlink! v ts       nil))
   ([^Vertex v ts ds]
      (let [tm (g/type-matcher v ts)
            dm (direction-matcher ds)]

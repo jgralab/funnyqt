@@ -22,11 +22,11 @@
        :else (do (tmp/add-attr go gat val may-override)
                  (ccl/succeed a))))))
 
-(defn tmp-adjo [m o ref ro]
+(defn tmp-adjo [m o ref ro may-override]
   (fn [a]
-    (let [go  (cclp/walk a o)
+    (let [go   (cclp/walk a o)
           gref (cclp/walk a ref)
-          gro (cclp/walk a ro)]
+          gro  (cclp/walk a ro)]
       (cond
        (not (tmp/tmp-or-wrapper-element? go))
        (u/errorf "tmp-adjo: o has to be a ground Tmp/WrapperElement but was %s."
@@ -37,7 +37,7 @@
 
        (or (and (tmp/tmp-or-wrapper-element? go) (tmp/tmp-or-wrapper-element? gro))
            (and (tmp/tmp-element? go)            (ru/fresh? gro)))
-       (do (tmp/add-ref go gref ro)
+       (do (tmp/add-ref go gref ro may-override)
            (ccl/succeed a))
 
        (and (tmp/wrapper-element? go) (ru/fresh? gro))
@@ -47,7 +47,7 @@
                    (map #(tmp/make-wrapper m ro %)
                         (g/adjs (.wrapped-element ^WrapperElement go) gref))
                    [#(let [refed (tmp/make-tmp-element m :element)]
-                       (tmp/add-ref go gref ro)
+                       (tmp/add-ref go gref ro may-override)
                        refed)]))
              (remove not)))
 

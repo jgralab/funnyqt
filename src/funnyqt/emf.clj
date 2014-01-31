@@ -1083,11 +1083,9 @@
   (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
     (if (ereference? sf)
       (if single-valued
-        (let [ub (.getUpperBound sf)]
-          (if (== 1 ub)
-            (.eGet eo sf)
-            (u/errorf "Must not call adj on EReference '%s' with upper bound %s."
-                      sf ub)))
+        (if (.isMany sf)
+          (u/errorf "Must not call adj on many-valued EReference '%s'." sf)
+          (.eGet eo sf))
         (.eGet eo sf))
       (u/errorf "'%s' at %s is no EReference." sf eo))
     (when-not allow-unknown-ref
