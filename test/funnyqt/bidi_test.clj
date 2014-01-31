@@ -482,8 +482,8 @@
    :left [(cd/is-primary cd ?attr true)]
    :right [(db/->pkey db ?table ?col)])
   (^:top super-attribute2column
-         :only :right
-         :when [(cd/->parent cd ?subclass ?superclass)
+         :when [(bidi/target-directiono :right) ;; only execute in right target dir
+                (cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo class2table :?class ?subclass :?table ?table)]
                  [(bidi/relateo super-attribute2column :?superclass ?subclass :?table ?table)])]

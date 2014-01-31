@@ -15,9 +15,6 @@
 ;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
 ;; :extends clause is better!
 
-;; TODO: Remove :only clause and expose the direction using a directiono
-;; relation one may use in :when clauses.
-
 (def ^{:dynamic true
        :doc "Only for internal use.
   The current direction of the transformation execution.
@@ -245,16 +242,12 @@
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :extends
                                        :debug-entry :debug-src :debug-trg
-                                       :debug-enforced :only))]
+                                       :debug-enforced))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     (let [relbody `(~@(insert-debug (:debug-entry m))
                     (if (= *target-direction* :right)
-                      ~(if (not= (:only m) :left)
-                         (do-rel-body relsym :right m wsyms lsyms rsyms args-map)
-                         '(comment "Skipped due to :only clause."))
-                      ~(if (not= (:only m) :right)
-                         (do-rel-body relsym :left  m wsyms rsyms lsyms args-map)
-                         '(comment "Skipped due to :only clause."))))]
+                      ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
+                      ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)))]
       `(~relsym [& ~(make-destr-map syms args-map)]
                 (check-args '~relsym ~args-map ~(set (map keyword syms)))
                 ~@relbody))))
@@ -281,7 +274,6 @@
   Example:
 
     (bidi/relateo class2table :?class ?subclass :?table ?subtable)"
-
   [relation & keyvals]
   (when-not (fn? relation)
     (u/errorf "No relation (fn) given but %s %s."
@@ -299,6 +291,19 @@
                        (ccl/unify a (vec (vals m)) vs)))
                    bindings)
               (remove not)))))))
+
+(defn target-directiono
+  "A relation that succeeds if the transformation direction is `dir`.
+  Can be used for conditionalizing non-bijective transformations, e.g., when
+  one wants some t-relation to be only enforced in one direction.  Then, just
+  put (target-directiono :left) in a :when clause."
+  [dir]
+  (when-not (#{:right :left} dir)
+    (u/errorf "dir must be :left or :right but was %s." dir))
+  (fn [a]
+    (if (= *target-direction* dir)
+      (ccl/succeed a)
+      (ccl/fail a))))
 
 (defn ^:private mapify-relations [rels]
   (into (om/ordered-map)
@@ -409,20 +414,6 @@
   A relation that's not called explicitly in a :where clause and is only
   extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
-
-  Conditionalizing Relations
-  ==========================
-
-  Since not every bidirectional transformation problem is strictly bijective,
-  relations may also have an :only clause.  The value of the :only clause
-  restricts the relation to be applied only when transforming in a given
-  direction.  So a the following relation
-
-    (a2x :only :left ...)
-
-  is only active when transforming in the direction of the left model, in the
-  other direction it is a no-op.  This allows to have different relations for
-  the forward and backward transformation, which may sometimes be needed.
 
   Debugging Relations
   ===================
