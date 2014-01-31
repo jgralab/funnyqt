@@ -1,4 +1,4 @@
-(defproject funnyqt "0.15.3"
+(defproject funnyqt "0.16.0"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -18,7 +18,7 @@
                  [inflections "0.9.5"]]
   :profiles {:dev
              {:dependencies
-              [[criterium "0.4.2"]
+              [[criterium "0.4.3"]
                [org.clojure/tools.namespace "0.2.4"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
