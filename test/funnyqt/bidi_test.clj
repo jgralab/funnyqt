@@ -506,12 +506,12 @@
     (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))
 
-(bidi/deftransformation ^{:extends [class-diagram2database-schema]}
-  class-diagram2database-schema-ext
+(bidi/deftransformation class-diagram2database-schema-ext
   "This transformation extends class-diagram2database-schema.  It only
   overrides class2table with the very same definition plus a
   always-succeeding :when clause, and uses different model parameter names."
   [[l r]]
+  :extends [class-diagram2database-schema]
   (class2table
    :when [ccl/succeed]
    :left [(cd/->classifiers l ?pkg ?class)

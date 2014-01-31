@@ -12,9 +12,6 @@
             [clojure.tools.macro          :as tm]
             [clojure.walk                 :as cw]))
 
-;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
-;; :extends clause is better!
-
 (def ^{:dynamic true
        :doc "Only for internal use.
   The current direction of the transformation execution.
@@ -434,10 +431,12 @@
   Transformation Inheritance
   ==========================
 
-  A transformation may have :extends metadata.  Its value is a symbol or a
-  vector of symbols denoting other bidirectional transformations.
+  A transformation may extend other transformations using an :extends clause
+  following the argument vector.  Its value is a symbol or a vector of symbols
+  denoting other bidirectional transformations.
 
-    (deftransformation ^{:extends a2b-base} a2b [l r]
+    (deftransformation a2b [l r]
+      :extends a2b-base
       ...)
 
   The transformation a2b extends a2b-base here.  This means that a2b contains
@@ -454,13 +453,17 @@
   because the logical variables act as named parameters and are also
   represented in the transformation trace."
 
-  {:arglists '([name [[left right] & args] & relations])}
+  {:arglists '([name [[left right] & args] extends-clause? & relations])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [[left right] & other-args] (first more)
-        relations (next more)
+        more (next more)
+        [extended more] (if (= :extends (first more))
+                          [(fnext more) (nnext more)]
+                          [nil          more])
+        relations more
         relations (mapify-relations relations)
-        relations (if-let [extended (:extends (meta name))]
+        relations (if extended
                     (do
                       (when-not (or (symbol? extended)
                                     (and (vector? extended)

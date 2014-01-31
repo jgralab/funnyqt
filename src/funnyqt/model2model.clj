@@ -5,9 +5,6 @@
             [clojure.tools.macro  :as tm]
             [flatland.ordered.map :as om]))
 
-;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
-;; :extends clause is better!
-
 (defn ^:private args-types-map [from]
   (loop [f from, r (om/ordered-map)]
     (if (seq f)
@@ -316,13 +313,14 @@
   Transformation Inheritance
   ==========================
 
-  By providing :extends metadata to the transformation (a symbol or a vector of
-  symbols denoting other transformations), one can declare the new
-  transformation to extend one or many other transformations.
+  By providing :extends clause after the transformation's argument vector (a
+  symbol or a vector of symbols denoting other transformations), one can
+  declare the new transformation to extend one or many other transformations.
 
-    (deftransformation ^{:extends foo2bar-base} foo2bar
+    (deftransformation foo2bar
      \"Transforms a foo model to a bar model.\"
-     [[foo] [bar]]
+      [[foo] [bar]]
+      :extends foo2bar-base
      ...)
 
   The transformation foo2bar extends foo2bar-base here.  This means that
@@ -339,12 +337,12 @@
   advisable that extending transformations have the very same parameters as the
   extended transformations, plus optionally some more parameters."
 
-  {:arglists '([name [[& in-models] [& out-models] & args] & rules-and-fns])}
+  {:arglists '([name [[& in-models] [& out-models] & args] extends-clause? & rules-and-fns])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
-        [args rules-and-fns] (if (vector? (first more))
-                               [(first more) (next more)]
-                               (u/errorf "Error: arg vector missing!"))
+        [args more] (if (vector? (first more))
+                      [(first more) (next more)]
+                      (u/errorf "Error: arg vector missing!"))
         [ins outs aa] (let [[i o & aa] args]
                         (cond
                          (nil? i) (u/errorf "No input models given.")
@@ -352,11 +350,14 @@
                          (not (vector? i)) (u/errorf "input models must be a vector.")
                          (not (vector? o)) (u/errorf "output models must be a vector.")
                          :else [i o aa]))
+        [extended more] (if (= :extends (first more))
+                          [(fnext more) (nnext more)]
+                          [nil          more])
         [rules fns] ((juxt (partial filter rule?) (partial remove rule?))
-                     rules-and-fns)
+                     more)
         rules (apply om/ordered-map (mapcat (fn [r] [(first r) (rule-as-map r)]) rules))
         fns   (apply hash-map (mapcat (fn [f] [(first f) f]) fns))
-        [rules fns] (if-let [extended (:extends (meta name))]
+        [rules fns] (if extended
                       (do
                         (when-not (or (symbol? extended)
                                       (and (vector? extended)

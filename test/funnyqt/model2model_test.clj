@@ -88,9 +88,10 @@
     (is (== 3  (count (vseq ng 'Address))))
     #_(clojure.pprint/pprint trace)))
 
-(deftransformation ^{:extends families2genealogy} families2genealogy-ext
+(deftransformation families2genealogy-ext
   "Like families2genealogy, but prepends Mr./Mrs. to first names."
   [[in] [out]]
+  :extends families2genealogy
   (first-name [m]
    (str (if (male? m) "Mr. " "Mrs. ")
         (emf/eget m :firstName))))
