@@ -12,9 +12,8 @@
             [clojure.tools.macro          :as tm]
             [clojure.walk                 :as cw]))
 
-;; TODO: Implement a way to let the transformation writer specify attributes
-;; and single-valued refs that don't need to match and thus may be updated by
-;; the transformation.
+;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
+;; :extends clause is better!
 
 ;; Either :left or :right
 (def ^{:dynamic true

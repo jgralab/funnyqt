@@ -16,7 +16,7 @@
   (as-map [this]))
 
 (defprotocol IAttr
-  (add-attr [this attr val])
+  (add-attr [this attr val may-override])
   (check-attr-validity [this subst])
   (finalize-attrs [this subst]))
 
@@ -71,7 +71,8 @@
                          wrapped-element
                          ^:unsynchronized-mutable attrs
                          ^:unsynchronized-mutable refs
-                         ^:unsynchronized-mutable manifested]
+                         ^:unsynchronized-mutable manifested
+                         ^:unsynchronized-mutable overridable-attrs]
   Object
   (toString [this]
     (str "WrapperElement@" (Integer/toHexString (hash this)) (as-map this)))
@@ -103,15 +104,17 @@
         (q/exists? super-or-eq-to-cur? (map (partial g/mm-class model) t))
         (super-or-eq-to-cur? (g/mm-class model t)))))
   IAttr
-  (add-attr [this attr val]
+  (add-attr [this attr val may-override]
     (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
-    (set! attrs (assoc attrs attr val))
-    true)
+    (when may-override
+      (set! overridable-attrs (conj overridable-attrs attr)))
+    (set! attrs (assoc attrs attr val)))
   (check-attr-validity [this subst]
     (q/forall? (fn [[a v]]
-                 (or (g/unset? wrapped-element a)
+                 (or (overridable-attrs a)
+                     (g/unset? wrapped-element a)
                      (= (g/aval wrapped-element a) (cclp/walk subst v))))
                attrs))
   (finalize-attrs [this subst]
@@ -127,8 +130,7 @@
       (u/errorf "ref must be given as keyword but was %s." ref))
     (set! refs (update-in refs [ref]
                           #(set (conj %1 %2))
-                          target))
-    true)
+                          target)))
   (check-ref-validity [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (let [cls (g/mm-class wrapped-element)]
@@ -190,7 +192,7 @@
 (defn make-wrapper [model lvar element]
   (let [cur (get @*wrapper-cache* [lvar element])]
     (or cur
-        (let [w (->WrapperElement model element {} {} false)]
+        (let [w (->WrapperElement model element {} {} false #{})]
           (swap! *wrapper-cache* assoc [lvar element] w)
           w))))
 
@@ -243,7 +245,7 @@
          (g/mm-super-class? type mm-class) (do (set! type mm-class) true)
          :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
-  (add-attr [this attr val]
+  (add-attr [this attr val _] ;; The may-override param is ignored for new elements.
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond

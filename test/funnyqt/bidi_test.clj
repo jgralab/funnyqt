@@ -269,6 +269,86 @@
         (future (viz/print-model l :gtk))
         (viz/print-model r :gtk))))
 
+;;## Tests for attribute modifications (TG <-> TG)
+
+(bidi/deftransformation attr-override-contact-tg2contact-tg [[l r]]
+  (^:top contact2contact
+   :left [(ab-tg/Contact l ?contact1)
+          (ab-tg/firstName l ?contact1 ?fn)
+          (ab-tg/lastName l ?contact1 ?ln)
+          (ab-tg/email* l ?contact1 ?mail)]
+   :right [(ab-tg/Contact r ?contact2)
+           (ab-tg/firstName r ?contact2 ?fn)
+           (ab-tg/lastName r ?contact2 ?ln)
+           (ab-tg/email* r ?contact2 ?mail)]))
+
+(test/deftest test-attr-override-contact-tg2contact-tg
+  (let [l (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
+        r (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
+        get-john (fn [g]
+                   (first (filter #(and
+                                    (= "John" (tg/value % :firstName))
+                                    (= "Doe"  (tg/value % :lastName)))
+                                  (tg/vseq g 'Contact))))]
+    (tg/create-vertex! l 'Contact :firstName "John" :lastName "Doe"
+                       :email "jdoe@yahoo.com")
+    (attr-override-contact-tg2contact-tg l r :right)
+    (test/is (= 1 (tg/vcount r)))
+    (let [john (get-john r)]
+      (test/is (= "John" (tg/value john :firstName)))
+      (test/is (= "Doe" (tg/value john :lastName)))
+      (test/is (= "jdoe@yahoo.com" (tg/value john :email)))
+      ;; Now change John's email address!
+      (tg/set-value! john :email "jdoe@gmail.com"))
+    ;; Propagate the changed email address back to the source model l
+    (attr-override-contact-tg2contact-tg l r :left)
+    ;; No new vertex must have been created.
+    (test/is (= 1 (tg/vcount l)))
+    (let [john (get-john l)]
+      (test/is (= "John" (tg/value john :firstName)))
+      (test/is (= "Doe" (tg/value john :lastName)))
+      (test/is (= "jdoe@gmail.com" (tg/value john :email))))))
+
+;;## Tests for attribute modifications (EMF <-> EMF)
+
+(bidi/deftransformation attr-override-contact-emf2contact-emf [[l r]]
+  (^:top contact2contact
+   :left [(ab-emf/Contact l ?contact1)
+          (ab-emf/firstName l ?contact1 ?fn)
+          (ab-emf/lastName l ?contact1 ?ln)
+          (ab-emf/email* l ?contact1 ?mail)]
+   :right [(ab-emf/Contact r ?contact2)
+           (ab-emf/firstName r ?contact2 ?fn)
+           (ab-emf/lastName r ?contact2 ?ln)
+           (ab-emf/email* r ?contact2 ?mail)]))
+
+(test/deftest test-attr-override-contact-emf2contact-emf
+  (let [l (emf/new-resource)
+        r (emf/new-resource)
+        get-john (fn [m]
+                   (first (filter #(and
+                                    (= "John" (emf/eget % :firstName))
+                                    (= "Doe"  (emf/eget % :lastName)))
+                                  (emf/eallobjects m 'Contact))))]
+    (emf/ecreate! l 'Contact :firstName "John" :lastName "Doe"
+                  :email "jdoe@yahoo.com")
+    (attr-override-contact-emf2contact-emf l r :right)
+    (test/is (= 1 (count (emf/eallobjects r))))
+    (let [john (get-john r)]
+      (test/is (= "John" (emf/eget john :firstName)))
+      (test/is (= "Doe" (emf/eget john :lastName)))
+      (test/is (= "jdoe@yahoo.com" (emf/eget john :email)))
+      ;; Now change John's email address!
+      (emf/eset! john :email "jdoe@gmail.com"))
+    ;; Propagate the changed email address back to the source model l
+    (attr-override-contact-emf2contact-emf l r :left)
+    ;; No new vertex must have been created.
+    (test/is (= 1 (count (emf/eallobjects l))))
+    (let [john (get-john l)]
+      (test/is (= "John" (emf/eget john :firstName)))
+      (test/is (= "Doe" (emf/eget john :lastName)))
+      (test/is (= "jdoe@gmail.com" (emf/eget john :email))))))
+
 ;;# UML Class Diagram to RDBMS Tables
 
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"

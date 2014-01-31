@@ -5,6 +5,9 @@
             [clojure.tools.macro  :as tm]
             [flatland.ordered.map :as om]))
 
+;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
+;; :extends clause is better!
+
 (defn ^:private args-types-map [from]
   (loop [f from, r (om/ordered-map)]
     (if (seq f)
