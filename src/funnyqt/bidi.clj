@@ -15,7 +15,11 @@
 ;; TODO: Transformation inheritance shouldn't be done using metadata.  A normal
 ;; :extends clause is better!
 
-;; Either :left or :right
+;; TODO: Remove :only clause and expose the direction using a directiono
+;; relation one may use in :when clauses.
+
+;; TODO: Implement reference overriding similar to how its done in valueo.
+
 (def ^{:dynamic true
        :doc "Only for internal use.
   The current direction of the transformation execution.
