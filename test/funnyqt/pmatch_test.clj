@@ -108,6 +108,23 @@
     (is (= 3 (count (families-with-fathers fg (constantly true)))))
     (is (= 2 (count (families-with-fathers fg #(= "Smith" (tg/value % :lastName))))))))
 
+(deftest test-eager-pattern-tg
+  (let [lazy-pattern1 (pattern {:pattern-expansion-context :tg} [g]
+                              [f<Family> -hf<HasFather>-> m<Member>])
+        eager-pattern1 (pattern {:pattern-expansion-context :tg, :eager true} [g]
+                                [f<Family> -hf<HasFather>-> m<Member>])
+        lazy-pattern2 (pattern {:pattern-expansion-context :tg} [g]
+                               [m1<Member> <-- <> --> m2<Member>
+                                :when (distinct? m1 m2)
+                                :as #{m1 m2} :distinct])
+        eager-pattern2 (pattern {:pattern-expansion-context :tg, :eager true} [g]
+                                [m1<Member> <-- <> --> m2<Member>
+                                 :when (distinct? m1 m2)
+                                 :as #{m1 m2} :distinct])]
+    (is (= (lazy-pattern1 fg) (eager-pattern1 fg)))
+    ;; With :distinct patterns, the order is undefined in the eager case.
+    (is (= (set (lazy-pattern2 fg)) (set (eager-pattern2 fg))))))
+
 ;;# EMF
 
 (emf/load-ecore-resource "test/input/Families.ecore")
@@ -217,3 +234,20 @@
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
+
+(deftest test-eager-pattern-emf
+  (let [lazy-pattern1 (pattern {:pattern-expansion-context :emf} [g]
+                              [f<Family> -<father>-> m<Member>])
+        eager-pattern1 (pattern {:pattern-expansion-context :emf, :eager true} [g]
+                                [f<Family> -<father>-> m<Member>])
+        lazy-pattern2 (pattern {:pattern-expansion-context :emf} [g]
+                               [m1<Member> --> <> --> m2<Member>
+                                :when (distinct? m1 m2)
+                                :as #{m1 m2} :distinct])
+        eager-pattern2 (pattern {:pattern-expansion-context :emf, :eager true} [g]
+                                [m1<Member> --> <> --> m2<Member>
+                                 :when (distinct? m1 m2)
+                                 :as #{m1 m2} :distinct])]
+    (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
+    ;; With :distinct patterns, the order is undefined in the eager case.
+    (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))

@@ -93,7 +93,11 @@
             action-fn   (gensym "action-fn")
             match       (gensym "match")]
         `(~args
-          (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern")) ~args ~pattern-vector)
+          (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
+                                     ;; forall rules can benefit from parallel
+                                     ;; pattern evaluation.
+                                     {:eager ~(:forall (meta name))}
+                                     ~args ~pattern-vector)
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
                              (let [~matchsyms ~(if custom-as
@@ -190,10 +194,10 @@
   finds one, it applies its `body` on the match returning the value of the last
   form in `body`, which should be logical true by convention.
 
-  Rules may have ^:forall metadata attached to their name.  Such a rule is
-  applied to all matches at once, not only to the match which is found first.
-  Of course, the actions of such ^:forall rules must not invalidate their own
-  matches.
+  Rules may have ^:forall metadata attached to their name.  Such a rule first
+  finds all matches eagerly, and then applies the actions to each match in
+  sequence.  The finding of matches is done in parallel (if some constraints
+  hold).
 
   When a rule matches, *on-matched-rule-fn* is invoked which you can use to
   inspect matches (i.e., for debugging).

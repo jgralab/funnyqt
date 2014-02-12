@@ -585,18 +585,59 @@
   (let [[args pattern] args-and-pattern]
     (when-not (and (vector? args) (vector? pattern))
       (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
-    (let [bf (transform-pattern-vector name pattern args)
-          iteration-code `(pattern-for ~bf ~(or (:as (meta bf)) (bindings-to-arglist bf)))]
+    (let [bf (transform-pattern-vector name pattern args)]
       (verify-pattern-binding-form bf args)
       `(~args
-        ~(if (:distinct (meta bf))
-           `(q/no-dups ~iteration-code)
-           iteration-code)))))
+        ~(if (and (:eager (meta name))
+                  (<= 2 (.availableProcessors (Runtime/getRuntime)))
+                  ;; The first binding is :when-let [p p] if the pattern starts
+                  ;; with an argument vertex p.  In that case, we can't
+                  ;; parallelize.
+                  (not (keyword? (first bf))))
+           (let [[sym expr & rbf] bf
+                 rmap (gensym "rmap")
+                 cmapvar (with-meta (gensym "m") {:tag 'java.util.concurrent.ConcurrentHashMap})]
+             `(let [~rmap ~(when (:distinct (meta bf))
+                             `(java.util.concurrent.ConcurrentHashMap.
+                               1024 0.75 (* 2 (.availableProcessors (Runtime/getRuntime)))))
+                    [get!# combine!#] ~(if (:distinct (meta bf))
+                                         `[(fn [~cmapvar] (.keySet ~cmapvar))
+                                           (fn
+                                             ([] ~rmap)
+                                             ([l# r#]
+                                                (if (identical? l# r#)
+                                                  l#
+                                                  (clojure.core.reducers/reduce
+                                                   (fn [~cmapvar o#]
+                                                     (doto ~cmapvar (.putIfAbsent o# true)))
+                                                   l# r#))))]
+                                         `[identity clojure.core.reducers/cat])]
+                (->> (vec ~expr)
+                     (clojure.core.reducers/fold
+                      64 combine!#
+                      (fn [coll# ~sym]
+                        (combine!# coll#
+                                   (pattern-for ~rbf
+                                                ~(or (:as (meta bf))
+                                                     (bindings-to-arglist bf))))))
+                     get!#
+                     seq)))
+           (let [code `(pattern-for ~bf
+                                     ~(or (:as (meta bf))
+                                          (bindings-to-arglist bf)))
+                 code (if (:distinct (meta bf))
+                        `(q/no-dups ~code)
+                        code)]
+             `(seq ~(if (:eager (meta name))
+                      `(doall ~code)
+                      code))))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
   an `args` vector, and a `pattern` vector.  When applied to a model, it
-  returns the lazy seq of all matches.
+  returns the seq of all matches.  By default, this seq is a lazy seq.  If
+  ^:eager metadata is attached to `name`, then the pattern is evaluated eagerly
+  giving rise to parallel evaluation.
 
   `pattern` is a vector of symbols for nodes and edges.
 
@@ -773,8 +814,11 @@
                           [nil more])
         [name more] (if name
                       (m/name-with-attributes name more)
-                      [name more])]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
+                      [name more])
+        name        (if name
+                      (vary-meta name merge attr-map)
+                      (with-meta (gensym "anon-pattern-") attr-map))]
+    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               *pattern-expansion-context*
                                               (:pattern-expansion-context (meta *ns*)))]
       `(fn ~@(when name [name])
