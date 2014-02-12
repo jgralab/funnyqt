@@ -595,6 +595,7 @@
                   ;; parallelize.
                   (not (keyword? (first bf))))
            (let [[sym expr & rbf] bf
+                 rbf (vec rbf)
                  rmap (gensym "rmap")
                  cmapvar (with-meta (gensym "m") {:tag 'java.util.concurrent.ConcurrentHashMap})]
              `(let [~rmap ~(when (:distinct (meta bf))
