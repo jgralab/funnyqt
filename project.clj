@@ -1,4 +1,4 @@
-(defproject funnyqt "0.17.0"
+(defproject funnyqt "0.17.1"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -38,4 +38,5 @@
   :html5-docs-ns-includes #"^funnyqt\..*"
   :html5-docs-ns-excludes #".*\.test\..*"
   :html5-docs-docs-dir nil ;; => "docs"
-  :html5-docs-repository-url "https://github.com/jgralab/funnyqt/blob/master")
+  :html5-docs-repository-url #(str "https://github.com/jgralab/funnyqt/blob/v"
+                                   (:version %)))
