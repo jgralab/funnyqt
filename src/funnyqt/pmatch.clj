@@ -585,7 +585,10 @@
   (let [[args pattern] args-and-pattern]
     (when-not (and (vector? args) (vector? pattern))
       (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
-    (let [bf (transform-pattern-vector name pattern args)]
+    (let [bf (transform-pattern-vector name pattern args)
+          binding-count (fn [bf]
+                          (count (filter (fn [[var expr]] (symbol? var))
+                                         (partition 2 bf))))]
       (verify-pattern-binding-form bf args)
       `(~args
         ~(if (and (:eager (meta name))
@@ -593,14 +596,20 @@
                   ;; The first binding is :when-let [p p] if the pattern starts
                   ;; with an argument vertex p.  In that case, we can't
                   ;; parallelize.
-                  (not (keyword? (first bf))))
+                  (not (keyword? (first bf)))
+                  (>= (binding-count bf) 2))
            (let [[sym expr & rbf] bf
                  rbf (vec rbf)
                  rmap (gensym "rmap")
-                 cmapvar (with-meta (gensym "m") {:tag 'java.util.concurrent.ConcurrentHashMap})]
-             `(let [~rmap ~(when (:distinct (meta bf))
+                 cmapvar (with-meta (gensym "m") {:tag 'java.util.concurrent.ConcurrentHashMap})
+                 vectorvar (gensym "vector")]
+             `(let [~vectorvar (into [] ~expr)
+                    n# (max 16 (long (/ (count ~vectorvar)
+                                        (* ~(binding-count rbf)
+                                           100 (.availableProcessors (Runtime/getRuntime))))))
+                    ~rmap ~(when (:distinct (meta bf))
                              `(java.util.concurrent.ConcurrentHashMap.
-                               1024 0.75 (* 2 (.availableProcessors (Runtime/getRuntime)))))
+                               (count ~vectorvar) 0.75 (* 2 (.availableProcessors (Runtime/getRuntime)))))
                     [get!# combine!#] ~(if (:distinct (meta bf))
                                          `[(fn [~cmapvar] (.keySet ~cmapvar))
                                            (fn
@@ -613,9 +622,9 @@
                                                      (doto ~cmapvar (.putIfAbsent o# true)))
                                                    l# r#))))]
                                          `[identity clojure.core.reducers/cat])]
-                (->> (vec ~expr)
+                (->> ~vectorvar
                      (clojure.core.reducers/fold
-                      64 combine!#
+                      n# combine!#
                       (fn [coll# ~sym]
                         (combine!# coll#
                                    (pattern-for ~rbf
