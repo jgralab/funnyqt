@@ -621,7 +621,11 @@
                                                    (fn [~cmapvar o#]
                                                      (doto ~cmapvar (.putIfAbsent o# true)))
                                                    l# r#))))]
-                                         `[identity clojure.core.reducers/cat])]
+                                         `[identity
+                                           (fn
+                                             ([] (java.util.LinkedList.))
+                                             ([l# r#]
+                                                (clojure.core.reducers/cat l# r#)))])]
                 (->> ~vectorvar
                      (clojure.core.reducers/fold
                       n# combine!#
