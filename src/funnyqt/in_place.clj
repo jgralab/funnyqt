@@ -118,7 +118,13 @@
               ~matches
               (when (seq ~matches)
                 ~(if (:forall (meta name))
-                   `(mapv ~action-fn (doall ~matches))
+                   (if (:no-result-vec (meta name))
+                     `(loop [i# 0, matches# ~matches]
+                        (if (seq matches#)
+                          (do (~action-fn (first matches#))
+                              (recur (inc i#) (rest matches#)))
+                          i#))
+                     `(mapv ~action-fn ~matches))
                    `(~action-fn (first ~matches))))))))
       ;; No pattern given
       `(~args
@@ -197,7 +203,10 @@
   Rules may have ^:forall metadata attached to their name.  Such a rule first
   finds all matches eagerly, and then applies the actions to each match in
   sequence.  The finding of matches is done in parallel (if some constraints
-  hold).
+  hold).  The result of a ^:forall rule is the vector of action results (one
+  for each match).  If you're not interested in that and want to save some
+  memory, you can also add ^:no-result-vec metadata.  In that case, applying
+  the ^:forall rule returns only the number of matches.
 
   When a rule matches, *on-matched-rule-fn* is invoked which you can use to
   inspect matches (i.e., for debugging).
