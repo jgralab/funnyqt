@@ -149,7 +149,7 @@
                 (let [~(make-destr-map trg-syms tm)
                       (binding [tmp/*make-tmp-elements* true]
                         (select-match
-                         (ccl/run* [q#]
+                         (ccl/run 1 [q#]
                            (ccl/fresh [~@trg-syms]
                              (trg-initializeo ~sm ~args-map ~@trg-syms)
                              ~@(get map trg)
