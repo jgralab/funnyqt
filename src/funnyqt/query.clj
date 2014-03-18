@@ -54,18 +54,18 @@
 (defn no-dups
   "Returns a lazy sequence of the elements of coll with duplicates removed."
   [coll]
-  (let [seen (java.util.HashSet.)
-        step (fn step [xs]
+  (let [step (^:once fn* step [xs ^java.util.Set seen]
                (lazy-seq
-                ((fn [[f :as xs]]
-                   (when-let [s (seq xs)]
-                     (if (.contains seen f)
-                       (recur (rest s))
-                       (do
-                         (.add seen f)
-                         (cons f (step (rest s)))))))
-                 xs)))]
-      (step coll)))
+                ((^:once fn* [xs ^java.util.Set seen]
+                         (when-let [s (seq xs)]
+                           (let [f (first s)]
+                             (if (.contains seen f)
+                               (recur (rest s) seen)
+                               (do
+                                 (.add seen f)
+                                 (cons f (step (rest s) seen)))))))
+                 xs seen)))]
+      (step coll (java.util.HashSet.))))
 
 (defn member?
   "Returns true iff `e` is a member of `coll`."
