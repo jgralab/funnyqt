@@ -609,7 +609,7 @@
                                            100 (.availableProcessors (Runtime/getRuntime))))))
                     ~rmap ~(when (:distinct (meta bf))
                              `(java.util.concurrent.ConcurrentHashMap.
-                               (count ~vectorvar) 0.75 (* 2 (.availableProcessors (Runtime/getRuntime)))))
+                               (count ~vectorvar) 0.75 (.availableProcessors (Runtime/getRuntime))))
                     [get!# combine!#] ~(if (:distinct (meta bf))
                                          `[(fn [~cmapvar] (.keySet ~cmapvar))
                                            (fn
