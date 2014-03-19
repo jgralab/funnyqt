@@ -614,12 +614,12 @@
                                  `(fn
                                     ([] ~chm)
                                     ([l# r#]
-                                       (if (and (not (identical? l# r#)) (seq r#))
+                                       (if (identical? l# r#)
+                                         l#
                                          (clojure.core.reducers/reduce
                                           (fn [~chm o#]
                                             (doto ~chm (.putIfAbsent o# true)))
-                                          l# r#)
-                                         l#)))
+                                          l# r#))))
                                  `(fn
                                     ([] (java.util.LinkedList.))
                                     ([l# r#]
