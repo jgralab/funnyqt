@@ -96,7 +96,8 @@
           (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
                                      ;; forall rules can benefit from parallel
                                      ;; pattern evaluation.
-                                     {:eager ~(:forall (meta name))}
+                                     {:eager ~(:forall (meta name))
+                                      :sequential ~(:sequential (meta name))}
                                      ~args ~pattern-vector)
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
@@ -203,10 +204,12 @@
   Rules may have ^:forall metadata attached to their name.  Such a rule first
   finds all matches eagerly, and then applies the actions to each match in
   sequence.  The finding of matches is done in parallel (if some constraints
-  hold).  The result of a ^:forall rule is the vector of action results (one
-  for each match).  If you're not interested in that and want to save some
-  memory, you can also add ^:no-result-vec metadata.  In that case, applying
-  the ^:forall rule returns only the number of matches.
+  hold, and there's no ^:sequential metadata).  The result of a ^:forall rule
+  is the vector of action results (one for each match).  If you're not
+  interested in that and want to save some memory, you can also add
+  ^:no-result-vec metadata.  In that case, applying the ^:forall rule returns
+  only the number of matches.  In any case, if there were no matches at all,
+  nil is returned.
 
   When a rule matches, *on-matched-rule-fn* is invoked which you can use to
   inspect matches (i.e., for debugging).

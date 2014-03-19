@@ -592,6 +592,7 @@
       (verify-pattern-binding-form bf args)
       `(~args
         ~(if (and (:eager (meta name))
+                  (not (:sequential (meta name)))
                   (<= 2 (.availableProcessors (Runtime/getRuntime)))
                   ;; The first binding is :when-let [p p] if the pattern starts
                   ;; with an argument vertex p.  In that case, we can't
@@ -600,32 +601,34 @@
                   (>= (binding-count bf) 2))
            (let [[sym expr & rbf] bf
                  rbf (vec rbf)
-                 rmap (gensym "rmap")
-                 cmapvar (with-meta (gensym "m") {:tag 'java.util.concurrent.ConcurrentHashMap})
-                 vectorvar (gensym "vector")]
+                 vectorvar (gensym "vector")
+                 chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
              `(let [~vectorvar (into [] ~expr)
                     n# (max 16 (long (/ (count ~vectorvar)
                                         (* ~(binding-count rbf)
                                            100 (.availableProcessors (Runtime/getRuntime))))))
-                    ~rmap ~(when (:distinct (meta bf))
-                             `(java.util.concurrent.ConcurrentHashMap.
-                               (count ~vectorvar) 0.75 (.availableProcessors (Runtime/getRuntime))))
-                    [get!# combine!#] ~(if (:distinct (meta bf))
-                                         `[(fn [~cmapvar] (.keySet ~cmapvar))
-                                           (fn
-                                             ([] ~rmap)
-                                             ([l# r#]
-                                                (if (identical? l# r#)
-                                                  l#
-                                                  (clojure.core.reducers/reduce
-                                                   (fn [~cmapvar o#]
-                                                     (doto ~cmapvar (.putIfAbsent o# true)))
-                                                   l# r#))))]
-                                         `[identity
-                                           (fn
-                                             ([] (java.util.LinkedList.))
-                                             ([l# r#]
-                                                (clojure.core.reducers/cat l# r#)))])]
+                    ~@(when (:distinct (meta bf))
+                        `[~chm (java.util.concurrent.ConcurrentHashMap.
+                                (count ~vectorvar) 0.75 (.availableProcessors (Runtime/getRuntime)))])
+                    combine!# ~(if (:distinct (meta bf))
+                                 `(fn
+                                    ([] ~chm)
+                                    ([l# r#]
+                                       (if (and (not (identical? l# r#)) (seq r#))
+                                         (clojure.core.reducers/reduce
+                                          (fn [~chm o#]
+                                            (doto ~chm (.putIfAbsent o# true)))
+                                          l# r#)
+                                         l#)))
+                                 `(fn
+                                    ([] (java.util.LinkedList.))
+                                    ([l# r#]
+                                       (if (seq r#)
+                                         (clojure.core.reducers/cat l# r#)
+                                         l#))))
+                    finalize# ~(if (:distinct (meta bf))
+                                 `(fn [~chm] (seq (.keySet ~chm)))
+                                 `seq)]
                 (->> ~vectorvar
                      (clojure.core.reducers/fold
                       n# combine!#
@@ -634,8 +637,7 @@
                                    (pattern-for ~rbf
                                                 ~(or (:as (meta bf))
                                                      (bindings-to-arglist bf))))))
-                     get!#
-                     seq)))
+                     finalize#)))
            (let [code `(pattern-for ~bf
                                      ~(or (:as (meta bf))
                                           (bindings-to-arglist bf)))
@@ -651,7 +653,8 @@
   an `args` vector, and a `pattern` vector.  When applied to a model, it
   returns the seq of all matches.  By default, this seq is a lazy seq.  If
   ^:eager metadata is attached to `name`, then the pattern is evaluated eagerly
-  giving rise to parallel evaluation.
+  giving rise to parallel evaluation.  The parallel evaluation may be
+  suppressed using ^:sequential metadata.
 
   `pattern` is a vector of symbols for nodes and edges.
 
