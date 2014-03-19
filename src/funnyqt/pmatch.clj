@@ -187,6 +187,8 @@
 
 ;;# Patter graph to pattern comprehension
 
+(def ^:private ^:dynamic *conversion-opts* nil)
+
 (defn ^:private enqueue-incs
   ([cur stack done]
      (enqueue-incs cur stack done false))
@@ -258,7 +260,10 @@
      ;;---
      :normal-v
      [(get-name target-node)
-      `(q/no-dups ~(anon-vec-transformer-fn startsym av))])))
+      `(~@(if (:eager *conversion-opts*)
+            `[into #{}]
+            `[q/no-dups])
+        ~(anon-vec-transformer-fn startsym av))])))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
@@ -284,7 +289,9 @@
                                                                        ~(if (tg/normal-edge? el)
                                                                           :out :in))]))))
                                     [cs r]))]
-                            `(for ~r ~v)))]
+                            (if (== 2 (count r))
+                              (second r)  ;; only one binding [G_NNNN exp]
+                              `(for ~r ~v))))]
     (loop [stack [(q/the (tg/vseq pg 'Anchor))]
            done #{}
            bf []]
@@ -414,7 +421,9 @@
                                                                  `(eget-1 ~cs ~t)
                                                                  `(emf/erefs ~cs))]))))
                                     [cs r]))]
-                            `(for ~r ~v)))]
+                            (if (== 2 (count r))
+                              (second r) ;; only one binding [G_NNNN exp]
+                              `(for ~r ~v))))]
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named for EMF: %s"
@@ -573,9 +582,11 @@
         ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
-      (with-meta (transform-fn args pgraph)
-        {:distinct distinct
-         :as       result})
+      (binding [*conversion-opts* (assoc (meta name)
+                                    :distinct distinct)]
+        (with-meta (transform-fn args pgraph)
+          {:distinct distinct
+           :as       result}))
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
