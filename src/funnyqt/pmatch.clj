@@ -189,6 +189,17 @@
 
 (def ^:private ^:dynamic *conversion-opts* nil)
 
+(def ^:dynamic *pattern-expansion-context*
+  "Defines the expansion context of a pattern, i.e., if a pattern expands into
+  a query on a TGraph or an EMF model.  The possible values are :tg or :emf.
+
+  Usually, you won't bind this variable directly (using `binding`) but instead
+  you specify the expansion context for a given pattern using the `attr-map` of
+  a `defpattern` or `letpattern` form, or you declare the expansion context for
+  a complete namespace using `:pattern-expansion-context` metadata for the
+  namespace."
+  nil)
+
 (defn ^:private enqueue-incs
   ([cur stack done]
      (enqueue-incs cur stack done false))
@@ -260,15 +271,22 @@
      ;;---
      :normal-v
      [(get-name target-node)
-      `(~@(if (:eager *conversion-opts*)
-            `[into #{}]
-            `[q/no-dups])
-        ~(anon-vec-transformer-fn startsym av))])))
+      (let [code `(~@(if (:eager *conversion-opts*)
+                       `[into #{}]
+                       `[q/no-dups]))
+            anon-vec-form (anon-vec-transformer-fn startsym av)
+            coll (gensym "coll")]
+        (if (and (not= `for (first anon-vec-form))
+                 (= *pattern-expansion-context* :emf))
+          `(let [~coll ~anon-vec-form]
+             (if (u/unique-coll? ~coll)
+               ~coll
+               ~(concat code [coll])))
+          (concat code [anon-vec-form])))])))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
   [done cob]
-  ;;(println cob done)
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
@@ -543,17 +561,6 @@
       (u/errorf "These symbols are declared multiple times:\n%s"
                 (clojure.string/join double-syms))
       pattern)))
-
-(def ^:dynamic *pattern-expansion-context*
-  "Defines the expansion context of a pattern, i.e., if a pattern expands into
-  a query on a TGraph or an EMF model.  The possible values are :tg or :emf.
-
-  Usually, you won't bind this variable directly (using `binding`) but instead
-  you specify the expansion context for a given pattern using the `attr-map` of
-  a `defpattern` or `letpattern` form, or you declare the expansion context for
-  a complete namespace using `:pattern-expansion-context` metadata for the
-  namespace."
-  nil)
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."

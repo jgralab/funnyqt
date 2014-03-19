@@ -237,3 +237,17 @@
   (if (coll? coll)
     (mapv deep-vectorify coll)
     coll))
+
+(def ^:private ^java.lang.reflect.Method AbstractElist-isUnique
+  (-> (.getDeclaredMethod org.eclipse.emf.common.util.AbstractEList
+                          "isUnique" (make-array Class 0))
+      (doto (.setAccessible true))))
+
+(defn unique-coll?
+  "Returns true if `l` is a unique collection, i.e., any element may occur at
+  most once."
+  [l]
+  (or (instance? java.util.Set l)
+      (instance? org.eclipse.emf.common.util.UniqueEList l)
+      (and (instance? org.eclipse.emf.common.util.AbstractEList l)
+           (.invoke AbstractElist-isUnique l (make-array Object 0)))))
