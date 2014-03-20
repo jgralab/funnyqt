@@ -567,7 +567,7 @@
   {:emf pattern-graph-to-pattern-for-bindings-emf
    :tg  pattern-graph-to-pattern-for-bindings-tg})
 
-(defn ^:private get-and-remove-from-vector [v key get-val]
+(defn ^:private get-and-remove-key-from-vector [v key get-val]
   (loop [nv [], ov v]
     (if (seq ov)
       (if (= key (first ov))
@@ -583,8 +583,8 @@
 
 (Only for internal use.)"
   [name pattern args]
-  (let [[pattern distinct] (get-and-remove-from-vector pattern :distinct false)
-        [pattern result] (get-and-remove-from-vector pattern   :as       true)
+  (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
+        [pattern result]   (get-and-remove-key-from-vector pattern   :as       true)
         pgraph (pattern-to-pattern-graph name args pattern)
         ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
@@ -596,6 +596,42 @@
            :as       result}))
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
+
+(defn ^:private local-vars
+  "Returns the set of local variables (symbols) that are used in `form`.
+  E.g., those are the dependencies the form needs to evaluate."
+  [form]
+  (cond
+   ;; let & when-let & if-let & loop
+   (and (seq? form)
+        (or (= (first form) `let)
+            (= (first form) `loop)
+            (= (first form) `when-let)
+            (= (first form) `if-let)))
+   (set (concat (mapcat local-vars (map second (partition 2 (second form))))
+                (mapcat local-vars (nnext form))))
+   ;; vectors & sets
+   (or (vector? form)
+       (set? form))
+   (set (mapcat local-vars form))
+   ;; funcalls
+   (seq? form)
+   (set (mapcat local-vars (rest form)))
+   ;; symbols
+   (and (symbol? form)
+        (not (namespace form))) #{form}))
+
+(defn ^:private get-and-remove-constraint-from-vector
+  "Removes all constraints depending only on the syms in set `deps` from `v`.
+  Returns [nv constrs] where nv is the new vector and constrs is the seq of
+  constraints depending only on `deps`."
+  [v deps]
+  (loop [v v, nv [], cs []]
+    (if-let [[x y & r] (seq v)]
+      (if (and (= :when x) (clojure.set/subset? (local-vars y) deps))
+        (recur r nv (conj cs y))
+        (recur r (conj nv x y) cs))
+      [nv cs])))
 
 (defn ^:private convert-spec [name args-and-pattern]
   (when (> (count args-and-pattern) 2)
@@ -619,15 +655,20 @@
                   (>= (binding-count bf) 2))
            (let [[sym expr & rbf] bf
                  rbf (vec rbf)
+                 [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
                  vectorvar (gensym "vector")
                  chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
-             `(let [~vectorvar (into [] ~expr)
+             `(let [~vectorvar (into [] ~(if constraints
+                                           `(filter (fn [~sym] (and ~@constraints))
+                                                    ~expr)
+                                           expr))
                     n# (max 16 (long (/ (count ~vectorvar)
                                         (* ~(binding-count rbf)
                                            100 (.availableProcessors (Runtime/getRuntime))))))
                     ~@(when (:distinct (meta bf))
                         `[~chm (java.util.concurrent.ConcurrentHashMap.
-                                (count ~vectorvar) 0.75 (.availableProcessors (Runtime/getRuntime)))])
+                                (* ~(binding-count rbf) (count ~vectorvar))
+                                0.75 (.availableProcessors (Runtime/getRuntime)))])
                     combine!# ~(if (:distinct (meta bf))
                                  `(fn
                                     ([] ~chm)
