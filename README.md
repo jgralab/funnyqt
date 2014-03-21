@@ -136,6 +136,11 @@ The FunnyQT API docs generated for the current release are
   Tassilo Horn, [TTC 2013](http://planet-sl.org/ttc2013),
   http://dx.doi.org/10.4204/EPTCS.135.11
 
+- _Bidirectional Model Transformations With FunnyQT_, Tassilo Horn, rejected at
+  both BX'14 and ICMT'14, but I consider it to be my best paper so far anyway
+  (and the only one about FunnyQT bidirectional transformations),
+  http://userpages.uni-koblenz.de/~horn/mypapers/funnyqt-bidi2014.pdf
+
 # Getting FunnyQT
 
 There are two ways of getting FunnyQT.  When you want to use it for writing
