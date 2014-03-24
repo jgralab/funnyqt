@@ -124,12 +124,16 @@
                  (first created)
                  created)
         wl-vars (map first (partition 2 (:when-let rule-map)))
-        creation-form (when (seq created)
+        creation-form (if (seq created)
                         `(let ~(vec (concat (:let rule-map) create-vec))
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
                                   assoc ~arg-vec ~retval)
                            ~@(:body rule-map)
-                           ~retval))
+                           ~retval)
+                        `(let [ret# (do ~@(:body rule-map))]
+                           (swap! *trace* update-in [~(keyword (:name rule-map))]
+                                  assoc ~arg-vec ret#)
+                           ret#))
         wl-and-creation-form (if (:when-let rule-map)
                                `(let ~(vec (:when-let rule-map))
                                   (when (and ~@wl-vars)
@@ -238,7 +242,9 @@
   element in terms of the :to clause.  If the called rule's :to clause creates
   only one object, the result of a call is this object.  If its :to clause
   creates multiple objects, the result of a call is a vector of the created
-  objects in the order of their declaration in :to.
+  objects in the order of their declaration in :to.  The :to clause is optional,
+  though.  If omitted, the last expression in the rule's body is treated as its
+  return value.
 
   Disjunctive Rules
   =================
