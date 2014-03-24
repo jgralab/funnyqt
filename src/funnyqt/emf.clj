@@ -1287,7 +1287,7 @@
                                (all-epackages-in-resource ecore-model))
              (concat
               (no-nils
-               (for [^EClass ecl (eclassifiers)]
+               (for [^EClass ecl (eclasses)]
                  (do
                    (doseq [a (map #(keyword (.getName ^EAttribute %))
                                   (seq (.getEAttributes ecl)))]
