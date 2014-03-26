@@ -4,33 +4,6 @@
             [funnyqt.utils         :as u]
             [funnyqt.generic       :as g]))
 
-;;# Type Case
-
-(defmacro type-case
-  "Takes an element `elem` (a GraphElement or EObject) and a set of `clauses`.
-  Every clause is a pair of the form:
-
-    type-spec result-expr
-
-  The type-specs are tested one after the other, and if a type-spec matches the
-  type of `elem`, the return value of type-case is the result-expr paired with
-  the succeeding type-spec.
-
-  A single default-expr may follow the pairs.  If no type-spec matches, the
-  return value of type-case is the value of that default expression.  If there
-  is no default expression and no type-spec matches, an
-  IllegalArgumentException is thrown.
-
-  Example:
-
-    (type-case obj
-      'TypeA (do-a-stuff obj)
-      'TypeB (do-b-stuff obj)
-      (do-default-stuff obj))"
-  [elem & clauses]
-  `(condp (fn [t# e#] (g/has-type? e# t#)) ~elem
-     ~@clauses))
-
 ;;# Quantified Expressions
 
 (def ^{:doc "Returns logical true, iff `pred` holds forall elements in `coll`."
