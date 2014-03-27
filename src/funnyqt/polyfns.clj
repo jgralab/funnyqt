@@ -51,12 +51,11 @@ thrown."
   (let [meta-map (meta polyfn-var)
         spec-map (deref (::polyfn-spec-table meta-map))
         dispatch-map-atom (::polyfn-dispatch-table meta-map)]
-    (println "Rebuilding dispatch-table for polyfn" polyfn-var)
-    (time (let [dm (apply hash-map (mapcat (fn [c]
-                                             (when-let [pfn (find-polyfn-impl spec-map c)]
-                                               [c pfn]))
-                                           (g/mm-classes cls)))]
-            (swap! dispatch-map-atom (constantly dm))))))
+    (let [dm (apply hash-map (mapcat (fn [c]
+                                       (when-let [pfn (find-polyfn-impl spec-map c)]
+                                         [c pfn]))
+                                     (g/mm-classes cls)))]
+      (reset! dispatch-map-atom dm))))
 
 ;;# Polyfns
 
