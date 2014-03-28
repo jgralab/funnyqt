@@ -221,21 +221,28 @@ If the XML file has no DTD, you can influence the resolution by providing an
        (rest exps)))
     start))
 
-(defn ^:private eval-emf-fragment [g frag]
-  (let [r (if (tg/graph? g)
-            (q/the (tg/vseq g 'RootElement))
-            g)]
-    (eval-emf-fragment-1 r (next (str/split frag #"[/.\[\]]+")))))
+(defn ^:private get-root-element [g]
+  (let [roots (tg/vseq g 'RootElement)]
+    (when (fnext roots)
+      (binding [*out* *err*]
+        (println "There are multiple roots. Cannot resolve elements"
+                 "reliably! Assuming the first one is the right one."
+                 "Probably you parsed many XMI files? That won't work.")))
+    (first roots)))
+
+(defn ^:private eval-emf-fragment [r frag]
+  (eval-emf-fragment-1 r (next (str/split frag #"[/.\[\]]+"))))
 
 (defn ^:private resolve-emf-fragment-paths []
-  (let [r (q/the (tg/vseq *graph* 'RootElement))]
-    (doseq [a *emf-fragment-path-attrs*
-            :let [fe (tg/value a :value)]]
-      (doseq [exp (str/split fe #" ")]
-        (if-let [t (eval-emf-fragment r exp)]
-          (tg/create-edge! *graph* 'References a t)
-          (binding [*out* *err*]
-            (println (format "Couldn't resolve EMF Fragment Path '%s'." exp))))))))
+  (when (seq *emf-fragment-path-attrs*)
+    (let [r (get-root-element *graph*)]
+      (doseq [a *emf-fragment-path-attrs*
+              :let [fe (tg/value a :value)]]
+        (doseq [exp (str/split fe #" ")]
+          (if-let [t (eval-emf-fragment r exp)]
+            (tg/create-edge! *graph* 'References a t)
+            (binding [*out* *err*]
+              (println (format "Couldn't resolve EMF Fragment Path '%s'." exp)))))))))
 
 (defn ^:private handle-start-document [^StartDocument ev]
   nil)
