@@ -363,14 +363,23 @@ If the XML file has no DTD, you can influence the resolution by providing an
   `qualified-name`, \"person\" in the example), the current Element's qualified
   name (\"pid\", \"spouse\", or \"children\" in the example) and the text
   value.  It should return the type of the text as string: \"ID\", \"IDREF\",
-  \"IDREFS\", \"EMFFragmentPath\", or nil (meaning CDATA)."
+  \"IDREFS\", \"EMFFragmentPath\", or nil (meaning CDATA).
+
+  By default, this function returns a new XML TGraph.  However, you can also
+  provide a pre-existing `xml-graph` in which case new elements will be created
+  in that instead of a new graph.  That's convenient if you want to put the
+  contents of multiple XML files in one single graph.  Of course, then there
+  will also be multiple RootElements."
   ([f]
-     (xml2xml-graph f nil nil))
+     (xml2xml-graph f nil nil nil))
   ([f attr-type-fn]
-     (xml2xml-graph f attr-type-fn nil))
+     (xml2xml-graph f attr-type-fn nil nil))
   ([f attr-type-fn text-type-fn]
-     (binding [*graph* (tg/new-graph
-                        (tg/load-schema (io/resource "xml-schema.tg")) f)
+     (xml2xml-graph f attr-type-fn text-type-fn nil))
+  ([f attr-type-fn text-type-fn xml-graph]
+     (binding [*graph* (or xml-graph
+                           (tg/new-graph
+                            (tg/load-schema (io/resource "xml-schema.tg")) f))
                *stack*   nil
                *current* nil
                *id2elem* {}
