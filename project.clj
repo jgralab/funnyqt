@@ -25,7 +25,7 @@
   :resource-paths ["resources"]
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-Xmx1G"]
-  :license {:name "GNU General Public License, Version 3"
+  :license {:name "GNU General Public License, Version 3 (or later)"
             :url "http://www.gnu.org/licenses/gpl.html"
             :distribution :repo}
   :url "https://github.com/jgralab/funnyqt"
