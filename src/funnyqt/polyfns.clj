@@ -17,20 +17,25 @@ extends both TypeA and TypeB.  Furthermore, TypeD extends TypeC.  Lastly,
 there's a TypeE with no inheritance relationships.
 
   ;; Declare a polyfn
-  (declare-polyfn foo [elem]
+  (declare-polyfn foo [elem ...]
     ;; Optional default behavior
     (str \"Don't know how to handle \" elem))
 
   ;; Define implementations for several types
-  (defpolyfn foo 'TypeA [elem] ...)
-  (defpolyfn foo 'TypeB [elem] ...)
-  (defpolyfn foo 'TypeC [elem] ...)
+  (defpolyfn foo TypeA [elem ...] ...)
+  (defpolyfn foo TypeB [elem ...] ...)
+  (defpolyfn foo TypeC [elem ...] ...)
 
 Then, (foo objOfTypeA) invokes the first implementation, (foo objOfTypeB)
 invokes the second implementation, both (foo objOfTypeC) and (foo objOfTypeD)
 invoke the third implementation, and (foo objOfTypeE) invokes the default
 behavior.  If no optional default behavior is specified, an exception is
-thrown."
+thrown.
+
+An impl can also be defined for many types at once.  In that case, a list of
+types is provided:
+
+  (defpolyfn foo (TypeX TypeY TypeZ) [elem ...] ...)"
   (:require [clojure.tools.macro :as tm]
             [funnyqt.utils       :as u]
             [funnyqt.generic     :as g]))
@@ -92,31 +97,33 @@ thrown."
                                  (print-str ~type-var))]))))))))
 
 (defmacro defpolyfn
-  "Defines an implementation of the polyfn `name` for objects of type `type`.
+  "Defines an implementation of the polyfn `name` for objects of type `type`
+  or objects of `type1`, `type2`, etc.
   The polyfn has to be already declared using `declare-polyfn`.  `type` is a
   fully qualified type name that is used to check if the polyfn implementation
   is matching the type of `model-elem`.  The arity of the argument vector has
   to match the one of the corresponding `declare-polyfn`."
 
-  {:arglists '([name type [model-elem & more] & body])}
+  {:arglists '([name type [model-elem & more] & body]
+                 [name (type1 type2 ...) [model-elem & more] & body])}
   [name & more]
   (let [[name more]   (tm/name-with-attributes name more)
-        [type more]   [(first more) (next more)]
+        [types more]   [(first more) (next more)]
         [argvec body] [(first more) (next more)]]
+    (when-not (find (meta (resolve name)) ::polyfn-spec-table)
+      (u/errorf "#'%s is not declared as a polyfn." name))
     `(do
-       (when-not (find (meta #'~name) ::polyfn-spec-table)
-         (u/errorf "%s is not declared as a polyfn." #'~name))
-       (when-not (symbol? ~type)
-         (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
-                   ~type (class ~type)))
-       (let [^String n#    (clojure.core/name ~type)
-             spec-map#     (::polyfn-spec-table (meta #'~name))
-             dispatch-map# (::polyfn-dispatch-table (meta #'~name))]
-         (when (or (.startsWith n# "!")
-                   (.endsWith n# "!"))
-           (u/errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
-                     ~type))
-         ;; Update the specs
-         (swap! spec-map# assoc ~type (fn ~argvec ~@body))
-         ;; Reset the dispatch table
-         (swap! dispatch-map# (constantly nil))))))
+       ~@(for [type (if (seq? types) types [types])]
+           (let [^String n    (clojure.core/name type)]
+             (when-not (symbol? type)
+               (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
+                         type (class type)))
+             (when (or (.startsWith n "!")
+                       (.endsWith n "!"))
+               (u/errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
+                         type))
+             ;; Update the specs
+             `(swap! (::polyfn-spec-table (meta (var ~name)))
+                     assoc '~type (fn ~argvec ~@body))))
+       ;; Reset the dispatch table
+       (reset! (::polyfn-dispatch-table (meta (var ~name))) nil))))

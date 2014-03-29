@@ -11,24 +11,24 @@
 (declare-polyfn aec-name-with-default [elem]
                 "--undefined--")
 
-(defpolyfn aec-name-no-default 'junctions.Junction [elem]
+(defpolyfn aec-name-no-default junctions.Junction [elem]
   "Junction")
-(defpolyfn aec-name-with-default 'junctions.Junction [elem]
+(defpolyfn aec-name-with-default junctions.Junction [elem]
   "Junction")
 
-(defpolyfn aec-name-no-default 'localities.Locality [elem]
+(defpolyfn aec-name-no-default localities.Locality [elem]
   "Locality")
-(defpolyfn aec-name-with-default 'localities.Locality [elem]
+(defpolyfn aec-name-with-default localities.Locality [elem]
   "Locality")
 
-(defpolyfn aec-name-no-default 'localities.City [elem]
+(defpolyfn aec-name-no-default localities.City [elem]
   "City")
-(defpolyfn aec-name-with-default 'localities.City [elem]
+(defpolyfn aec-name-with-default localities.City [elem]
   "City")
 
-(defpolyfn aec-name-no-default 'connections.Connection [elem]
+(defpolyfn aec-name-no-default connections.Connection [elem]
   "Connection")
-(defpolyfn aec-name-with-default 'connections.Connection [elem]
+(defpolyfn aec-name-with-default connections.Connection [elem]
   "Connection")
 
 (try
@@ -45,10 +45,19 @@
       (println "Tie in polyfn impls successfully detected.")
       (u/errorf "Tie in polyfn impls for aec-name-with-default not detected!"))))
 
-(defpolyfn aec-name-no-default 'junctions.Airport [e]
+(defpolyfn aec-name-no-default junctions.Airport [e]
   "Airport")
-(defpolyfn aec-name-with-default 'junctions.Airport [e]
+(defpolyfn aec-name-with-default junctions.Airport [e]
   "Airport")
+
+(defpolyfn aec-name-no-default (localities.ContainsCrossroad
+                                localities.ContainsLocality
+                                localities.HasCapital) [e]
+  "NoConnEdge")
+(defpolyfn aec-name-with-default (localities.ContainsCrossroad
+                                  localities.ContainsLocality
+                                  localities.HasCapital) [e]
+  "NoConnEdge")
 
 (deftest test-polyfns-tg
   (doseq [x (tg/vseq rg '[:and Junction !Airport])]
@@ -75,5 +84,9 @@
     (is (thrown-with-msg? Exception
                           #"No polyfn implementation defined"
                           (aec-name-no-default x)))
-    (is (= "--undefined--" (aec-name-with-default x)))))
+    (is (= "--undefined--" (aec-name-with-default x))))
+
+  (doseq [conn (tg/eseq rg '!Connection)]
+    (is (= "NoConnEdge" (aec-name-no-default conn)))
+    (is (= "NoConnEdge" (aec-name-with-default conn)))))
 
