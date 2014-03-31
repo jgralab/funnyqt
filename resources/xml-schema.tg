@@ -12,7 +12,7 @@ VertexClass Text: Node, Referent {content: String};
 VertexClass Attribute: NamespacedElement, Referent {name: String, value: String};
 
 EdgeClass HasAttribute from Element (1,1) role element to Attribute (0,*) role attributes aggregation composite;
-EdgeClass References from Referent (0,*) role referents to Element (0,*) role refs;
+EdgeClass References from Referent (0,*) role referents to Element (0,*) role targets;
 
 abstract EdgeClass HasContent from Element (0,1) role parent to Node (0,*) role contents aggregation composite;
 EdgeClass HasChild: HasContent from Element (0,1) to Element (0,*) role children aggregation composite;
