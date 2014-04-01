@@ -338,6 +338,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
         XMLStreamConstants/START_ELEMENT  (handle-start-element ev)
         XMLStreamConstants/END_ELEMENT    (handle-end-element ev)
         XMLStreamConstants/CHARACTERS     (handle-characters ev)
+        XMLStreamConstants/DTD            nil
         (binding [*out* *err*]
           (println "Unhandled XMLEvent of type"
                    (xml-stream-constants-map (.getEventType ev))))))))
