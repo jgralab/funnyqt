@@ -76,7 +76,8 @@
   ;;  b 'B :in foo
   ;;  c 'C {:p1 "foo"}
   ;;  d 'D :in foo {:p1 "foo"}
-  ;;  e 'E {:p1 "foo"} :in foo]
+  ;;  e 'E {:p1 "foo"} :in foo
+  ;;  f (rule-call ...)]       ;; f is initialized by another rule
   (letfn [(model? [v]
             (or (when (= (get v 2) :in) 3)
                 (when (and (= (get v 3) :in)
@@ -98,7 +99,7 @@
                    ;;---
                    (and (not m) p)
                    (recur (subvec v 3)
-                          (conj r [(first v) (second v) (first outs) (nth v 2)]))
+                          (conj r [(first v) (second v) nil (nth v 2)]))
                    ;;---
                    (and m p)
                    (recur (subvec v 5)
@@ -106,10 +107,17 @@
                    ;;---
                    ;; no model and no props
                    :else (recur (subvec v 2)
-                                (conj r [(first v) (second v) (first outs) nil]))))
+                                (conj r [(first v) (second v) nil nil]))))
                 r))]
       (vec (mapcat (fn [[sym type model prop-map]]
-                     [sym `(p/create-element! ~model ~type ~prop-map)])
+                     [sym (if (and (seq? type) (= 'quote (first type)))
+                            ;; type is a type-spec
+                            `(p/create-element! ~(or model (first outs)) ~type ~prop-map)
+                            ;; type is an expression
+                            (if (or model prop-map)
+                              (u/errorf "%s is initialized by expression %s where no model and prop-map are supported: %s"
+                                        sym type [model prop-map])
+                              type))])
                    v)))))
 
 (defn ^:private disjunct-rules [rule-map]
@@ -191,10 +199,11 @@
       :from [a 'InClass, x]
       :when (some-predicate? a)
       :when-let [x (some-fn a)]
-      :let  [y (some-other-fn a x),
+      :let  [y (some-other-fn a x)
              z (some-other-fn2 a x y)]
-      :to [b 'OutClass,
-           c 'OutClass2]
+      :to [b 'OutClass
+           c 'OutClass2
+           d (a2d a)]
       (do-stuff-with a b c))
 
   :from declares the number and types of elements for which this rule is
@@ -213,26 +222,33 @@
   after :when-let has matched, that is, the vars bound by :when-let may be used
   in the :let expressions, but not the other way round.
   :to is a vector of output elements (paired with their types) that are to be
-  created.
+  created.  As can be seen with the last example element d, an element may also
+  be created by invoking another rule.
 
   If there are multiple output models, the :to spec may state in which model a
   given object has to be created, e.g.,
 
     :to [b 'OutClass  :in out1,
-         c 'OutClass2 :in out2]
+         c 'OutClass2 :in out2
+         d (a2d a)]
 
   If there are multiple output models but an element in :to doesn't specify the
   target model explicitly, the first output model in the transformation's
-  output model vector is used as a default.
+  output model vector is used as a default.  Output elements created by other
+  rules must not have an :in specification because that's the responsibility of
+  the called rule (a2d, in the case above).
 
   The :to vector may also specify values for the newly created element's
   properties (attributes and references).  Those a specified using a map.
 
     :to [b 'OutClass  {:name \"Some Name\", ...},
-         c 'OutClass2 {:name \"Other name\", :links b}]
+         c 'OutClass2 {:name \"Other name\", :links b}
+         d (a2d a)]
 
   If a target element specification contains both a property map and a :in
-  spec, they may occur in any order.
+  spec, they may occur in any order.  Like the :in spec, property maps are not
+  allowed for elements that are created by other rules such as the element d
+  above which is created by the rule a2d.
 
   Following these special keyword-clauses, arbitrary code may follow, e.g., to
   set attributes and references of the newly created objects by calling other
