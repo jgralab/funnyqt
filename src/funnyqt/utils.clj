@@ -158,10 +158,10 @@
   Example:
 
     user> (timing \"%s It took %T to eval %F to %R.\" (take 10 (iterate inc 0)) \";\")
-    ; It took 0.031708 msecs to eval (take 10 (iterate inc 0)) to (0 1 2 3 4 5 6 7 8 9).
+    ; It took 311.945 µs to eval (take 10 (iterate inc 0)) to (0 1 2 3 4 5 6 7 8 9).
     (0 1 2 3 4 5 6 7 8 9)"
   [fmt form & args]
-  (let [unit (second (re-matches #".*%T([^ ]*).*" fmt))]
+  (let [unit (second (re-matches #"(?s).*%T(nano|micro|milli|sec)?.*" fmt))]
     `(let [st# (System/nanoTime)
            result# ~form
            et# (- (System/nanoTime) st#)]
