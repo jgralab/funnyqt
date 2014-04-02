@@ -11,7 +11,7 @@
     (is (== 55  (vcount g 'Element)))
     (is (== 75  (vcount g 'Node)))
     (is (== 48  (vcount g 'Attribute)))
-    (is (== 20  (vcount g 'Text)))
+    (is (== 20  (vcount g 'CharContent)))
     (is (== 142 (ecount g)))
     (is (== 20 (ecount g 'References)))
     ;; Only the root element has no incoming HasContent edges
@@ -29,7 +29,7 @@
   (is (== 49  (vcount g 'Element)))
   (is (== 69  (vcount g 'Node)))
   (is (== 43  (vcount g 'Attribute)))
-  (is (== 20  (vcount g 'Text)))
+  (is (== 20  (vcount g 'CharContent)))
   (is (== 131 (ecount g)))
   (is (== 20 (ecount g 'References)))
   ;; Only the root element has no incoming HasContent edges
@@ -79,6 +79,6 @@
                              "parents"  "IDREFS")))]
     #_(show-graph g)
     (is (= 18 (vcount g 'Element)))
-    (is (= 12 (vcount g 'Text)))
+    (is (= 12 (vcount g 'CharContent)))
     (is (= 14 (ecount g 'References)))))
 

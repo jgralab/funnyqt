@@ -96,7 +96,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
      (filter-by-name qn (g/adjs e :children))))
 
 (defn siblings
-  "Returns the sibling Element vertices of Element or Text `e`.
+  "Returns the sibling Element vertices of Element or CharContent `e`.
   May be restricted to elements of the given type `qn`, , a qualified name (see
   `qualified-name`), an expanded (see `expanded-name`) or declared name (see
   `declared-name`), or a local name.
@@ -162,7 +162,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
 (def ^:dynamic ^:private *id2elem*) ;; map from ID to Element vertex
 
 ;; map from Referent vertex to a vector of referenced element IDs (an attr or
-;; Text can reference multiple elements in terms of a IDREFS attr name)
+;; CharContent can reference multiple elements in terms of a IDREFS attr name)
 (def ^:dynamic ^:private *referent2refed-ids*)
 ;; set of Attribute vertices whose value is an EMFFragmentPath expression that
 ;; has to be resolved after the graph has successfully been created
@@ -314,14 +314,14 @@ If the XML file has no DTD, you can influence the resolution by providing an
 (defn ^:private handle-characters [^Characters ev]
   (when-not (or (.isIgnorableWhiteSpace ev)
                 (.isWhiteSpace ev))
-    (let [txt (tg/create-vertex! *graph* 'Text)
+    (let [txt (tg/create-vertex! *graph* 'CharContent)
           data (.getData ev)
           parent (g/adj *current* :parent)
           t (if *text-type-fn*
               (*text-type-fn* (qualified-name parent) (qualified-name *current*) data)
               "CDATA")]
       (tg/set-value! txt :content data)
-      (tg/create-edge! *graph* 'HasText *current* txt)
+      (tg/create-edge! *graph* 'HasCharContent *current* txt)
       (when *text-type-fn*
         (handle-type-semantics t parent txt data)))))
 
@@ -431,15 +431,13 @@ If the XML file has no DTD, you can influence the resolution by providing an
                                (str "xmlns" (when p (str ":" p))
                                     "=\"" u "\""))
                              (seq (tg/value elem :declaredNamespaces))))]
-    (if (seq s)
-      (str " " s)
-      s)))
+    (if (seq s) (str " " s) s)))
 
 (defn ^:private emit-element [elem]
   (indent)
   (let [has-contents (seq (tg/iseq elem 'HasContent :out))
         contains-text-first (when-let [i (first (tg/iseq elem 'HasContent :out))]
-                              (g/has-type? i 'HasText))]
+                              (g/has-type? i 'HasCharContent))]
     (.write *writer* (format "<%s%s%s%s>%s"
                              (declared-name elem)
                              (namespaces-str elem)
@@ -450,7 +448,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
     (when has-contents
       (binding [*indent-level* (inc *indent-level*)]
         (doseq [c (g/adjs elem :contents)]
-          (if (g/has-type? c 'Text)
+          (if (g/has-type? c 'CharContent)
             (emit-text c)
             (emit-element c))))
       (when-not *last-node-was-text*
