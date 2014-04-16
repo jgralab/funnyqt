@@ -5,7 +5,6 @@
   (:use funnyqt.query)
   (:use funnyqt.utils)
   (:use funnyqt.in-place)
-  (:use funnyqt.query.emf)
   (:use clojure.test))
 
 (load-ecore-resource "test/input/MutualExclusion.ecore")

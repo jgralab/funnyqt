@@ -10,7 +10,7 @@
   excellent Marginalia tool."
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.cache "0.6.3"]
-                 [de.uni-koblenz.ist/jgralab "7.7.11"]
+                 [de.uni-koblenz.ist/jgralab "7.7.12"]
                  [org.clojure/core.logic "0.8.7"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]

@@ -2,7 +2,6 @@
   funnyqt.misc-tests.tree-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.query.tg)
   (:use [funnyqt.utils :only [timing]])
   (:use clojure.test))
 

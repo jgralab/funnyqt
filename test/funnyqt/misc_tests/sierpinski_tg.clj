@@ -2,7 +2,6 @@
   funnyqt.misc-tests.sierpinski-tg
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
-  (:use funnyqt.query.tg)
   (:use clojure.test))
 
 

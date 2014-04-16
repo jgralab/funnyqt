@@ -7,7 +7,6 @@
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.query :as q]
-            [funnyqt.query.tg :as qtg]
             [funnyqt.extensional.tg :as etg])
   (:import
    (java.util Arrays)

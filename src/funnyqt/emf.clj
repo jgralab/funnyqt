@@ -1116,6 +1116,71 @@
                   (if (instance? java.util.Collection a) a [a])))
       [this])))
 
+;;# Regular Path Descriptions
+
+(defn <>--
+  "Returns the (direct) contents of EObject`obj` restricted by the type
+  specification `ts` (see `funnyqt.generic/type-matcher` for details).  `obj`
+  may also be a collection of EObjects."
+  ([obj]
+     (into (os/ordered-set) (r/mapcat econtents (u/oset obj))))
+  ([obj ts]
+     (into (os/ordered-set) (r/mapcat #(econtents % ts) (u/oset obj)))))
+
+(defn --->
+  "Returns the EObjects cross-referenced by `obj` where the references may be
+  restricted by `rs`, a reference specification (see `eref-matcher` for
+  details).  `obj` may also be a collection of EObjects.  In EMF,
+  cross-referenced means referenced by a non-containment EReference."
+  ([obj]
+     (into (os/ordered-set) (r/mapcat ecrossrefs (u/oset obj))))
+  ([obj rs]
+     (into (os/ordered-set) (r/mapcat #(ecrossrefs % rs) (u/oset obj)))))
+
+(defn -->
+  "Returns the EObjects referenced by `obj` where the references may be
+  restricted by `rs`, a reference specification (see `eref-matcher` for
+  details).  `obj` may also be a collection of EObjects.  In contrast to
+  `--->`, this function includes both cross-references and containments."
+  ([obj]
+     (into (os/ordered-set) (r/mapcat erefs (u/oset obj))))
+  ([obj rs]
+     (into (os/ordered-set) (r/mapcat #(erefs % rs) (u/oset obj)))))
+
+(defn --<>
+  "Returns a seq containing `obj`s container.  If there's none,
+  returns the empty set."
+  [obj]
+  (into (os/ordered-set) (r/mapcat #(when-let [c (econtainer %)]
+                                      [c])
+                                   (u/oset obj))))
+
+(defn <---
+  "Returns all EObjects cross-referencing `obj` with a reference matching the
+  reference specification `rs` (see `eref-matcher` for details).  `obj` may also
+  be a collection of EObjects, in which case all objects cross-referencing any
+  of the objects in `obj` is returned.  In EMF, cross-referenced means
+  referenced by a non-containment EReference."
+  ([obj]
+     (into (os/ordered-set) (r/mapcat inv-ecrossrefs (u/oset obj))))
+  ([obj rs]
+     (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % rs) (u/oset obj))))
+  ([obj rs container]
+     (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % rs container) (u/oset obj)))))
+
+(defn <--
+  "Returns all EObjects referencing `obj` with a reference matching the
+  reference specification `rs` (see `eref-matcher` for details).  `obj` may also
+  be a collection of EObjects, in which case all objects referencing any of the
+  objects in `obj` is returned.  In contrast to `<---', this function includes
+  both cross-references and containments."
+  ([obj]
+     (into (os/ordered-set) (r/mapcat inv-erefs (u/oset obj))))
+  ([obj rs]
+     (into (os/ordered-set) (r/mapcat #(inv-erefs % rs) (u/oset obj))))
+  ([obj rs container]
+     (into (os/ordered-set) (r/mapcat #(inv-erefs % rs container) (u/oset obj)))))
+
 ;;# Describing EObjects and EClasses
 
 (extend-protocol g/IDescribable

@@ -1,9 +1,12 @@
 (ns funnyqt.tg-test
   (:use [flatland.ordered.set])
   (:use [funnyqt.tg])
-  (:require [funnyqt.generic :as g])
+  (:require [funnyqt.generic :as g]
+            [funnyqt.query   :as q]
+            [funnyqt.utils   :as u])
   (:use [clojure.test])
-  (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)))
+  (:import (de.uni_koblenz.jgralab Graph Vertex Edge GraphIO)
+           (de.uni_koblenz.jgralab.schema AttributedElementClass)))
 
 ;;* The test graphs
 
@@ -26,7 +29,7 @@
 (deftest test-average-inhabitants
   (let [locs (vseq rg 'localities.Locality)]
     (is (< 0.00000000000000000001 ;; epsilon
-           (- 91079.63636363637   ;; the GReQL computed val
+           (- 91079.63636363637   ;; q/the GReQL computed val
               (/ (reduce + (map #(value %1 :inhabitants)
                                 locs))))))))
 
@@ -52,10 +55,10 @@
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
-        ;; Also test the generic create function...
+        ;; Also test q/the generic create function...
         v4 (g/create-element! g 'junctions.Crossroad)
         e1 (create-edge! g 'localities.ContainsCrossroad v1 v2)
-        ;; Also test the generic adj setter function...
+        ;; Also test q/the generic adj setter function...
         e2 (g/add-adj! v3 :crossroads v4)
         e3 (g/create-relationship! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
@@ -87,7 +90,7 @@
             [l (value l 'name)])]
     ;; r must have 8 elems
     (is (= 8 (count r)))
-    ;; the elems are...
+    ;; q/the elems are...
     (is (= (map #(let [v (vertex rg %1)] [v (value v 'name)])
                 [1 2 3 4 7 9 10 11])
            r))))
@@ -220,7 +223,7 @@
     (is (= 2 (vcount g)))
     (is (= 1 (ecount g) (ecount g 'ContainsLocality)))))
 
-;;* Tests for the generated functional API
+;;* Tests for q/the generated functional API
 
 (generate-schema-functions "test/input/greqltestgraph.tg"
                            test.functional.routemap.tg
@@ -250,7 +253,7 @@
     (is (edge? hcr1))
     (is (g/has-type? hcr1 'ContainsCrossroad))
 
-    ;; both should return the city vertex
+    ;; both should return q/the city vertex
     (is (= city
            (set-value! city :name "Dernbach")
            (rg/set-name! city "Dernbach")))
@@ -284,3 +287,212 @@
            (.adjacences city "crossroads")
            (funnyqt.generic/adjs city :crossroads)
            (rg/->crossroads city)))))
+;;* More tests
+
+(deftest test-adjs
+  (is (q/member? (vertex rg 6)
+                 (g/adjs (vertex rg 12)
+                         :localities)))
+  (is (= 131 (count (g/adjs (vertex rg 12)
+                            :localities :crossroads))))
+  (is (q/member? (vertex rg 39)
+                 (g/adjs (vertex rg 12)
+                         :localities :crossroads))))
+
+(deftest test-avg-founding-year
+  (is (== 13480/11
+          ;; straight-forward
+          (let [years (map #(value (value %1 :foundingDate) :year)
+                           (vseq rg 'localities.Locality))]
+            (/ (reduce + years)
+               (count years))))))
+
+(deftest test-all-localities-with-o
+  (is (= 4 (count (filter #(re-matches #".*o.*" (value % :name))
+			  (vseq rg 'localities.Locality))))))
+
+(deftest test-all-capitals
+  (is (= 2 (count (map omega
+		       (eseq rg 'localities.HasCapital))))))
+
+(deftest test-type-matchers
+  (is (= (vseq rg ['junctions.Airport 'localities.City])
+         (vseq rg [:or 'junctions.Airport 'localities.City]))))
+
+(deftest test-tg-seqs-and-rseqs
+  (is (= (vseq rg) (reverse (rvseq rg))))
+  (is (= (eseq rg) (reverse (reseq rg))))
+  (is (= (iseq (first-vertex rg)) (reverse (riseq (first-vertex rg))))))
+
+;;* RPEs
+
+(deftest test--->
+  (mapv #(is (= %1 %2))
+        (let [m (map id (q/reachables (vertex rg 12) -->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's q/the order (by ids)
+        [7 6 3 4 1 2 10 11 5]))
+
+(deftest test-<--
+  (is (= 0 (count (q/reachables (vertex rg 12) <--)))))
+
+(deftest test-<->
+  (mapv #(is (= %1 %2))
+        (let [m (map id (q/reachables (vertex rg 12) <->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's q/the order (by ids)
+        [7 6 3 4 1 2 10 11 5]))
+
+(deftest test-reachable-vertices
+  (is (= 2 (count (q/reachables (vertex rg 1)
+                              [q/p-seq --<> [q/p-* [--> 'localities.HasCapital]]]))))
+  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-* -->]))
+	      (count (q/reachables (vertex jg 12) [q/p-* -->]))))
+  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-+ -->]))))
+  (is (= 6117 (count (q/reachables (vertex jg 12) [q/p-* <->]))))
+  (is (= 6117 (count (q/reachables (vertex jg 12) [q/p-+ <->]))))
+  (is (= 19 (count (q/reachables (vertex jg 12) [q/p-+ <>--]))))
+  (is (= 20 (count (q/reachables (vertex jg 12) [q/p-* <>--]))))
+  (is (= 22 (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] -->]))
+	    (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] -->]))))
+  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] [q/p-+ -->]]))))
+  (is (= 2337 (count (q/reachables (vertex jg 12) [q/p-+ [q/p-seq <>-- -->]]))))
+  (is (= 6 (count (q/reachables (vertex jg 12)
+                                [q/p-seq
+                                 [q/p-+ [q/p-seq <>-- -->]]
+                                 [q/p-restr  'annotations.Annotable]]))))
+  (is (= 3280 (count (q/reachables (vertex jg 12)
+                                 [q/p-seq [q/p-opt --<>]
+                                  [q/p-+ [q/p-seq <>-- -->]]
+                                  [q/p-opt <--]]))))
+  (is (= 6 (count (q/reachables (vertex jg 12) [q/p-alt <>-- --<>])))))
+
+(deftest test-p-exp
+  (is (= (q/reachables (vertex jg 12) [q/p-seq --> --> -->])
+	 (q/reachables (vertex jg 12) [q/p-exp 3 -->])))
+  (is (= (q/reachables (vertex jg 12) -->)
+	 (q/reachables (vertex jg 12) [q/p-exp 1 -->])))
+  (is (= (u/oset (vertex jg 12))
+	 (q/reachables (vertex jg 12) [q/p-exp 0 -->])))
+  (is (= (q/reachables (vertex jg 12) [q/p-seq --> --> --> [q/p-opt -->] [q/p-opt -->] [q/p-opt -->]])
+         (q/reachables (vertex jg 12) [q/p-exp 3 6 -->])))
+  (is (= (q/reachables (vertex jg 12) [q/p-seq [q/p-opt -->] [q/p-opt -->] [q/p-opt -->]])
+         (q/reachables (vertex jg 12) [q/p-exp 0 3 -->]))))
+
+(deftest test-p-+*
+  (is (= (q/reachables (vertex jg 1) [q/p-+ <->])
+         (q/reachables (vertex jg 1) [q/p-seq <-> [q/p-* <->]])))
+  (is (contains? (q/reachables (vertex jg 1) [q/p-* <*>--])
+                 (vertex jg 1)))
+  (is (not (contains? (q/reachables (vertex jg 1) [q/p-+ <*>--])
+                      (vertex jg 1)))))
+
+(deftest test-p-+*2
+  (doseq [p [[q/p-seq <-> <->]
+             <>--
+             <*>--
+             <_>--
+             [q/p-alt [q/p-seq --> -->]
+                    [q/p-seq <-- <--]]]]
+    (doseq [vid [1 20 117 3038]]
+      (is (= (q/reachables (vertex jg vid) [q/p-+ p])
+             (q/reachables (vertex jg vid) [q/p-seq p [q/p-* p]])))
+      (is (= (q/reachables (vertex jg vid) [q/p-* p])
+             (q/reachables (vertex jg vid) [q/p-opt [q/p-+ p]]))))))
+
+(deftest test-derived-from-state
+  (let [start (q/the (filter #(= (value %1 :name) "State")
+                             (vseq jg 'classifiers.Class)))]
+    ;; test with only restrictions on the edge class types
+    (is (= 11
+	   (count
+	    (q/reachables
+	     start
+	     [q/p-seq
+	      [q/p-+
+	       [q/p-seq
+		[<-- 'types.ClassifierReferenceLinksToTarget]
+		[--<> 'types.NamespaceClassifierReferenceContainsClassifierReferences]
+		[--<> 'classifiers.ClassContainsExtends]]]
+	      [q/p-restr 'classifiers.Class
+	       (fn [v]
+		 (empty? (filter
+			  #(g/has-type? %1 'modifiers.Abstract)
+			  (g/adjs v :annotationsAndModifiers))))]]))))))
+
+(defn coupled-classes
+  "Given a Class `c`, calculates all coupled classes."
+  [c]
+  (q/reachables c
+    [q/p-seq [<>-- 'IsClassBlockOf] [<>-- 'IsMemberOf]
+     [<-- ['IsBodyOfMethod 'IsFieldCreationOf]]
+     [q/p-* [<-- 'IsStatementOf]]
+     [q/p-alt
+      ;; Classes whose methods are called by c
+      [<-- 'IsDeclarationOfInvokedMethod]
+      ;; Classes whose Fields are accessed by c
+      [q/p-seq [<-- 'IsDeclarationOfAccessedField] [--> 'IsFieldCreationOf]]]
+     [--<> 'IsMemberOf] [--<> 'IsClassBlockOf]
+     [q/p-restr nil #(not (= c %1))]]))
+
+(defn coupling-between-objects [c]
+  (count (coupled-classes c)))
+
+;;** Evaluate a simple binary tree
+
+(defn bin-tree []
+  (let [g (new-graph
+           (load-schema
+            "test/input/binop-tree-schema.tg" :standard)
+           "ExampleBinaryGraph" :standard)
+        v1 (create-vertex! g 'Div)
+        v2 (create-vertex! g 'Add)
+        v3 (create-vertex! g 'Sub)
+        v4 (create-vertex! g 'Mul)
+        v5 (doto (create-vertex! g 'Const) (set-value! :value 3.0))
+        v6 (doto (create-vertex! g 'Const) (set-value! :value 42.0))
+        v7 (doto (create-vertex! g 'Const) (set-value! :value 2.0))
+        v8 (doto (create-vertex! g 'Const) (set-value! :value 7.0))
+        v9 (doto (create-vertex! g 'Const) (set-value! :value 9.0))]
+    (doseq [[a o] [[v1 v2] [v1 v3] [v2 v4] [v2 v5] [v3 v6] [v3 v7]
+                   [v4 v8] [v4 v9]]]
+      (create-edge! g 'HasArg a o))
+    g))
+
+(defn eval-bin-tree [v]
+  (let [eval-args #(map eval-bin-tree
+                        (--> % 'HasArg))]
+    (cond
+     (g/has-type? v 'Const) (value v :value)
+     (g/has-type? v 'Add)   (reduce + (eval-args v))
+     (g/has-type? v 'Sub)   (reduce - (eval-args v))
+     (g/has-type? v 'Mul)   (reduce * (eval-args v))
+     (g/has-type? v 'Div)   (reduce / (eval-args v)))))
+
+(defprotocol BinTreeEval (eval-exp [this]))
+
+(defn ^:private schema-class [g qn]
+  (.getSchemaClass
+   ^AttributedElementClass (attributed-element-class g qn)))
+
+(let [g (bin-tree)
+      eval-args #(map eval-exp (--> % 'HasArg))]
+  (extend-type (schema-class g 'Const) BinTreeEval
+    (eval-exp [c] (value c :value)))
+  (extend-type (schema-class g 'Add)   BinTreeEval
+    (eval-exp [b] (reduce + (eval-args b))))
+  (extend-type (schema-class g 'Sub)   BinTreeEval
+    (eval-exp [b] (reduce - (eval-args b))))
+  (extend-type (schema-class g 'Mul)   BinTreeEval
+    (eval-exp [b] (reduce * (eval-args b))))
+  (extend-type (schema-class g 'Div)   BinTreeEval
+    (eval-exp [b] (reduce / (eval-args b)))))
+
+(deftest test-bin-tree-eval
+  (is (== 1.65
+          (eval-bin-tree (vertex (bin-tree) 1))
+          (eval-exp (vertex (bin-tree) 1)))))

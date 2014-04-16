@@ -1,7 +1,6 @@
 (ns funnyqt.extensional.emf-test
   (:use funnyqt.emf)
   (:use funnyqt.query)
-  (:use funnyqt.query.emf)
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.emf)
   (:use funnyqt.generic)

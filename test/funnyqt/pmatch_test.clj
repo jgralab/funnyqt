@@ -2,9 +2,7 @@
   (:use funnyqt.pmatch)
   (:use funnyqt.generic)
   (:require [funnyqt.tg        :as tg]
-            [funnyqt.query.tg  :as tgq]
-            [funnyqt.emf       :as emf]
-            [funnyqt.query.emf :as emfq])
+            [funnyqt.emf       :as emf])
   (:use funnyqt.query)
   (:use clojure.test))
 

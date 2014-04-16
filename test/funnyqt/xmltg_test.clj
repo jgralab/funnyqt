@@ -1,6 +1,5 @@
 (ns funnyqt.xmltg-test
   (:use funnyqt.tg)
-  (:use funnyqt.query.tg)
   (:use funnyqt.xmltg)
   (:use clojure.test))
 

@@ -1,9 +1,7 @@
 (ns funnyqt.extensional.tg-test
   (:use funnyqt.tg)
   (:require [funnyqt.emf       :as emf]
-            [funnyqt.query.emf :as emfq]
             [funnyqt.generic   :as g])
-  (:use funnyqt.query.tg)
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.query)
@@ -51,7 +49,7 @@
 (defn parents-of
   "Returns the set of parent members of m."
   [m]
-  (emfq/reachables
+  (reachables
    m [p-seq
       [p-alt :familySon :familyDaughter]
       [p-alt :father :mother]]))

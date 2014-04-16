@@ -1,6 +1,5 @@
 (ns funnyqt.model2model-test
   (:require [funnyqt.emf :as emf])
-  (:require [funnyqt.query.emf :as emfq])
   (:require [funnyqt.visualization :as viz])
   (:require [funnyqt.generic :as g])
   (:use funnyqt.tg)
@@ -25,7 +24,7 @@
 (defn parents-of
   "Returns the set of parent members of m."
   [m]
-  (emfq/reachables
+  (reachables
    m [p-seq
       [p-alt :familySon :familyDaughter]
       [p-alt :father :mother]]))
@@ -33,7 +32,7 @@
 (defn wife
   "Returns the wife member of member m."
   [m]
-  (when-let [w (seq (emfq/reachables
+  (when-let [w (seq (reachables
                      m [p-seq :familyFather :mother]))]
     (the w)))
 

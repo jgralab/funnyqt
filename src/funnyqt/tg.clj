@@ -39,6 +39,7 @@ functions `record` and `enum`."
   (:require [clojure.core.cache         :as cache]
             [clojure.core.reducers      :as r]
             [clojure.string             :as str]
+            [flatland.ordered.set       :as os]
             [funnyqt.query              :as q]
             [funnyqt.generic            :as g]
             [funnyqt.internal           :as i]
@@ -1419,6 +1420,155 @@ functions `record` and `enum`."
       (u/type-spec? pred) (esubgraph-tc g (g/type-matcher g pred) precalc)
       (coll? pred)        (esubgraph-tc g #(q/member? % pred) precalc)
       :default            (u/error (str "Don't know how to handle predicate " pred)))))
+
+;;# Regular Path Expression Functions
+
+(defn ^:private ---
+  "Returns the vertices reachable from `v` via incidences with direction `dir`
+  and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
+  [v dir this-aks that-aks ts pred]
+  (let [vs (u/oset v)]
+    (if (seq vs)
+      (let [complete-pred (every-pred
+                           (or pred identity)
+                           (if (seq this-aks)
+                             #(q/member? (.getThisAggregationKind ^Edge %) this-aks)
+                             identity)
+                           (if (seq that-aks)
+                             #(q/member? (.getThatAggregationKind ^Edge %) that-aks)
+                             identity))
+            tm (g/type-matcher (first vs) ts)
+            dm (direction-matcher dir)]
+        (into (os/ordered-set)
+              (r/mapcat (fn [sv]
+                          (r/map that
+                                 (r/filter complete-pred
+                                           (iseq-internal sv tm dm))))
+                        vs)))
+      (os/ordered-set))))
+
+(defn -->
+  "Returns the vertices reachable from `v` via outgoing incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
+  ([v]
+     (--> v nil nil))
+  ([v ts]
+     (--> v ts nil))
+  ([v ts pred]
+     (--- v :out nil nil ts pred)))
+
+(defn <--
+  "Returns the vertices reachable from `v` via incoming incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
+  ([v]
+     (<-- v nil nil))
+  ([v ts]
+     (<-- v ts nil))
+  ([v ts pred]
+     (--- v :in nil nil ts pred)))
+
+(defn <->
+  "Returns the vertices reachable from `v` via all incidences,
+  optionally restricted by `ts` and `pred` (on the edges)."
+  ([v]
+     (<-> v nil nil))
+  ([v ts]
+     (<-> v ts nil))
+  ([v ts pred]
+     (--- v :inout nil nil ts pred)))
+
+(defn --->
+  "Returns the vertices reachable from `v` via outgoing incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
+  `-->`, traversal of edges with aggregation semantics is forbidden."
+  ([v]
+     (---> v nil nil))
+  ([v ts]
+     (---> v ts nil))
+  ([v ts pred]
+     (--- v :out [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
+
+(defn <---
+  "Returns the vertices reachable from `v` via incoming incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
+  `<--', traversal of edges with aggregation semantics is forbidden."
+  ([v]
+     (<--- v nil nil))
+  ([v ts]
+     (<--- v ts nil))
+  ([v ts pred]
+     (--- v :in [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
+
+(defn <-->
+  "Returns the vertices reachable from `v` via all incidences,
+  optionally restricted by `ts` and `pred` (on the edges).  In contrast to
+  `<->', traversal of edges with aggregation semantics is forbidden."
+  ([v]
+     (<--> v nil nil))
+  ([v ts]
+     (<--> v ts nil))
+  ([v ts pred]
+     (--- v :inout [AggregationKind/NONE] [AggregationKind/NONE] ts pred)))
+
+(defn <>--
+  "Aggregation path expression starting at whole `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
+  ([v]
+     (<>-- v nil nil))
+  ([v ts]
+     (<>-- v ts nil))
+  ([v ts pred]
+     (--- v :inout nil [AggregationKind/SHARED AggregationKind/COMPOSITE] ts pred)))
+
+(defn --<>
+  "Aggregation path expression starting at part `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
+  ([v]
+     (--<> v nil nil))
+  ([v ts]
+     (--<> v ts nil))
+  ([v ts pred]
+     (--- v :inout [AggregationKind/SHARED AggregationKind/COMPOSITE] nil ts pred)))
+
+(defn <_>--
+  "Aggregation-only path expression starting at whole `v`, optionally
+  restricted by `ts` and `pred` (on the edges)."
+  ([v]
+     (<_>-- v nil nil))
+  ([v ts]
+     (<_>-- v ts nil))
+  ([v ts pred]
+     (--- v :inout nil [AggregationKind/SHARED] ts pred)))
+
+(defn --<_>
+  "Aggregation-only path expression starting at part `v`, optionally restricted
+  by `ts` and `pred` (on the edges)."
+  ([v]
+     (--<_> v nil nil))
+  ([v ts]
+     (--<_> v ts nil))
+  ([v ts pred]
+     (--- v :inout [AggregationKind/SHARED] nil ts pred)))
+
+(defn <*>--
+  "Composition path expression starting at whole `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
+  ([v]
+     (<*>-- v nil nil))
+  ([v ts]
+     (<*>-- v ts nil))
+  ([v ts pred]
+     (--- v :inout nil [AggregationKind/COMPOSITE] ts pred)))
+
+(defn --<*>
+  "Composition path expression starting at part `v`, optionally restricted by
+  `ts` and `pred` (on the edges)."
+  ([v]
+     (--<*> v nil nil))
+  ([v ts]
+     (--<*> v ts nil))
+  ([v ts pred]
+     (--- v :inout [AggregationKind/COMPOSITE] nil ts pred)))
 
 ;;# Describe Schema and Graph Elements
 

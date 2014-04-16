@@ -19,7 +19,6 @@ If the XML file has no DTD, you can influence the resolution by providing an
             [funnyqt.utils    :as u]
             [funnyqt.generic  :as g]
             [funnyqt.tg       :as tg]
-            [funnyqt.query.tg :as qtg]
             [funnyqt.query    :as q])
   (:import
    (javax.xml.stream XMLInputFactory XMLEventReader XMLStreamConstants)

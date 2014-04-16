@@ -1,10 +1,9 @@
 (ns funnyqt.emf-test
   (:use funnyqt.emf)
-  (:use funnyqt.query)
-  (:use funnyqt.generic)
-  (:use flatland.ordered.set)
-  (:use flatland.ordered.map)
   (:use clojure.test)
+  (:require [funnyqt.utils   :as u]
+            [funnyqt.generic :as g]
+            [funnyqt.query   :as q])
   (:import
    [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
    [org.eclipse.emf.common.util URI EList]
@@ -64,7 +63,7 @@
     (is (== 13 (count mems)))
     ;; The FamilyModel is the container of all Members and Families.
     (doseq [x (concat mems fams)]
-      (is (= (the fmods) (econtainer x))))
+      (is (= (q/the fmods) (econtainer x))))
     ;; In this concrete case, this is true
     (is (= (eallcontents family-model '!FamilyModel)
            (econtents (econtents family-model))))
@@ -166,7 +165,7 @@
   (is (==  3 (count (eallpairs family-model :model nil nil 'Family)))))
 
 (deftest test-eget
-  (let [fm (the (econtents family-model))
+  (let [fm (q/the (econtents family-model))
         fsmith (first (econtents fm 'Family))]
     (is (= (econtents fm)
            (concat (eget fm :families)
@@ -177,7 +176,7 @@
            (eget fm :members)))))
 
 (deftest test-erefs-and-ecrossrefs
-  (let [fm (the (econtents family-model))
+  (let [fm (q/the (econtents family-model))
         fsmith (first (econtents fm 'Family))]
     (are [x] (= (eget fm x) (erefs fm x))
          :families
@@ -206,7 +205,7 @@
   members.  The references (father, mother, sons, daughters) are set randomly."
   [fnum mnum]
   (let [m (new-resource) ;; Also test the generic creation function...
-        fm (create-element! m 'FamilyModel)
+        fm (g/create-element! m 'FamilyModel)
         make-family (fn [i]
                       (ecreate! nil 'Family
                                 :lastName (str "Family" i)
@@ -244,7 +243,7 @@
             (eset! fam :mother    (random-free-member mems :familyMother))
             (eset! fam :sons      (random-members mems))
             ;; Also try the generic version...
-            (set-adjs! fam :daughters (random-members mems))
+            (g/set-adjs! fam :daughters (random-members mems))
             (recur (rest fams) (conj r fam))))))
     m))
 
@@ -257,9 +256,9 @@
          1000 'Member
          1100 '[Family Member])
     ;; Every family has its father/mother refs set
-    (is (forall? (fn [f]
-                   (and (eget f :father)
-                        (eget f :mother)))
+    (is (q/forall? (fn [f]
+                     (and (eget f :father)
+                          (eget f :mother)))
                  (eallobjects m 'Family)))))
 
 (deftest test-eget-raw
@@ -298,11 +297,11 @@
 (deftest test-create-element!
   (let [fm (new-resource)
         root (ecreate! fm 'FamilyModel)
-        f    (create-element! fm 'Family {:lastName "Doe"
-                                          :model root})
-        m    (create-element! fm 'Member {:firstName "John"
-                                          :model root
-                                          :familyFather f})]
+        f    (g/create-element! fm 'Family {:lastName "Doe"
+                                            :model root})
+        m    (g/create-element! fm 'Member {:firstName "John"
+                                            :model root
+                                            :familyFather f})]
     (is (= 3 (count (eallobjects fm))))
     (is (= 1
            (count (eallobjects fm 'FamilyModel))
@@ -441,3 +440,135 @@
          (funnyqt.generic/enum-constant nil 'AgeGroup.CHILD)))
   (is (= (eenum-literal 'AgeGroup.ADULT)
          (funnyqt.generic/enum-constant nil 'AgeGroup.ADULT))))
+
+(deftest test-basic
+  (let [fm (q/the (econtents family-model))]
+    (are [x y n] (let [ox (u/oset x)]
+                   (and (= ox y) (== n (count ox))))
+         (erefs fm) (q/reachables fm -->) 16
+         (ecrossrefs fm) (q/reachables fm --->) 0
+         (erefs fm :members) (q/reachables fm :members) 13
+         (erefs fm :families) (q/reachables fm :families) 3
+         (erefs fm [:members :families]) (q/reachables fm [q/p-alt :members :families]) 16
+         (eallobjects family-model) (q/reachables fm [q/p-* -->]) 17)))
+
+(deftest test-adj
+  (is (every? #(= %
+                  (g/adj % :father :familyFather)
+                  (g/adj % :mother :familyMother)
+                  (q/the (g/adjs % :father :familyFather))
+                  (q/the (g/adjs % :mother :familyMother))
+                  (eget (eget % :father) :familyFather)
+                  (eget (eget % :mother) :familyMother))
+              (eallobjects family-model 'Family)))
+  ;; Multivalued refs should throw
+  (is (thrown? Exception (g/adj (first (econtents family-model)) :members))))
+
+(defn get-member
+  [first-name]
+  (q/the (filter #(= (eget % :firstName) first-name)
+                 (eallcontents family-model 'Member))))
+
+(defn get-family
+  [street]
+  (q/the (filter #(= (eget % :street) street)
+                 (eallcontents family-model 'Family))))
+
+(deftest test--<>
+  (let [fm (q/the (econtents family-model))
+        diana (get-member "Diana")]
+    (is (= #{fm} (q/reachables diana --<>)))
+    (is (= #{}   (q/reachables fm --<>)))))
+
+(deftest test<---
+  (let [fm (q/the (econtents family-model))
+        diana (get-member "Diana")
+        dennis (get-member "Dennis")]
+    (is (= #{(get-family "Smithway 17")} (q/reachables diana <---)))
+    (is (= #{(get-family "Smithway 17")
+             (get-family "Smith Avenue 4")}
+           (q/reachables dennis <---)))
+    ;; Using the opposite ref
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [---> :familyFather])
+           (q/reachables dennis [<--- :father])))
+    ;; Using search
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [---> :familyFather])
+           (q/reachables dennis [<--- :father (econtents fm)])))
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [---> :familyFather])
+           (q/reachables dennis [<--- :father family-model])))
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [---> :familyFather])
+           (q/reachables dennis [<--- :father (eallobjects family-model 'Family)])))
+    (is (= #{(get-family "Smithway 17")
+             (get-family "Smith Avenue 4")}
+           (q/reachables dennis [---> [:familyFather :familySon]])
+           (q/reachables dennis [<--- [:father :sons]])))))
+
+(deftest test<--
+  (let [fm (q/the (econtents family-model))
+        diana (get-member "Diana")
+        dennis (get-member "Dennis")]
+    (is (= #{fm (get-family "Smithway 17")} (q/reachables diana <--)))
+    (is (= #{fm} (q/reachables diana [<-- :members])))
+    (is (= #{fm
+             (get-family "Smithway 17")
+             (get-family "Smith Avenue 4")}
+           (q/reachables dennis <--)))
+    ;; Using the opposite ref
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [--> :familyFather])
+           (q/reachables dennis [<-- :father])))
+    ;; Using search
+    (is (= #{(get-family "Smithway 17")}
+           (q/reachables dennis [--> :familyFather])
+           (q/reachables dennis [<-- :father (econtents fm)])))
+    (is (= #{(get-family "Smithway 17")
+             (get-family "Smith Avenue 4")}
+           (q/reachables dennis [--> [:familyFather :familySon]])
+           (q/reachables dennis [<-- [:father :sons]])))
+    (is (= #{fm
+             (get-family "Smithway 17")
+             (get-family "Smith Avenue 4")}
+           (q/reachables dennis [--> [:model :familyFather :familySon]])
+           (q/reachables dennis [<-- [:members :father :sons]])))))
+
+(defn ^:private parents
+  [m]
+  (q/reachables m [q/p-seq
+                   [q/p-alt :familySon :familyDaughter]
+                   [q/p-alt :father :mother]]))
+
+(defn ^:private aunts-or-uncles
+  [m r]
+  (let [ps (parents m)]
+    (q/reachables ps [q/p-seq
+                      [q/p-alt :familySon :familyDaughter]
+                      r
+                      [q/p-restr nil #(not (q/member? % ps))]])))
+
+(defn ^:private aunts
+  [m]
+  (aunts-or-uncles m :daughters))
+
+(defn ^:private uncles
+  [m]
+  (aunts-or-uncles m :sons))
+
+(deftest test-relationships
+  (let [diana (get-member "Diana")
+        ps (parents diana)
+        us (uncles diana)
+        as (aunts diana)]
+    (is (== 2 (count ps)))
+    (is (= #{"Debby" "Dennis"}
+           (into #{} (map #(eget % :firstName) ps))))
+    (is (== 2 (count us)))
+    (is (= #{"Stu" "Sven"}
+           (into #{} (map #(eget % :firstName) us))))
+    (is (== 3 (count as)))
+    (is (= #{"Stella" "Carol" "Conzuela"}
+           (into #{} (map #(eget % :firstName) as))))))
+

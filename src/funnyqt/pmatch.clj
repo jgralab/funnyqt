@@ -8,9 +8,7 @@
             [funnyqt.utils       :as u]
             [funnyqt.tg          :as tg]
             [funnyqt.query       :as q]
-            [funnyqt.query.tg    :as tgq]
-            [funnyqt.emf         :as emf]
-            [funnyqt.query.emf   :as emfq]))
+            [funnyqt.emf         :as emf]))
 
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
@@ -131,7 +129,7 @@
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
-          reachables #(tgq/reachables % [q/p-* tgq/<->])]
+          reachables #(q/reachables % [q/p-* tg/<->])]
       (loop [disc (filter #(g/has-type? % 'PatternVertex)
                           (clojure.set/difference vset (reachables a)))]
         (when (seq disc)

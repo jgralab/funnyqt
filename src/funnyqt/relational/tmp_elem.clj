@@ -385,7 +385,7 @@
     (if (and ok (seq rs))
       (let [[r ts] (first rs)]
         (if (ref-selector-fn type r)
-          (recur (rest rs) (funnyqt.query/forall? #(predicate r %) ts))
+          (recur (rest rs) (q/forall? #(predicate r %) ts))
           (recur (rest rs) ok)))
       ok)))
 
