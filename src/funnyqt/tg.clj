@@ -131,6 +131,11 @@ functions `record` and `enum`."
              (.invoke im nil (to-array []))))
          s))))
 
+(defn save-schema
+  "Saves schema `s` to `file`."
+  [^Schema g ^String file]
+  (GraphIO/saveSchemaToFile g file))
+
 (defn load-graph
   "Loads a graph from `file` using ImplementationType `impl`,
   defauling to :generic.  The schema will be compiled automagically if needed.
@@ -146,7 +151,7 @@ functions `record` and `enum`."
        (GraphIO/loadGraphFromFile filename impl pg))))
 
 (defn save-graph
-  "Saves `g` to `file`."
+  "Saves graph `g` to `file`."
   [^Graph g ^String file]
   (GraphIO/saveGraphToFile g file (ConsoleProgressFunction. "Saving")))
 
