@@ -68,16 +68,16 @@ functions `record` and `enum`."
 
 ;;# Caches
 
-(def type-matcher-cache
+(def ^:private +type-matcher-cache+
   "A cache from type-specs to type-matchers."
   (cache/soft-cache-factory (hash-map)))
 
 (defn reset-all-tg-caches
-  "Resets all EMF specific caches:
+  "Resets all TG specific caches:
 
-    1. the type-matcher-cache"
+    1. the +type-matcher-cache+"
   []
-  (alter-var-root #'type-matcher-cache
+  (alter-var-root #'+type-matcher-cache+
                   (constantly (cache/soft-cache-factory (hash-map)))))
 
 
@@ -470,10 +470,10 @@ functions `record` and `enum`."
   (let [^Schema s (schema g)
         gh (hash g)]
     (if (.isFinished s)
-      (if-let [tm (cache/lookup type-matcher-cache [s gh ts])]
-        (do (cache/hit type-matcher-cache [s gh ts]) tm)
+      (if-let [tm (cache/lookup +type-matcher-cache+ [s gh ts])]
+        (do (cache/hit +type-matcher-cache+ [s gh ts]) tm)
         (let [tm (type-matcher-tg-1 g ts)]
-          (cache/miss type-matcher-cache [s gh ts] tm)
+          (cache/miss +type-matcher-cache+ [s gh ts] tm)
           tm))
       (type-matcher-tg-1 g ts))))
 
@@ -528,12 +528,13 @@ functions `record` and `enum`."
     Graph        (.getId ^Graph elem)))
 
 (defn vertex
-  "Returns `g`s vertex with the given ID."
+  "Returns `g`s vertex with the given `id`."
   [^Graph g id]
   (.getVertex g id))
 
 (defn edge
-  "Returns `g`s edge with the given ID."
+  "Returns `g`s edge with the given `id`.
+  If `id` is negative, returns the reversed edge whose ID equals (abs id)."
   [^Graph g id]
   (.getEdge g id))
 
