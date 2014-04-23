@@ -675,23 +675,22 @@ functions `record` and `enum`."
          (recur (.getPrevEdge n))))))
 
 (defn direction-matcher
-  "Returns a matcher function that accepts edges of direction `dir`.
-  `dir` may be an EdgeDirection enum literal or one of the keywords :in, :out,
-  or :inout.
-  If `dir` is nil, then any direction is allowed (aka :inout)."
-  [dir]
-  ;; case does a constant time dispatch, so only use cond if the dir was not
+  "Returns a matcher function that accepts edges of direction `ds`.
+  `ds` may be an EdgeDirection enum literal or one of the keywords :in, :out,
+  or :inout.  If `ds` is nil, then any direction is allowed (aka :inout)."
+  [ds]
+  ;; case does a constant time dispatch, so only use cond if the ds was not
   ;; given as keyword (or is nil).
-  (case dir
+  (case ds
     :out           normal-edge?
     :in            (complement normal-edge?)
     (:inout nil)   identity
     ;; too bad, not nil and not keyword...
     (cond
-     (= dir EdgeDirection/OUT)   normal-edge?
-     (= dir EdgeDirection/IN)    (complement normal-edge?)
-     (= dir EdgeDirection/INOUT) identity
-     :default (u/errorf "Unknown direction %s" dir))))
+     (= ds EdgeDirection/OUT)   normal-edge?
+     (= ds EdgeDirection/IN)    (complement normal-edge?)
+     (= ds EdgeDirection/INOUT) identity
+     :default (u/errorf "Unknown direction %s" ds))))
 
 (defn first-inc
   "Returns the first incidence in iseq of `v`.
@@ -1010,28 +1009,32 @@ functions `record` and `enum`."
               (and f (cons f (riseq-internal-1 f pred)))))))
 
 (defn iseq
-  "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
-  `v` may be a vertex or an edge.  In the latter case, returns all incidences
-  following `v` in the current vertex's incidence sequence.
-  `dir` may be :in, :out, or :inout (the default when omitted)."
+  "Returns the lazy seq of incidences of `v` restricted by `ts` and `ds`.
+  `v` may be a vertex or an edge.  In the latter case, returns all
+  incidences following `v` in the current vertex's incidence sequence.
+  `ts` is a type specification (see `funnyqt.generic/type-matcher`) and
+  `ds` is a direction specification (see
+  `funnyqt.tg/direction-matcher`)."
   ([v]
      (iseq-internal v identity))
   ([v ts]
      (iseq-internal v (g/type-matcher v ts)))
-  ([v ts dir]
-     (iseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher dir)))))
+  ([v ts ds]
+     (iseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher ds)))))
 
 (defn riseq
-  "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `dir`.
-  `v` may be a vertex or an edge.  In the latter case, returns all incidences
-  preceding `v` in the current vertex's incidence sequence.
-  `dir` may be :in, :out, or :inout (the default when omitted)."
+  "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
+  `v` may be a vertex or an edge.  In the latter case, returns all
+  incidences preceding `v` in the current vertex's incidence sequence.
+  `ts` is a type specification (see `funnyqt.generic/type-matcher`) and
+  `ds` is a direction specification (see
+  `funnyqt.tg/direction-matcher`)."
   ([v]
      (riseq-internal v identity))
   ([v ts]
      (riseq-internal v (g/type-matcher v ts)))
-  ([v ts dir]
-     (riseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher dir)))))
+  ([v ts ds]
+     (riseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher ds)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1075,10 +1078,10 @@ functions `record` and `enum`."
   ([^Graph g ts] (count (eseq g ts))))
 
 (defn degree
-  "Returns the degree of vertex `v`, optionally restricted by `ts` and `dir`."
-  ([^Vertex v]         (.getDegree v))
-  ([^Vertex v ts]     (count (iseq v ts)))
-  ([^Vertex v ts dir] (count (iseq v ts dir))))
+  "Returns the degree of vertex `v`, optionally restricted by `ts` and `ds`."
+  ([^Vertex v]       (.getDegree v))
+  ([^Vertex v ts]    (count (iseq v ts)))
+  ([^Vertex v ts ds] (count (iseq v ts ds))))
 
 ;;# Modifications
 
@@ -1224,15 +1227,15 @@ functions `record` and `enum`."
 
 (defn relink!
   "Relinks all incidences of vertex `from` to vertex `to` and returns `from`.
-  The incidences can be restricted by type spec `ts` and `dir` (see
+  The incidences can be restricted by type spec `ts` and `ds` (see
   `funnyqt.generic/type-matcher` and `direction-matcher`)."
   ([from to]
      (relink! from to identity identity))
   ([from to ts]
      (relink! from to ts identity))
-  ([from to ts dir]
+  ([from to ts ds]
      (let [pred (every-pred (g/type-matcher from ts)
-                            (direction-matcher dir))]
+                            (direction-matcher ds))]
        (loop [inc (first-inc from pred)]
          (when inc
            (set-this! inc to)
@@ -1432,14 +1435,14 @@ functions `record` and `enum`."
 ;;# Regular Path Expression Functions
 
 (defn ^:private ---
-  "Returns the vertices reachable from `v` via incidences with direction `dir`
+  "Returns the vertices reachable from `v` via incidences with direction `ds`
   and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
-  [v dir this-aks that-aks ts pred]
+  [v ds this-aks that-aks ts pred]
   (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
                            (g/type-matcher (first vs) ts)
-                           (direction-matcher dir)
+                           (direction-matcher ds)
                            (or pred identity)
                            (if (seq this-aks)
                              #(q/member? (.getThisAggregationKind ^Edge %) this-aks)
@@ -1861,10 +1864,10 @@ functions `record` and `enum`."
 
      ;; ISEQ FN
      (defn ~(symbol (str prefix "iseq-" (str/replace (.getUniqueName ec) \. \$)))
-       ~(format "Returns the lazy sequence of `v`s %s incidences restricted by `dir`.
+       ~(format "Returns the lazy sequence of `v`s %s incidences restricted by `ds`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
   following `v` in the current vertex's incidence sequence.
-  `dir` may be :in, :out, or :inout (the default).
+  `ds` may be :in, :out, or :inout (the default).
 
   [%s] --%s--> [%s]"
                 (g/qname ec)
@@ -1873,8 +1876,8 @@ functions `record` and `enum`."
                 (g/qname (.getVertexClass (.getTo ec))))
        ([~'v]
           (iseq ~'v '~(g/qname ec) :inout))
-       ([~'v ~'dir]
-          (iseq ~'v '~(g/qname ec) ~'dir)))
+       ([~'v ~'ds]
+          (iseq ~'v '~(g/qname ec) ~'ds)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName ec) \. \$) "?"))
@@ -2035,9 +2038,9 @@ functions `record` and `enum`."
   For any VertexClass Foo, there is a (create-Foo! graph) function, a (vseq-Foo
   graph) sequence function, and a (isa-Foo? v) type check predicate.
 
-  For any EdgeClass HasFoo, there is a (create-HasFoo! graph alpha omega)
-  function, (eseq-HasFoo graph) and (iseq-HasFoo v dir) sequence functions, and
-  a (isa-HasFoo? e) type check predicate.
+  For any EdgeClass HasFoo, there is a (create-HasFoo! graph alpha
+  omega) function, (eseq-HasFoo graph) and (iseq-HasFoo v ds) sequence
+  functions, and a (isa-HasFoo? e) type check predicate.
 
   For any attribute att, there are the following functions:
 
