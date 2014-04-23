@@ -447,23 +447,25 @@ functions `record` and `enum`."
 (defn ^:private type-matcher-tg-1
   [g ts]
   (cond
-   (nil? ts)   identity
-   (fn? ts)    ts
+   (nil? ts)    identity
    (u/qname? ts) (type-matcher-tg-2 g ts)
+   (vector? ts) (if (seq ts)
+                  (let [f (first ts)
+                        [op r] (case f
+                                 :and  [q/and-fn  (next ts)]
+                                 :nand [q/nand-fn (next ts)]
+                                 :or   [q/or-fn   (next ts)]
+                                 :nor  [q/nor-fn  (next ts)]
+                                 :xor  [q/xor-fn  (next ts)]
+                                 [q/or-fn ts])
+                        t-matchers (map #(type-matcher-tg-1 g %) r)]
+                    (apply op t-matchers))
+                  ;; Empty collection given: (), [], that's also ok
+                  identity)
+   (fn? ts)     ts
    (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
-   (coll? ts)  (if (seq ts)
-                 (let [f (first ts)
-                       [op r] (case f
-                                :and  [q/and-fn  (next ts)]
-                                :nand [q/nand-fn (next ts)]
-                                :or   [q/or-fn   (next ts)]
-                                :nor  [q/nor-fn  (next ts)]
-                                :xor  [q/xor-fn  (next ts)]
-                                [q/or-fn ts])
-                       t-matchers (map #(type-matcher-tg-1 g %) r)]
-                   (apply op t-matchers))
-                 ;; Empty collection given: (), [], that's also ok
-                 identity)
+   ;; {"http://my.nsuri/1.0" ts}, we can ignore the uri for tg, that's EMF specific
+   (map? ts)    (type-matcher-tg-1 g (val (first ts)))
    :else (u/errorf "Don't know how to create a TG funnyqt.generic/type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-tg [^Graph g ts]
@@ -585,82 +587,90 @@ functions `record` and `enum`."
 ;;## First, next elements
 
 (defn first-vertex
-  "Returns the first vertex of graph `g` accepted by type matcher `tm`."
+  "Returns the first vertex of graph `g`.
+  May be restricted to the first vertex for which `pred` returns true."
   ([^Graph g]
      (first-vertex g identity))
-  ([^Graph g tm]
+  ([^Graph g pred]
      (loop [v (.getFirstVertex g)]
-       (if (or (nil? v) (tm v))
+       (if (or (nil? v) (pred v))
          v
          (recur (.getNextVertex v))))))
 
 (defn last-vertex
-  "Returns the last vertex of graph `g` accepted by type matcher `tm`."
+  "Returns the last vertex of graph `g`.
+  May be restricted to the last vertex for which `pred` returns true."
   ([^Graph g]
      (last-vertex g identity))
-  ([^Graph g tm]
+  ([^Graph g pred]
      (loop [v (.getLastVertex g)]
-       (if (or (nil? v) (tm v))
+       (if (or (nil? v) (pred v))
          v
          (recur (.getPrevVertex v))))))
 
 (defn next-vertex
-  "Returns the vertex following `v` in vseq accepted by type matcher `tm`."
+  "Returns the vertex following `v` in vseq.
+  May be restricted to the next vertex for which `pred` returns true."
   ([^Vertex v]
      (next-vertex v identity))
-  ([^Vertex v tm]
+  ([^Vertex v pred]
      (loop [n (.getNextVertex v)]
-       (if (or (nil? n) (tm n))
+       (if (or (nil? n) (pred n))
          n
          (recur (.getNextVertex n))))))
 
 (defn prev-vertex
-  "Returns the vertex preceding `v` in vseq accepted by type matcher `tm`."
+  "Returns the vertex preceding `v` in vseq.
+  May be restricted to the previous vertex for which `pred` returns true."
   ([^Vertex v]
      (prev-vertex v identity))
-  ([^Vertex v tm]
+  ([^Vertex v pred]
      (loop [n (.getPrevVertex v)]
-       (if (or (nil? n) (tm n))
+       (if (or (nil? n) (pred n))
          n
          (recur (.getPrevVertex n))))))
 
 (defn first-edge
-  "Returns the first edge of graph `g` accepted by type matcher `tm`."
+  "Returns the first edge of graph `g`.
+  May be restricted to the first edge for which `pred` returns true."
   ([^Graph g]
      (first-edge g identity))
-  ([^Graph g tm]
+  ([^Graph g pred]
      (loop [e (.getFirstEdge g)]
-       (if (or (nil? e) (tm e))
+       (if (or (nil? e) (pred e))
          e
          (recur (.getNextEdge e))))))
 
 (defn last-edge
-  "Returns the last edge of graph `g` accepted by type matcher `tm`."
+  "Returns the last edge of graph `g`.
+  May be restricted to the last edge for which `pred` returns true."
   ([^Graph g]
      (last-edge g identity))
-  ([^Graph g tm]
+  ([^Graph g pred]
      (loop [e (.getLastEdge g)]
-       (if (or (nil? e) (tm e))
+       (if (or (nil? e) (pred e))
          e
          (recur (.getPrevEdge e))))))
 
 (defn next-edge
-  "Returns the edge following `e` in eseq accepted by type matcher `tm`."
+  "Returns the edge following `e` in eseq.
+  May be restricted to the next edge for which `pred` returns true."
   ([^Edge e]
      (next-edge e identity))
-  ([^Edge e tm]
+  ([^Edge e pred]
      (loop [n (.getNextEdge e)]
-       (if (or (nil? n) (tm n))
+       (if (or (nil? n) (pred n))
          n
          (recur (.getNextEdge n))))))
 
 (defn prev-edge
-  "Returns the edge preceding `e` in eseq accepted by type matcher `tm`."
+  "Returns the edge preceding `e` in eseq.
+  May be restricted to the previous edge for which `pred` returns true."
   ([^Edge e]
      (prev-edge e identity))
-  ([^Edge e tm]
+  ([^Edge e pred]
      (loop [n (.getPrevEdge e)]
-       (if (or (nil? n) (tm n))
+       (if (or (nil? n) (pred n))
          n
          (recur (.getPrevEdge n))))))
 
@@ -684,54 +694,46 @@ functions `record` and `enum`."
      :default (u/errorf "Unknown direction %s" dir))))
 
 (defn first-inc
-  "Returns the first incidence in iseq of `v` accepted by the type matcher `tm`
-  and direction matcher `dm.'"
+  "Returns the first incidence in iseq of `v`.
+  May be restricted to the first incidence for which `pred` returns true."
   ([^Vertex v]
-     (first-inc v identity identity))
-  ([^Vertex v tm]
-     (first-inc v tm identity))
-  ([^Vertex v tm dm]
+     (first-inc v identity))
+  ([^Vertex v pred]
      (loop [i (.getFirstIncidence v)]
-       (if (or (nil? i) (and (dm i) (tm i)))
+       (if (or (nil? i) (pred i))
          i
          (recur (.getNextIncidence i))))))
 
 (defn last-inc
-  "Returns the last incidence in iseq of `v` accepted by the type matcher `tm`
-  and direction matcher `dm.'"
+  "Returns the last incidence in iseq of `v`.
+  May be restricted to the last incidence for which `pred` returns true."
   ([^Vertex v]
-     (last-inc v identity identity))
-  ([^Vertex v tm]
-     (last-inc v tm identity))
-  ([^Vertex v tm dm]
+     (last-inc v identity))
+  ([^Vertex v pred]
      (loop [i (.getLastIncidence v)]
-       (if (or (nil? i) (and (dm i) (tm i)))
+       (if (or (nil? i) (pred i))
          i
          (recur (.getPrevIncidence i))))))
 
 (defn next-inc
-  "Returns the incidence following `e` in the current vertex's iseq accepted by
-  type matcher `tm` and direction matcher `dm`."
+  "Returns the incidence following `e` in the current vertex's iseq.
+  May be restricted to the next incidence for which `pred` returns true."
   ([^Edge e]
-     (next-inc e identity identity))
-  ([^Edge e tm]
-     (next-inc e tm identity))
-  ([^Edge e tm dm]
+     (next-inc e identity))
+  ([^Edge e pred]
      (loop [i (.getNextIncidence e)]
-       (if (or (nil? i) (and (dm i) (tm i)))
+       (if (or (nil? i) (pred i))
          i
          (recur (.getNextIncidence i))))))
 
 (defn prev-inc
-  "Returns the incidence preceding `e` in the current vertex's iseq accepted by
-  type matcher `tm` and direction matcher `dm`."
+  "Returns the incidence preceding `e` in the current vertex's iseq.
+  May be restricted to the previous incidence for which `pred` returns true."
   ([^Edge e]
-     (prev-inc e identity identity))
-  ([^Edge e tm]
-     (prev-inc e tm identity))
-  ([^Edge e tm dm]
+     (prev-inc e identity))
+  ([^Edge e pred]
      (loop [i (.getPrevIncidence e)]
-       (if (or (nil? i) (and (dm i) (tm i)))
+       (if (or (nil? i) (pred i))
          i
          (recur (.getPrevIncidence i))))))
 
@@ -899,29 +901,29 @@ functions `record` and `enum`."
 
 ;;## Lazy Vertex, Edge, Incidence Seqs
 
-(defn ^:private vseq-internal-1 [v tm]
+(defn ^:private vseq-internal-1 [v pred]
   (lazy-seq
-   (let [n (next-vertex v tm)]
-     (and n (cons n (vseq-internal-1 n tm))))))
+   (let [n (next-vertex v pred)]
+     (and n (cons n (vseq-internal-1 n pred))))))
 
-(defn ^:private vseq-internal [g tm]
+(defn ^:private vseq-internal [g pred]
   (condp instance? g
-    Vertex (vseq-internal-1 g tm)
+    Vertex (vseq-internal-1 g pred)
     Graph (lazy-seq
-           (let [f (first-vertex g tm)]
-             (and f (cons f (vseq-internal-1 f tm)))))))
+           (let [f (first-vertex g pred)]
+             (and f (cons f (vseq-internal-1 f pred)))))))
 
-(defn ^:private rvseq-internal-1 [v tm]
+(defn ^:private rvseq-internal-1 [v pred]
   (lazy-seq
-   (let [n (prev-vertex v tm)]
-     (and n (cons n (rvseq-internal-1 n tm))))))
+   (let [n (prev-vertex v pred)]
+     (and n (cons n (rvseq-internal-1 n pred))))))
 
-(defn ^:private rvseq-internal [g tm]
+(defn ^:private rvseq-internal [g pred]
   (condp instance? g
-    Vertex (rvseq-internal-1 g tm)
+    Vertex (rvseq-internal-1 g pred)
     Graph (lazy-seq
-           (let [f (last-vertex g tm)]
-             (and f (cons f (rvseq-internal-1 f tm)))))))
+           (let [f (last-vertex g pred)]
+             (and f (cons f (rvseq-internal-1 f pred)))))))
 
 (defn vseq
   "Returns the lazy seq of vertices of `g` restricted by the type spec `ts`.
@@ -941,29 +943,29 @@ functions `record` and `enum`."
   ([g ts]
      (rvseq-internal g (g/type-matcher g ts))))
 
-(defn ^:private eseq-internal-1 [e tm]
+(defn ^:private eseq-internal-1 [e pred]
   (lazy-seq
-   (let [n (next-edge e tm)]
-     (and n (cons n (eseq-internal-1 n tm))))))
+   (let [n (next-edge e pred)]
+     (and n (cons n (eseq-internal-1 n pred))))))
 
-(defn ^:private eseq-internal [g tm]
+(defn ^:private eseq-internal [g pred]
   (condp instance? g
-    Edge (eseq-internal-1 g tm)
+    Edge (eseq-internal-1 g pred)
     Graph (lazy-seq
-           (let [f (first-edge g tm)]
-             (and f (cons f (eseq-internal-1 f tm)))))))
+           (let [f (first-edge g pred)]
+             (and f (cons f (eseq-internal-1 f pred)))))))
 
-(defn ^:private reseq-internal-1 [e tm]
+(defn ^:private reseq-internal-1 [e pred]
   (lazy-seq
-   (let [n (prev-edge e tm)]
-     (and n (cons n (reseq-internal-1 n tm))))))
+   (let [n (prev-edge e pred)]
+     (and n (cons n (reseq-internal-1 n pred))))))
 
-(defn ^:private reseq-internal [g tm]
+(defn ^:private reseq-internal [g pred]
   (condp instance? g
-    Edge (reseq-internal-1 g tm)
+    Edge (reseq-internal-1 g pred)
     Graph (lazy-seq
-           (let [f (last-edge g tm)]
-             (and f (cons f (reseq-internal-1 f tm)))))))
+           (let [f (last-edge g pred)]
+             (and f (cons f (reseq-internal-1 f pred)))))))
 
 (defn eseq
   "Returns the lazy seq of edges of `e` restricted by `ts`.
@@ -983,29 +985,29 @@ functions `record` and `enum`."
   ([g ts]
      (reseq-internal g (g/type-matcher g ts))))
 
-(defn ^:private iseq-internal-1 [e tm dm]
+(defn ^:private iseq-internal-1 [e pred]
   (lazy-seq
-   (let [n (next-inc e tm dm)]
-     (and n (cons n (iseq-internal-1 n tm dm))))))
+   (let [n (next-inc e pred)]
+     (and n (cons n (iseq-internal-1 n pred))))))
 
-(defn ^:private iseq-internal [v tm dm]
+(defn ^:private iseq-internal [v pred]
   (condp instance? v
-    Edge (iseq-internal-1 v tm dm)
+    Edge (iseq-internal-1 v pred)
     Vertex (lazy-seq
-            (let [f (first-inc v tm dm)]
-              (and f (cons f (iseq-internal-1 f tm dm)))))))
+            (let [f (first-inc v pred)]
+              (and f (cons f (iseq-internal-1 f pred)))))))
 
-(defn ^:private riseq-internal-1 [e tm dm]
+(defn ^:private riseq-internal-1 [e pred]
   (lazy-seq
-   (let [n (prev-inc e tm dm)]
-     (and n (cons n (riseq-internal-1 n tm dm))))))
+   (let [n (prev-inc e pred)]
+     (and n (cons n (riseq-internal-1 n pred))))))
 
-(defn ^:private riseq-internal [v tm dm]
+(defn ^:private riseq-internal [v pred]
   (condp instance? v
-    Edge (riseq-internal-1 v tm dm)
+    Edge (riseq-internal-1 v pred)
     Vertex (lazy-seq
-            (let [f (last-inc v tm dm)]
-              (and f (cons f (riseq-internal-1 f tm dm)))))))
+            (let [f (last-inc v pred)]
+              (and f (cons f (riseq-internal-1 f pred)))))))
 
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `dir`.
@@ -1013,11 +1015,11 @@ functions `record` and `enum`."
   following `v` in the current vertex's incidence sequence.
   `dir` may be :in, :out, or :inout (the default when omitted)."
   ([v]
-     (iseq-internal v identity identity))
+     (iseq-internal v identity))
   ([v ts]
-     (iseq-internal v (g/type-matcher v ts) identity))
+     (iseq-internal v (g/type-matcher v ts)))
   ([v ts dir]
-     (iseq-internal v (g/type-matcher v ts) (direction-matcher dir))))
+     (iseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher dir)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `dir`.
@@ -1025,11 +1027,11 @@ functions `record` and `enum`."
   preceding `v` in the current vertex's incidence sequence.
   `dir` may be :in, :out, or :inout (the default when omitted)."
   ([v]
-     (riseq-internal v identity identity))
+     (riseq-internal v identity))
   ([v ts]
-     (riseq-internal v (g/type-matcher v ts) identity))
+     (riseq-internal v (g/type-matcher v ts)))
   ([v ts dir]
-     (riseq-internal v (g/type-matcher v ts) (direction-matcher dir))))
+     (riseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher dir)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1168,11 +1170,11 @@ functions `record` and `enum`."
   ([^Vertex v]
      (unlink! v identity nil))
   ([^Vertex v ts]
-     (unlink! v ts       nil))
+     (unlink! v ts nil))
   ([^Vertex v ts ds]
-     (let [tm (g/type-matcher v ts)
-           dm (direction-matcher ds)]
-       (while (when-let [e (first-inc v tm dm)]
+     (let [pred (every-pred (g/type-matcher v ts)
+                            (direction-matcher ds))]
+       (while (when-let [e (first-inc v pred)]
                 (g/delete! e))))))
 
 (extend-protocol g/IModifyAdjacencies
@@ -1229,12 +1231,12 @@ functions `record` and `enum`."
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts dir]
-     (let [tm (g/type-matcher from ts)
-           dm (direction-matcher dir)]
-       (loop [inc (first-inc from tm dm)]
+     (let [pred (every-pred (g/type-matcher from ts)
+                            (direction-matcher dir))]
+       (loop [inc (first-inc from pred)]
          (when inc
            (set-this! inc to)
-           (recur (first-inc from tm dm)))))
+           (recur (first-inc from pred)))))
      from))
 
 ;;# Adjancencies
@@ -1436,20 +1438,18 @@ functions `record` and `enum`."
   (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
+                           (g/type-matcher (first vs) ts)
+                           (direction-matcher dir)
                            (or pred identity)
                            (if (seq this-aks)
                              #(q/member? (.getThisAggregationKind ^Edge %) this-aks)
                              identity)
                            (if (seq that-aks)
                              #(q/member? (.getThatAggregationKind ^Edge %) that-aks)
-                             identity))
-            tm (g/type-matcher (first vs) ts)
-            dm (direction-matcher dir)]
+                             identity))]
         (into (os/ordered-set)
               (r/mapcat (fn [sv]
-                          (r/map that
-                                 (r/filter complete-pred
-                                           (iseq-internal sv tm dm))))
+                          (r/map that (iseq-internal sv complete-pred)))
                         vs)))
       (os/ordered-set))))
 

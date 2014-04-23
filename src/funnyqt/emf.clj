@@ -435,13 +435,8 @@
   [ts]
   (cond
    (nil? ts)     identity
-   (fn? ts)      ts
    (u/qname? ts) (type-matcher-emf-1 ts)
-   (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
-   (map? ts)     (let [[ns-uris ts] (first ts)]
-                   (binding [*ns-uris* (if ns-uris [ns-uris] *ns-uris*)]
-                     (type-matcher-emf ts)))
-   (coll? ts)    (if (seq ts)
+   (vector? ts)  (if (seq ts)
                    (let [f (first ts)
                          [op r] (case f
                                   :and  [q/and-fn  (next ts)]
@@ -454,6 +449,12 @@
                      (apply op t-matchers))
                    ;; Empty collection given: (), [], that's also ok
                    identity)
+   (fn? ts)      ts
+   ;; {"http://my.nsuri/1.0" ts}
+   (map? ts)     (let [[ns-uris ts] (first ts)]
+                   (binding [*ns-uris* (if ns-uris [ns-uris] *ns-uris*)]
+                     (type-matcher-emf ts)))
+   (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
    :else (u/errorf "Don't know how to create an EMF type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-cached [_ ts]
