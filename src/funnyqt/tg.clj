@@ -269,7 +269,7 @@ functions `record` and `enum`."
     (.isUnsetAttribute this (name attr))))
 
 (defn ^:private domain-qname
-  "Transforms a domain g/qname given as symbol, keyword, string, or vector to a
+  "Transforms a domain qname given as symbol, keyword, string, or vector to a
   canonical string representation:"
   [qn]
   (letfn [(domain-vector-qname [v]
@@ -338,8 +338,9 @@ functions `record` and `enum`."
     Domain                 (.getSchema ^Domain elem)))
 
 (defn domain
-  "Returns the Domain `g/qname` in the schema of `elem`.  `elem` may be an
-  AttributedElement, AttributedElementClass, or a Schema."
+  "Returns the Domain with qualified name `qname` in the schema of
+  `elem`.  `elem` may be an AttributedElement, AttributedElementClass,
+  or a Schema."
   ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
   (let [^Schema s (if (schema? elem) elem (schema elem))]
     (.getDomain s ((named-element-simple-to-qname-map s)
@@ -806,25 +807,25 @@ functions `record` and `enum`."
   ae)
 
 (defn record
-  "Creates a record of type `t` in the schema of element `e` with component
-  values as specified by map `m`, a map from keywords to values.  The map `m`
-  must specify all components, and be sure that if a component is of type
-  Integer, then use `Integer/valueOf'."
-  [e t m]
-  (let [^Graph g (if (graph? e) e (graph e))]
+  "Creates a record of type `qname` in the schema of element `elem` with
+  component values as specified by map `m`, a map from keywords to
+  values.  The map `m` must specify all components, and be sure to use
+  `Integer/valueOf` if a component is of type Integer."
+  [elem qname m]
+  (let [^Graph g (if (graph? elem) elem (graph elem))]
     (.createRecord g
-                   ^RecordDomain (domain e t)
+                   ^RecordDomain (domain g qname)
                    ^java.util.Map (zipmap (map name (keys m))
                                           (vals m)))))
 
 (defn enum-constant
-  "Returns the enum constant `c` in the schema of element `e`.
-  `c` is the qualified name of the constant, e.g., my.Enum.CONSTANT."
-  [^AttributedElement e c]
-  (let [^Graph g (if (graph? e) e (graph e))
-        [enum constant _] (u/split-qname c)]
+  "Returns the enum constant `qname` in the schema of element `elem`.
+  `qname` is the qualified name of the constant, e.g., my.Enum.CONSTANT."
+  [^AttributedElement elem qname]
+  (let [^Graph g (if (graph? elem) elem (graph elem))
+        [enum constant _] (u/split-qname qname)]
     (.getEnumConstant g
-                      ^EnumDomain (domain e enum)
+                      ^EnumDomain (domain g enum)
                       ^String constant)))
 
 (extend-protocol g/IEnumConstant
