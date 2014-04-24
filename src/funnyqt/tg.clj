@@ -807,22 +807,22 @@ functions `record` and `enum`."
   ae)
 
 (defn record
-  "Creates a record of type `qname` in the schema of element `elem` with
-  component values as specified by map `m`, a map from keywords to
-  values.  The map `m` must specify all components, and be sure to use
-  `Integer/valueOf` if a component is of type Integer."
-  [elem qname m]
-  (let [^Graph g (if (graph? elem) elem (graph elem))]
+  "Creates a record of type `qname` in the schema of attributed element
+  `ae` with component values as specified by map `m`, a map from
+  keywords to values.  The map `m` must specify all components, and be
+  sure to use `Integer/valueOf` if a component is of type Integer."
+  [ae qname m]
+  (let [^Graph g (if (graph? ae) ae (graph ae))]
     (.createRecord g
                    ^RecordDomain (domain g qname)
                    ^java.util.Map (zipmap (map name (keys m))
                                           (vals m)))))
 
 (defn enum-constant
-  "Returns the enum constant `qname` in the schema of element `elem`.
+  "Returns the enum constant `qname` in the schema of attributed element `ae`.
   `qname` is the qualified name of the constant, e.g., my.Enum.CONSTANT."
-  [^AttributedElement elem qname]
-  (let [^Graph g (if (graph? elem) elem (graph elem))
+  [^AttributedElement ae qname]
+  (let [^Graph g (if (graph? ae) ae (graph ae))
         [enum constant _] (u/split-qname qname)]
     (.getEnumConstant g
                       ^EnumDomain (domain g enum)
