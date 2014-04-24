@@ -35,7 +35,7 @@ To access attribute values or record components, use the function `value`.  To
 set them, use `set-value!`.  All clojure collections and maps are automatically
 converted to JGraLab's pcollections.  In case of RecordDomains and EnumDomains,
 whose values are instances of generated classes, there are the constructor
-functions `record` and `enum`."
+functions `record` and `enum-constant`."
   (:require [clojure.core.cache         :as cache]
             [clojure.core.reducers      :as r]
             [clojure.string             :as str]
@@ -809,14 +809,15 @@ functions `record` and `enum`."
 (defn record
   "Creates a record of type `qname` in the schema of attributed element
   `ae` with component values as specified by map `m`, a map from
-  keywords to values.  The map `m` must specify all components, and be
-  sure to use `Integer/valueOf` if a component is of type Integer."
+  keywords to values.  The map `m` must specify all components.  Be sure
+  to provide integer values as `(int val)` when a record component has
+  domain Integer."
   [ae qname m]
   (let [^Graph g (if (graph? ae) ae (graph ae))]
     (.createRecord g
                    ^RecordDomain (domain g qname)
                    ^java.util.Map (zipmap (map name (keys m))
-                                          (vals m)))))
+                                          (map clj2jgval (vals m))))))
 
 (defn enum-constant
   "Returns the enum constant `qname` in the schema of attributed element `ae`.

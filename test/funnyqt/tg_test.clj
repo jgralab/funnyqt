@@ -26,6 +26,15 @@
       (is (= "JAN" (str (value fd :month))))
       (is (= 1016 (value fd :year))))))
 
+(deftest test-record
+  (let [r (record rg 'Date {:day (int 1)
+                            :month (enum-constant rg 'Month.JAN)
+                            :year (int 2014)})]
+    (is r)
+    (is (= 1 (value r :day)))
+    (is (= (enum-constant rg 'Month.JAN) (value r :month)))
+    (is (= 2014 (value r :year)))))
+
 (deftest test-average-inhabitants
   (let [locs (vseq rg 'localities.Locality)]
     (is (< 0.00000000000000000001 ;; epsilon
