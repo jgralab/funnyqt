@@ -300,9 +300,10 @@ functions `record` and `enum-constant`."
                                @m))))))
 
 (defn attributed-element-class
-  "Returns `ae`s AttributedElementClass or the AttributedElementClass with the
-  given `qname` in the schema of `ae`.  In the arity 2 version, `ae` may be an
-  attributed element, an attributed element class, or a schema."
+  "Returns `ae`s AttributedElementClass or the AttributedElementClass
+  with the given `qname` in the schema of `elem`.  In the arity 2
+  version, `elem` may be an attributed element, an attributed element
+  class, or a schema."
   (^de.uni_koblenz.jgralab.schema.AttributedElementClass
    [^AttributedElement ae]
    (.getAttributedElementClass ae))
@@ -742,7 +743,7 @@ functions `record` and `enum-constant`."
 (defprotocol ^:private IClojureValues2JGraLabValues
              "Protocol for transforming clojure persistent collections/maps into
   equivalent pcollections and ratios to doubles."
-             (clj2jgval [coll]))
+             (^:private clj2jgval [coll]))
 
 (extend-protocol IClojureValues2JGraLabValues
   clojure.lang.ISeq
@@ -1323,31 +1324,51 @@ functions `record` and `enum-constant`."
 
 (defn merge-traversal-contexts
   "Returns a TraversalContext that accepts only elements that are accepted by
-  both `tc1' and `tc2'.
-  (Don't use this direcly, but use `on-subgraph-intersection`.)"
-  [^TraversalContext tc1 ^TraversalContext tc2]
+  (combine-fn (tc1 el) (tc2 el)).
+  (Don't use this direcly, but use `on-subgraph-intersection` and
+  `on-subgraph-union'.)"
+  [^TraversalContext tc1 ^TraversalContext tc2 combine-fn]
   (cond
    (nil? tc1) tc2
    (nil? tc2) tc1
    :else (reify TraversalContext
            (containsVertex [_ v]
-             (and (.containsVertex tc1 v)
-                  (.containsVertex tc2 v)))
+             (combine-fn (.containsVertex tc1 v)
+                         (.containsVertex tc2 v)))
            (containsEdge [_ e]
-             (and (.containsEdge tc1 e)
-                  (.containsEdge tc2 e))))))
+             (combine-fn (.containsEdge tc1 e)
+                         (.containsEdge tc2 e))))))
 
 (defmacro on-subgraph-intersection
   "Sets the TraversalContext of `g` to a new TraversalContext that accepts only
   elements which both `tc` and `g`s current TraversalContext accept and then
   executes `body`.  Guaranteed to restore the old TraversalContext.
 
-  Also see `vsubgraph`, `esubgraph`, and `on-subgraph`."
+  Also see `vsubgraph`, `esubgraph`, `on-subgraph`, and
+  `on-subgraph-union'."
   [[g tc] & body]
   `(let [^Graph g# ~g
          ^TraversalContext old-tc# (.getTraversalContext g#)]
      (try
-       (.setTraversalContext g# (merge-traversal-contexts old-tc# ~tc))
+       (.setTraversalContext
+        g# (merge-traversal-contexts old-tc# ~tc q/and*))
+       ~@body
+       (finally (.setTraversalContext g# old-tc#)))))
+
+(defmacro on-subgraph-union
+  "Sets the TraversalContext of `g` to a new TraversalContext that
+  accepts only elements which `tc` or `g`s current TraversalContext
+  accept and then executes `body`.  Guaranteed to restore the old
+  TraversalContext.
+
+  Also see `vsubgraph`, `esubgraph`, `on-subgraph`, and
+  `on-subgraph-intersection'."
+  [[g tc] & body]
+  `(let [^Graph g# ~g
+         ^TraversalContext old-tc# (.getTraversalContext g#)]
+     (try
+       (.setTraversalContext
+        g# (merge-traversal-contexts old-tc# ~tc q/or*))
        ~@body
        (finally (.setTraversalContext g# old-tc#)))))
 

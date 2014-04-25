@@ -1,4 +1,5 @@
 (ns funnyqt.emf-test
+  (:refer-clojure :exclude [parents])
   (:use funnyqt.emf)
   (:use clojure.test)
   (:require [funnyqt.utils   :as u]

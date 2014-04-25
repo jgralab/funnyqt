@@ -122,14 +122,14 @@
 
 (defn xor*
   "Logical XOR: returns true iff an odd number of arguments is true.
-  Implemented as a function, so not short-cirquiting, but you can pass it to
-  higher-order functions."
-  ([& xs]
-     (reduce #(xor %1 %2) false xs)))
+  Implemented as a function, so not short-cirquiting, but you can pass
+  it to higher-order functions."
+  [& xs]
+  (reduce #(xor %1 %2) false xs))
 
 (defn and*
-  "Logical AND, implemented as a function, so not short-cirquiting, but you can
-  pass it to higher-order functions."
+  "Logical AND, implemented as a function, so not short-cirquiting, but
+  you can pass it to higher-order functions."
   [& xs]
   (reduce #(and %1 %2) true xs))
 
@@ -139,14 +139,14 @@
   `(not (and ~@xs)))
 
 (defn nand*
-  "Logical NAND, implemented as a function, so not short-cirquiting, but you
-  can pass it to higher-order functions."
+  "Logical NAND, implemented as a function, so not short-cirquiting, but
+  you can pass it to higher-order functions."
   [& xs]
   (not (apply and* xs)))
 
 (defn or*
-  "Logical AND, implemented as a function, so not short-cirquiting, but you can
-  pass it to higher-order functions."
+  "Logical OR, implemented as a function, so not short-cirquiting, but
+  you can pass it to higher-order functions."
   [& xs]
   (reduce #(or %1 %2) nil xs))
 
