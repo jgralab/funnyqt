@@ -450,6 +450,7 @@ functions `record` and `enum-constant`."
   [g ts]
   (cond
    (nil? ts)    identity
+   (fn? ts)     ts
    (u/qname? ts) (type-matcher-tg-2 g ts)
    (vector? ts) (if (seq ts)
                   (let [f (first ts)
@@ -462,9 +463,8 @@ functions `record` and `enum-constant`."
                                  [q/or-fn ts])
                         t-matchers (map #(type-matcher-tg-1 g %) r)]
                     (apply op t-matchers))
-                  ;; Empty collection given: (), [], that's also ok
+                  ;; Empty vector given, that's also ok
                   identity)
-   (fn? ts)     ts
    (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
    ;; {"http://my.nsuri/1.0" ts}, we can ignore the uri for tg, that's EMF specific
    (map? ts)    (type-matcher-tg-1 g (val (first ts)))
@@ -1023,7 +1023,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (iseq-internal v (g/type-matcher v ts)))
   ([v ts ds]
-     (iseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher ds)))))
+     (iseq-internal v (every-pred (direction-matcher ds) (g/type-matcher v ts)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
@@ -1037,7 +1037,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (riseq-internal v (g/type-matcher v ts)))
   ([v ts ds]
-     (riseq-internal v (every-pred (g/type-matcher v ts) (direction-matcher ds)))))
+     (riseq-internal v (every-pred (direction-matcher ds) (g/type-matcher v ts)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1178,8 +1178,7 @@ functions `record` and `enum-constant`."
   ([^Vertex v ts]
      (unlink! v ts nil))
   ([^Vertex v ts ds]
-     (let [pred (every-pred (g/type-matcher v ts)
-                            (direction-matcher ds))]
+     (let [pred (every-pred (direction-matcher ds) (g/type-matcher v ts))]
        (while (when-let [e (first-inc v pred)]
                 (g/delete! e))))))
 
@@ -1237,8 +1236,7 @@ functions `record` and `enum-constant`."
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts ds]
-     (let [pred (every-pred (g/type-matcher from ts)
-                            (direction-matcher ds))]
+     (let [pred (every-pred (direction-matcher ds) (g/type-matcher from ts))]
        (loop [inc (first-inc from pred)]
          (when inc
            (set-this! inc to)
@@ -1464,8 +1462,8 @@ functions `record` and `enum-constant`."
   (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
-                           (g/type-matcher (first vs) ts)
                            (direction-matcher ds)
+                           (g/type-matcher (first vs) ts)
                            (or pred identity)
                            (if (seq this-aks)
                              #(q/member? (.getThisAggregationKind ^Edge %) this-aks)
