@@ -873,7 +873,7 @@
   denoted by EStructuralFeature `sf`.  Returns `eo` again.  Throws an exception
   if there's no EStructuralFeature `sf`.
 
-  In the arity-2 version, adds `obj` to `resource` and returns `obj`."
+  In the arity-2 version, adds `obj` to `resource` and returns `resource`."
   ([eo sf value & more]
      (let [^EList l (eget-raw eo sf)]
        (.add l value)
@@ -881,20 +881,20 @@
          (.addAll l more))
        eo))
   ([^Resource resource obj]
-     (.add (.getContents resource)
-           obj)
-     obj))
+     (.add (.getContents resource) obj)
+     resource))
 
 (defn eaddall!
   "Adds all values in `coll` to `eo`s `sf` structural feature.
-  In the arity 2 variant, adds all EObjects in `coll` to `resource`."
+  In the arity 2 variant, adds all EObjects in `coll` to `resource` and
+  returns `resource`."
   ([eo sf coll]
      (let [^EList l (eget-raw eo sf)]
        (.addAll l coll)
        eo))
   ([^Resource resource coll]
-     (.addAll (.getContents resource)
-              coll)))
+     (.addAll (.getContents resource) coll)
+     resource))
 
 (defn eremove!
   "Removes `value` and `more` values from `eo`s list of attribute/reference
@@ -909,9 +909,25 @@
        (when (seq more)
          (.removeAll l more))
        eo))
-  ([^Resource resource obj]
-     (.remove (.getContents resource)
-              obj)))
+  ([^Resource resource eo]
+     (.remove (.getContents resource) eo)
+     resource))
+
+(defn eremoveall!
+  "Removes all objects in `coll` from `eo`s list of attribute/reference values
+  denoted by `sf` and returns `eo`.  Throws an exception, if there's no
+  EStructuralFeature `sf`.
+
+  In the arity-2 version, removes all objects in `coll` from `resource`
+  and returns `resource`.  Note that it won't delete the objects or
+  remove references to it."
+  ([eo sf coll]
+     (let [^EList l (eget-raw eo sf)]
+       (.removeAll l coll)
+       eo))
+  ([^Resource resource coll]
+     (.removeAll (.getContents resource) coll)
+     resource))
 
 ;;### Generic attribute access
 
@@ -1066,8 +1082,8 @@
 
 (defn edelete!
   "Unsets all references of `eo` and removes it from its containing resource
-  and containing EObject.  If `recursively` is true, first edelete! all
-  contents of `eo`.
+  and containing EObject.  If `recursively` is true (the default), first
+  edelete! all contents of `eo`.
 
   If `eo` isn't cross-referenced unidirectional, this is equivalent
   to `(funnyqt.generic/delete! eo)` but faster.  If `eo` is cross-referenced
