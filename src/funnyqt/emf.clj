@@ -539,27 +539,28 @@
     (mapcat #(eallcontents-internal % tm) this)))
 
 (defn eallcontents
-  "Returns a lazy seq of `x`s direct and indirect contents matching the type
-  spec `ts`.  `x` may be an EObject, a Collection, a Resource, or a
-  ResourceSet."
-  ([x]
-     (eallcontents-internal x identity))
-  ([x ts]
-     (eallcontents-internal x ts)))
+  "Returns a lazy seq of `container`s direct and indirect contents
+  matching the type spec `ts`.  `container` may be an EObject, a
+  Collection, a Resource, or a ResourceSet."
+  ([container]
+     (eallcontents-internal container identity))
+  ([container ts]
+     (eallcontents-internal container ts)))
 
 (defn econtents
-  "Returns a lazy seq of `x`s direct contents matching the type spec `ts`.
-  `x` may be an EObject, a Collection, a Resource, or a ResourceSet."
-  ([x]
-     (econtents-internal x identity))
-  ([x ts]
-     (econtents-internal x ts)))
+  "Returns a lazy seq of `containers`s direct contents matching the type spec `ts`.
+  `container` may be an EObject, a Collection, a Resource, or a
+  ResourceSet."
+  ([container]
+     (econtents-internal container identity))
+  ([container ts]
+     (econtents-internal container ts)))
 
 (defn eallobjects
-  "Returns a lazy seq of all EObjects in `m` that match the type spec `ts`.
-  `m` may be a Resource or a ResourceSet."
-  ([m] (eallobjects-internal m identity))
-  ([m ts] (eallobjects-internal m ts)))
+  "Returns a lazy seq of all EObjects in `r` that match the type spec `ts`.
+  `r` may be a Resource or a ResourceSet."
+  ([r] (eallobjects-internal r identity))
+  ([r ts] (eallobjects-internal r ts)))
 
 (extend-protocol g/IElements
   Resource
