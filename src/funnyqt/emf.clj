@@ -203,8 +203,8 @@
   [name]
   (let [[ns-uris nm] (ns-uris-and-type-spec name)
         cache-entry (make-cache-entry ns-uris nm)]
-    (if-let [ecls (cache/lookup +eclassifier-cache+ cache-entry)]
-      (do (cache/hit +eclassifier-cache+ cache-entry) ecls)
+    (if-let [ec (cache/lookup +eclassifier-cache+ cache-entry)]
+      (do (cache/hit +eclassifier-cache+ cache-entry) ec)
       (binding [*ns-uris* (if ns-uris ns-uris *ns-uris*)]
         (let [^String n (clojure.core/name nm)
               ld (.lastIndexOf n ".")]
@@ -221,29 +221,29 @@
                                               n (print-str classifiers)
                                               "Restrict the search space using `with-ns-uris` "
                                               "or by using {\"http://ns/uri\" qname}.")
-               :else (let [ecls (first classifiers)]
-                       (cache/miss +eclassifier-cache+ cache-entry ecls)
-                       ecls)))))))))
+               :else (let [ec (first classifiers)]
+                       (cache/miss +eclassifier-cache+ cache-entry ec)
+                       ec)))))))))
 
 (defn esuperclasses
-  "Returns the direct super classes of the given EClass `ecls`."
-  [^EClass ecls]
-  (into #{} (.getESuperTypes ecls)))
+  "Returns the direct super classes of the given EClass `ec`."
+  [^EClass ec]
+  (into #{} (.getESuperTypes ec)))
 
 (defn eallsuperclasses
-  "Returns the direct and indirect super classes of the given EClass `ecls`."
-  [^EClass ecls]
-  (into #{} (.getEAllSuperTypes ecls)))
+  "Returns the direct and indirect super classes of the given EClass `ec`."
+  [^EClass ec]
+  (into #{} (.getEAllSuperTypes ec)))
 
 (defn esubclasses
-  "Returns the direct sub-EClasses of the given EClass `ecls`."
-  [^EClass ecls]
-  (into #{} (filter #(contains? (esuperclasses %) ecls) (eclasses))))
+  "Returns the direct sub-EClasses of the given EClass `ec`."
+  [^EClass ec]
+  (into #{} (filter #(contains? (esuperclasses %) ec) (eclasses))))
 
 (defn eallsubclasses
-  "Returns the direct and indirect sub-EClasses of the given EClass `ecls`."
-  [^EClass ecls]
-  (into #{} (filter #(and (not= ecls %) (.isSuperTypeOf ecls %)) (eclasses))))
+  "Returns the direct and indirect sub-EClasses of the given EClass `ec`."
+  [^EClass ec]
+  (into #{} (filter #(and (not= ec %) (.isSuperTypeOf ec %)) (eclasses))))
 
 (defn eenum-literal
   "Returns the EEnumLiteral specified by its `qname`."
@@ -1015,16 +1015,14 @@
 ;;## EObject Creation
 
 (defn ecreate!
-  "Creates an EObject of EClass `ecls` and adds it to `resource` which may be nil.
-  `ecls` may be either an EClass or just an EClass name given as symbol.
+  "Creates an EObject of EClass `ec` and adds it to `resource` which may be nil.
+  `ec` may be either an EClass or just an EClass name given as symbol.
   `props` are optional property-value pairs to be set, where
   properties (attributes and references) are represented as keywords.  Since
   props are set using `eset!`, the value of a multi-valued reference must be a
   collection of EObjects."
-  [resource ecls & props]
-  (let [eo (EcoreUtil/create (if (eclass? ecls)
-                               ecls
-                               (eclassifier ecls)))]
+  [resource ec & props]
+  (let [eo (EcoreUtil/create (if (eclass? ec) ec (eclassifier ec)))]
     (doseq [[prop val] (partition 2 2
                                   (repeatedly #(u/errorf "attr-vals not paired: %s" props))
                                   props)]
