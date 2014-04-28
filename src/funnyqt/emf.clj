@@ -111,30 +111,6 @@
   (alter-var-root #'+type-matcher-cache+
                   (constantly (cache/soft-cache-factory (hash-map)))))
 
-(defn ^:private create-uri [f]
-  (cond
-   (instance? URI f)
-   f
-
-   (instance? java.io.File f)
-   (URI/createURI (.getPath ^java.io.File f))
-
-   (instance? java.net.URL f)
-   (URI/createURI (.toString ^java.net.URL f))
-
-   :else (URI/createURI f)))
-
-(defn ^:private register-epackages
-  "Registeres the given packages at the EPackage$Registry by their nsURI.
-  Skips packages that are already registered."
-  [pkgs]
-  (with-system-class-loader
-    (doseq [^EPackage p pkgs]
-      (when-let [uri (.getNsURI p)]
-        (when (seq uri)
-          (when-not (.containsKey EPackage$Registry/INSTANCE uri)
-            (.put EPackage$Registry/INSTANCE uri p)))))))
-
 (defn esubpackages
   "Returns all direct subpackages of EPackage `ep`."
   [^EPackage ep]
@@ -145,25 +121,6 @@
   [^EPackage ep]
   (let [subs (esubpackages ep)]
     (concat subs (mapcat esubpackages subs))))
-
-(defn ^:private all-epackages-in-resource [^Resource r]
-  (let [ps (.getContents r)]
-    (concat ps (mapcat eallsubpackages ps))))
-
-(defn load-ecore-resource
-  "Loads an Ecore model from the ecore file `f`.
-  All EPackages are registered.  The Ecore model is returned as a
-  Resource.  `f` may be a file name given as string, a java.io.File, an
-  URI, or a java.net.URL."
-  [f]
-  ;; Reset the caches, since now the names might not be unique anymore.
-  (reset-all-emf-caches)
-  (let [uri (create-uri f)
-        res (XMIResourceImpl. uri)]
-    (.load res nil)
-    (register-epackages
-     (all-epackages-in-resource res))
-    res))
 
 (defn epackages
   "The lazy seq of all registered EPackages and their subpackages."
@@ -362,29 +319,6 @@
 
 ;;# Model
 
-(defn save-resource
-  "Saves `resource`.  If given an `uri`, saves to the file denoted by it.
-  `uri` may be a file name given as string, a java.io.File, an URI, or a
-  java.net.URL."
-  ([^Resource resource]
-     (if-let [uri (.getURI resource)]
-       ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
-       ;; http://www.eclipse.org/forums/index.php/m/405881/
-       (let [l (.getContents resource)
-             ^java.util.ListIterator li (.listIterator l)]
-         (while (.hasNext li)
-           (let [^EObject o (.next li)]
-             (when (.eContainer o)
-               (.remove li))))
-         (println "Saving resource to" (.toFileString uri))
-         (.save resource nil))
-       (u/error (str "You tried to call save-resource on a Resource not associated "
-                     "with a file!\n"))))
-  ([^Resource resource uri]
-     (let [uri (create-uri uri)]
-       (.setURI resource uri)
-       (save-resource resource))))
-
 ;;## Qualified Names
 
 (extend-protocol g/IQualifiedName
@@ -404,22 +338,86 @@
   (g/qname [o]
     (g/qname (.eClass o))))
 
-;;## EMF Model Resources
+;;## EMF Resources
 
 (defn new-resource
   "Creates and returns a new, empty Resource."
   []
   (XMIResourceImpl.))
 
+(defn ^:private create-uri [f]
+  (cond
+   (instance? URI f)
+   f
+
+   (instance? java.io.File f)
+   (URI/createURI (.getPath ^java.io.File f))
+
+   (instance? java.net.URL f)
+   (URI/createURI (.toString ^java.net.URL f))
+
+   :else (URI/createURI f)))
+
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.
   `f` may be a file name given as string, a java.io.File, an URI, or a
-  java.net.URL.  Also see `load-ecore-resource'."
+  java.net.URL.  Also see `load-ecore-resource`."
   [f]
   (let [uri (create-uri f)
         res (XMIResourceImpl. uri)]
     (.load res (.getDefaultLoadOptions res))
     res))
+
+(defn ^:private register-epackages
+  "Registeres the given packages at the EPackage$Registry by their nsURI.
+  Skips packages that are already registered."
+  [pkgs]
+  (with-system-class-loader
+    (doseq [^EPackage p pkgs]
+      (when-let [uri (.getNsURI p)]
+        (when (seq uri)
+          (when-not (.containsKey EPackage$Registry/INSTANCE uri)
+            (.put EPackage$Registry/INSTANCE uri p)))))))
+
+(defn ^:private all-epackages-in-resource [^Resource r]
+  (let [ps (.getContents r)]
+    (concat ps (mapcat eallsubpackages ps))))
+
+(defn load-ecore-resource
+  "Loads an Ecore model from the ecore file `f`.
+  All EPackages are registered.  The Ecore model is returned as a
+  Resource.  `f` may be a file name given as string, a java.io.File, an
+  URI, or a java.net.URL."
+  [f]
+  ;; Reset the caches, since now the names might not be unique anymore.
+  (reset-all-emf-caches)
+  (let [res (load-resource f)]
+    (register-epackages
+     (all-epackages-in-resource res))
+    res))
+
+(defn save-resource
+  "Saves the given `resource`.  If given a file `f`, saves to it.
+  `f` may be a file name given as string, a java.io.File, an URI, or a
+  java.net.URL."
+  ([^Resource resource]
+     (if-let [uri (.getURI resource)]
+       ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
+       ;; http://www.eclipse.org/forums/index.php/m/405881/
+       (let [l (.getContents resource)
+             ^java.util.ListIterator li (.listIterator l)]
+         (while (.hasNext li)
+           (let [^EObject o (.next li)]
+             (when (.eContainer o)
+               (.remove li))))
+         (println "Saving resource to" (.toFileString uri))
+         (.save resource nil))
+       (u/error (str "You tried to call save-resource on a Resource not associated "
+                     "with a file!\n"))))
+  ([^Resource resource f]
+     (let [uri (create-uri f)]
+       (.setURI resource uri)
+       (save-resource resource))))
 
 ;;## Type Checks
 
