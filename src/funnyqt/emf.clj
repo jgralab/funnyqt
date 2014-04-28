@@ -638,9 +638,10 @@
   [refed reffn rm container]
   (filter (fn [o] (q/member? refed (reffn o rm)))
           (cond
-           (instance? Resource container) (eallobjects container)
-           (coll? container)              container
-           :else (u/errorf "container is neither a Resource nor a collection: %s"
+           (instance? Resource container)    (eallobjects container)
+           (instance? ResourceSet container) (eallobjects container)
+           (coll? container)                 container
+           :else (u/errorf "container is neither a Resource, ResourceSet nor a collection: %s"
                            container))))
 
 (defn ^:private epairs-internal-1 [this reffn src-rs trg-rs src-ts trg-ts]
@@ -753,8 +754,8 @@
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
   matching `rs` (see `eref-matcher`).  If no `container` is given, then only
   check the opposite refs of `eo`.  Else, all objects in `container` are tested
-  if they reference `eo`.  `container` may be either a Resource or a collection
-  of EObjects."
+  if they reference `eo`.  `container` may be either a Resource, a ResourceSet,
+  or a collection of EObjects."
   ([eo]
      (inv-erefs-internal eo identity nil))
   ([eo rs]
@@ -766,8 +767,8 @@
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
   EReference matching `rs` (see `eref-matcher`).  If no `container` is given,
   then only check the opposite refs of `eo`.  Else, all objects in `container`
-  are tested if they cross-reference `eo`. `container` may be either a Resource
-  or a collection of EObjects."
+  are tested if they cross-reference `eo`. `container` may be either a
+  Resource, a ResourceSet, or a collection of EObjects."
   ([eo]
      (inv-ecrossrefs-internal eo identity nil))
   ([eo rs]
