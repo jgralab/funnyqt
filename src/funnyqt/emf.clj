@@ -151,8 +151,10 @@
     (concat ps (mapcat eallsubpackages ps))))
 
 (defn load-ecore-resource
-  "Loads an Ecore model from the ecore file or java.net.URL `f`.
-  All EPackages are registered.  The Ecore model is returned as a Resource."
+  "Loads an Ecore model from the ecore file `f`.
+  All EPackages are registered.  The Ecore model is returned as a
+  Resource.  `f` may be a file name given as string, a java.io.File, an
+  URI, or a java.net.URL."
   [f]
   ;; Reset the caches, since now the names might not be unique anymore.
   (reset-all-emf-caches)
@@ -361,7 +363,9 @@
 ;;# Model
 
 (defn save-resource
-  "Saves `resource`.  If given an `uri`, saves to the file denoted by it."
+  "Saves `resource`.  If given an `uri`, saves to the file denoted by it.
+  `uri` may be a file name given as string, a java.io.File, an URI, or a
+  java.net.URL."
   ([^Resource resource]
      (if-let [uri (.getURI resource)]
        ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
@@ -408,8 +412,9 @@
   (XMIResourceImpl.))
 
 (defn load-resource
-  "Loads an EMF resource from the XMI file or java.net.URL `f`.
-  Also see `load-ecore-resource'."
+  "Loads an EMF resource from the XMI file `f`.
+  `f` may be a file name given as string, a java.io.File, an URI, or a
+  java.net.URL.  Also see `load-ecore-resource'."
   [f]
   (let [uri (create-uri f)
         res (XMIResourceImpl. uri)]
