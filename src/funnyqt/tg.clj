@@ -2065,19 +2065,19 @@ functions `record` and `enum-constant`."
   omega) function, (eseq-HasFoo graph) and (iseq-HasFoo v ds) sequence
   functions, and a (isa-HasFoo? e) type check predicate.
 
-  For any attribute att, there are the following functions:
+  For any attribute attr, there are the following functions:
 
     (attr el) ;; returns the attr value of el
     (set-attr! el val) ;; sets the attr value of el to val
 
-  For boolean attributes isFoo, the getter is named (isFoo? el).
+  For boolean attributes attr, the getter is named (attr? el).
 
   For any role name role, there are the functions:
 
-    (role el) ;; returns the vertex/vertices in el's role
-    (set-role! el v) ;; sets the role
-    (add-role! el v1 v2 v3...) ;; adds v1, v2, and v3 to el's role
-    (addall-role! el vs) ;; adds all vertices in vs to el's role
+    (->role el) ;; returns the vertex/vertices in el's role
+    (->set-role! el v) ;; sets the role
+    (->add-role! el v1 v2 v3...) ;; adds v1, v2, and v3 to el's role
+    (->addall-role! el vs) ;; adds all vertices in vs to el's role
 
   The add-* functions are only generated if role occurs as a multi-valued role
   for some VertexClass.  If role is a multi-valued role of el, then the setter
