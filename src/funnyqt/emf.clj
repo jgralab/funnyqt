@@ -372,7 +372,7 @@
            (let [^EObject o (.next li)]
              (when (.eContainer o)
                (.remove li))))
-         (println "Saving model to" (.toFileString uri))
+         (println "Saving resource to" (.toFileString uri))
          (.save resource nil))
        (u/error (str "You tried to call save-resource on a Resource not associated "
                      "with a file!\n"))))
@@ -408,7 +408,8 @@
   (XMIResourceImpl.))
 
 (defn load-resource
-  "Loads an EMF model from the XMI file or java.net.URL `f`."
+  "Loads an EMF resource from the XMI file or java.net.URL `f`.
+  Also see `load-ecore-resource'."
   [f]
   (let [uri (create-uri f)
         res (XMIResourceImpl. uri)]
@@ -895,7 +896,7 @@
   values denoted by `sf` and returns `eo`.  Throws an exception, if there's no
   EStructuralFeature `sf`.
 
-  In the arity-2 version, removes `obj` from `model` and returns `model`.
+  In the arity-2 version, removes `obj` from `resource` and returns `resource`.
   Note that it won't delete `obj` or remove references to it."
   ([eo sf value & more]
      (let [^EList l (eget-raw eo sf)]
@@ -933,17 +934,17 @@
 ;;## Edges, i.e., src/trg tuples
 
 (defn eallpairs
-  "Returns the seq of all edges in terms of [src trg] pairs in `m`.
+  "Returns the seq of all edges in terms of [src trg] pairs in `r`.
   This includes both containment as well as crossreferences.  Restrictions may
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
-  specs plus type specs `src-ts` and `trg-ts`.  `m` may be a Resource or
+  specs plus type specs `src-ts` and `trg-ts`.  `r` may be a Resource or
   ResourceSet."
-  ([m]
-     (epairs-internal m erefs-internal identity identity nil nil))
-  ([m src-rs trg-rs]
-     (epairs-internal m erefs-internal src-rs trg-rs nil nil))
-  ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m erefs-internal src-rs trg-rs src-ts trg-ts)))
+  ([r]
+     (epairs-internal r erefs-internal identity identity nil nil))
+  ([r src-rs trg-rs]
+     (epairs-internal r erefs-internal src-rs trg-rs nil nil))
+  ([r src-rs trg-rs src-ts trg-ts]
+     (epairs-internal r erefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (extend-protocol g/IRelationships
   Resource
@@ -958,16 +959,16 @@
          (eallpairs this src-role trg-role src-cls trg-cls)))))
 
 (defn ecrosspairs
-  "Returns the seq of all cross-reference edges in `m` in terms of [src trg] pairs.
-  `m` may be a Resource or ResourceSet.  Restrictions may be defined in terms
+  "Returns the seq of all cross-reference edges in `r` in terms of [src trg] pairs.
+  `r` may be a Resource or ResourceSet.  Restrictions may be defined in terms
   of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
   `src-ts` and `trg-ts`."
-  ([m]
-     (epairs-internal m ecrossrefs-internal identity identity nil nil))
-  ([m src-rs trg-rs]
-     (epairs-internal m ecrossrefs-internal src-rs trg-rs nil nil))
-  ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
+  ([r]
+     (epairs-internal r ecrossrefs-internal identity identity nil nil))
+  ([r src-rs trg-rs]
+     (epairs-internal r ecrossrefs-internal src-rs trg-rs nil nil))
+  ([r src-rs trg-rs src-ts trg-ts]
+     (epairs-internal r ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
 
 (defn ^:private econtents-by-ref
   [^EObject eo rm]
@@ -978,28 +979,28 @@
             r)))
 
 (defn econtentpairs
-  "Returns the seq of all containment edges in `m` in terms of [src trg] pairs.
-  `m` may be a Resource or ResourceSet.  src is the parent, trg is the child.
+  "Returns the seq of all containment edges in `r` in terms of [src trg] pairs.
+  `r` may be a Resource or ResourceSet.  src is the parent, trg is the child.
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
-  ([m]
-     (epairs-internal m econtents-by-ref identity identity nil nil))
-  ([m src-rs trg-rs]
-     (epairs-internal m econtents-by-ref src-rs trg-rs nil nil))
-  ([m src-rs trg-rs src-ts trg-ts]
-     (epairs-internal m econtents-by-ref src-rs trg-rs src-ts trg-ts)))
+  ([r]
+     (epairs-internal r econtents-by-ref identity identity nil nil))
+  ([r src-rs trg-rs]
+     (epairs-internal r econtents-by-ref src-rs trg-rs nil nil))
+  ([r src-rs trg-rs src-ts trg-ts]
+     (epairs-internal r econtents-by-ref src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
 
 (defn ecreate!
-  "Creates an EObject of EClass `ecls` contained in `model` which may be nil.
+  "Creates an EObject of EClass `ecls` and adds it to `resource` which may be nil.
   `ecls` may be either an EClass or just an EClass name given as symbol.
   `props` are optional property-value pairs to be set, where
   properties (attributes and references) are represented as keywords.  Since
   props are set using `eset!`, the value of a multi-valued reference must be a
   collection of EObjects."
-  [model ecls & props]
+  [resource ecls & props]
   (let [eo (EcoreUtil/create (if (eclass? ecls)
                                ecls
                                (eclassifier ecls)))]
@@ -1007,8 +1008,8 @@
                                   (repeatedly #(u/errorf "attr-vals not paired: %s" props))
                                   props)]
       (eset! eo prop val))
-    (when model
-      (eadd! model eo))
+    (when resource
+      (eadd! resource eo))
     eo))
 
 (extend-protocol g/ICreateElement
@@ -1386,23 +1387,23 @@
 (defn ^:private create-create-fn [^EClass ec prefix]
   `(do
      (defn ~(symbol (str prefix "create-" (.getName ec) "!"))
-       ~(format "Creates a new %s object and adds it to model `m`.
+       ~(format "Creates a new %s object and adds it to resource `r`.
   Properties are set according to `props`.
-  `m` may be nil.
-  Shorthand for (apply ecreate! m '%s props)."
+  `r` may be nil.
+  Shorthand for (apply ecreate! r '%s props)."
                 (g/qname ec)
                 (g/qname ec))
-       [~'m & ~'props]
-       (apply ecreate! ~'m '~(g/qname ec) ~'props))
+       [~'r & ~'props]
+       (apply ecreate! ~'r '~(g/qname ec) ~'props))
 
      (defn ~(symbol (let [n (.getName ec)]
                       (str prefix "eall-" (inflections.core/plural n))))
-       ~(format "Returns the sequence of %s objects in `m`.
-  Shorthand for (eallobjects m '%s)."
+       ~(format "Returns the sequence of %s objects in `r`.
+  Shorthand for (eallobjects r '%s)."
                 (g/qname ec)
                 (g/qname ec))
-       [~'m & ~'props]
-       (eallobjects ~'m '~(g/qname ec)))
+       [~'r & ~'props]
+       (eallobjects ~'r '~(g/qname ec)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (.getName ec) "?"))
@@ -1516,9 +1517,9 @@
 
   The following functions are generated.
 
-  For any EClass Foo in the metamodel, a (create-Foo! model) function,
-  a (eall-Foos model) function, and a (isa-Foo? eo) type check predicate is
-  generated.
+  For any EClass Foo in the metamodel, a (create-Foo! resource)
+  function, a (eall-Foos resource) function, and a (isa-Foo? eo) type
+  check predicate is generated.
 
   For any EAttribute name attr, the following functions are generated:
 
