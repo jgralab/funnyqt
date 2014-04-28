@@ -86,6 +86,8 @@
 ;; Caches
 
 (defrecord ^:private CacheEntry [ns-uris spec])
+(alter-meta! #'->CacheEntry assoc :private true)
+(alter-meta! #'map->CacheEntry assoc :private true)
 
 (defmacro ^:private make-cache-entry [ns-uris nm]
   `(CacheEntry. (or ~ns-uris *ns-uris*) ~nm))
