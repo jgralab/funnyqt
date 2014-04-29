@@ -65,8 +65,9 @@
 
 (defmacro with-ns-uris
   "Restricts the EClassifier lookup in the dynamic scope of `body` to those
-  contained in top-level EPackages registered with the given URIs at the
-  EPackage registry and subpackages thereof."
+  contained in top-level EPackages registered with the given namespace `uris`
+  at the EPackage registry and subpackages thereof."
+  {:arglists '([uris] & body)}
   [uris & body]
   `(binding [*ns-uris* ~uris]
      ~@body))
