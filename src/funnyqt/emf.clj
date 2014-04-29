@@ -835,13 +835,18 @@
         (.addAll ^EList (.eGet eo sfeat) value)
         eo)
       (do
-        (if (and (instance? Long value)
-                 (-> sfeat
-                     .getEType
-                     .getName
-                     (= "EInt")))
-          (.eSet eo sfeat (int value))
-          (.eSet eo sfeat value))
+        (cond
+         (and (instance? Long value)
+              (-> sfeat
+                  .getEType
+                  .getName
+                  (= "EInt")))
+         (.eSet eo sfeat (int value))
+
+         (ratio? value)
+         (.eSet eo sfeat (double value))
+
+         :else (.eSet eo sfeat value))
         eo))
     (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
