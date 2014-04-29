@@ -1068,26 +1068,13 @@
 
 ;;## EObject Deletion
 
-(extend-protocol g/IDeletable
-  EObject
-  (g/delete!
-    ([this]
-       (EcoreUtil/delete this true)
-       this)
-    ([this recursive]
-       ;; Gotta provide a real boolean, not just a truthy thingy
-       (EcoreUtil/delete this (boolean recursive))
-       this)))
-
 (defn edelete!
   "Unsets all references of `eo` and removes it from its containing resource
-  and containing EObject.  If `recursively` is true (the default), first
-  edelete! all contents of `eo`.
-
-  If `eo` isn't cross-referenced unidirectional, this is equivalent
-  to `(funnyqt.generic/delete! eo)` but faster.  If `eo` is cross-referenced
-  unidirectional, these objects will still reference `eo` after the call, so
-  use `funnyqt.generic/delete!` instead of `edelete!` in that case."
+  and containing EObject, and returns `eo`.  If `recursively` is true (the
+  default), first edelete! all contents of `eo`.  If `unset-uni-crossrefs` is
+  true (default is false), then also unset all unidirectional crossreferences
+  pointing to `eo` from other objects contained in the same root object,
+  resource, or resource set as `eo`."
   ([^EObject eo]
      (edelete! eo true))
   ([^EObject eo recursively]
@@ -1099,7 +1086,21 @@
      (doseq [ref (.getEAllReferences (.eClass eo))]
        (eunset! eo ref))
      (when-let [^Resource res (.eResource eo)]
-       (.remove (.getContents res) eo))))
+       (.remove (.getContents res) eo))
+     eo)
+  ([^EObject eo recursively unset-uni-crossrefs]
+     (if unset-uni-crossrefs
+       (EcoreUtil/delete eo (boolean recursively))
+       (edelete! eo recursively))
+     eo))
+
+(extend-protocol g/IDeletable
+  EObject
+  (g/delete!
+    ([this]
+       (edelete! this true true))
+    ([this recursive]
+       (edelete! this recursive true))))
 
 ;;# Adjancencies
 
