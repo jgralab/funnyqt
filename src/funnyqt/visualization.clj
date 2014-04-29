@@ -178,11 +178,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (str
    (reduce str
            (map emf-dot-eobject
-                (emf/eallobjects m)))
+                (emf/eallcontents m)))
    (binding [*emf-opposite-refs* (atom #{})]
      (reduce str
              (map emf-dot-ereferences
-                  (emf/eallobjects m))))))
+                  (emf/eallcontents m))))))
 
 ;;** TGraph stuff
 

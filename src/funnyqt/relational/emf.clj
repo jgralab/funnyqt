@@ -30,7 +30,7 @@
                  (->> (map #(ccl/unify a eo %)
                            (concat
                             (map (partial tmp/make-wrapper m eo)
-                                 (emf/eallobjects m))
+                                 (emf/eallcontents m))
                             [(tmp/make-tmp-element m :element)]))
                       (remove not)))))))
   ([m eo t]
@@ -55,7 +55,7 @@
                  (->> (map #(ccl/unify a eo %)
                            (concat
                             (map (partial tmp/make-wrapper m eo)
-                                 (emf/eallobjects m gt))
+                                 (emf/eallcontents m gt))
                             [(tmp/make-tmp-element m :element gt)]))
                       (remove not))))))))
 
@@ -72,7 +72,7 @@
              (if (emf/eobject? geo) (ccl/succeed a) (ccl/fail a))
              (ccl/to-stream
               (->> (map #(ccl/unify a eo %)
-                        (emf/eallobjects m))
+                        (emf/eallcontents m))
                    (remove not))))))))
   ([m eo t]
      (if tmp/*make-tmp-elements*
@@ -95,11 +95,11 @@
 
             (ru/ground? gt)
             (ccl/to-stream
-             (->> (map #(ccl/unify a eo %) (emf/eallobjects m t))
+             (->> (map #(ccl/unify a eo %) (emf/eallcontents m t))
                   (remove not)))
 
             :else (ccl/to-stream
-                   (->> (for [elem (emf/eallobjects m t)]
+                   (->> (for [elem (emf/eallcontents m t)]
                           (ccl/unify a [eo t] [elem (g/qname elem)]))
                         (remove not)))))))))
 
@@ -143,7 +143,7 @@
                   (remove not)))
 
             :else (ccl/to-stream
-                   (->> (for [^EObject elem (emf/eallobjects m)
+                   (->> (for [^EObject elem (emf/eallcontents m)
                               ^EAttribute attr (attribute-list elem)
                               :let [an (keyword (.getName attr))]]
                           (ccl/unify a [eo at val] [elem an (emf/eget elem an)]))
@@ -195,7 +195,7 @@
                   (remove not)))
 
             :else (ccl/to-stream
-                   (->> (for [^EObject elem (emf/eallobjects m)
+                   (->> (for [^EObject elem (emf/eallcontents m)
                               ^EReference reference (reference-list elem)
                               :let [rn (keyword (.getName reference))]
                               refed (funnyqt.generic/adjs* elem rn)]

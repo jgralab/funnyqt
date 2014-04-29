@@ -37,24 +37,24 @@
   (create-eobjects! tm 'Male
                     (fn []
                       (filter male?
-                              (eallobjects m 'Member))))
+                              (eallcontents m 'Member))))
   (create-eobjects! tm 'Female
                     (fn []
                       (filter (complement male?)
-                              (eallobjects m 'Member))))
+                              (eallcontents m 'Member))))
   (set-values! tm 'Person.fullName
                (fn []
-                 (for [mem (eallobjects m 'Member)]
+                 (for [mem (eallcontents m 'Member)]
                    [(resolve-eobject mem)
                     (str (eget mem :firstName) " "
                          (eget (family mem) :lastName))])))
   (set-values! tm 'Male.wife
                (fn []
-                 (for [mem (filter wife (eallobjects m 'Member))]
+                 (for [mem (filter wife (eallcontents m 'Member))]
                    [(resolve-eobject mem) (resolve-target (wife mem))])))
   (add-values! tm 'Person.parents
                (fn []
-                 (for [child (eallobjects m 'Member)
+                 (for [child (eallcontents m 'Member)
                        :let [parents (parents-of child)]
                        :when parents]
                    [(resolve-eobject child) (resolve-all-targets parents)]))))
@@ -67,9 +67,9 @@
         m (load-resource "test/input/example.families")]
     #_(clojure.pprint/pprint (families2genealogy m tm))
     (families2genealogy m tm)
-    (is (= 13 (count (eallobjects tm 'Person))))
-    (is (=  7 (count (eallobjects tm 'Female))))
-    (is (=  6 (count (eallobjects tm 'Male))))
+    (is (= 13 (count (eallcontents tm 'Person))))
+    (is (=  7 (count (eallcontents tm 'Female))))
+    (is (=  6 (count (eallcontents tm 'Male))))
     (is (= 18 (count (eallpairs tm :parents :children))))
     (is (=  3 (count (eallpairs tm :husband :wife))))
     #_(print-model tm ".gtk")))

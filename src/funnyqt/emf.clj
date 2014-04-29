@@ -500,10 +500,7 @@
     "Returns a seq of all directly contained EObjects whose type matches the
   type spec `ts` (see `funnyqt.generic/type-matcher`).")
   (^:private econtainer-internal [this]
-    "Returns the EObject containing this.")
-  (^:private eallobjects-internal [this tm]
-    "Returns a seq of all objects matching the type specification `ts` (see
-  `funnyqt.generic/type-matcher`) that are contained in this Resource."))
+    "Returns the EObject containing this."))
 
 (extend-protocol IEContents
   EObject
@@ -525,16 +522,12 @@
     (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
-  (eallobjects-internal [this ts]
-    (eallcontents-internal this ts))
 
   ResourceSet
   (eallcontents-internal [this ts]
     (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
-  (eallobjects-internal [this ts]
-    (eallcontents-internal this ts))
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
@@ -560,26 +553,20 @@
   ([container ts]
      (econtents-internal container ts)))
 
-(defn eallobjects
-  "Returns a lazy seq of all EObjects in `r` that match the type spec `ts`.
-  `r` may be a Resource or a ResourceSet."
-  ([r] (eallobjects-internal r identity))
-  ([r ts] (eallobjects-internal r ts)))
-
 (extend-protocol g/IElements
   Resource
   (g/elements
     ([this]
-       (eallobjects this))
+       (eallcontents this))
     ([this ts]
-       (eallobjects this ts)))
+       (eallcontents this ts)))
 
   ResourceSet
   (g/elements
     ([this]
-       (eallobjects this))
+       (eallcontents this))
     ([this ts]
-       (eallobjects this ts))))
+       (eallcontents this ts))))
 
 (def ^{:doc "Returns the EObject containing `eo`."
        :arglists '([eo])}
@@ -642,8 +629,8 @@
   [refed reffn rm container]
   (filter (fn [o] (q/member? refed (reffn o rm)))
           (cond
-           (instance? Resource container)    (eallobjects container)
-           (instance? ResourceSet container) (eallobjects container)
+           (instance? Resource container)    (eallcontents container)
+           (instance? ResourceSet container) (eallcontents container)
            (coll? container)                 container
            :else (u/errorf "container is neither a Resource, ResourceSet nor a collection: %s"
                            container))))
@@ -652,7 +639,7 @@
   (let [done (atom #{})
         src-rm (eref-matcher src-rs)
         trg-rm (eref-matcher trg-rs)]
-    (for [^EObject src (eallobjects this src-ts)
+    (for [^EObject src (eallcontents this src-ts)
           ^EReference ref (seq (-> src .eClass .getEAllReferences))
           :when (not (q/member? ref @done))
           :when (trg-rm ref)
@@ -1420,11 +1407,11 @@
      (defn ~(symbol (let [n (.getName ec)]
                       (str prefix "eall-" (inflections.core/plural n))))
        ~(format "Returns the sequence of %s objects in `r`.
-  Shorthand for (eallobjects r '%s)."
+  Shorthand for (eallcontents r '%s)."
                 (g/qname ec)
                 (g/qname ec))
        [~'r & ~'props]
-       (eallobjects ~'r '~(g/qname ec)))
+       (eallcontents ~'r '~(g/qname ec)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (.getName ec) "?"))

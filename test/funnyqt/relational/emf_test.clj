@@ -13,17 +13,17 @@
                                 test.relational.families.emf families +)
 
 (t/deftest test-eobjecto
-  (t/is (= (emf/eallobjects family-model)
+  (t/is (= (emf/eallcontents family-model)
            (run* [q]
              (eobjecto family-model q)))))
 
 (t/deftest test-eobjecto-with-type
-  (t/is (= (emf/eallobjects family-model 'Member)
+  (t/is (= (emf/eallcontents family-model 'Member)
            (run* [q]
              (eobjecto family-model q 'Member))
            (run* [q]
              (families/+Member family-model q))))
-  (t/is (= (emf/eallobjects family-model '!Member)
+  (t/is (= (emf/eallcontents family-model '!Member)
            (run* [q]
              (eobjecto family-model q '!Member))
            (run* [q]
@@ -32,7 +32,7 @@
 (t/deftest test-valueo
   (t/is (= (map (fn [e]
                   [e (emf/eget e :firstName)])
-                (emf/eallobjects family-model 'Member))
+                (emf/eallcontents family-model 'Member))
            (run* [q]
              (with-fresh
                (valueo family-model ?elem :firstName ?val)
@@ -44,7 +44,7 @@
 
 (t/deftest test-adjo
   (let [fam-carter (q/the #(= "Carter" (emf/eget % :lastName))
-                          (emf/eallobjects family-model 'Family))]
+                          (emf/eallcontents family-model 'Family))]
     (t/is (= (g/adjs fam-carter :daughters)
              (run* [q]
                (adjo family-model fam-carter :daughters q))

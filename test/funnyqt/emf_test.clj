@@ -54,10 +54,10 @@
     em))
 
 (deftest test-econtents-eallcontents
-  (let [all   (eallobjects family-model)
+  (let [all   (eallcontents family-model)
         mems  (eallcontents family-model 'Member)
         fams  (eallcontents family-model 'Family)
-        fmods (eallobjects family-model 'FamilyModel)]
+        fmods (eallcontents family-model 'FamilyModel)]
     (is (== 17 (count all)))
     (is (== 1  (count fmods)))
     (is (== 3  (count fams)))
@@ -76,7 +76,7 @@
            (econtents (econtents family-model) 'Family)))))
 
 (deftest test-ecrossrefs
-  (let [fsmith (first (eallobjects family-model 'Family))]
+  (let [fsmith (first (eallcontents family-model 'Family))]
     (is (= (ecrossrefs fsmith)
            (ecrossrefs fsmith [:father :mother :sons :daughters])))
     (is (== 1
@@ -86,7 +86,7 @@
     (is (== 3 (count (ecrossrefs fsmith :sons))))))
 
 (deftest test-inv-erefs
-  (let [[f1 f2 f3] (eallobjects family-model 'Family)]
+  (let [[f1 f2 f3] (eallcontents family-model 'Family)]
     (are [x y z cnt] (and (== cnt (count x) (count y) (count z))
                         (= (apply hash-set x)
                            (apply hash-set y)
@@ -250,7 +250,7 @@
 
 (deftest test-ecreate
   (let [m (make-test-familymodel 100 1000)]
-    (are [c s] (== c (count (eallobjects m s)))
+    (are [c s] (== c (count (eallcontents m s)))
          1101 nil
          1    'FamilyModel
          100  'Family
@@ -260,7 +260,7 @@
     (is (q/forall? (fn [f]
                      (and (eget f :father)
                           (eget f :mother)))
-                 (eallobjects m 'Family)))))
+                 (eallcontents m 'Family)))))
 
 (deftest test-eget-raw
   (let [i 1000
@@ -303,11 +303,11 @@
         m    (g/create-element! fm 'Member {:firstName "John"
                                             :model root
                                             :familyFather f})]
-    (is (= 3 (count (eallobjects fm))))
+    (is (= 3 (count (eallcontents fm))))
     (is (= 1
-           (count (eallobjects fm 'FamilyModel))
-           (count (eallobjects fm 'Family))
-           (count (eallobjects fm 'Member))))
+           (count (eallcontents fm 'FamilyModel))
+           (count (eallcontents fm 'Family))
+           (count (eallcontents fm 'Member))))
     (is (= root (eget f :model) (eget m :model)))
     (is (= m (eget f :father)))
     (is (= f (eget m :familyFather)))))
@@ -360,9 +360,9 @@
            (eget root :members)
            (fams/->members root)))
 
-    (is (= (eallobjects m 'FamilyModel) (fams/eall-FamilyModels m)))
-    (is (= (eallobjects m 'Member)      (fams/eall-Members m)))
-    (is (= (eallobjects m 'Family)      (fams/eall-Families m)))
+    (is (= (eallcontents m 'FamilyModel) (fams/eall-FamilyModels m)))
+    (is (= (eallcontents m 'Member)      (fams/eall-Members m)))
+    (is (= (eallcontents m 'Family)      (fams/eall-Families m)))
     ))
 
 (load-ecore-resource "test/input/AddressBook.ecore")
@@ -411,13 +411,13 @@
   (is (thrown-with-msg? Exception #"No such EClassifier"
                         (with-ns-uris ["http://addressbook/1.0"]
                           (eclassifier 'Member))))
-  (is (= (eallobjects family-model '[Member Family])
-         (eallobjects family-model
+  (is (= (eallcontents family-model '[Member Family])
+         (eallcontents family-model
                       '{"http://addressbook/1.0"
                         [:or {"http://families/1.0" Member}
                          {"http://families/1.0" Family}]})))
   (is (thrown-with-msg? Exception #"No such EClassifier"
-                        (eallobjects family-model
+                        (eallcontents family-model
                                      '{"http://addressbook/1.0"
                                        [:or {"http://families/1.0" Member}
                                         Family]})))
@@ -425,12 +425,12 @@
          (eclassifier {"http://addressbook/1.0" 'AddressBook})
          (with-ns-uris ["http://addressbook/1.0"]
            (eclassifier 'AddressBook))))
-  (is (= (eallobjects family-model '[Family Member])
-         (eallobjects family-model '[Family Member])
-         (eallobjects family-model '{"http://families/1.0" [Family Member]})))
-  (is (= (eallobjects family-model 'Member)
-         (eallobjects family-model 'Member)
-         (eallobjects family-model '{"http://families/1.0" Member}))))
+  (is (= (eallcontents family-model '[Family Member])
+         (eallcontents family-model '[Family Member])
+         (eallcontents family-model '{"http://families/1.0" [Family Member]})))
+  (is (= (eallcontents family-model 'Member)
+         (eallcontents family-model 'Member)
+         (eallcontents family-model '{"http://families/1.0" Member}))))
 
 (load-ecore-resource "test/input/Genealogy.ecore")
 
@@ -451,7 +451,7 @@
          (erefs fm :members) (q/reachables fm :members) 13
          (erefs fm :families) (q/reachables fm :families) 3
          (erefs fm [:members :families]) (q/reachables fm [q/p-alt :members :families]) 16
-         (eallobjects family-model) (q/reachables fm [q/p-* -->]) 17)))
+         (eallcontents family-model) (q/reachables fm [q/p-* -->]) 17)))
 
 (deftest test-adj
   (is (every? #(= %
@@ -461,7 +461,7 @@
                   (q/the (g/adjs % :mother :familyMother))
                   (eget (eget % :father) :familyFather)
                   (eget (eget % :mother) :familyMother))
-              (eallobjects family-model 'Family)))
+              (eallcontents family-model 'Family)))
   ;; Multivalued refs should throw
   (is (thrown? Exception (g/adj (first (econtents family-model)) :members))))
 
@@ -502,7 +502,7 @@
            (q/reachables dennis [<--- :father family-model])))
     (is (= #{(get-family "Smithway 17")}
            (q/reachables dennis [---> :familyFather])
-           (q/reachables dennis [<--- :father (eallobjects family-model 'Family)])))
+           (q/reachables dennis [<--- :father (eallcontents family-model 'Family)])))
     (is (= #{(get-family "Smithway 17")
              (get-family "Smith Avenue 4")}
            (q/reachables dennis [---> [:familyFather :familySon]])

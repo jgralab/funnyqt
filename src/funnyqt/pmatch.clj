@@ -463,7 +463,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (emf/eallobjects ~gsym ~(get-type cur))]))
+                     (into bf `[~(get-name cur) (emf/eallcontents ~gsym ~(get-type cur))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -496,7 +496,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallobjects
+                                        `[~(get-name trg) (emf/eallcontents
                                                            ~gsym ~(get-type trg))])
                                     :when (empty? ~(if-let [t (get-edge-type cur)]
                                                      `(eget-1 ~(get-name src) ~t)

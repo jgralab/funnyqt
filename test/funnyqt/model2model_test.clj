@@ -144,7 +144,7 @@
    :to   [p 'Female])
   ;; Try a main function instead of automatic application of ^:top rules.
   (main []
-   (doseq [m (emf/eallobjects in 'Member)]
+   (doseq [m (emf/eallcontents in 'Member)]
      (member2person m))))
 
 (deftest test-families2genealogy-explicit-main

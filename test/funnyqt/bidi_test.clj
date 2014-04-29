@@ -222,15 +222,15 @@
 (defmacro assert-same-addressbooks-tg-emf [l r]
   `(let [l# ~l, r# ~r]
      (test/is (= (tg/vcount l# 'AddressBook)
-                 (count (emf/eallobjects r# 'AddressBook))))
+                 (count (emf/eallcontents r# 'AddressBook))))
      (test/is (= (tg/vcount l# 'Category)
-                 (count (emf/eallobjects r# 'Category))))
+                 (count (emf/eallcontents r# 'Category))))
      (test/is (= (tg/ecount l# 'ContainsCategory)
                  (count (emf/eallpairs r# :addressBook :categories))))
      (test/is (= (tg/vcount l# 'Contact)
-                 (count (emf/eallobjects r# 'Contact))))
+                 (count (emf/eallcontents r# 'Contact))))
      (test/is (= (tg/vcount l# 'Organization)
-                 (count (emf/eallobjects r# 'Organization))))
+                 (count (emf/eallcontents r# 'Organization))))
      (test/is (= (+ (tg/ecount l# 'ContainsContact)
                     (tg/ecount l# 'ContainsOrganization))
                  (count (emf/eallpairs r# :category :entries))))
@@ -261,7 +261,7 @@
                             :lastName "Taylor"
                             :email "tim@gmail.com")
           cat-work (first (filter #(= (emf/eget % :name) "Work")
-                                  (emf/eallobjects r 'Category)))]
+                                  (emf/eallcontents r 'Category)))]
       (g/add-adj! cat-work :entries tim))
     (time (addressbook-tg2addressbook-emf l r :left))
     (assert-same-addressbooks-tg-emf l r)
@@ -329,11 +329,11 @@
                    (first (filter #(and
                                     (= "John" (emf/eget % :firstName))
                                     (= "Doe"  (emf/eget % :lastName)))
-                                  (emf/eallobjects m 'Contact))))]
+                                  (emf/eallcontents m 'Contact))))]
     (emf/ecreate! l 'Contact :firstName "John" :lastName "Doe"
                   :email "jdoe@yahoo.com")
     (attr-override-contact-emf2contact-emf l r :right)
-    (test/is (= 1 (count (emf/eallobjects r))))
+    (test/is (= 1 (count (emf/eallcontents r))))
     (let [john (get-john r)]
       (test/is (= "John" (emf/eget john :firstName)))
       (test/is (= "Doe" (emf/eget john :lastName)))
@@ -343,7 +343,7 @@
     ;; Propagate the changed email address back to the source model l
     (attr-override-contact-emf2contact-emf l r :left)
     ;; No new vertex must have been created.
-    (test/is (= 1 (count (emf/eallobjects l))))
+    (test/is (= 1 (count (emf/eallcontents l))))
     (let [john (get-john l)]
       (test/is (= "John" (emf/eget john :firstName)))
       (test/is (= "Doe" (emf/eget john :lastName)))
@@ -415,12 +415,12 @@
         r (emf/new-resource)
         get-private (fn [m]
                       (first (filter #(= "Private" (emf/eget % :name))
-                                     (emf/eallobjects m 'Category))))]
+                                     (emf/eallcontents m 'Category))))]
     (emf/ecreate! l 'AddressBook :name "AB1"
                   :categories
                   [(emf/ecreate! l 'Category :name "Private")])
     (single-valued-role-override-ab-emf2ab-emf l r :right)
-    (test/is (= 2 (count (emf/eallobjects r))))
+    (test/is (= 2 (count (emf/eallcontents r))))
     (let [priv (get-private r)]
       (test/is (= "Private" (emf/eget priv :name)))
       ;; Now create a new AddressBook AB2 and assign Private there.
@@ -430,7 +430,7 @@
     ;; reassigned to the AB2 AddressBook.
     (single-valued-role-override-ab-emf2ab-emf l r :left)
     ;; Now we have 3 objs: 2 AddressBooks and one Contact.
-    (test/is (= 3 (count (emf/eallobjects l))))
+    (test/is (= 3 (count (emf/eallcontents l))))
     (let [priv (get-private l)]
       (test/is (= "Private" (emf/eget priv :name)))
       (test/is (== 1 (count (g/adjs priv :addressBook)))))))
@@ -493,17 +493,17 @@
 (test/deftest test-cd2db
   (let [result-db (emf/new-resource)]
     (class-diagram2database-schema cd1 result-db :right)
-    (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
-    (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
-    (test/is (= 7 (count (emf/eallobjects result-db 'Column))))
+    (test/is (= 1 (count (emf/eallcontents result-db 'Schema))))
+    (test/is (= 2 (count (emf/eallcontents result-db 'Table))))
+    (test/is (= 7 (count (emf/eallcontents result-db 'Column))))
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd
   (let [result-cd (emf/new-resource)]
     (class-diagram2database-schema result-cd db1 :left)
-    (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
-    (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
-    (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
+    (test/is (= 1 (count (emf/eallcontents result-cd 'Package))))
+    (test/is (= 2 (count (emf/eallcontents result-cd 'Class))))
+    (test/is (= 8 (count (emf/eallcontents result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))
 
 (bidi/deftransformation class-diagram2database-schema-ext
@@ -526,15 +526,15 @@
 (test/deftest test-cd2db-ext
   (let [result-db (emf/new-resource)]
     (class-diagram2database-schema-ext cd1 result-db :right)
-    (test/is (= 1 (count (emf/eallobjects result-db 'Schema))))
-    (test/is (= 2 (count (emf/eallobjects result-db 'Table))))
-    (test/is (= 7 (count (emf/eallobjects result-db 'Column))))
+    (test/is (= 1 (count (emf/eallcontents result-db 'Schema))))
+    (test/is (= 2 (count (emf/eallcontents result-db 'Table))))
+    (test/is (= 7 (count (emf/eallcontents result-db 'Column))))
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd-ext
   (let [result-cd (emf/new-resource)]
     (class-diagram2database-schema-ext result-cd db1 :left)
-    (test/is (= 1 (count (emf/eallobjects result-cd 'Package))))
-    (test/is (= 2 (count (emf/eallobjects result-cd 'Class))))
-    (test/is (= 8 (count (emf/eallobjects result-cd 'Attribute))))
+    (test/is (= 1 (count (emf/eallcontents result-cd 'Package))))
+    (test/is (= 2 (count (emf/eallcontents result-cd 'Class))))
+    (test/is (= 8 (count (emf/eallcontents result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))

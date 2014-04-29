@@ -178,7 +178,7 @@
 (deftest test-given-fam-with-all-members-emf
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
                                         (= "Smithway 17" (emf/eget f :street))))
-                            (emf/eallobjects fm 'Family)))
+                            (emf/eallcontents fm 'Family)))
         r (given-fam-with-all-members-emf fm fsmith)]
     (is (= 4 (count r)))
     (is (forall? #(= fsmith (first %)) r))))
@@ -193,10 +193,10 @@
 (deftest test-long-anon-pattern-emf
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
                                          (= "Smithway 17" (emf/eget f :street))))
-                            (emf/eallobjects fm 'Family)))
+                            (emf/eallcontents fm 'Family)))
         ofsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
                                           (= "Smith Avenue 4" (emf/eget f :street))))
-                             (emf/eallobjects fm 'Family)))
+                             (emf/eallcontents fm 'Family)))
         r (long-anon-pattern-emf fm fsmith)]
     (is (= 1 (count r)))
     (is (= [fsmith ofsmith]))))

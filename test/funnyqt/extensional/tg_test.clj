@@ -63,25 +63,25 @@
   (create-vertices! g 'Male
                     (fn []
                       (filter male?
-                              (emf/eallobjects m 'Member))))
+                              (emf/eallcontents m 'Member))))
   (create-vertices! g 'Female
                     (fn []
                       (filter (complement male?)
-                              (emf/eallobjects m 'Member))))
+                              (emf/eallcontents m 'Member))))
   (set-values! g 'Person.fullName
                (fn []
-                 (for [mem (emf/eallobjects m 'Member)]
+                 (for [mem (emf/eallcontents m 'Member)]
                    [(resolve-element mem)
                     (str (emf/eget mem :firstName) " "
                          (emf/eget (family mem) :lastName))])))
   (create-edges! g 'HasSpouse
                  (fn []
-                   (for [mem (filter wife (emf/eallobjects m 'Member))
+                   (for [mem (filter wife (emf/eallcontents m 'Member))
                          :let [w (wife mem)]]
                      [(family mem) (resolve-alpha mem) (resolve-omega w)])))
   (create-edges! g 'HasChild
                  (fn []
-                   (for [child (emf/eallobjects m 'Member)
+                   (for [child (emf/eallcontents m 'Member)
                          parent (parents-of child)]
                      [[child parent] (resolve-alpha parent) (resolve-omega child)])))
   @*img*)
