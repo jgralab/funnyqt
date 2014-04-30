@@ -162,17 +162,17 @@
          3)))
 
 (deftest test-epairs
-  (is (== 31 (count (eallpairs family-model))))
+  (is (== 31 (count (epairs family-model))))
   (is (== 15 (count (ecrosspairs family-model))))
   (is (== 16 (count (econtentpairs family-model))))
 
-  (is (== 16 (count (eallpairs family-model :model nil))))
-  (is (==  3 (count (eallpairs family-model nil :families))))
-  (is (==  3 (count (eallpairs family-model :model :families))))
+  (is (== 16 (count (epairs family-model :model nil))))
+  (is (==  3 (count (epairs family-model nil :families))))
+  (is (==  3 (count (epairs family-model :model :families))))
 
-  (is (==  3 (count (eallpairs family-model nil nil 'FamilyModel 'Family))))
-  (is (== 18 (count (eallpairs family-model nil nil nil 'Family))))
-  (is (==  3 (count (eallpairs family-model :model nil nil 'Family)))))
+  (is (==  3 (count (epairs family-model nil nil 'FamilyModel 'Family))))
+  (is (== 18 (count (epairs family-model nil nil nil 'Family))))
+  (is (==  3 (count (epairs family-model :model nil nil 'Family)))))
 
 (deftest test-eget
   (let [fm (q/the (econtents family-model))
@@ -294,13 +294,13 @@
         s   (ecreate! nil 'Member)]
     (eadd! root :members f s)
     (eadd! root :families fam)
-    (is (== 3 (count (eallpairs fm))))
+    (is (== 3 (count (epairs fm))))
     (is (== 3 (count (econtentpairs fm))))
     (is (zero? (count (ecrosspairs fm))))
     ;; the refs are unique, so in fact only one new link is established.
     (dotimes [i 1000]
       (eadd! fam :sons s))
-    (is (== 4 (count (eallpairs fm))))
+    (is (== 4 (count (epairs fm))))
     (is (== 3 (count (econtentpairs fm))))
     (is (== 1 (count (ecrosspairs fm))))))
 

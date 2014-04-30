@@ -615,7 +615,8 @@
   Given a Foo object and a eref-matcher matching f, returns a seq of the
   EReferences b and c, because those are the opposites of the matched f.  Of
   course, if `src-rm` matches only one specific EReference, i.e., it was
-  constructed by (eref-matcher fERef) and not (eref-matcher :f)."
+  constructed by (eref-matcher fERef) and not (eref-matcher :f), then only b
+  or c (exclusive) is returned.."
   [^EObject eo src-rm]
   (seq (remove nil? (map (fn [^EReference r]
                            (when-let [o (.getEOpposite r)]
@@ -627,12 +628,7 @@
   that are contained in `container`.  `reffn` is either erefs or ecrossrefs."
   [refed reffn rm container]
   (filter (fn [o] (q/member? refed (reffn o rm)))
-          (cond
-           (instance? Resource container)    (eallcontents container)
-           (instance? ResourceSet container) (eallcontents container)
-           (coll? container)                 container
-           :else (u/errorf "container is neither a Resource, ResourceSet nor a collection: %s"
-                           container))))
+          (if (coll? container) container (eallcontents container))))
 
 (defn erefs
   "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
@@ -687,8 +683,9 @@
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
   matching `rs` (see `eref-matcher`).  If no `container` is given, then only
   check the opposite refs of `eo`.  Else, all objects in `container` are tested
-  if they reference `eo`.  `container` may be either a Resource, a ResourceSet,
-  or a collection of EObjects."
+  if they reference `eo`.  `container` may be either an EObject, a Resource,
+  a ResourceSet, or a collection of EObjects.  For the former three, direct and
+  indirect contents are checked, for collections only direct contents."
   ([eo]
      (inv-erefs eo nil nil))
   ([eo rs]
@@ -705,8 +702,10 @@
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
   EReference matching `rs` (see `eref-matcher`).  If no `container` is given,
   then only check the opposite refs of `eo`.  Else, all objects in `container`
-  are tested if they cross-reference `eo`. `container` may be either a
-  Resource, a ResourceSet, or a collection of EObjects."
+  are tested if they cross-reference `eo`. `container` may be either an
+  EObject, a Resource, a ResourceSet, or a collection of EObjects.  For the
+  former three, direct and indirect contents are checked, for collections only
+  direct contents."
   ([eo]
      (inv-ecrossrefs eo nil nil))
   ([eo rs]
@@ -920,7 +919,7 @@
         (when oref (swap! done conj oref))
         [src trg]))))
 
-(defn eallpairs
+(defn epairs
   "Returns the seq of all edges in terms of [src trg] pairs in `r`.
   This includes both containment as well as crossreferences.  Restrictions may
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
@@ -937,13 +936,13 @@
   Resource
   (g/relationships
     ([this]
-       (eallpairs this))
+       (epairs this))
     ([this [src-rs [s t]]]
        (let [src-role (when (keyword? s) s)
              src-cls  (when (symbol? s) s)
              trg-role (when (keyword? t) t)
              trg-cls  (when (symbol? t) t)]
-         (eallpairs this src-role trg-role src-cls trg-cls)))))
+         (epairs this src-role trg-role src-cls trg-cls)))))
 
 (defn ecrosspairs
   "Returns the seq of all cross-reference edges in `r` in terms of [src trg] pairs.

@@ -70,7 +70,7 @@
     (is (= 13 (count (eallcontents tm 'Person))))
     (is (=  7 (count (eallcontents tm 'Female))))
     (is (=  6 (count (eallcontents tm 'Male))))
-    (is (= 18 (count (eallpairs tm :parents :children))))
-    (is (=  3 (count (eallpairs tm :husband :wife))))
+    (is (= 18 (count (epairs tm :parents :children))))
+    (is (=  3 (count (epairs tm :husband :wife))))
     #_(print-model tm ".gtk")))
 
