@@ -624,8 +624,7 @@
 
 (defn ^:private search-ereferencers
   "Returns the seq of objects referencing `refed` by a reference matching `rm`
-  that are contained in `container`.  `reffn` is either erefs-internal or
-  ecrossrefs-internal."
+  that are contained in `container`.  `reffn` is either erefs or ecrossrefs."
   [refed reffn rm container]
   (filter (fn [o] (q/member? refed (reffn o rm)))
           (cond
@@ -635,111 +634,54 @@
            :else (u/errorf "container is neither a Resource, ResourceSet nor a collection: %s"
                            container))))
 
-(defn ^:private epairs-internal-1 [this reffn src-rs trg-rs src-ts trg-ts]
-  (let [done (atom #{})
-        src-rm (eref-matcher src-rs)
-        trg-rm (eref-matcher trg-rs)]
-    (for [^EObject src (eallcontents this src-ts)
-          ^EReference ref (seq (-> src .eClass .getEAllReferences))
-          :when (not (q/member? ref @done))
-          :when (trg-rm ref)
-          :let [nthere-rm (eref-matcher ref)
-                oref (.getEOpposite ref)]
-          :when (if oref
-                  (src-rm oref)
-                  ;; no oref, but if it was given, there must be one so this
-                  ;; ref is not meant!
-                  (not src-rm))
-          trg (reffn src nthere-rm)
-          :when (or (nil? trg-ts) (g/has-type? trg trg-ts))]
-      (do
-        (when oref (swap! done conj oref))
-        [src trg]))))
-
-(defprotocol ^:private IEReferences
-  (^:private epairs-internal [this reffn src-rm trg-rm src-ts trg-ts]
-    "Returns the seq of edges in terms of [src-obj trg-obj] pairs.
-  May be restricted by reference matchers and type specs on source and target.
-  `reffn` is either `erefs-internal`, `ecrossrefs-internal`, or
-  `econtents-internal`.")
-  (^:private ecrossrefs-internal [this rm]
-    "Returns a seq of cross-referenced EObjects accepted by reference-matcher
-  `rm`.  Cross-referenced objects are those that are referenced by a
-  non-containment relationship.")
-  (^:private erefs-internal [this rm]
-    "Returns a seq of referenced EObjects accepted by reference-matcher `rm`.
-  In contrast to ecrossrefs-internal, containment refs are not excluded.")
-  (^:private inv-ecrossrefs-internal [this rm container]
-    "Returns a seq of EObjects that cross-reference `this` with a ref matching
-  `rm`.  Cross-referenced objects are those that are referenced by a
-  non-containment relationship.  If `container` is nil, check only opposites of
-  this object's ref, else do a search over the contents of `container`, which
-  may be a Resource, ResourceSet, or a collection of EObjects.")
-  (^:private inv-erefs-internal [this rm container]
-    "Returns a seq of EObjects that reference `this` with a ref matching `rm`.
-  If `container` is nil, check only opposites of this object's ref, else do a
-  search over the contents of `container`, which may be a Resource,
-  ResourceSet, or a collection of EObjects."))
-
-(extend-protocol IEReferences
-  Resource
-  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
-    (epairs-internal-1 this reffn src-rs trg-rs src-ts trg-ts))
-  ResourceSet
-  (epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
-    (epairs-internal-1 this reffn src-rs trg-rs src-ts trg-ts))
-  EObject
-  (ecrossrefs-internal [this rm]
-    (mapcat (fn [^EReference r]
-              (if-let [x (.eGet this r)]
-                (if (.isMany r)
-                  x
-                  [x])))
-            (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
-                  :when (and (not (.isContainment ref))
-                             (not (.isContainer ref))
-                             (rm ref))]
-              ref)))
-  (erefs-internal [this rm]
-    (mapcat (fn [^EReference r]
-              (if-let [x (.eGet this r)]
-                (if (.isMany r)
-                  x
-                  [x])))
-            (for [^EReference ref (seq (-> this .eClass .getEAllReferences))
-                  :when (rm ref)]
-              ref)))
-  (inv-erefs-internal [this rm container]
-    (if container
-      (search-ereferencers this erefs-internal rm container)
-      (if-let [opposites (eopposite-refs this rm)]
-        (erefs-internal this (eref-matcher opposites))
-        (u/error "No opposite EReferences found."))))
-  (inv-ecrossrefs-internal [this rm container]
-    (if container
-      (search-ereferencers this ecrossrefs-internal rm container)
-      (if-let [opposites (eopposite-refs this rm)]
-        (ecrossrefs-internal this (eref-matcher opposites))
-        (u/error "No opposite EReferences found.")))))
-
-(defn ecrossrefs
-  "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
-  restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
-  see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
-  ([eo]
-     (ecrossrefs-internal eo identity))
-  ([eo rs]
-     (ecrossrefs-internal eo (eref-matcher rs))))
-
 (defn erefs
   "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
   the reference spec `rs`.  For the syntax and semantics of `rs`, see
   `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
   containment refs."
   ([eo]
-     (erefs-internal eo identity))
-  ([eo rs]
-     (erefs-internal eo (eref-matcher rs))))
+     (erefs eo nil))
+  ([^EObject eo rs]
+     (let [rm (eref-matcher rs)]
+       (mapcat (fn [^EReference r]
+                 (when-let [x (.eGet eo r)]
+                   (if (.isMany r) x [x])))
+               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                     :when (rm ref)]
+                 ref)))))
+
+(defn ecrossrefs
+  "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
+  restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
+  see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
+  ([eo]
+     (ecrossrefs eo nil))
+  ([^EObject eo rs]
+     (let [rm (eref-matcher rs)]
+       (mapcat (fn [^EReference r]
+                 (when-let [x (.eGet eo r)]
+                   (if (.isMany r) x [x])))
+               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                     :when (and (not (.isContainment ref))
+                                (not (.isContainer ref))
+                                (rm ref))]
+                 ref)))))
+
+(defn econtentrefs
+  "Returns a seq of EObjects contained by EObject`eo`, possibly
+  restricted by the reference spec `rs`.  For the syntax and semantics
+  of `rs`, see `eref-matcher`."
+  ([eo]
+     (econtentrefs eo nil))
+  ([^EObject eo rs]
+     (let [rm (eref-matcher rs)]
+       (mapcat (fn [^EReference r]
+                 (when-let [x (.eGet eo r)]
+                   (if (.isMany r) x [x])))
+               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                     :when (and (.isContainment ref)
+                                (rm ref))]
+                 ref)))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
@@ -748,11 +690,16 @@
   if they reference `eo`.  `container` may be either a Resource, a ResourceSet,
   or a collection of EObjects."
   ([eo]
-     (inv-erefs-internal eo identity nil))
+     (inv-erefs eo nil nil))
   ([eo rs]
-     (inv-erefs-internal eo (eref-matcher rs) nil))
+     (inv-erefs eo rs nil))
   ([eo rs container]
-     (inv-erefs-internal eo (eref-matcher rs) container)))
+     (let [rm (eref-matcher rs)]
+       (if container
+         (search-ereferencers eo erefs rm container)
+         (if-let [opposites (eopposite-refs eo rm)]
+           (erefs eo (eref-matcher opposites))
+           (u/error "No opposite EReferences found."))))))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
@@ -761,11 +708,16 @@
   are tested if they cross-reference `eo`. `container` may be either a
   Resource, a ResourceSet, or a collection of EObjects."
   ([eo]
-     (inv-ecrossrefs-internal eo identity nil))
+     (inv-ecrossrefs eo nil nil))
   ([eo rs]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) nil))
+     (inv-ecrossrefs eo rs nil))
   ([eo rs container]
-     (inv-ecrossrefs-internal eo (eref-matcher rs) container)))
+     (let [rm (eref-matcher rs)]
+       (if container
+         (search-ereferencers eo ecrossrefs rm container)
+         (if-let [opposites (eopposite-refs eo rm)]
+           (ecrossrefs eo (eref-matcher opposites))
+           (u/error "No opposite EReferences found."))))))
 
 (defprotocol ^:private IEMFValues2ClojureValues
   (^:private emf2clj-internal [this]
@@ -947,6 +899,27 @@
 
 ;;## Edges, i.e., src/trg tuples
 
+(defn ^:private epairs-internal [this reffn src-rs trg-rs src-ts trg-ts]
+  (let [done (atom #{})
+        src-rm (eref-matcher src-rs)
+        trg-rm (eref-matcher trg-rs)]
+    (for [^EObject src (eallcontents this src-ts)
+          ^EReference ref (seq (-> src .eClass .getEAllReferences))
+          :when (not (q/member? ref @done))
+          :when (trg-rm ref)
+          :let [nthere-rm (eref-matcher ref)
+                oref (.getEOpposite ref)]
+          :when (if oref
+                  (src-rm oref)
+                  ;; no oref, but if it was given, there must be one so this
+                  ;; ref is not meant!
+                  (not src-rm))
+          trg (reffn src nthere-rm)
+          :when (or (nil? trg-ts) (g/has-type? trg trg-ts))]
+      (do
+        (when oref (swap! done conj oref))
+        [src trg]))))
+
 (defn eallpairs
   "Returns the seq of all edges in terms of [src trg] pairs in `r`.
   This includes both containment as well as crossreferences.  Restrictions may
@@ -954,11 +927,11 @@
   specs plus type specs `src-ts` and `trg-ts`.  `r` may be a Resource or
   ResourceSet."
   ([r]
-     (epairs-internal r erefs-internal identity identity nil nil))
+     (epairs-internal r erefs identity identity nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r erefs-internal src-rs trg-rs nil nil))
+     (epairs-internal r erefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r erefs-internal src-rs trg-rs src-ts trg-ts)))
+     (epairs-internal r erefs src-rs trg-rs src-ts trg-ts)))
 
 (extend-protocol g/IRelationships
   Resource
@@ -978,19 +951,11 @@
   of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
   `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r ecrossrefs-internal identity identity nil nil))
+     (epairs-internal r ecrossrefs identity identity nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r ecrossrefs-internal src-rs trg-rs nil nil))
+     (epairs-internal r ecrossrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r ecrossrefs-internal src-rs trg-rs src-ts trg-ts)))
-
-(defn ^:private econtents-by-ref
-  [^EObject eo rm]
-  (mapcat #(when-let [o (eget eo %)]
-             (if (coll? o) o [o]))
-          (for [^EReference r (-> eo .eClass .getEAllReferences)
-                :when (and (.isContainment r) (rm r))]
-            r)))
+     (epairs-internal r ecrossrefs src-rs trg-rs src-ts trg-ts)))
 
 (defn econtentpairs
   "Returns the seq of all containment edges in `r` in terms of [src trg] pairs.
@@ -998,11 +963,11 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r econtents-by-ref identity identity nil nil))
+     (epairs-internal r econtentrefs identity identity nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r econtents-by-ref src-rs trg-rs nil nil))
+     (epairs-internal r econtentrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r econtents-by-ref src-rs trg-rs src-ts trg-ts)))
+     (epairs-internal r econtentrefs src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
@@ -1136,13 +1101,13 @@
 ;;# Regular Path Descriptions
 
 (defn <>--
-  "Returns the (direct) contents of EObject`obj` restricted by the type
-  specification `ts` (see `funnyqt.generic/type-matcher` for details).  `obj`
+  "Returns the (direct) contents of EObject `obj` restricted by the
+  reference specification `rs` (see `eref-matcher` for details).  `obj`
   may also be a collection of EObjects."
   ([obj]
-     (into (os/ordered-set) (r/mapcat econtents (u/oset obj))))
-  ([obj ts]
-     (into (os/ordered-set) (r/mapcat #(econtents % ts) (u/oset obj)))))
+     (into (os/ordered-set) (r/mapcat #(econtentrefs % nil) (u/oset obj))))
+  ([obj rs]
+     (into (os/ordered-set) (r/mapcat #(econtentrefs % rs) (u/oset obj)))))
 
 (defn --->
   "Returns the EObjects cross-referenced by `obj` where the references may be
@@ -1150,7 +1115,7 @@
   details).  `obj` may also be a collection of EObjects.  In EMF,
   cross-referenced means referenced by a non-containment EReference."
   ([obj]
-     (into (os/ordered-set) (r/mapcat ecrossrefs (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(ecrossrefs % nil) (u/oset obj))))
   ([obj rs]
      (into (os/ordered-set) (r/mapcat #(ecrossrefs % rs) (u/oset obj)))))
 
@@ -1160,7 +1125,7 @@
   details).  `obj` may also be a collection of EObjects.  In contrast to
   `--->`, this function includes both cross-references and containments."
   ([obj]
-     (into (os/ordered-set) (r/mapcat erefs (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(erefs % nil) (u/oset obj))))
   ([obj rs]
      (into (os/ordered-set) (r/mapcat #(erefs % rs) (u/oset obj)))))
 
@@ -1179,9 +1144,9 @@
   of the objects in `obj` is returned.  In EMF, cross-referenced means
   referenced by a non-containment EReference."
   ([obj]
-     (into (os/ordered-set) (r/mapcat inv-ecrossrefs (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % nil nil) (u/oset obj))))
   ([obj rs]
-     (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % rs) (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % rs nil) (u/oset obj))))
   ([obj rs container]
      (into (os/ordered-set) (r/mapcat #(inv-ecrossrefs % rs container) (u/oset obj)))))
 
@@ -1192,9 +1157,9 @@
   objects in `obj` is returned.  In contrast to `<---', this function includes
   both cross-references and containments."
   ([obj]
-     (into (os/ordered-set) (r/mapcat inv-erefs (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(inv-erefs % nil nil) (u/oset obj))))
   ([obj rs]
-     (into (os/ordered-set) (r/mapcat #(inv-erefs % rs) (u/oset obj))))
+     (into (os/ordered-set) (r/mapcat #(inv-erefs % rs nil) (u/oset obj))))
   ([obj rs container]
      (into (os/ordered-set) (r/mapcat #(inv-erefs % rs container) (u/oset obj)))))
 

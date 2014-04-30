@@ -85,12 +85,21 @@
             (count (ecrossrefs fsmith :daughters))))
     (is (== 3 (count (ecrossrefs fsmith :sons))))))
 
+(deftest test-econtentrefs
+  (let [fm (first (eallcontents family-model 'FamilyModel))]
+    (is (= (eallcontents fm)
+           (econtentrefs fm)))
+    (is (= (eallcontents fm 'Member)
+           (econtentrefs fm :members)))
+    (is (= (eallcontents fm 'Family)
+           (econtentrefs fm :families)))))
+
 (deftest test-inv-erefs
   (let [[f1 f2 f3] (eallcontents family-model 'Family)]
     (are [x y z cnt] (and (== cnt (count x) (count y) (count z))
-                        (= (apply hash-set x)
-                           (apply hash-set y)
-                           (apply hash-set z)))
+                          (= (apply hash-set x)
+                             (apply hash-set y)
+                             (apply hash-set z)))
          ;; 7, cause the FamilyModel is also included
          (erefs f1)
          (inv-erefs f1)
