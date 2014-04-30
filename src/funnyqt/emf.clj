@@ -498,9 +498,7 @@
   matches the type spec `ts` (see `funnyqt.generic/type-matcher`).")
   (^:private econtents-internal [this tm]
     "Returns a seq of all directly contained EObjects whose type matches the
-  type spec `ts` (see `funnyqt.generic/type-matcher`).")
-  (^:private econtainer-internal [this]
-    "Returns the EObject containing this."))
+  type spec `ts` (see `funnyqt.generic/type-matcher`)."))
 
 (extend-protocol IEContents
   EObject
@@ -511,8 +509,6 @@
     (filter (g/type-matcher this ts)
             (iterator-seq
              (EcoreUtil/getAllProperContents this true))))
-  (econtainer-internal [this]
-    (.eContainer this))
 
   Resource
   (econtents-internal [this ts]
@@ -568,14 +564,20 @@
     ([this ts]
        (eallcontents this ts))))
 
-(def ^{:doc "Returns the EObject containing `eo`."
-       :arglists '([eo])}
-  econtainer econtainer-internal)
+(defn econtainer
+  "Returns the EObject containing `eo` (if any)."
+  [^EObject eo]
+  (.eContainer eo))
+
+(defn eresource
+  "Returns the Resource containing `eo` directly or indirectly (if any)."
+  [^EObject eo]
+  (.eResource eo))
 
 (extend-protocol g/IContainer
   EObject
   (g/container [this]
-    (econtainer-internal this)))
+    (econtainer this)))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
@@ -1361,7 +1363,7 @@
 
 ;;* Ecore Model specific functional API
 
-(defn ^:private create-create-fn [^EClass ec prefix]
+(defn ^:private create-eclass-fns [^EClass ec prefix]
   `(do
      (defn ~(symbol (str prefix "create-" (.getName ec) "!"))
        ~(format "Creates a new %s object and adds it to resource `r`.
@@ -1507,10 +1509,10 @@
 
   For any EReference name ref, the following functions are generated:
 
-    (ref eo) ;; Returns the object/objects in eo's ref role
-    (set-ref! eo refed) ;; Sets eo's ref reference to refed
-    (add-ref! eo r1 r2 r3...) ;; Adds r1, r2, and r3 to eo's ref reference
-    (addall-ref! eo rs) ;; Adds all objects in rs to eo's ref reference
+    (->ref eo) ;; Returns the object/objects in eo's ref role
+    (->set-ref! eo refed) ;; Sets eo's ref reference to refed
+    (->add-ref! eo r1 r2 r3...) ;; Adds r1, r2, and r3 to eo's ref reference
+    (->addall-ref! eo rs) ;; Adds all objects in rs to eo's ref reference
 
  The add-* functions are only generated if ref occurs as a multi-valued
  reference.  If eo's ref-reference is multi-valued, then the setter wants a
@@ -1526,6 +1528,6 @@
                                 ~nssym
                                 ~alias
                                 ~prefix
-                                create-create-fn
+                                create-eclass-fns
                                 create-eattribute-fns
                                 create-ereference-fns)))

@@ -20,6 +20,10 @@
 (load-ecore-resource "test/input/Families.ecore")
 (def family-model (load-resource "test/input/example.families"))
 
+(deftest test-eresource
+  (doseq [eo (eallcontents family-model)]
+    (is (= family-model (eresource eo)))))
+
 (deftest test-eclassifiers
   (with-ns-uris ["http://families/1.0"]
     (is (== 3 (count (eclassifiers))))))
