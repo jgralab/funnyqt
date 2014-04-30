@@ -920,7 +920,7 @@
         [src trg]))))
 
 (defn epairs
-  "Returns the seq of all edges in terms of [src trg] pairs in `r`.
+  "Returns the lazy seq of all edges in terms of [src trg] pairs in `r`.
   This includes both containment as well as crossreferences.  Restrictions may
   be defined in terms of reference specs `src-rs` and `trg-rs`, and reference
   specs plus type specs `src-ts` and `trg-ts`.  `r` may be a Resource or
@@ -945,7 +945,7 @@
          (epairs this src-role trg-role src-cls trg-cls)))))
 
 (defn ecrosspairs
-  "Returns the seq of all cross-reference edges in `r` in terms of [src trg] pairs.
+  "Returns the lazy seq of all cross-reference edges in `r` in terms of [src trg] pairs.
   `r` may be a Resource or ResourceSet.  Restrictions may be defined in terms
   of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
   `src-ts` and `trg-ts`."
@@ -957,7 +957,7 @@
      (epairs-internal r ecrossrefs src-rs trg-rs src-ts trg-ts)))
 
 (defn econtentpairs
-  "Returns the seq of all containment edges in `r` in terms of [src trg] pairs.
+  "Returns the lazy seq of all containment edges in `r` in terms of [src trg] pairs.
   `r` may be a Resource or ResourceSet.  src is the parent, trg is the child.
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
