@@ -164,9 +164,9 @@
                     "or use {\"http://ns/uri\" pkg-name}."))
         (first qkgs)))))
 
-(extend-protocol g/IAbstractness
+(extend-protocol g/IMMAbstract
   EClass
-  (g/abstract? [this]
+  (g/mm-abstract? [this]
     (.isAbstract this)))
 
 (extend-protocol g/IUnset
@@ -1048,7 +1048,7 @@
        (edelete! eo recursively))
      eo))
 
-(extend-protocol g/IDeletable
+(extend-protocol g/IDelete
   EObject
   (g/delete!
     ([this]
@@ -1162,7 +1162,7 @@
 
 ;;# Describing EObjects and EClasses
 
-(extend-protocol g/IDescribable
+(extend-protocol g/IDescribe
   EClass
   (g/describe [this]
     {:name (g/qname this)
@@ -1361,17 +1361,18 @@
 
 (defn ^:private create-eclass-fns [^EClass ec prefix]
   `(do
-     (defn ~(symbol (str prefix "create-" (.getName ec) "!"))
-       ~(format "Creates a new %s object and adds it to resource `r`.
+     ~(when-not (g/mm-abstract? ec)
+        `(defn ~(symbol (str prefix "create-" (.getName ec) "!"))
+           ~(format "Creates a new %s object and adds it to resource `r`.
   Properties are set according to `prop-map`.
   `r` may be nil.
   Shorthand for (ecreate! r '%s prop-map)."
-                (g/qname ec)
-                (g/qname ec))
-       ([~'r]
-          (ecreate! ~'r '~(g/qname ec)))
-       ([~'r ~'prop-map]
-          (ecreate! ~'r '~(g/qname ec) ~'prop-map)))
+                    (g/qname ec)
+                    (g/qname ec))
+           ([~'r]
+              (ecreate! ~'r '~(g/qname ec)))
+           ([~'r ~'prop-map]
+              (ecreate! ~'r '~(g/qname ec) ~'prop-map))))
 
      (defn ~(symbol (let [n (.getName ec)]
                       (str prefix "eall-" (inflections.core/plural n))))

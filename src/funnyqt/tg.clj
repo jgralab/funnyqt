@@ -258,9 +258,9 @@ functions `record` and `enum-constant`."
   (g/qname [d]
     (symbol (.getQualifiedName d))))
 
-(extend-protocol g/IAbstractness
+(extend-protocol g/IMMAbstract
   GraphElementClass
-  (g/abstract? [this]
+  (g/mm-abstract? [this]
     (.isAbstract this)))
 
 (extend-protocol g/IUnset
@@ -1215,7 +1215,7 @@ functions `record` and `enum-constant`."
 
 ;;## Deletions
 
-(extend-protocol g/IDeletable
+(extend-protocol g/IDelete
   Vertex
   (g/delete!
     ([v] (.delete v) v)
@@ -1631,7 +1631,7 @@ functions `record` and `enum-constant`."
   (set (map #(symbol (.getQualifiedName ^GraphElementClass %))
             (.getDirectSubClasses gec))))
 
-(extend-protocol g/IDescribable
+(extend-protocol g/IDescribe
   Graph
   (g/describe [this]
     {:type 'Graph
@@ -1832,7 +1832,7 @@ functions `record` and `enum-constant`."
 (defn ^:private create-vc-create-fn [^VertexClass vc prefix]
   `(do
      ;; CREATE FN
-     ~(when-not (g/abstract? vc)
+     ~(when-not (g/mm-abstract? vc)
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
            ~(format "Create a new %s vertex in graph `g`.
   An additional `prop-map` may be supplied.
@@ -1860,7 +1860,7 @@ functions `record` and `enum-constant`."
 
 (defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
   `(do
-     ~(when-not (g/abstract? ec)
+     ~(when-not (g/mm-abstract? ec)
         ;; CREATE FN
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
            ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.

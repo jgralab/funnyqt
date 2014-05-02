@@ -4,7 +4,7 @@
 
 ;;# Describing Elements
 
-(defprotocol IDescribable
+(defprotocol IDescribe
   "A protocol for elements supporting describe."
   (describe [this]
     "Describes `this` attributed element or attributed element class."))
@@ -20,23 +20,6 @@
   where Integer is the key domain and String is the value domain.  Of course,
   that may be recursive, so [Map Integer [List String]] corresponds to the java
   domain Map<Integer, List<String>>."))
-
-;;# IAbstractness
-
-(defprotocol IAbstractness
-  "A protocol for checking if an element class is abstract."
-  (abstract? [this]
-    "Returns true, iff the element class is abstract.
-  Implementations are provided for:
-
-    - java.lang.Class: default impl in this namespace
-    - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg
-    - org.eclipse.emf.ecore.EClass: funnyqt.emf"))
-
-(extend-protocol IAbstractness
-  java.lang.Class
-  (abstract? [this]
-    (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
 ;;# Unset properties
 
@@ -162,7 +145,7 @@
 
 ;;# Deletion
 
-(defprotocol IDeletable
+(defprotocol IDelete
   "A protocol for deleting elements."
   (delete! [this] [this recursive]
     "Deletes this element and returns it.  If `recursive` is true (default),
@@ -170,7 +153,7 @@
   meaning for edges.  Implementations are provided for Vertex, Edge, EObject,
   and collections thereof."))
 
-(extend-protocol IDeletable
+(extend-protocol IDelete
   java.util.Collection
   (delete!
     ([this]
@@ -269,6 +252,21 @@
   (meta-model-object? [this] false))
 
 ;;# Metamodel Protocols
+
+(defprotocol IMMAbstract
+  "A protocol for checking if an element class is abstract."
+  (mm-abstract? [this]
+    "Returns true, iff the element class is abstract.
+  Implementations are provided for:
+
+    - java.lang.Class: default impl in this namespace
+    - de.uni_koblenz.jgralab.schema.GraphElementClass: funnyqt.tg
+    - org.eclipse.emf.ecore.EClass: funnyqt.emf"))
+
+(extend-protocol IMMAbstract
+  java.lang.Class
+  (mm-abstract? [this]
+    (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
 (defprotocol IMMClasses
   (mm-classes [cls]
