@@ -226,7 +226,7 @@
 
 (deftest test-create-element!
   (let [g (new-graph (schema rg))
-        county (create-vertex! g 'County :name "Hessen")
+        county (create-vertex! g 'County {:name "Hessen"})
         c1 (g/create-element! g 'City {:name "Wiesbaden"
                                      :county county})]
     (is (= 2 (vcount g)))
@@ -240,9 +240,9 @@
 
 (deftest test-generated-functional-api
   (let [g (new-graph (schema rg))
-        ^Vertex city (rg/create-City! g :name "Ebernhahn")
-        ^Vertex cr1  (rg/create-Plaza! g  :name "Rathausplatz")
-        ^Vertex cr2  (rg/create-Plaza! g  :name "Schulplatz")
+        ^Vertex city (rg/create-City! g {:name "Ebernhahn"})
+        ^Vertex cr1  (rg/create-Plaza! g {:name "Rathausplatz"})
+        ^Vertex cr2  (rg/create-Plaza! g {:name "Schulplatz"})
         hcr1  (rg/create-ContainsCrossroad! g city cr1)
         hcr2  (rg/create-ContainsCrossroad! g city cr2)]
     (is (vertex? city))

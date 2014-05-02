@@ -1106,21 +1106,21 @@ functions `record` and `enum-constant`."
 
 (defn create-vertex!
   "Creates a new vertex of type `cls` in `g`.
-  `cls` is a VertexClass or a qualified name given as symbol.  `props` are
-  optional property-value pairs to be set, where properties (attributes and
-  roles) are represented as keywords."
-  [^Graph g cls & props]
-  (let [v (.createVertex g (if (vertex-class? cls)
-                             cls
-                             (attributed-element-class g cls)))]
-    (doseq [[prop val] (partition 2 2 (repeatedly #(u/errorf "prop-vals not paired: %s" props))
-                                  props)]
-      (if (.getAttribute (attributed-element-class v) (name prop))
-        (set-value! v prop val)
-        (g/set-adjs! v prop (if (or (nil? val) (coll? val))
-                              val
-                              [val]))))
-    v))
+  `cls` is a VertexClass or a qualified name given as symbol.  `prop-map` is an
+  optional map from property names given as keyword to values to be set."
+  ([^Graph g cls]
+     (.createVertex g (if (vertex-class? cls)
+                        cls
+                        (attributed-element-class g cls))))
+  ([^Graph g cls prop-map]
+     (let [v (create-vertex! g cls)]
+       (doseq [[prop val] prop-map]
+         (if (.getAttribute (attributed-element-class v) (name prop))
+           (set-value! v prop val)
+           (g/set-adjs! v prop (if (or (nil? val) (coll? val))
+                                 val
+                                 [val]))))
+       v)))
 
 (extend-protocol g/ICreateElement
   Graph
@@ -1128,27 +1128,31 @@ functions `record` and `enum-constant`."
     ([g cls]
        (create-vertex! g cls))
     ([g cls prop-map]
-       (apply create-vertex! g cls (mapcat identity prop-map)))))
+       (create-vertex! g cls prop-map))))
 
 (defn create-edge!
   "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.
-  `cls` is an EdgeClass or a qualified name given as symbol.  `attrs` are
-  optional attribute-value pairs to be set, where attributes are represented as
-  keywords."
-  [^Graph g cls ^Vertex from ^Vertex to & attrs]
-  (let [e (.createEdge g (if (edge-class? cls)
-                           cls
-                           (attributed-element-class g cls))
-                       from to)]
-    (doseq [[attr val] (partition 2 2 (repeatedly #(u/errorf "attr-vals not paired: %s" attrs))
-                                  attrs)]
-      (set-value! e attr val))
-    e))
+  `cls` is an EdgeClass or a qualified name given as symbol.  `attr-map`
+  is an optional map from attribute name given as keyword to value to be
+  set for that attribute."
+  ([^Graph g cls ^Vertex from ^Vertex to]
+     (.createEdge g (if (edge-class? cls)
+                      cls
+                      (attributed-element-class g cls))
+                  from to))
+  ([^Graph g cls ^Vertex from ^Vertex to attr-map]
+     (let [e (create-edge! g cls from to)]
+       (doseq [[attr val] attr-map]
+         (set-value! e attr val))
+       e)))
 
 (extend-protocol g/ICreateRelationship
   Graph
-  (g/create-relationship! [this cls from to]
-    (create-edge! this cls from to)))
+  (g/create-relationship!
+    ([this cls from to]
+       (create-edge! this cls from to))
+    ([this cls from to attr-map]
+       (create-edge! this cls from to attr-map))))
 
 (defn set-alpha!
   "Sets the start vertex of `e` to `v` and returns `e`."
@@ -1831,12 +1835,15 @@ functions `record` and `enum-constant`."
      ~(when-not (g/abstract? vc)
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
            ~(format "Create a new %s vertex in graph `g`.
-  Additional `props` may be supplied.
-  Shorthand for (apply create-vertex! '%s props)."
+  An additional `prop-map` may be supplied.
+  Shorthand for (create-vertex! g '%s props)."
                     (.getQualifiedName vc)
                     (.getQualifiedName vc))
-           [~'g ~'& ~'props]
-           (apply create-vertex! ~'g '~(g/qname vc) ~'props)))
+           ([~'g]
+              (create-vertex! ~'g '~(g/qname vc)))
+           ([~'g ~'prop-map]
+              (create-vertex! ~'g '~(g/qname vc) ~'prop-map))))
+
      ;; VSEQ FN
      (defn ~(symbol (str prefix "vseq-" (str/replace (.getUniqueName vc) \. \$)))
        ~(format "Returns the lazy sequence of %s vertices in `g`."
@@ -1857,8 +1864,8 @@ functions `record` and `enum-constant`."
         ;; CREATE FN
         `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
            ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
-  Additional `attrs` may be supplied.
-  Shorthand for (apply create-edge! '%s props).
+  An additional `attr-map` may be supplied.
+  Shorthand for (create-edge! g '%s alpha omega attr-map).
 
   [%s] --%s--> [%s]"
                     (g/qname ec)
@@ -1866,8 +1873,10 @@ functions `record` and `enum-constant`."
                     (g/qname (.getVertexClass (.getFrom ec)))
                     (g/qname ec)
                     (g/qname (.getVertexClass (.getTo ec))))
-           [~'g ~'alpha ~'omega ~'& ~'attrs]
-           (apply create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attrs)))
+           ([~'g ~'alpha ~'omega]
+              (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega))
+           ([~'g ~'alpha ~'omega ~'attr-map]
+              (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attr-map))))
 
      ;; ESEQ FN
      (defn ~(symbol (str prefix "eseq-" (str/replace (.getUniqueName ec) \. \$)))

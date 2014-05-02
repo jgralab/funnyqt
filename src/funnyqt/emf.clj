@@ -976,31 +976,27 @@
 (defn ecreate!
   "Creates an EObject of EClass `ec` and adds it to `resource` which may be nil.
   `ec` may be either an EClass or just an EClass name given as symbol.
-  `props` are optional property-value pairs to be set, where
-  properties (attributes and references) are represented as keywords.  Since
-  props are set using `eset!`, the value of a multi-valued reference must be a
-  collection of EObjects."
-  [resource ec & props]
-  (let [eo (EcoreUtil/create (if (eclass? ec) ec (eclassifier ec)))]
-    (doseq [[prop val] (partition 2 2
-                                  (repeatedly #(u/errorf "attr-vals not paired: %s" props))
-                                  props)]
-      (eset! eo prop val))
-    (when resource
-      (eadd! resource eo))
-    eo))
+  `prop-map` is an optional map of property names given as keywords to values
+  to be set.  Since props are set using `eset!`, the value of a multi-valued
+  reference must be a collection of EObjects."
+  ([resource ec]
+     (let [eo (EcoreUtil/create (if (eclass? ec) ec (eclassifier ec)))]
+       (when resource
+         (eadd! resource eo))
+       eo))
+  ([resource ec prop-map]
+     (let [eo (ecreate! resource ec)]
+       (doseq [[prop val] prop-map]
+         (eset! eo prop val))
+       eo)))
 
 (extend-protocol g/ICreateElement
   Resource
   (g/create-element!
     ([model cls]
-       (let [e (ecreate! model cls)]
-         (eadd! model e)
-         e))
+       (ecreate! model cls))
     ([model cls prop-map]
-       (let [e (apply ecreate! model cls (mapcat identity prop-map))]
-         (eadd! model e)
-         e))))
+       (ecreate! model cls prop-map))))
 
 (extend-protocol g/ICreateRelationship
   Resource
@@ -1367,13 +1363,15 @@
   `(do
      (defn ~(symbol (str prefix "create-" (.getName ec) "!"))
        ~(format "Creates a new %s object and adds it to resource `r`.
-  Properties are set according to `props`.
+  Properties are set according to `prop-map`.
   `r` may be nil.
-  Shorthand for (apply ecreate! r '%s props)."
+  Shorthand for (ecreate! r '%s prop-map)."
                 (g/qname ec)
                 (g/qname ec))
-       [~'r & ~'props]
-       (apply ecreate! ~'r '~(g/qname ec) ~'props))
+       ([~'r]
+          (ecreate! ~'r '~(g/qname ec)))
+       ([~'r ~'prop-map]
+          (ecreate! ~'r '~(g/qname ec) ~'prop-map)))
 
      (defn ~(symbol (let [n (.getName ec)]
                       (str prefix "eall-" (inflections.core/plural n))))
@@ -1381,7 +1379,7 @@
   Shorthand for (eallcontents r '%s)."
                 (g/qname ec)
                 (g/qname ec))
-       [~'r & ~'props]
+       [~'r]
        (eallcontents ~'r '~(g/qname ec)))
 
      ;; TYPE PRED

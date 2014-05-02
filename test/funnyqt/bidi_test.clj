@@ -21,40 +21,42 @@
 
 (defn make-example-addressbook-tg []
   (let [g (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
-        ab (tg/create-vertex! g 'AddressBook :name "MyAddressBook")
+        ab (tg/create-vertex! g 'AddressBook {:name "MyAddressBook"})
         jim (tg/create-vertex! g 'Contact
-                               :id (int 1)
-                               :firstName "Jim"
-                               :lastName "Jones"
-                               :email "jim@gmail.com")
+                               {:id (int 1)
+                                :firstName "Jim"
+                                :lastName "Jones"
+                                :email "jim@gmail.com"})
         tim (tg/create-vertex! g 'Contact
-                               :id (int 2)
-                               :firstName "Tim"
-                               :lastName "Turner"
-                               :email "tim@mozilla.org")
+                               {:id (int 2)
+                                :firstName "Tim"
+                                :lastName "Turner"
+                                :email "tim@mozilla.org"})
         steve (tg/create-vertex! g 'Contact
-                                 :id (int 3)
-                                 :firstName "Steve"
-                                 :lastName "Stevenson"
-                                 :email "steve@ibm.com")
+                                 {:id (int 3)
+                                  :firstName "Steve"
+                                  :lastName "Stevenson"
+                                  :email "steve@ibm.com"})
         mozilla (tg/create-vertex! g 'Organization
-                                   :id (int 4)
-                                   :name "Mozilla Foundation"
-                                   :homepage "www.mozilla.org"
-                                   :employees [tim])
+                                   {:id (int 4)
+                                    :name "Mozilla Foundation"
+                                    :homepage "www.mozilla.org"
+                                    :employees [tim]})
         ibm (tg/create-vertex! g 'Organization
-                               :id (int 5)
-                               :name "IBM"
-                               :homepage "www.ibm.com"
-                               :employees [steve tim])
-        cat-work (tg/create-vertex! g 'Category :name "Work"
-                                    :addressBook ab
-                                    :contacts [steve]
-                                    :organizations ibm)
-        cat-private (tg/create-vertex! g 'Category :name "Private"
-                                       :addressBook ab
-                                       :contacts [jim tim]
-                                       :organizations [mozilla])]
+                               {:id (int 5)
+                                :name "IBM"
+                                :homepage "www.ibm.com"
+                                :employees [steve tim]})
+        cat-work (tg/create-vertex! g 'Category
+                                    {:name "Work"
+                                     :addressBook ab
+                                     :contacts [steve]
+                                     :organizations ibm})
+        cat-private (tg/create-vertex! g 'Category
+                                       {:name "Private"
+                                        :addressBook ab
+                                        :contacts [jim tim]
+                                        :organizations [mozilla]})]
     g))
 
 ;;## Transformation TG <-> TG
@@ -146,10 +148,10 @@
     ;; left.
     (print "addressbook-tg2addressbook-tg l <- r (r has a new Contact)  ")
     (let [tim (tg/create-vertex! r 'Contact
-                                 :id (int 6)
-                                 :firstName "Tim"
-                                 :lastName "Taylor"
-                                 :email "tim@gmail.com")
+                                 {:id (int 6)
+                                  :firstName "Tim"
+                                  :lastName "Taylor"
+                                  :email "tim@gmail.com"})
           cat-work (first (filter #(= (tg/value % :name) "Work")
                                   (tg/vseq r 'Category)))]
       (g/add-adj! cat-work :contacts tim))
@@ -256,10 +258,10 @@
     ;; left.
     (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
     (let [tim (emf/ecreate! nil 'Contact
-                            :id (int 6)
-                            :firstName "Tim"
-                            :lastName "Taylor"
-                            :email "tim@gmail.com")
+                            {:id (int 6)
+                             :firstName "Tim"
+                             :lastName "Taylor"
+                             :email "tim@gmail.com"})
           cat-work (first (filter #(= (emf/eget % :name) "Work")
                                   (emf/eallcontents r 'Category)))]
       (g/add-adj! cat-work :entries tim))
@@ -290,8 +292,8 @@
                                     (= "John" (tg/value % :firstName))
                                     (= "Doe"  (tg/value % :lastName)))
                                   (tg/vseq g 'Contact))))]
-    (tg/create-vertex! l 'Contact :firstName "John" :lastName "Doe"
-                       :email "jdoe@yahoo.com")
+    (tg/create-vertex! l 'Contact {:firstName "John" :lastName "Doe"
+                                   :email "jdoe@yahoo.com"})
     (attr-override-contact-tg2contact-tg l r :right)
     (test/is (= 1 (tg/vcount r)))
     (let [john (get-john r)]
@@ -330,8 +332,8 @@
                                     (= "John" (emf/eget % :firstName))
                                     (= "Doe"  (emf/eget % :lastName)))
                                   (emf/eallcontents m 'Contact))))]
-    (emf/ecreate! l 'Contact :firstName "John" :lastName "Doe"
-                  :email "jdoe@yahoo.com")
+    (emf/ecreate! l 'Contact {:firstName "John" :lastName "Doe"
+                              :email "jdoe@yahoo.com"})
     (attr-override-contact-emf2contact-emf l r :right)
     (test/is (= 1 (count (emf/eallcontents r))))
     (let [john (get-john r)]
@@ -372,15 +374,15 @@
         get-private (fn [g]
                       (first (filter #(= "Private" (tg/value % :name))
                                      (tg/vseq g 'Category))))]
-    (tg/create-vertex! l 'AddressBook :name "AB1"
-                       :categories
-                       [(tg/create-vertex! l 'Category :name "Private")])
+    (tg/create-vertex! l 'AddressBook
+                       {:name "AB1"
+                        :categories [(tg/create-vertex! l 'Category {:name "Private"})]})
     (single-valued-role-override-ab-tg2ab-tg l r :right)
     (test/is (= 2 (tg/vcount r)))
     (let [priv (get-private r)]
       (test/is (= "Private" (tg/value priv :name)))
       ;; Now create a new AddressBook AB2 and assign Private there.
-      (let [ab2 (tg/create-vertex! r 'AddressBook :name "AB2")]
+      (let [ab2 (tg/create-vertex! r 'AddressBook {:name "AB2"})]
         (tg/unlink! priv)
         (g/add-adj! ab2 :categories priv)))
     ;; Propagate the change back to the left model where Private should be
@@ -416,15 +418,15 @@
         get-private (fn [m]
                       (first (filter #(= "Private" (emf/eget % :name))
                                      (emf/eallcontents m 'Category))))]
-    (emf/ecreate! l 'AddressBook :name "AB1"
-                  :categories
-                  [(emf/ecreate! l 'Category :name "Private")])
+    (emf/ecreate! l 'AddressBook
+                  {:name "AB1"
+                   :categories [(emf/ecreate! l 'Category {:name "Private"})]})
     (single-valued-role-override-ab-emf2ab-emf l r :right)
     (test/is (= 2 (count (emf/eallcontents r))))
     (let [priv (get-private r)]
       (test/is (= "Private" (emf/eget priv :name)))
       ;; Now create a new AddressBook AB2 and assign Private there.
-      (let [ab2 (emf/ecreate! r 'AddressBook :name "AB2")]
+      (let [ab2 (emf/ecreate! r 'AddressBook {:name "AB2"})]
         (emf/eset! ab2 :categories [priv])))
     ;; Propagate the change back to the left model where Private should be
     ;; reassigned to the AB2 AddressBook.

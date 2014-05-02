@@ -120,16 +120,21 @@
 (defprotocol ICreateElement
   (create-element! [model cls] [model cls prop-map]
     "Creates a new element of type `cls` in `model`.
-  Properties are set according to prop-map, a map from property name keywords
+  Properties are set according to `prop-map`, a map from property name keywords
   to property values."))
 
 (defprotocol ICreateRelationship
-  (create-relationship! [model cls src-elem trg-elem]
+  (create-relationship!
+    [model cls src-elem trg-elem]
+    [model cls src-elem trg-elem attr-map]
     "Creates a new relationship of type `cls` in `model` connecting `src-elem`
   to `trg-elem`.  The valid values for `cls` are framework specific.  For
   TGraphs it is a symbol denoting an EdgeClass name, for EMF it is a keyword
   denoting an EReference name.  The return value is also framework specific.
-  For TGraphs it is an Edge, for EMF it is the tuple [src-elem trg-elem]."))
+  For TGraphs it is an Edge, for EMF it is the tuple [src-elem trg-elem].
+  `attr-map` is a map from attribute names (as keywords) to values to be set.
+  Clearly, this is unsupported by frameworks without explicit edges with
+  attributes."))
 
 ;;# Type Matcher
 

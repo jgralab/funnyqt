@@ -222,13 +222,13 @@
         fm (g/create-element! m 'FamilyModel)
         make-family (fn [i]
                       (ecreate! nil 'Family
-                                :lastName (str "Family" i)
-                                :street   (str "Some Street " i)
-                                :town     (str i " Sometown")))
+                                {:lastName (str "Family" i)
+                                 :street   (str "Some Street " i)
+                                 :town     (str i " Sometown")}))
         make-member (fn [i]
                       (ecreate! nil 'Member
-                                :firstName (str "Member" i)
-                                :age       (Integer/valueOf ^Long (mod i 80))))
+                                {:firstName (str "Member" i)
+                                 :age       (Integer/valueOf ^Long (mod i 80))}))
         random-free-member (fn [mems ref]
                              (loop [m (rand-nth mems)]
                                (if (eget m ref)
@@ -335,7 +335,7 @@
   (let [m (new-resource)
         root (fams/create-FamilyModel! m)
         fam  (fams/create-Family! nil)
-        m1   (fams/create-Member! nil :firstName "Ben")
+        m1   (fams/create-Member! nil {:firstName "Ben"})
         m2   (fams/create-Member! nil)]
     (is (= "Ben"
            (eget m1 :firstName)
@@ -585,4 +585,3 @@
     (is (== 3 (count as)))
     (is (= #{"Stella" "Carol" "Conzuela"}
            (into #{} (map #(eget % :firstName) as))))))
-
