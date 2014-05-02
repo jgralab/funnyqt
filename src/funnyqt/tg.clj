@@ -407,9 +407,9 @@ functions `record` and `enum-constant`."
                     (.getFrom ec)))
          1))))
 
-(extend-protocol g/IMMContainmentRef
+(extend-protocol g/IMMContainmentRole
   VertexClass
-  (g/mm-containment-ref? [this ref-kw]
+  (g/mm-containment-role? [this ref-kw]
     (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
              dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
       (let [ec  (.getEdgeClass dec)

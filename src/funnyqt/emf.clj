@@ -310,9 +310,9 @@
   (g/mm-multi-valued-property? [cls prop]
     (.isMany (.getEStructuralFeature cls (name prop)))))
 
-(extend-protocol g/IMMContainmentRef
+(extend-protocol g/IMMContainmentRole
   EClass
-  (g/mm-containment-ref? [this ref-kw]
+  (g/mm-containment-role? [this ref-kw]
     (if-let [^org.eclipse.emf.ecore.EReference
              er (.getEStructuralFeature this (name ref-kw))]
       (.isContainment er)

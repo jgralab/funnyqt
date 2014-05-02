@@ -291,8 +291,8 @@
     "Returns true iff `prop` (given as keyword) is a multi-valued property
   of `cls`."))
 
-(defprotocol IMMContainmentRef
-  (mm-containment-ref? [mm-class ref]
-    "Returns true if `ref` (given as keyword) is a containment reference,
-  i.e., the target objects are contained my `mm-class`."))
+(defprotocol IMMContainmentRole
+  (mm-containment-role? [class role]
+    "Returns true if `role` (given as keyword) is a containment role,
+  i.e., the target objects are contained my `class`."))
 
