@@ -147,9 +147,9 @@
 
 (defprotocol IDelete
   "A protocol for deleting elements."
-  (delete! [this] [this recursive]
-    "Deletes this element and returns it.  If `recursive` is true (default),
-  delete also elements contained by `this`.  Of course, `recursive` has no
+  (delete! [this] [this recursively]
+    "Deletes this element and returns it.  If `recursively` is true (default),
+  delete also elements contained by `this`.  Of course, `recursively` has no
   meaning for edges.  Implementations are provided for Vertex, Edge, EObject,
   and collections thereof."))
 

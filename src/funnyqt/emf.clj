@@ -1005,7 +1005,8 @@
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
       (if (.isMany sf)
         (eadd! from refkw to)
-        (eset! from refkw to)))))
+        (eset! from refkw to))
+      [from to])))
 
 ;;## Generic setting of props
 
