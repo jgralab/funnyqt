@@ -394,18 +394,21 @@ functions `record` and `enum-constant`."
     (.isSuperClassOf this sub)))
 
 (extend-protocol g/IMMMultiValuedProperty
-  VertexClass
+  AttributedElementClass
   (g/mm-multi-valued-property? [cls prop]
-    (let [dec (.getDirectedEdgeClassForFarEndRole cls (name prop))
-          _   (when-not dec
-                (u/errorf "No role %s at VertexClass %s."
-                          (name prop) (g/qname cls)))
-          ec  (.getEdgeClass dec)
-          dir (.getDirection dec)]
-      (> (.getMax (if (identical? dir EdgeDirection/OUT)
-                    (.getTo ec)
-                    (.getFrom ec)))
-         1))))
+    (if-let [attr (.getAttribute cls (name prop))]
+      false ;; TODO: Is that correct, or do we want List, Set, Map attrs to be
+            ;; multi-valued?
+      (let [dec (.getDirectedEdgeClassForFarEndRole ^VertexClass cls (name prop))
+            _   (when-not dec
+                  (u/errorf "No role %s at VertexClass %s."
+                            (name prop) (g/qname cls)))
+            ec  (.getEdgeClass dec)
+            dir (.getDirection dec)]
+        (> (.getMax (if (identical? dir EdgeDirection/OUT)
+                      (.getTo ec)
+                      (.getFrom ec)))
+           1)))))
 
 (extend-protocol g/IMMContainmentRole
   VertexClass
