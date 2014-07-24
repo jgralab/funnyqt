@@ -654,7 +654,8 @@
            (let [[sym expr & rbf] bf
                  rbf (vec rbf)
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
-                 vectorvar (gensym "vector")]
+                 vectorvar (gensym "vector")
+                 chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
              `(let [~vectorvar (into [] ~(if constraints
                                            `(filter (fn [~sym] (and ~@constraints))
                                                     ~expr)
@@ -662,17 +663,29 @@
                     n# (max 16 (long (/ (count ~vectorvar)
                                         (* ~(binding-count rbf)
                                            100 (.availableProcessors (Runtime/getRuntime))))))
+                    ~@(when (:distinct (meta bf))
+                        `[~chm (java.util.concurrent.ConcurrentHashMap.
+                                (* ~(binding-count rbf) (count ~vectorvar))
+                                0.75 (.availableProcessors (Runtime/getRuntime)))])
                     combine!# ~(if (:distinct (meta bf))
                                  `(fn
-                                    ([] (java.util.HashSet.))
-                                    ([^java.util.Set l# r#]
-                                       (doto l# (.addAll r#))))
+                                    ([] ~chm)
+                                    ([l# r#]
+                                       (if (identical? l# r#)
+                                         l#
+                                         (clojure.core.reducers/reduce
+                                          (fn [~chm o#]
+                                            (doto ~chm (.putIfAbsent o# true)))
+                                          l# r#))))
                                  `(fn
                                     ([] (java.util.LinkedList.))
                                     ([l# r#]
                                        (if (seq r#)
                                          (clojure.core.reducers/cat l# r#)
-                                         l#))))]
+                                         l#))))
+                    finalize# ~(if (:distinct (meta bf))
+                                 `(fn [~chm] (seq (.keySet ~chm)))
+                                 `seq)]
                 (->> ~vectorvar
                      (clojure.core.reducers/fold
                       n# combine!#
@@ -681,7 +694,7 @@
                                    (pattern-for ~rbf
                                                 ~(or (:as (meta bf))
                                                      (bindings-to-arglist bf))))))
-                     seq)))
+                     finalize#)))
            (let [code `(pattern-for ~bf
                                      ~(or (:as (meta bf))
                                           (bindings-to-arglist bf)))
