@@ -26,8 +26,29 @@
      [f<Family> -hf<HasFather>-> m<Member>
       :when (famconst f)]))
 
+(defpattern families-with-fathers-forall-tg
+  {:pattern-expansion-context :tg
+   :forall true}
+  ([g]
+     [f<Family> -hf<HasFather>-> m<Member>])
+  ([g famconst]
+     [f<Family> -hf<HasFather>-> m<Member>
+      :when (famconst f)]))
+
+(defpattern families-with-fathers-forall-distinct-tg
+  {:pattern-expansion-context :tg
+   :forall true
+   :distinct true}
+  ([g]
+     [f<Family> -hf<HasFather>-> m<Member>])
+  ([g famconst]
+     [f<Family> -hf<HasFather>-> m<Member>
+      :when (famconst f)]))
+
 (deftest test-families-with-fathers-tg
   (is (= 3 (count (families-with-fathers-tg fg))))
+  (is (= 3 (count (families-with-fathers-forall-tg fg))))
+  (is (= 3 (count (families-with-fathers-forall-distinct-tg fg))))
   (is (= 3 (count (families-with-fathers-tg fg (constantly true)))))
   (is (= 2 (count (families-with-fathers-tg fg #(= "Smith" (tg/value % :lastName)))))))
 
