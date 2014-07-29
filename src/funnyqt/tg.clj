@@ -694,16 +694,13 @@ functions `record` and `enum-constant`."
      :default (u/errorf "Unknown direction %s" ds))))
 
 (extend-protocol g/IDirectionMatcher
-  Graph
+  AttributedElement
   (direction-matcher [this ds]
     (direction-matcher-1 ds))
   Schema
   (direction-matcher [this ds]
     (direction-matcher-1 ds))
-  Vertex
-  (direction-matcher [this ds]
-    (direction-matcher-1 ds))
-  Edge
+  AttributedElementClass
   (direction-matcher [this ds]
     (direction-matcher-1 ds)))
 
