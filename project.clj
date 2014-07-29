@@ -1,4 +1,4 @@
-(defproject funnyqt "0.21.3"
+(defproject funnyqt "0.21.4"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -11,15 +11,15 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.cache "0.6.3"]
                  [de.uni-koblenz.ist/jgralab "7.7.13"]
-                 [org.clojure/core.logic "0.8.7"]
+                 [org.clojure/core.logic "0.8.8"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.9.1"]
-                 [inflections "0.9.6"]]
+                 [inflections "0.9.9"]]
   :profiles {:dev
              {:dependencies
               [[criterium "0.4.3"]
-               [org.clojure/tools.namespace "0.2.4"]]}}
+               [org.clojure/tools.namespace "0.2.5"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
@@ -33,10 +33,10 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Stuff specific to generating API docs
   :html5-docs-name "FunnyQT"
-  :html5-docs-page-title nil ;; => "FunnyQT API Documentation"
+  ;; :html5-docs-page-title nil ;; => "FunnyQT API Documentation"
   ;;:html5-docs-source-path "src/"
   :html5-docs-ns-includes #"^funnyqt\..*"
   :html5-docs-ns-excludes #".*\.test\..*"
-  :html5-docs-docs-dir nil ;; => "docs"
+  ;; :html5-docs-docs-dir nil ;; => "docs"
   :html5-docs-repository-url #(str "https://github.com/jgralab/funnyqt/blob/v"
                                    (:version %)))

@@ -143,6 +143,17 @@
                               etc with the respective semantics of the logical
                               operator."))
 
+;;# Direction Matcher
+
+(defprotocol IDirectionMatcher
+  (direction-matcher [model dir-spec]
+    "Returns a matcher function that accepts edges of direction `dir-spec`.
+  `dir-spec` may be one of the keywords :in, :out, or :inout.  If `dir-spec` is
+  nil, then any direction is allowed (aka :inout).
+
+  Extenders may include more valid for `dir-spec`.  For example, for JGraLab,
+  an EdgeDirection literal is also a valid direction specification."))
+
 ;;# Deletion
 
 (defprotocol IDelete

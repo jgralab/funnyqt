@@ -54,7 +54,7 @@
 
 (extend-protocol g/IModelObject
   EObject
-  (g/model-object? [this] true))
+  (model-object? [this] true))
 
 ;;# Metamodel Access
 
@@ -166,12 +166,12 @@
 
 (extend-protocol g/IMMAbstract
   EClass
-  (g/mm-abstract? [this]
+  (mm-abstract? [this]
     (.isAbstract this)))
 
 (extend-protocol g/IUnset
   EObject
-  (g/unset? [this attr]
+  (unset? [this attr]
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
 (defn eclassifiers
@@ -258,61 +258,61 @@
 
 (extend-protocol g/IEnumConstant
   EObject
-  (g/enum-constant [el const]
+  (enum-constant [el const]
     (eenum-literal const))
   Resource
-  (g/enum-constant [el const]
+  (enum-constant [el const]
     (eenum-literal const))
   nil
-  (g/enum-constant [el const]
+  (enum-constant [el const]
     (eenum-literal const)))
 
 ;;# Generic Metamodel Access
 
 (extend-protocol g/IMetaModelObject
   EClass
-  (g/meta-model-object? [this] true))
+  (meta-model-object? [this] true))
 
 (extend-protocol g/IMMClasses
   EClass
-  (g/mm-classes [cls]
+  (mm-classes [cls]
     (eclasses)))
 
 (extend-protocol g/IMMClass
   EObject
-  (g/mm-class
+  (mm-class
     ([this]
        (.eClass this))
     ([this qn]
        (eclassifier qn)))
   ResourceSet
-  (g/mm-class
+  (mm-class
     ([this qn]
        (eclassifier qn)))
   Resource
-  (g/mm-class
+  (mm-class
     ([this qn]
        (eclassifier qn))))
 
 (extend-protocol g/IMMDirectSuperClasses
   EClass
-  (g/mm-direct-super-classes [this]
+  (mm-direct-super-classes [this]
     (seq (.getESuperTypes this))))
 
 (extend-protocol g/IMMSuperClassOf
   EClass
-  (g/mm-super-class? [this sub]
+  (mm-super-class? [this sub]
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 
 (extend-protocol g/IMMMultiValuedProperty
   EClass
-  (g/mm-multi-valued-property? [cls prop]
+  (mm-multi-valued-property? [cls prop]
     (.isMany (.getEStructuralFeature cls (name prop)))))
 
 (extend-protocol g/IMMContainmentRole
   EClass
-  (g/mm-containment-role? [this ref-kw]
+  (mm-containment-role? [this ref-kw]
     (if-let [^org.eclipse.emf.ecore.EReference
              er (.getEStructuralFeature this (name ref-kw))]
       (.isContainment er)
@@ -324,19 +324,19 @@
 
 (extend-protocol g/IQualifiedName
   EClassifier
-  (g/qname [this]
+  (qname [this]
     (symbol (str (g/qname (.getEPackage this))
                  "." (.getName this))))
 
   EPackage
-  (g/qname [this]
+  (qname [this]
     (loop [p (.getESuperPackage this), n (.getName this)]
       (if p
         (recur (.getESuperPackage p) (str (.getName p) "." n))
         (symbol n))))
 
   EObject
-  (g/qname [o]
+  (qname [o]
     (g/qname (.eClass o))))
 
 ;;## EMF Resources
@@ -475,18 +475,18 @@
 
 (extend-protocol g/ITypeMatcher
   EObject
-  (g/type-matcher [m ts]
+  (type-matcher [m ts]
     (type-matcher-cached m ts))
   Resource
-  (g/type-matcher [m ts]
+  (type-matcher [m ts]
     (type-matcher-cached m ts)))
 
 (extend-protocol g/IInstanceOf
   EObject
-  (g/is-instance? [object class]
+  (is-instance? [object class]
     (and (eclass? class)
          (.isInstance ^EClass class object)))
-  (g/has-type? [obj spec]
+  (has-type? [obj spec]
     ((type-matcher-cached obj spec) obj)))
 
 ;;## Traversal Stuff
@@ -551,14 +551,14 @@
 
 (extend-protocol g/IElements
   Resource
-  (g/elements
+  (elements
     ([this]
        (eallcontents this))
     ([this ts]
        (eallcontents this ts)))
 
   ResourceSet
-  (g/elements
+  (elements
     ([this]
        (eallcontents this))
     ([this ts]
@@ -576,7 +576,7 @@
 
 (extend-protocol g/IContainer
   EObject
-  (g/container [this]
+  (container [this]
     (econtainer this)))
 
 (defn eref-matcher
@@ -879,14 +879,14 @@
 
 (extend-protocol g/IAttributeValueAccess
   EObject
-  (g/aval [this attr]
+  (aval [this attr]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (if (eattribute? sf)
         (emf2clj-internal (.eGet this sf))
         (if (nil? sf)
           (u/errorf "No such attribute %s at object %s." attr this)
           (u/errorf "%s is no attribute of object %s." sf this)))))
-  (g/set-aval! [this attr val]
+  (set-aval! [this attr val]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (cond
        (nil? sf)
@@ -936,7 +936,7 @@
 
 (extend-protocol g/IRelationships
   Resource
-  (g/relationships
+  (relationships
     ([this]
        (epairs this))
     ([this [src-rs [s t]]]
@@ -992,7 +992,7 @@
 
 (extend-protocol g/ICreateElement
   Resource
-  (g/create-element!
+  (create-element!
     ([model cls]
        (ecreate! model cls))
     ([model cls prop-map]
@@ -1000,7 +1000,7 @@
 
 (extend-protocol g/ICreateRelationship
   Resource
-  (g/create-relationship! [this refkw from to]
+  (create-relationship! [this refkw from to]
     (let [^EClass ec (eclass from)
           ^EReference sf (.getEStructuralFeature ec (name refkw))]
       (if (.isMany sf)
@@ -1012,13 +1012,13 @@
 
 (extend-protocol g/IModifyAdjacencies
   EObject
-  (g/set-adjs! [o role os]
+  (set-adjs! [o role os]
     (eset! o role os))
-  (g/set-adj! [o1 role o2]
+  (set-adj! [o1 role o2]
     (eset! o1 role o2))
-  (g/add-adjs! [o role os]
+  (add-adjs! [o role os]
     (apply eadd! o role (first os) (rest os)))
-  (g/add-adj! [o1 role o2]
+  (add-adj! [o1 role o2]
     (eadd! o1 (name role) o2)))
 
 ;;## EObject Deletion
@@ -1051,7 +1051,7 @@
 
 (extend-protocol g/IDelete
   EObject
-  (g/delete!
+  (delete!
     ([this]
        (edelete! this true true))
     ([this recursive]
@@ -1073,23 +1073,23 @@
 
 (extend-protocol i/IAdjacenciesInternal
   EObject
-  (i/adj-internal [this roles]
+  (adj-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) false true))]
         (recur a (rest roles)))
       this))
-  (i/adj*-internal [this roles]
+  (adj*-internal [this roles]
     (if (seq roles)
       (when-let [a (emf2clj (eget-ref this (first roles) true true))]
         (recur a (rest roles)))
       this))
-  (i/adjs-internal [this roles]
+  (adjs-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) false false)]
         (r/mapcat #(i/adjs-internal % (rest roles))
                   (if (instance? java.util.Collection a) a [a])))
       [this]))
-  (i/adjs*-internal [this roles]
+  (adjs*-internal [this roles]
     (if (seq roles)
       (when-let [a (eget-ref this (first roles) true false)]
         (r/mapcat #(i/adjs*-internal % (rest roles))
@@ -1165,7 +1165,7 @@
 
 (extend-protocol g/IDescribe
   EClass
-  (g/describe [this]
+  (describe [this]
     {:name (g/qname this)
      :abstract (.isAbstract this)
      :interface (.isInterface this)
@@ -1179,7 +1179,7 @@
                               [(keyword (.getName ref)) (.getEReferenceType ref)])
                             (seq (.getEReferences this))))})
   EObject
-  (g/describe [this]
+  (describe [this]
     {:eclass (g/qname this)
      :container (econtainer this)
      :attr-slots (into {}
