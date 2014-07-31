@@ -5,6 +5,8 @@
             [clojure.tools.macro :as m]
             [funnyqt.generic     :as g]
             [funnyqt.query       :as q]
+            [funnyqt.query.tg    :as qtg]
+            [funnyqt.query.emf   :as qemf]
             [funnyqt.utils       :as u]
             [funnyqt.tg          :as tg]
             [funnyqt.query       :as q]
@@ -129,7 +131,7 @@
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
-          reachables #(q/reachables % [q/p-* tg/<->])]
+          reachables #(q/reachables % [q/p-* qtg/<->])]
       (loop [disc (filter #(g/has-type? % 'PatternVertex)
                           (clojure.set/difference vset (reachables a)))]
         (when (seq disc)
