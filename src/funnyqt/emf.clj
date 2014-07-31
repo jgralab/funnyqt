@@ -1161,6 +1161,32 @@
   ([obj rs container]
      (into (os/ordered-set) (r/mapcat #(inv-erefs % rs container) (u/oset obj)))))
 
+(extend-protocol q/ISimpleRegularPathExpression
+  EObject
+  (-->
+    ([n]         (u/oset (erefs n nil)))
+    ([n rs]      (u/oset (erefs n rs))))
+  (--->
+    ([n]         (u/oset (ecrossrefs n nil)))
+    ([n rs]      (u/oset (ecrossrefs n rs))))
+  (<--
+    ([n]         (u/oset (inv-erefs n nil nil)))
+    ([n rs]      (u/oset (inv-erefs n rs  nil))))
+  (<---
+    ([n]         (u/oset (inv-ecrossrefs n nil nil)))
+    ([n rs]      (u/oset (inv-ecrossrefs n rs  nil))))
+  (<->
+    ([n]         (u/into-oset (erefs n nil) (inv-erefs n nil nil)))
+    ([n rs]      (u/into-oset (erefs n rs)  (inv-erefs n rs  nil))))
+  (<-->
+    ([n]         (u/into-oset (ecrossrefs n nil) (inv-ecrossrefs n nil nil)))
+    ([n rs]      (u/into-oset (ecrossrefs n rs)  (inv-ecrossrefs n rs  nil))))
+  (<>--
+    ([n]         (u/oset (econtentrefs n nil)))
+    ([n rs]      (u/oset (econtentrefs n rs))))
+  (--<>
+    ([n]         (u/oset (econtainer n)))))
+
 ;;# Describing EObjects and EClasses
 
 (extend-protocol g/IDescribe

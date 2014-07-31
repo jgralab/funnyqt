@@ -1612,6 +1612,41 @@ functions `record` and `enum-constant`."
   ([v ts pred]
      (--- v :inout [AggregationKind/COMPOSITE] nil ts pred)))
 
+(extend-protocol q/ISimpleRegularPathExpression
+  Vertex
+  (-->
+    ([n]         (--- n :out nil nil nil nil))
+    ([n ts]      (--- n :out nil nil ts  nil))
+    ([n ts pred] (--- n :out nil nil ts  pred)))
+  (--->
+    ([n]         (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
+    ([n ts]      (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
+    ([n ts pred] (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+  (<--
+    ([n]         (--- n :in nil nil nil nil))
+    ([n ts]      (--- n :in nil nil ts  nil))
+    ([n ts pred] (--- n :in nil nil ts  pred)))
+  (<---
+    ([n]         (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
+    ([n ts]      (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
+    ([n ts pred] (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+  (<->
+    ([n]         (--- n :inout nil nil nil nil))
+    ([n ts]      (--- n :inout nil nil ts  nil))
+    ([n ts pred] (--- n :inout nil nil ts  pred)))
+  (<-->
+    ([n]         (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
+    ([n ts]      (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
+    ([n ts pred] (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+  (<>--
+    ([n]         (--- n :inout nil [AggregationKind/COMPOSITE] nil nil))
+    ([n ts]      (--- n :inout nil [AggregationKind/COMPOSITE] ts  nil))
+    ([n ts pred] (--- n :inout nil [AggregationKind/COMPOSITE] ts  pred)))
+  (--<>
+    ([n]         (--- n :inout [AggregationKind/COMPOSITE] nil nil nil))
+    ([n ts]      (--- n :inout [AggregationKind/COMPOSITE] nil ts  nil))
+    ([n ts pred] (--- n :inout [AggregationKind/COMPOSITE] nil ts  pred))))
+
 ;;# Describe Schema and Graph Elements
 
 (defn ^:private attr-desc

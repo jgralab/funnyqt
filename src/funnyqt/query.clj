@@ -244,9 +244,9 @@
   (let [vs (set vs)]
     (loop [rem vs, known  #{}, sorted []]
       (if (seq rem)
-        (let [gs (group-by (fn [v]
+        (let [gs (group-by (fn [n]
                              (every? #(member? % known)
-                                     (filter vs (deps-fn v))))
+                                     (filter vs (deps-fn n))))
                            rem)
               good (gs true)
               bad (gs false)]
@@ -261,88 +261,158 @@
 ;;# Regular Path Expressions
 
 (defn ^:private p-apply
-  [v p]
+  [n p]
   (cond
    ;; funs: -->
-   (fn? p)          (p v)
+   (fn? p)          (p n)
    ;; funs with params: [--> 'Foo], [p-alt --> <>--]
-   (vector? p)      (apply (first p) v (rest p))
+   (vector? p)      (apply (first p) n (rest p))
    ;; adjacences / that-role names
    (u/prop-name? p) (into (os/ordered-set)
-                          (r/mapcat #(g/reducible-adjs* % p) (u/oset v)))
+                          (r/mapcat #(g/reducible-adjs* % p) (u/oset n)))
    :else (u/errorf "Don't know how to apply %s." p)))
 
 (defn reachables
-  "Returns the ordered set of vertices reachable from `v` by via the path
-  description `p`.
-  `v` may be a vertex or a seq of vertices."
-  [v p]
-  (p-apply v p))
+  "Returns the ordered set of nodes reachable from `n` via the path expression
+  `p`.  `n` may be a node or a collection of nodes."
+  [n p]
+  (p-apply n p))
+
+(defprotocol ISimpleRegularPathExpression
+  (--> [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one forward edge.
+  May be restricted by a type specification `ts` and a predicate `pred` on the
+  edge.")
+  (---> [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one forward edge
+  which must not be a containment edge.  May be restricted by a type
+  specification `ts` and a predicate `pred` on the edge.")
+  (<-- [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one backward edge.
+  May be restricted by a type specification `ts` and a predicate `pred` on the
+  edge.")
+  (<--- [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one backward edge
+  which must not be a containment edge.  May be restricted by a type
+  specification `ts` and a predicate `pred` on the edge.")
+  (<-> [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one edge, no
+  matter if incoming or outgoing.  May be restricted by a type specification
+  `ts` and a predicate `pred` on the edge.")
+  (<--> [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one edge which
+  must not be a containment edge, no matter if incoming or outgoing.  May be
+  restricted by a type specification `ts` and a predicate `pred` on the edge.")
+  (<>-- [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one (strict)
+  containment edge from whole to part (`n` is the container of the result), no
+  matter if incoming or outgoing.  May be restricted by a type specification
+  `ts` and a predicate `pred` on the edge.")
+  (--<> [n] [n ts] [n ts pred]
+    "Returns the ordered set of nodes reachable from `n` via one (strict)
+  containment edge from part to whole (`n` is contained in the result), no
+  matter if incoming or outgoing.  May be restricted by a type specification
+  `ts` and a predicate `pred` on the edge."))
+
+(extend-protocol ISimpleRegularPathExpression
+  java.util.Collection
+  (-->
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat -->              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(--> % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(--> % ts pred) n))))
+  (--->
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat --->              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(---> % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(---> % ts pred) n))))
+  (<--
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <--              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<-- % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-- % ts pred) n))))
+  (<---
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <---              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<--- % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--- % ts pred) n))))
+  (<->
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <->              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<-> % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-> % ts pred) n))))
+  (<-->
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <-->              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<--> % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--> % ts pred) n))))
+  (<>--
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <>--              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % ts pred) n))))
+  (--<>
+    ([n]         (u/into-oset (os/ordered-set) (r/mapcat --<>              n)))
+    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(--<> % ts)      n)))
+    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(--<> % ts pred) n)))))
 
 (defn p-seq
-  "Path sequence starting at `v` and traversing `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a varargs seq of path descriptions."
-  [v & p]
-  (u/oset (r/reduce p-apply v p)))
+  "Path sequence starting at `n` and traversing `p`.
+  `n` may be a node or a collection of nodes.
+  `p` is a varargs seq of path expressions."
+  [n & p]
+  (u/oset (r/reduce p-apply n p)))
 
 (defn p-opt
-  "Path option starting at `v` and maybe traversing `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  [v p]
-  (u/into-oset v (p-apply v p)))
+  "Path option starting at `n` and maybe traversing `p`.
+  `n` may be a node or a collection of nodes.
+  `p` is a path expression."
+  [n p]
+  (u/into-oset n (p-apply n p)))
 
 (defn p-alt
-  "Path alternative starting at `v` and traversing one of `p`.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a varags seq of the alternative path descriptions."
-  [v & p]
+  "Path alternative starting at `n` and traversing one of `p`.
+  `n` may be a node or a collection of nodes.
+  `p` is a varags seq of the alternative path expressions."
+  [n & p]
   (into (flatland.ordered.set/ordered-set)
-        (r/mapcat #(p-apply (u/oset v) %) p)))
+        (r/mapcat #(p-apply (u/oset n) %) p)))
 
 (defn ^:private p-*-or-+
-  [v p ret]
+  [n p ret]
   (let [n (into (flatland.ordered.set/ordered-set)
-                (r/remove ret (u/oset (p-apply v p))))]
+                (r/remove ret (u/oset (p-apply n p))))]
     (if (seq n)
       (recur n p (u/into-oset ret n))
       ret)))
 
 (defn p-*
-  "Path iteration starting at `v` and traversing `p` zero or many times.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  [v p]
-  (p-*-or-+ v p (u/oset v)))
+  "Path iteration starting at `n` and traversing `p` zero or many times.
+  `n` may be a node or a collection of nodes.
+  `p` is a path expression."
+  [n p]
+  (p-*-or-+ n p (u/oset n)))
 
 (defn p-+
-  "Path iteration starting at `v` and traversing `p` one or many times.
-  `v` may be a vertex or a seq of vertices.
-  `p` is a path description."
-  [v p]
-  (p-*-or-+ v p (flatland.ordered.set/ordered-set)))
+  "Path iteration starting at `n` and traversing `p` one or many times.
+  `n` may be a node or a collection of nodes.
+  `p` is a path expression."
+  [n p]
+  (p-*-or-+ n p (flatland.ordered.set/ordered-set)))
 
 (defn p-exp
-  "Path exponent starting at `v` and traversing `p` `n` times, or at least `l`
+  "Path exponent starting at `n` and traversing `p` `n` times, or at least `l`
   and at most `u` times.
-  `v` may be a vertex or a seq of vertices.
+  `n` may be a node or a collection of nodes.
   `n` or `l` and `u` are integers with `l` <= `u`.
-  `p` is a path description."
-  ([v l u p]
+  `p` is a path expression."
+  ([n l u p]
      {:pre [(<= l u) (>= l 0) (>= u 0)]}
-     (loop [i (- u l), s (p-exp v l p)]
+     (loop [i (- u l), s (p-exp n l p)]
        (if (pos? i)
          (let [ns (into s (p-apply s p))]
            (if (= (count s) (count ns))
              s
              (recur (dec i) ns)))
          s)))
-  ([v n p]
+  ([n n p]
      {:pre [(>= n 0)]}
      (if (zero? n)
-       (u/oset v)
-       (recur (p-apply v p) (dec n) p))))
+       (u/oset n)
+       (recur (p-apply n p) (dec n) p))))
 
 (defn p-restr
   "Path restriction concerning `ts` and `pred` on each object in `objs`.
