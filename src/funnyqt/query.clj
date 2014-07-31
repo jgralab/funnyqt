@@ -279,75 +279,81 @@
   (p-apply n p))
 
 (defprotocol ISimpleRegularPathExpression
-  (--> [n] [n ts] [n ts pred]
+  (--> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one forward edge.
-  May be restricted by a type specification `ts` and a predicate `pred` on the
-  edge.")
-  (---> [n] [n ts] [n ts pred]
+  May be restricted by a type specification (TG) or reference
+  specification (EMF) `spec` and a predicate `pred` on the edge.")
+  (---> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one forward edge
   which must not be a containment edge.  May be restricted by a type
-  specification `ts` and a predicate `pred` on the edge.")
-  (<-- [n] [n ts] [n ts pred]
+  specification (TG) or reference specification (EMF) `spec` and a predicate
+  `pred` on the edge.")
+  (<-- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one backward edge.
-  May be restricted by a type specification `ts` and a predicate `pred` on the
-  edge.")
-  (<--- [n] [n ts] [n ts pred]
+  May be restricted by a type specification (TG) or reference
+  specification (EMF) `spec` and a predicate `pred` on the edge.")
+  (<--- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one backward edge
   which must not be a containment edge.  May be restricted by a type
-  specification `ts` and a predicate `pred` on the edge.")
-  (<-> [n] [n ts] [n ts pred]
+  specification (TG) or reference specification (EMF) `spec` and a predicate
+  `pred` on the edge.")
+  (<-> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one edge, no
   matter if incoming or outgoing.  May be restricted by a type specification
-  `ts` and a predicate `pred` on the edge.")
-  (<--> [n] [n ts] [n ts pred]
+  (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
+  edge.")
+  (<--> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one edge which
   must not be a containment edge, no matter if incoming or outgoing.  May be
-  restricted by a type specification `ts` and a predicate `pred` on the edge.")
-  (<>-- [n] [n ts] [n ts pred]
+  restricted by a type specification (TG) or reference specification (EMF)
+  `spec` and a predicate `pred` on the edge.")
+  (<>-- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one (strict)
   containment edge from whole to part (`n` is the container of the result), no
   matter if incoming or outgoing.  May be restricted by a type specification
-  `ts` and a predicate `pred` on the edge.")
-  (--<> [n] [n ts] [n ts pred]
+  (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
+  edge.")
+  (--<> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one (strict)
   containment edge from part to whole (`n` is contained in the result), no
   matter if incoming or outgoing.  May be restricted by a type specification
-  `ts` and a predicate `pred` on the edge."))
+  (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
+  edge."))
 
 (extend-protocol ISimpleRegularPathExpression
   java.util.Collection
   (-->
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat -->              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(--> % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(--> % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat -->                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(--> % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(--> % spec pred) n))))
   (--->
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat --->              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(---> % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(---> % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat --->                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(---> % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(---> % spec pred) n))))
   (<--
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <--              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<-- % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-- % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <--                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<-- % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-- % spec pred) n))))
   (<---
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <---              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<--- % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--- % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <---                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<--- % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--- % spec pred) n))))
   (<->
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <->              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<-> % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-> % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <->                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<-> % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-> % spec pred) n))))
   (<-->
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <-->              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<--> % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--> % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <-->                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<--> % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--> % spec pred) n))))
   (<>--
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat <>--              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % ts pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <>--                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % spec pred) n))))
   (--<>
-    ([n]         (u/into-oset (os/ordered-set) (r/mapcat --<>              n)))
-    ([n ts]      (u/into-oset (os/ordered-set) (r/mapcat #(--<> % ts)      n)))
-    ([n ts pred] (u/into-oset (os/ordered-set) (r/mapcat #(--<> % ts pred) n)))))
+    ([n]           (u/into-oset (os/ordered-set) (r/mapcat --<>                n)))
+    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(--<> % spec)      n)))
+    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(--<> % spec pred) n)))))
 
 (defn p-seq
   "Path sequence starting at `n` and traversing `p`.
@@ -415,15 +421,15 @@
        (recur (p-apply n p) (dec i) p))))
 
 (defn p-restr
-  "Path restriction concerning `ts` and `pred` on each object in `objs`.
-  ts is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
+  "Path restriction concerning `spec` and `pred` on each object in `objs`.
+  spec is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
   predicate."
-  ([objs ts]
-     (p-restr objs ts identity))
-  ([objs ts pred]
+  ([objs spec]
+     (p-restr objs spec identity))
+  ([objs spec pred]
      (let [objs (u/oset objs)]
        (if (seq objs)
-         (let [tm (g/type-matcher (first objs) ts)]
+         (let [tm (g/type-matcher (first objs) spec)]
            (into (os/ordered-set)
                  (r/filter (every-pred tm pred) objs)))
          objs))))
