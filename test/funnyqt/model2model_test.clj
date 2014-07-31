@@ -1,9 +1,9 @@
 (ns funnyqt.model2model-test
-  (:require [funnyqt.emf :as emf])
-  (:require [funnyqt.visualization :as viz])
-  (:require [funnyqt.generic :as g])
   (:use funnyqt.tg)
-  (:use funnyqt.query)
+  (:require [funnyqt.generic :as g]
+            [funnyqt.visualization :as viz]
+            [funnyqt.emf :as emf]
+            [funnyqt.query :as q])
   (:use funnyqt.model2model)
   (:use clojure.test))
 
@@ -24,17 +24,17 @@
 (defn parents-of
   "Returns the set of parent members of m."
   [m]
-  (reachables
-   m [p-seq
-      [p-alt :familySon :familyDaughter]
-      [p-alt :father :mother]]))
+  (q/reachables
+   m [q/p-seq
+      [q/p-alt :familySon :familyDaughter]
+      [q/p-alt :father :mother]]))
 
 (defn wife
   "Returns the wife member of member m."
   [m]
-  (when-let [w (seq (reachables
-                     m [p-seq :familyFather :mother]))]
-    (the w)))
+  (when-let [w (seq (q/reachables
+                     m [q/p-seq :familyFather :mother]))]
+    (q/the w)))
 
 (generate-schema-functions "test/input/genealogy-schema.tg"
                            test.functional.genealogy.tg

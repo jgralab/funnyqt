@@ -4,7 +4,7 @@
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
   (:use funnyqt.tg-test)
-  (:use funnyqt.query)
+  (:require [funnyqt.query :as q])
   (:use clojure.test)
   (:import
    [de.uni_koblenz.jgralab.schema Attribute AttributedElementClass]))
@@ -50,11 +50,11 @@
     (is (== 7 (ecount g)))
     (is (== 2 (vcount g 'SpecialPerson)))
     ;; Every person has its name set
-    (is (forall? #(value % :name)
-                 (vseq g 'Person)))
+    (is (q/forall? #(value % :name)
+                   (vseq g 'Person)))
     ;; Every special person has its lastName set to Müller or Meier
-    (is (forall? #(#{"Müller" "Meier"} (value % :lastName))
-                 (vseq g 'SpecialPerson)))
+    (is (q/forall? #(#{"Müller" "Meier"} (value % :lastName))
+                   (vseq g 'SpecialPerson)))
     ;; There are 3 persons with a set birthday value
     (is (== 3 (count (filter (fn [p] (value p :birthday))
                              (vseq g 'Person)))))))
@@ -87,8 +87,8 @@
     (is (== 2 (vcount g 'Sibling1)))
     (is (== 2 (vcount g 'Sibling1)))
     (is (== 1 (vcount g 'Bottom)))
-    (forall? #(is (== 1 (vcount g %1)))
-             '[Top! Sibling1! Sibling2! Bottom!])))
+    (q/forall? #(is (== 1 (vcount g %1)))
+               '[Top! Sibling1! Sibling2! Bottom!])))
 
 (deftransformation multiple-inheritance-2
   [g]
@@ -189,10 +189,10 @@
                 (is (== 26 (vcount g)))
                 ;; For all nodes, all existing attributes have a value that
                 ;; corresponds to the attribute name.
-                (is (forall? (fn [n]
-                               (forall? (fn [a] (= a (value n a)))
-                                        (attr-seq n)))
-                             (vseq g))))]
+                (is (q/forall? (fn [n]
+                                 (q/forall? (fn [a] (= a (value n a)))
+                                            (attr-seq n)))
+                               (vseq g))))]
     (delete-attr-1-setup g)
     (check g)
     (dotimes [i 26]

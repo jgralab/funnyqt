@@ -2,7 +2,7 @@
   funnyqt.misc-tests.mutual-exclusion-emf
   (:use funnyqt.emf)
   (:use funnyqt.generic)
-  (:use funnyqt.query)
+  (:require [funnyqt.query :as q])
   (:use funnyqt.utils)
   (:use funnyqt.in-place)
   (:use clojure.test))
@@ -161,7 +161,7 @@
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [model] [r1<Resource> -<holder>-> p1 -<prev>-> p2 -<held>-> r2
-           :when (not (member? r2 (eget p1 :requested)))]
+           :when (not (q/member? r2 (eget p1 :requested)))]
   (eadd! p1 :requested r2))
 
 (defrule release-star-rule

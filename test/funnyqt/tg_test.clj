@@ -64,10 +64,10 @@
         v1 (create-vertex! g 'localities.City)
         v2 (create-vertex! g 'junctions.Crossroad)
         v3 (create-vertex! g 'localities.City)
-        ;; Also test q/the generic create function...
+        ;; Also test the generic create function...
         v4 (g/create-element! g 'junctions.Crossroad)
         e1 (create-edge! g 'localities.ContainsCrossroad v1 v2)
-        ;; Also test q/the generic adj setter function...
+        ;; Also test the generic adj setter function...
         e2 (g/add-adj! v3 :crossroads v4)
         e3 (g/create-relationship! g 'connections.Street v2 v4)]
     (is (== 4 (.getVCount g)) "Wrong vertex count")
@@ -99,7 +99,7 @@
             [l (value l 'name)])]
     ;; r must have 8 elems
     (is (= 8 (count r)))
-    ;; q/the elems are...
+    ;; the elems are...
     (is (= (map #(let [v (vertex rg %1)] [v (value v 'name)])
                 [1 2 3 4 7 9 10 11])
            r))))
@@ -232,7 +232,7 @@
     (is (= 2 (vcount g)))
     (is (= 1 (ecount g) (ecount g 'ContainsLocality)))))
 
-;;* Tests for q/the generated functional API
+;;* Tests for the generated functional API
 
 (generate-schema-functions "test/input/greqltestgraph.tg"
                            test.functional.routemap.tg
@@ -262,7 +262,7 @@
     (is (edge? hcr1))
     (is (g/has-type? hcr1 'ContainsCrossroad))
 
-    ;; both should return q/the city vertex
+    ;; both should return the city vertex
     (is (= city
            (set-value! city :name "Dernbach")
            (rg/set-name! city "Dernbach")))
@@ -336,58 +336,110 @@
 ;;* RPEs
 
 (deftest test--->
-  (mapv #(is (= %1 %2))
+  (mapv #(is (= %1 %2 %3))
+        ;; TG -->
         (let [m (map id (q/reachables (vertex rg 12) -->))]
           ;; There are 9 reachable unique vertices
           (is (= 9 (count m)))
           m)
-        ;; and that's q/the order (by ids)
+        ;; Generic -->
+        (let [m (map id (q/reachables (vertex rg 12) q/-->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's the order (by ids)
         [7 6 3 4 1 2 10 11 5]))
 
 (deftest test-<--
-  (is (= 0 (count (q/reachables (vertex rg 12) <--)))))
+  (is (= 0
+         (count (q/reachables (vertex rg 12) <--))
+         (count (q/reachables (vertex rg 12) q/<--)))))
 
 (deftest test-<->
-  (mapv #(is (= %1 %2))
+  (mapv #(is (= %1 %2 %3))
         (let [m (map id (q/reachables (vertex rg 12) <->))]
           ;; There are 9 reachable unique vertices
           (is (= 9 (count m)))
           m)
-        ;; and that's q/the order (by ids)
+        (let [m (map id (q/reachables (vertex rg 12) q/<->))]
+          ;; There are 9 reachable unique vertices
+          (is (= 9 (count m)))
+          m)
+        ;; and that's the order (by ids)
         [7 6 3 4 1 2 10 11 5]))
 
 (deftest test-reachable-vertices
-  (is (= 2 (count (q/reachables (vertex rg 1)
-                              [q/p-seq --<> [q/p-* [--> 'localities.HasCapital]]]))))
-  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-* -->]))
-	      (count (q/reachables (vertex jg 12) [q/p-* -->]))))
-  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-+ -->]))))
-  (is (= 6117 (count (q/reachables (vertex jg 12) [q/p-* <->]))))
-  (is (= 6117 (count (q/reachables (vertex jg 12) [q/p-+ <->]))))
-  (is (= 19 (count (q/reachables (vertex jg 12) [q/p-+ <>--]))))
-  (is (= 20 (count (q/reachables (vertex jg 12) [q/p-* <>--]))))
-  (is (= 22 (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] -->]))
-	    (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] -->]))))
-  (is (= 4272 (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <>--] [q/p-+ -->]]))))
-  (is (= 2337 (count (q/reachables (vertex jg 12) [q/p-+ [q/p-seq <>-- -->]]))))
-  (is (= 6 (count (q/reachables (vertex jg 12)
+  (is (= 2
+         (count (q/reachables (vertex rg 1)
+                              [q/p-seq --<> [q/p-* [--> 'localities.HasCapital]]]))
+         (count (q/reachables (vertex rg 1)
+                              [q/p-seq --<> [q/p-* [q/--> 'localities.HasCapital]]]))))
+  (is (= 4272
+         (count (q/reachables (vertex jg 12) [q/p-* -->]))
+         (count (q/reachables (vertex jg 12) [q/p-* q/-->]))))
+  (is (= 4272
+         (count (q/reachables (vertex jg 12) [q/p-+ -->]))
+         (count (q/reachables (vertex jg 12) [q/p-+ q/-->]))))
+  (is (= 6117
+         (count (q/reachables (vertex jg 12) [q/p-* <->]))
+         (count (q/reachables (vertex jg 12) [q/p-* q/<->]))))
+  (is (= 6117
+         (count (q/reachables (vertex jg 12) [q/p-+ <->]))
+         (count (q/reachables (vertex jg 12) [q/p-+ q/<->]))))
+  (is (= 19
+         (count (q/reachables (vertex jg 12) [q/p-+ <*>--]))
+         (count (q/reachables (vertex jg 12) [q/p-+ q/<>--]))))
+  (is (= 20
+         (count (q/reachables (vertex jg 12) [q/p-* <*>--]))
+         (count (q/reachables (vertex jg 12) [q/p-* q/<>--]))))
+  (is (= 22
+         (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <*>--] -->]))
+         (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* q/<>--] q/-->]))))
+  (is (= 4272
+         (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* <*>--] [q/p-+ -->]]))
+         (count (q/reachables (vertex jg 12) [q/p-seq [q/p-* q/<>--] [q/p-+ q/-->]]))))
+  (let [tg (q/reachables (vertex jg 12) [q/p-+ [q/p-seq <*>-- -->]])
+        ge (q/reachables (vertex jg 12) [q/p-+ [q/p-seq q/<>-- q/-->]])]
+    (is (= 2337 (count tg) (count ge)))
+    (is (= tg ge)))
+  (is (= 6
+         (count (q/reachables (vertex jg 12)
+                              [q/p-seq
+                               [q/p-+ [q/p-seq <*>-- -->]]
+                               [q/p-restr  'annotations.Annotable]]))
+         (count (q/reachables (vertex jg 12)
                                 [q/p-seq
-                                 [q/p-+ [q/p-seq <>-- -->]]
+                                 [q/p-+ [q/p-seq q/<>-- q/-->]]
                                  [q/p-restr  'annotations.Annotable]]))))
-  (is (= 3280 (count (q/reachables (vertex jg 12)
-                                 [q/p-seq [q/p-opt --<>]
-                                  [q/p-+ [q/p-seq <>-- -->]]
-                                  [q/p-opt <--]]))))
-  (is (= 6 (count (q/reachables (vertex jg 12) [q/p-alt <>-- --<>])))))
+  (let [tg (q/reachables (vertex jg 12)
+                                [q/p-seq [q/p-opt --<*>]
+                                 [q/p-+ [q/p-seq <*>-- -->]]
+                                 [q/p-opt <--]])
+        ge (q/reachables (vertex jg 12)
+                              [q/p-seq [q/p-opt q/--<>]
+                               [q/p-+ [q/p-seq q/<>-- q/-->]]
+                               [q/p-opt q/<--]])]
+    (is (= 3280 (count tg) (count ge)))
+    (is (= tg ge)))
+  (is (= 6
+         (count (q/reachables (vertex jg 12) [q/p-alt <*>-- --<*>]))
+         (count (q/reachables (vertex jg 12) [q/p-alt q/<>-- q/--<>])))))
 
 (deftest test-p-exp
   (is (= (q/reachables (vertex jg 12) [q/p-seq --> --> -->])
-	 (q/reachables (vertex jg 12) [q/p-exp 3 -->])))
+         (q/reachables (vertex jg 12) [q/p-seq q/--> q/--> q/-->])
+	 (q/reachables (vertex jg 12) [q/p-exp 3 -->])
+         (q/reachables (vertex jg 12) [q/p-exp 3 q/-->])))
   (is (= (q/reachables (vertex jg 12) -->)
-	 (q/reachables (vertex jg 12) [q/p-exp 1 -->])))
+         (q/reachables (vertex jg 12) q/-->)
+	 (q/reachables (vertex jg 12) [q/p-exp 1 -->])
+         (q/reachables (vertex jg 12) [q/p-exp 1 q/-->])))
   (is (= (u/oset (vertex jg 12))
 	 (q/reachables (vertex jg 12) [q/p-exp 0 -->])))
-  (is (= (q/reachables (vertex jg 12) [q/p-seq --> --> --> [q/p-opt -->] [q/p-opt -->] [q/p-opt -->]])
+  (is (= (q/reachables (vertex jg 12) [q/p-seq --> --> -->
+                                       [q/p-opt -->] [q/p-opt -->] [q/p-opt -->]])
+         (q/reachables (vertex jg 12) [q/p-seq q/--> q/--> q/-->
+                                       [q/p-opt q/-->] [q/p-opt q/-->] [q/p-opt q/-->]])
          (q/reachables (vertex jg 12) [q/p-exp 3 6 -->])))
   (is (= (q/reachables (vertex jg 12) [q/p-seq [q/p-opt -->] [q/p-opt -->] [q/p-opt -->]])
          (q/reachables (vertex jg 12) [q/p-exp 0 3 -->]))))
@@ -416,22 +468,34 @@
 (deftest test-derived-from-state
   (let [start (q/the (filter #(= (value %1 :name) "State")
                              (vseq jg 'classifiers.Class)))]
-    ;; test with only restrictions on the edge class types
-    (is (= 11
-	   (count
-	    (q/reachables
-	     start
-	     [q/p-seq
-	      [q/p-+
-	       [q/p-seq
-		[<-- 'types.ClassifierReferenceLinksToTarget]
-		[--<> 'types.NamespaceClassifierReferenceContainsClassifierReferences]
-		[--<> 'classifiers.ClassContainsExtends]]]
-	      [q/p-restr 'classifiers.Class
-	       (fn [v]
-		 (empty? (filter
-			  #(g/has-type? %1 'modifiers.Abstract)
-			  (g/adjs v :annotationsAndModifiers))))]]))))))
+    (let [tg (q/reachables
+              start
+              [q/p-seq
+               [q/p-+
+                [q/p-seq
+                 [<-- 'types.ClassifierReferenceLinksToTarget]
+                 [--<*> 'types.NamespaceClassifierReferenceContainsClassifierReferences]
+                 [--<*> 'classifiers.ClassContainsExtends]]]
+               [q/p-restr 'classifiers.Class
+                (fn [v]
+                  (empty? (filter
+                           #(g/has-type? %1 'modifiers.Abstract)
+                           (g/adjs v :annotationsAndModifiers))))]])
+          ge (q/reachables
+              start
+              [q/p-seq
+               [q/p-+
+                [q/p-seq
+                 [q/<-- 'types.ClassifierReferenceLinksToTarget]
+                 [q/--<> 'types.NamespaceClassifierReferenceContainsClassifierReferences]
+                 [q/--<> 'classifiers.ClassContainsExtends]]]
+               [q/p-restr 'classifiers.Class
+                (fn [v]
+                  (empty? (filter
+                           #(g/has-type? %1 'modifiers.Abstract)
+                           (g/adjs v :annotationsAndModifiers))))]])]
+      (is (= 11 (count tg) (count ge)))
+      (is (= tg ge)))))
 
 (defn coupled-classes
   "Given a Class `c`, calculates all coupled classes."

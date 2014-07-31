@@ -27,13 +27,9 @@
   (oset [this] (os/ordered-set)))
 
 (defn into-oset
-  "Returns an ordered-set of all given arguments.  Collection args are
-  converted into ordered-sets and united.  (into-oset nil) => #{}."
+  "Returns an ordered-set of all given arguments which must be collections."
   ([to from]
-     (into (oset to)
-           (if (coll? from)
-             from
-             (oset from))))
+     (into (oset to) from))
   ([to from & froms]
      (reduce into (into-oset to from) froms)))
 

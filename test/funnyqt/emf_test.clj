@@ -457,14 +457,25 @@
 
 (deftest test-basic
   (let [fm (q/the (econtents family-model))]
-    (are [x y n] (let [ox (u/oset x)]
-                   (and (= ox y) (== n (count ox))))
-         (erefs fm) (q/reachables fm -->) 16
-         (ecrossrefs fm) (q/reachables fm --->) 0
-         (erefs fm :members) (q/reachables fm :members) 13
-         (erefs fm :families) (q/reachables fm :families) 3
-         (erefs fm [:members :families]) (q/reachables fm [q/p-alt :members :families]) 16
-         (eallcontents family-model) (q/reachables fm [q/p-* -->]) 17)))
+    (are [x y z n] (let [ox (u/oset x)]
+                     (and (= ox y z) (== n (count ox))))
+         (erefs fm) (q/reachables fm -->) (q/reachables fm q/-->) 16
+         ;;;;
+         (ecrossrefs fm) (q/reachables fm --->) (q/reachables fm q/--->) 0
+         ;;;;
+         (erefs fm :members) (q/reachables fm :members) (q/reachables fm [q/--> :members]) 13
+         ;;;;
+         (erefs fm :families) (q/reachables fm :families) (q/reachables fm [q/<>-- :families]) 3
+         ;;;;
+         (erefs fm [:members :families])
+         (q/reachables fm [q/p-alt :members :families])
+         (q/reachables fm [q/p-alt [--> :members] [q/--> :families]])
+         16
+         ;;;;
+         (eallcontents family-model)
+         (q/reachables fm [q/p-* -->])
+         (q/reachables fm [q/p-* -->])
+         17)))
 
 (deftest test-adj
   (is (every? #(= %

@@ -5,7 +5,6 @@
   (:require [funnyqt.generic :as g])
   (:use funnyqt.in-place)
   (:use funnyqt.pmatch)
-  (:use funnyqt.query)
   (:use clojure.test))
 
 ;;* Rules

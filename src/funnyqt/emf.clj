@@ -564,20 +564,10 @@
     ([this ts]
        (eallcontents this ts))))
 
-(defn econtainer
-  "Returns the EObject containing `eo` (if any)."
-  [^EObject eo]
-  (.eContainer eo))
-
 (defn eresource
   "Returns the Resource containing `eo` directly or indirectly (if any)."
   [^EObject eo]
   (.eResource eo))
-
-(extend-protocol g/IContainer
-  EObject
-  (container [this]
-    (econtainer this)))
 
 (defn eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
@@ -604,6 +594,24 @@
                       ;; Empty collection given: (), [], that's also ok
                       identity)
    :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
+
+(defn econtainer
+  "Returns the EObject containing `eo` (if any).
+  If a reference spec `rs` is given, return only `eo`s container if it's
+  referenced by a containment reference matching `rs`."
+  ([^EObject eo]
+     (.eContainer eo))
+  ([^EObject eo rs]
+     (let [rm (eref-matcher rs)]
+       (q/the (mapcat (fn [^EReference r] (.eGet eo r))
+                      (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                            :when (and (.isContainer ref) (rm ref))]
+                        ref))))))
+
+(extend-protocol g/IContainer
+  EObject
+  (container [this]
+    (econtainer this)))
 
 (defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
@@ -1185,7 +1193,8 @@
     ([n]         (u/oset (econtentrefs n nil)))
     ([n rs]      (u/oset (econtentrefs n rs))))
   (--<>
-    ([n]         (u/oset (econtainer n)))))
+    ([n]         (u/oset (econtainer n)))
+    ([n rs]      (u/oset (econtainer n rs)))))
 
 ;;# Describing EObjects and EClasses
 

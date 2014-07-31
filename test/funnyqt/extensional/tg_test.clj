@@ -1,10 +1,10 @@
 (ns funnyqt.extensional.tg-test
   (:use funnyqt.tg)
   (:require [funnyqt.emf       :as emf]
-            [funnyqt.generic   :as g])
+            [funnyqt.generic   :as g]
+            [funnyqt.query     :as q])
   (:use funnyqt.extensional)
   (:use funnyqt.extensional.tg)
-  (:use funnyqt.query)
   (:use [funnyqt.tg-test :only [rg]])
   (:use clojure.test))
 
@@ -49,10 +49,10 @@
 (defn parents-of
   "Returns the set of parent members of m."
   [m]
-  (reachables
-   m [p-seq
-      [p-alt :familySon :familyDaughter]
-      [p-alt :father :mother]]))
+  (q/reachables
+   m [q/p-seq
+      [q/p-alt :familySon :familyDaughter]
+      [q/p-alt :father :mother]]))
 
 (defn wife
   "Returns the wife member of member m."

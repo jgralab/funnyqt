@@ -394,7 +394,7 @@
   (p-*-or-+ n p (flatland.ordered.set/ordered-set)))
 
 (defn p-exp
-  "Path exponent starting at `n` and traversing `p` `n` times, or at least `l`
+  "Path exponent starting at `n` and traversing `p` `i` times, or at least `l`
   and at most `u` times.
   `n` may be a node or a collection of nodes.
   `n` or `l` and `u` are integers with `l` <= `u`.
@@ -408,11 +408,11 @@
              s
              (recur (dec i) ns)))
          s)))
-  ([n n p]
-     {:pre [(>= n 0)]}
-     (if (zero? n)
+  ([n i p]
+     {:pre [(>= i 0)]}
+     (if (zero? i)
        (u/oset n)
-       (recur (p-apply n p) (dec n) p))))
+       (recur (p-apply n p) (dec i) p))))
 
 (defn p-restr
   "Path restriction concerning `ts` and `pred` on each object in `objs`.

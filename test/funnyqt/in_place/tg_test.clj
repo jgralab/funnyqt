@@ -1,7 +1,7 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.in-place.tg-test
-  (:use funnyqt.query)
-  (:require [funnyqt.generic :as g])
+  (:require [funnyqt.generic :as g]
+            [funnyqt.query   :as q])
   (:use funnyqt.tg)
   (:use funnyqt.in-place)
   (:use funnyqt.tg-test)
@@ -26,7 +26,7 @@
     (is (== 4 (apply-repeatedly replace-binaryop tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
-    (is (== 1.65 (value (the (vseq tree)) :value)))))
+    (is (== 1.65 (value (q/the (vseq tree)) :value)))))
 
 (deftest test-replace-binops2
   (let [tree (bin-tree)]
@@ -43,7 +43,7 @@
                tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
-    (is (== 1.65 (value (the (vseq tree)) :value)))))
+    (is (== 1.65 (value (q/the (vseq tree)) :value)))))
 
 (deftest test-replace-binops3
   (let [tree (bin-tree)]
@@ -64,7 +64,7 @@
                tree)))
     (is (== 1 (vcount tree)))
     (is (== 0 (ecount tree)))
-    (is (== 1.65 (value (the (vseq tree)) :value)))))
+    (is (== 1.65 (value (q/the (vseq tree)) :value)))))
 
 (deftest test-replace-binops4
   (let [tree (bin-tree)]
@@ -79,7 +79,7 @@
       (is (== 4 (apply-repeatedly repl-bin-op tree)))
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))
-      (is (== 1.65 (value (the (vseq tree)) :value))))))
+      (is (== 1.65 (value (q/the (vseq tree)) :value))))))
 
 (deftest test-replace-binops5
   (let [tree (bin-tree)]
@@ -96,4 +96,4 @@
       (is (== 4 (apply-repeatedly repl-bin-op tree)))
       (is (== 1 (vcount tree)))
       (is (== 0 (ecount tree)))
-      (is (== 1.65 (value (the (vseq tree)) :value))))))
+      (is (== 1.65 (value (q/the (vseq tree)) :value))))))

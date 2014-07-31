@@ -1,7 +1,11 @@
 (ns funnyqt.query-test
   (:use [flatland.ordered.set])
   (:use [funnyqt.query])
-  (:use [clojure.test]))
+  (:use [clojure.test])
+  (:require [clojure.core.reducers :as r]
+            [funnyqt.utils :as u]
+            [funnyqt.emf :as emf]
+            [funnyqt.tg  :as tg]))
 
 (deftest test-forall?
   (is (forall? even? []))
@@ -165,4 +169,3 @@
               ;; 1. ascending, 2. lexicographical, 3. descending
               (seq-compare - compare #(- %2 %1))
               (shuffle sorted)))))))
-
