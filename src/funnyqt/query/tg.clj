@@ -1,5 +1,5 @@
 (ns funnyqt.query.tg
-  "EMF-specific query functions"
+  "TG-specific query functions"
   (:require [flatland.ordered.set :as os]
             [funnyqt.tg           :as tg]
             [funnyqt.query        :as q]
