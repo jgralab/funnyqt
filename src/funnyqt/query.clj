@@ -282,43 +282,56 @@
   (--> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one forward edge.
   May be restricted by a type specification (TG) or reference
-  specification (EMF) `spec` and a predicate `pred` on the edge.")
+  specification (EMF) `spec` and a predicate `pred` on the edge.  The 3-arity
+  version with `pred` is not supported for EMF because there are no first-class
+  edges in EMF.")
   (---> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one forward edge
   which must not be a containment edge.  May be restricted by a type
   specification (TG) or reference specification (EMF) `spec` and a predicate
-  `pred` on the edge.")
+  `pred` on the edge.  The 3-arity version with `pred` is not supported for EMF
+  because there are no first-class edges in EMF.")
   (<-- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one backward edge.
   May be restricted by a type specification (TG) or reference
-  specification (EMF) `spec` and a predicate `pred` on the edge.")
+  specification (EMF) `spec` and a predicate `pred` on the edge.  For EMF, only
+  bidirectional references are considered, and the 3-arity version with `pred`
+  is not supported because there are no first-class edges in EMF.")
   (<--- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one backward edge
   which must not be a containment edge.  May be restricted by a type
   specification (TG) or reference specification (EMF) `spec` and a predicate
-  `pred` on the edge.")
+  `pred` on the edge.For EMF, only bidirectional references are considered, and
+  the 3-arity version with `pred` is not supported because there are no
+  first-class edges in EMF.")
   (<-> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one edge, no
   matter if incoming or outgoing.  May be restricted by a type specification
   (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
-  edge.")
+  edge.  For EMF, only bidirectional references are considered, and the 3-arity
+  version with `pred` is not supported because there are no first-class edges
+  in EMF.")
   (<--> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one edge which
   must not be a containment edge, no matter if incoming or outgoing.  May be
   restricted by a type specification (TG) or reference specification (EMF)
-  `spec` and a predicate `pred` on the edge.")
+  `spec` and a predicate `pred` on the edge.  For EMF, only bidirectional
+  references are considered, and the 3-arity version with `pred` is not
+  supported because there are no first-class edges in EMF.")
   (<>-- [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one (strict)
   containment edge from whole to part (`n` is the container of the result), no
   matter if incoming or outgoing.  May be restricted by a type specification
   (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
-  edge.")
+  edge.  The 3-arity version with `pred` is not supported for EMF because there
+  are no first-class edges in EMF.")
   (--<> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one (strict)
   containment edge from part to whole (`n` is contained in the result), no
   matter if incoming or outgoing.  May be restricted by a type specification
   (TG) or reference specification (EMF) `spec` and a predicate `pred` on the
-  edge."))
+  edge.  The 3-arity version with `pred` is not supported for EMF because there
+  are no first-class edges in EMF."))
 
 (extend-protocol ISimpleRegularPathExpression
   java.util.Collection
@@ -356,11 +369,11 @@
     ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(--<> % spec pred) n)))))
 
 (defn p-seq
-  "Path sequence starting at `n` and traversing `p`.
+  "Path sequence starting at `n` and traversing `ps`.
   `n` may be a node or a collection of nodes.
-  `p` is a varargs seq of path expressions."
-  [n & p]
-  (u/oset (r/reduce p-apply n p)))
+  `ps` is a varargs seq of regular path expressions."
+  [n & ps]
+  (u/oset (r/reduce p-apply n ps)))
 
 (defn p-opt
   "Path option starting at `n` and maybe traversing `p`.
