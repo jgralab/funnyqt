@@ -434,9 +434,9 @@
        (recur (p-apply n p) (dec i) p))))
 
 (defn p-restr
-  "Path restriction concerning `spec` and `pred` on object `n` or each object in `n`.
-  spec is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
-  predicate."
+  "Path restriction concerning `ts` and `pred` on node `n` or each node in `n`.
+  `ts` is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
+  predicate on nodes."
   ([n spec]
      (p-restr n spec identity))
   ([n spec pred]
