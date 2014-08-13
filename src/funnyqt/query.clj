@@ -383,12 +383,12 @@
   (u/into-oset n (p-apply n p)))
 
 (defn p-alt
-  "Path alternative starting at `n` and traversing one of `p`.
+  "Path alternative starting at `n` and traversing each alternative in `ps`.
   `n` may be a node or a collection of nodes.
-  `p` is a varags seq of the alternative path expressions."
-  [n & p]
+  `ps` is a varags seq of the alternative path expressions."
+  [n & ps]
   (into (flatland.ordered.set/ordered-set)
-        (r/mapcat #(p-apply (u/oset n) %) p)))
+        (r/mapcat #(p-apply (u/oset n) %) ps)))
 
 (defn ^:private p-*-or-+
   [n p ret]
@@ -434,15 +434,15 @@
        (recur (p-apply n p) (dec i) p))))
 
 (defn p-restr
-  "Path restriction concerning `spec` and `pred` on each object in `objs`.
+  "Path restriction concerning `spec` and `pred` on object `n` or each object in `n`.
   spec is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
   predicate."
-  ([objs spec]
-     (p-restr objs spec identity))
-  ([objs spec pred]
-     (let [objs (u/oset objs)]
-       (if (seq objs)
-         (let [tm (g/type-matcher (first objs) spec)]
+  ([n spec]
+     (p-restr n spec identity))
+  ([n spec pred]
+     (let [n (u/oset n)]
+       (if (seq n)
+         (let [tm (g/type-matcher (first n) spec)]
            (into (os/ordered-set)
-                 (r/filter (every-pred tm pred) objs)))
-         objs))))
+                 (r/filter (every-pred tm pred) n)))
+         n))))

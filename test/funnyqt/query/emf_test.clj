@@ -119,6 +119,14 @@
                       r
                       [q/p-restr nil #(not (q/member? % ps))]])))
 
+(defn ^:private aunts-or-uncles2
+  [m r]
+  (let [ps (parents m)]
+    (q/p-seq ps
+             #(q/p-alt % :familySon :familyDaughter)
+             #(q/reachables % r)
+             (fn [n] (q/p-restr n nil #(not (q/member? % ps)))))))
+
 (defn ^:private aunts
   [m]
   (aunts-or-uncles m :daughters))
@@ -131,13 +139,17 @@
   (let [diana (get-member "Diana")
         ps (parents diana)
         us (uncles diana)
-        as (aunts diana)]
+        us2 (aunts-or-uncles2 diana :sons)
+        as (aunts diana)
+        as2 (aunts-or-uncles2 diana :daughters)]
     (is (== 2 (count ps)))
     (is (= #{"Debby" "Dennis"}
            (into #{} (map #(eget % :firstName) ps))))
-    (is (== 2 (count us)))
+    (is (== 2 (count us) (count us2)))
     (is (= #{"Stu" "Sven"}
-           (into #{} (map #(eget % :firstName) us))))
+           (into #{} (map #(eget % :firstName) us))
+           (into #{} (map #(eget % :firstName) us2))))
     (is (== 3 (count as)))
     (is (= #{"Stella" "Carol" "Conzuela"}
-           (into #{} (map #(eget % :firstName) as))))))
+           (into #{} (map #(eget % :firstName) as))
+           (into #{} (map #(eget % :firstName) as2))))))
