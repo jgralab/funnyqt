@@ -131,7 +131,7 @@
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
-          reachables #(q/reachables % [q/p-* qtg/<->])]
+          reachables #(q/p-* % qtg/<->)]
       (loop [disc (filter #(g/has-type? % 'PatternVertex)
                           (clojure.set/difference vset (reachables a)))]
         (when (seq disc)
@@ -782,7 +782,7 @@
   binding forms using :call, i.e., pairs of variables and expressions.
 
     [v --> w
-     :call [u (reachables w [p-seq [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]]])]]
+     :call [u (p-seq w [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]])]]
 
   By default, the matches of a pattern are represented as vectors containing
   the matched elements in the order of their declaration in the pattern.

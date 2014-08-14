@@ -49,10 +49,9 @@
 (defn parents-of
   "Returns the set of parent members of m."
   [m]
-  (q/reachables
-   m [q/p-seq
-      [q/p-alt :familySon :familyDaughter]
-      [q/p-alt :father :mother]]))
+  (q/p-seq m
+           [q/p-alt :familySon :familyDaughter]
+           [q/p-alt :father :mother]))
 
 (defn wife
   "Returns the wife member of member m."

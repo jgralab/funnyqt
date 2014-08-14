@@ -272,12 +272,6 @@
                           (r/mapcat #(g/reducible-adjs* % p) (u/oset n)))
    :else (u/errorf "Don't know how to apply %s." p)))
 
-(defn reachables
-  "Returns the ordered set of nodes reachable from `n` via the path expression
-  `p`.  `n` may be a node or a collection of nodes."
-  [n p]
-  (p-apply n p))
-
 (defprotocol ISimpleRegularPathExpression
   (--> [n] [n spec] [n spec pred]
     "Returns the ordered set of nodes reachable from `n` via one forward edge.
