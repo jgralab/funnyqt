@@ -1497,25 +1497,44 @@ functions `record` and `enum-constant`."
     ([n ts]      (--- n :out nil nil ts  nil))
     ([n ts pred] (--- n :out nil nil ts  pred)))
   (--->
-    ([n]         (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
-    ([n ts]      (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
-    ([n ts pred] (--- n :out [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+    ([n]         (--- n :out
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] nil nil))
+    ([n ts]      (--- n :out
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] ts  nil))
+    ([n ts pred] (--- n :out
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] ts  pred)))
   (<--
     ([n]         (--- n :in nil nil nil nil))
     ([n ts]      (--- n :in nil nil ts  nil))
     ([n ts pred] (--- n :in nil nil ts  pred)))
   (<---
-    ([n]         (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
-    ([n ts]      (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
-    ([n ts pred] (--- n :in [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+    ([n]         (--- n :in
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] nil nil))
+    ([n ts]      (--- n :in
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] ts  nil))
+    ([n ts pred] (--- n :in
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] ts  pred)))
   (<->
     ([n]         (--- n :inout nil nil nil nil))
     ([n ts]      (--- n :inout nil nil ts  nil))
     ([n ts pred] (--- n :inout nil nil ts  pred)))
   (<-->
-    ([n]         (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] nil nil))
-    ([n ts]      (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] ts  nil))
-    ([n ts pred] (--- n :inout [AggregationKind/NONE] [AggregationKind/NONE] ts  pred)))
+    ([n]         (--- n :inout
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] nil nil))
+    ([n ts]      (--- n :inout
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      ts  nil))
+    ([n ts pred] (--- n :inout
+                      [AggregationKind/NONE AggregationKind/SHARED]
+                      [AggregationKind/NONE AggregationKind/SHARED] ts  pred)))
   (<>--
     ([n]         (--- n :inout nil [AggregationKind/COMPOSITE] nil nil))
     ([n ts]      (--- n :inout nil [AggregationKind/COMPOSITE] ts  nil))
