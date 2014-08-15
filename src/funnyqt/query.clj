@@ -239,16 +239,16 @@
         (- (hash a) (hash b)))))
 
 (defn sort-topologically
-  "Returns the objects `obs` as topologically sorted vector or false if there's
-  a cycle.  `deps-fn` is a function that given an object of `objs` returns its
+  "Returns the objects `els` as topologically sorted vector or false if there's
+  a cycle.  `deps-fn` is a function that given an object of `els` returns its
   \"dependencies\", i.e., objects that need to be sorted before it."
-  [vs deps-fn]
-  (let [vs (set vs)]
-    (loop [rem vs, known  #{}, sorted []]
+  [deps-fn els]
+  (let [els (set els)]
+    (loop [rem els, known  #{}, sorted []]
       (if (seq rem)
         (let [gs (group-by (fn [n]
                              (every? #(member? % known)
-                                     (filter vs (deps-fn n))))
+                                     (filter els (deps-fn n))))
                            rem)
               good (gs true)
               bad (gs false)]

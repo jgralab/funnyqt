@@ -85,47 +85,56 @@
 
 (deftest test-logicals
   ;; AND
-  (are [expected in] (= expected (apply and* in) (reduce #(and %1 %2) true in))
+  (are [expected in] (= expected
+                        ((eval `(fn [] (and ~@in))))
+                        (apply and* in)
+                        (reduce #(and %1 %2) true in))
        3     [1 2 3]
        true  []
        false [1 false]
-       nil   [nil 1 2 3 4])
-  (is (= (and) (and*)))
-  (is (= (and 1 2 3) (and* 1 2 3)))
-  (is (= (and 1 2 nil 3) (and* 1 2 nil 3)))
+       nil   [nil 1 2 3 4]
+       nil   [1 2 nil 3])
   ;; NAND
-  (are [expected in] (= expected (apply nand* in) (not (reduce #(and %1 %2) true in)))
+  (are [expected in] (= expected
+                        ((eval `(fn [] (nand ~@in))))
+                        (apply nand* in)
+                        (not (reduce #(and %1 %2) true in)))
        false [1 2 3]
        false []
        true  [1 false]
        true  [nil 1 2 3 4])
   ;; OR
-  (are [expected in] (= expected (apply or* in) (reduce #(or %1 %2) nil in))
+  (are [expected in] (= expected
+                        ((eval `(fn [] (or ~@in))))
+                        (apply or* in)
+                        (reduce #(or %1 %2) nil in))
        1     [1 2 3]
        nil   []
        1     [1 false]
        1     [nil 1 2 3 4]
-       false [nil nil false])
-  (is (= (or) (or*)))
-  (is (= (or 1 2 3) (or* 1 2 3)))
-  (is (= (or nil false nil) (or* nil false nil)))
-  (is (= (or nil 1 false 2 nil) (or* nil 1 false 2 nil)))
+       false [nil nil false]
+       nil   [nil false nil]
+       1     [nil 1 false 2 nil])
   ;; NOR
-  (are [expected in] (= expected (apply nor* in) (not (reduce #(or %1 %2) nil in)))
+  (are [expected in] (= expected
+                        ((eval `(fn [] (nor ~@in))))
+                        (apply nor* in)
+                        (not (reduce #(or %1 %2) nil in)))
        false [1 2 3]
        true  []
        false [1 false]
        false [nil 1 2 3 4]
        true  [nil nil false])
   ;; XOR
-  (are [expected in] (= expected (apply xor* in) (reduce #(xor %1 %2) false in))
+  (are [expected in] (= expected
+                        ((eval `(fn [] (xor ~@in))))
+                        (apply xor* in)
+                        (reduce #(xor %1 %2) false in))
        3     [1 2 3]
        false []
        1     [1 false]
        false [nil 1 2 3 4]
-       false [nil nil false])
-  (is (= (xor) (xor*)))
-  (is (= (xor 1 2 3) (xor* 1 2 3))))
+       false [nil nil false]))
 
 (deftest test-and-fn-nand-fn
   (are [expected in] (= expected
