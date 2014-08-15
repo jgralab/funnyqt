@@ -16,12 +16,14 @@
   [pred coll]
   (some pred coll))
 
-(defn exists1?
-  "Returns logical true iff `pred` holds for exactly one element in `coll`."
-  [pred coll]
-  (let [s (filter pred coll)]
+(defn exist-n?
+  "Returns logical true iff `pred` holds for exactly `n` elements in `coll`."
+  [n pred coll]
+  (let [s (filter pred coll)
+        good (take n s)
+        bad  (drop n s)]
     ;; There must be one and no other
-    (and (seq s) (not (next s)))))
+    (and (= (count good) n) (not (seq bad)))))
 
 ;;# Sequence Functions
 

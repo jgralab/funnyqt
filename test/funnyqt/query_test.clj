@@ -15,14 +15,21 @@
 
 (deftest test-exists?
   (is (exists? even? [1 -7 3 5 6 -19 -4]))
-  (is (not (exists? even? []))))
+  (is (not (exists? even? [])))
+  ;; Test that we're not realizing lazy seqs too much
+  (is (exists? even? (range))))
 
-(deftest test-exists1?
-  (is (exists1? #(== 1 %) (range -100 100)))
-  (is (not (exists1? even? [1 -7 3 5 6 -19 -4])))
-  (is (not (exists1? even? [])))
-  (is (exists1? even? [2]))
-  (is (exists1? even? [3 2 1])))
+(deftest test-exist-n?
+  (is (exist-n? 1 #(== 1 %) (range -100 100)))
+  (is (not (exist-n? 1 even? [1 -7 3 5 6 -19 -4])))
+  (is (not (exist-n? 1 even? [])))
+  (is (exist-n? 3 even? [1 2 3 4 5 6]))
+  (is (not (exist-n? 3 even? [1 2 3 4 5 6 8])))
+  (is (not (exist-n? 3 even? [1 2 3 4 5])))
+  (is (exist-n? 1 even? [2]))
+  (is (exist-n? 1 even? [3 2 1]))
+  ;; Test that we're not realizing lazy seqs too much
+  (is (not (exist-n? 100 even? (range)))))
 
 (deftest test-member?
   (is (member? 1 #{0 1 2}))
