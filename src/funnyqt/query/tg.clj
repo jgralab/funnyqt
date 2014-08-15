@@ -110,7 +110,7 @@
   ([v ts pred]
      (tg/--- v :inout [AggregationKind/SHARED AggregationKind/COMPOSITE] nil ts pred)))
 
-(defn <_>--
+(defn <->--
   "Aggregation-only path expression starting at whole `v`, optionally
   restricted by `ts` and `pred` (on the edges)."
   ([v]
@@ -120,7 +120,7 @@
   ([v ts pred]
      (tg/--- v :inout nil [AggregationKind/SHARED] ts pred)))
 
-(defn --<_>
+(defn --<->
   "Aggregation-only path expression starting at part `v`, optionally restricted
   by `ts` and `pred` (on the edges)."
   ([v]
