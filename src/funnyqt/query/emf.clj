@@ -50,10 +50,16 @@
 
 (defn <---
   "Returns all EObjects cross-referencing `obj` with a reference matching the
-  reference specification `rs` (see `funnyqt.emf/eref-matcher` for details).  `obj` may also
-  be a collection of EObjects, in which case all objects cross-referencing any
-  of the objects in `obj` is returned.  In EMF, cross-referenced means
-  referenced by a non-containment EReference."
+  reference specification `rs` (see `funnyqt.emf/eref-matcher` for details).
+  `obj` may also be a collection of EObjects, in which case all objects
+  cross-referencing any of the objects in `obj` is returned.  In EMF,
+  cross-referenced means referenced by a non-containment EReference.
+
+  If no `container` is given, then only the opposite refs of `obj` are checked.
+  Else, all objects in `container` are tested if they reference `obj` with a
+  reference matching `rs`.  `container` may be either an EObject, a Resource, a
+  ResourceSet, or a collection of EObjects.  For the former three, direct and
+  indirect contents are checked, for collections only direct contents."
   ([obj]
      (into (os/ordered-set) (r/mapcat #(emf/inv-ecrossrefs % nil nil) (u/oset obj))))
   ([obj rs]
@@ -63,10 +69,16 @@
 
 (defn <--
   "Returns all EObjects referencing `obj` with a reference matching the
-  reference specification `rs` (see `funnyqt.emf/eref-matcher` for details).  `obj` may also
-  be a collection of EObjects, in which case all objects referencing any of the
-  objects in `obj` is returned.  In contrast to `<---', this function includes
-  both cross-references and containments."
+  reference specification `rs` (see `funnyqt.emf/eref-matcher` for details).
+  `obj` may also be a collection of EObjects, in which case all objects
+  referencing any of the objects in `obj` is returned.  In contrast to `<---',
+  this function includes both cross-references and containments.
+
+  If no `container` is given, then only the opposite refs of `obj` are checked.
+  Else, all objects in `container` are tested if they reference `obj` with a
+  reference matching `rs`.  `container` may be either an EObject, a Resource, a
+  ResourceSet, or a collection of EObjects.  For the former three, direct and
+  indirect contents are checked, for collections only direct contents."
   ([obj]
      (into (os/ordered-set) (r/mapcat #(emf/inv-erefs % nil nil) (u/oset obj))))
   ([obj rs]
