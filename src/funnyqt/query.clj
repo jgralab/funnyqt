@@ -210,7 +210,7 @@
 
 ;;# Sorting
 
-(defn seq-compare
+(defn seq-comparator
   "Returns a sequence comparator function that compares 2 sequences element by
   element according to the given comparators `cmps`, i.e., the first 2 elements
   are compared with the first comparator, the second 2 elements with the second
@@ -230,7 +230,7 @@
   and ascending orded of third components.  Clearly, for numbers - is a valid
   comparator, and for the strings we use compare which sorts lexicographically.
 
-    (sort (seq-compare #(- %2 %1) - compare)
+    (sort (seq-comparator #(- %2 %1) - compare)
           [[1 10 \"b\"] [3 7 \"b\"] [1 2 \"b\"] [1 10 \"c\"] [3.0 17 \"a\"]])
     ;=> ([3 7 \"b\"] [3.0 17 \"a\"] [1 2 \"b\"] [1 10 \"b\"] [1 10 \"c\"])"
   [& cmps]

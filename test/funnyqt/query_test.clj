@@ -159,7 +159,7 @@
        true  [#(== 15 %)]
        true  [#(== 15 %) #(== 0 (mod % 5)) #(== 0 (mod % 3))]))
 
-(deftest test-seq-compare
+(deftest test-seq-comparator
   (let [sorted [[-1 "zap" 19]
                 [-1 "zap" 0]
                 [0 "bar" 0]
@@ -174,5 +174,5 @@
       (is (= sorted
              (sort
               ;; 1. ascending, 2. lexicographical, 3. descending
-              (seq-compare - compare #(- %2 %1))
+              (seq-comparator - compare #(- %2 %1))
               (shuffle sorted)))))))
