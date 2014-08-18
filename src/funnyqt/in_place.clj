@@ -56,7 +56,7 @@
      ~rule-app))
 
 (defn ^:private unrecur
-  "Replaces (recur ...) forms with (fnname ...) forms where *as-test* in bound to false.
+  "Replaces (recur ...) forms with (fnname ...) forms where *as-test* is bound to false.
   Existing (fnname ...) forms are also wrapped by bindings of *as-test* to
   false.  Doesn't replace in nested `loop` or `fn` forms."
   [fnname form]
@@ -82,7 +82,7 @@
     (if (vector? (first more))
       ;; pattern vector given
       (let [pattern-vector (first more)
-            bf          (pm/transform-pattern-vector name pattern-vector args)
+            bf          (@#'pm/transform-pattern-vector name pattern-vector args)
             custom-as   (:as (meta bf))
             matchsyms   (if custom-as
                           (u/deep-vectorify custom-as)
@@ -147,8 +147,8 @@
                       (m/name-with-attributes name more)
                       [name more])]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                                 pm/*pattern-expansion-context*
-                                                 (:pattern-expansion-context (meta *ns*)))]
+                                                 (:pattern-expansion-context (meta *ns*))
+                                                 pm/*pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (vector? (first more))
              ;; starts with argvec, so just one def
@@ -163,8 +163,8 @@
   (when-not (vector? rspecs)
     (u/errorf "No rspec vector in letmapping!"))
   (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                               pm/*pattern-expansion-context*
-                                               (:pattern-expansion-context (meta *ns*)))]
+                                               (:pattern-expansion-context (meta *ns*))
+                                               pm/*pattern-expansion-context*)]
     `(letfn [~@(map (fn [[n & more]]
                       `(~n ~@(if (vector? (first more))
                                (convert-spec n more)
@@ -220,8 +220,8 @@
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                                 pm/*pattern-expansion-context*
-                                                 (:pattern-expansion-context (meta *ns*)))]
+                                                 (:pattern-expansion-context (meta *ns*))
+                                                 pm/*pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (vector? (first more))
              (convert-spec name more)

@@ -108,8 +108,17 @@
 (deftest test-incidences
   (is (= 1 (count (iseq (vertex rg 1)))))
   (is (= 10 (count (iseq (vertex rg 12)))))
-  (is (= 9 (count (iseq (vertex rg 12)
-                        'localities.ContainsLocality!))))
+  (is (= 9
+         (count (iseq (vertex rg 12) 'localities.ContainsLocality))
+         (count (iseq (vertex rg 12) :localities))))
+  (is (= (iseq (vertex rg 12) 'localities.ContainsLocality)
+         (iseq (vertex rg 12) :localities)))
+  (is (= 0
+         (count (iseq (vertex rg 12) 'localities.ContainsLocality :in))
+         (count (iseq (vertex rg 12) :localities :in))))
+  (is (= 9
+         (count (iseq (vertex rg 12) 'localities.ContainsLocality :out))
+         (count (iseq (vertex rg 12) :localities :out))))
   (is (= 1 (count (iseq (vertex rg 12)
                         'localities.HasCapital!))))
   (is (= 2 (count (iseq (vertex rg 6)))))

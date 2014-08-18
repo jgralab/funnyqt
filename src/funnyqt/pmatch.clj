@@ -26,14 +26,14 @@
 (defn ^:private edge-sym? [sym]
   (and
    (symbol? sym)
-   (re-matches #"<?-[!a-zA-Z0-9_]*(<[a-zA-Z0-9._!]*>)?->?" (name sym))
+   (re-matches #"<?-[!a-zA-Z0-9_]*(<[a-zA-Z0-9._!:]*>)?->?" (name sym))
    (or (re-matches #"<-.*-" (name sym))
        (re-matches #"-.*->" (name sym)))))
 
 (defn ^:private name-and-type [sym]
   (if (or (vertex-sym? sym) (edge-sym? sym))
-    (let [[_ s t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([.a-zA-Z0-9_!]*)>)?(?:-|->)?"
-                              (name sym))]
+    (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
+                                      (name sym))]
       [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
     (u/errorf "No valid pattern symbol: %s" sym)))
 
@@ -191,14 +191,26 @@
 
 (def ^:dynamic *pattern-expansion-context*
   "Defines the expansion context of a pattern, i.e., if a pattern expands into
-  a query on a TGraph or an EMF model.  The possible values are :tg or :emf.
+  a query on a TGraph or an EMF model.  The possible values are :generic
+  (default), :tg and :emf.
+
+  The value :generic makes patterns expand into code that works for both EMF
+  and TGraph models.  More precisely, the code only assumes that the
+  INeighbors, IAdjacenciesInternal, and IElements protocols are extended upon
+  the concrete model representation's classes.
+
+  Note that the expansion of the :emf and :tg expansion context is slightly
+  faster than the expansion of the :generic context.  Furthermore, the :tg
+  expansion context allows for more expressive patterns in that edges may be
+  match-bound (x<X> -e<E>-> y<Y>).  This is forbidden for :emf (since there are
+  no first-class edges) and :generic.
 
   Usually, you won't bind this variable directly (using `binding`) but instead
   you specify the expansion context for a given pattern using the `attr-map` of
   a `defpattern` or `letpattern` form, or you declare the expansion context for
   a complete namespace using `:pattern-expansion-context` metadata for the
   namespace."
-  nil)
+  :generic)
 
 (defn ^:private enqueue-incs
   ([cur stack done]
@@ -223,8 +235,10 @@
 
 (defn ^:private get-type [elem]
   (when (g/has-type? elem '[PatternVertex PatternEdge NegPatternEdge])
-    (when-let [t (tg/value elem :type)]
-      `'~(symbol t))))
+    (when-let [^String t (tg/value elem :type)]
+      (if (.startsWith t ":")
+        (read-string t)
+        `'~(symbol t)))))
 
 (defn ^:private anon-vec [startv done]
   (loop [cur startv, done done, vec []]
@@ -288,6 +302,8 @@
   "Returns true if all nodes defined before the COB cob have been processed."
   [done cob]
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
+
+;;** TG
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
@@ -413,6 +429,8 @@
                          bf))))))
         (validate-bf bf done pg)))))
 
+;;** EMF
+
 (defn eget-1
   "Only for internal use."
   [eo r]
@@ -483,7 +501,7 @@
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
-                (u/errorf "Edges mustn't be named for EMF: %s" (g/describe cur)))
+                (u/errorf "Edges cannot be match-bound with EMF: %s" (g/describe cur)))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -515,6 +533,107 @@
                          (conj-done done cur)
                          bf))))))
         (validate-bf bf done pg)))))
+
+;;** Generic
+
+(defn pattern-graph-to-pattern-for-bindings-generic [argvec pg]
+  (let [gsym (first argvec)
+        get-edge-type (fn [e]
+                        (when-let [t (get-type e)]
+                          (keyword (second t))))
+        anon-vec-to-for (fn [start-sym av]
+                          (let [[v r]
+                                (loop [cs start-sym, av av, r []]
+                                  (if (seq av)
+                                    (let [el (first av)
+                                          ncs (if (tg/vertex? el) cs (gensym))]
+                                      (recur ncs
+                                             (rest av)
+                                             (if (tg/vertex? el)
+                                               (into r (when-let [t (get-type el)]
+                                                         [:when `(g/has-type? ~ncs ~t)]))
+                                               (into r `[~ncs ~(if-let [t (get-edge-type el)]
+                                                                 `(g/adjs ~cs ~t)
+                                                                 `(g/neighbors ~cs))]))))
+                                    [cs r]))]
+                            (if (== 2 (count r))
+                              (second r) ;; only one binding [G_NNNN exp]
+                              `(for ~r ~v))))]
+    ;; Check there are only anonymous edges.
+    (when-not (every? anon? (tg/eseq pg 'APatternEdge))
+      (u/errorf "Edges cannot be match-bound with generic patterns: %s"
+                (mapv g/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
+    (loop [stack [(q/the (tg/vseq pg 'Anchor))]
+           done #{}
+           bf []]
+      (if (seq stack)
+        (let [cur (peek stack)]
+          (if (done cur)
+            (recur (pop stack) done bf)
+            (case (g/qname cur)
+              Anchor
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     bf)
+              HasStartPatternVertex
+              (recur (conj (pop stack) (tg/that cur))
+                     (conj-done done cur)
+                     bf)
+              PatternVertex
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     (into bf `[~(get-name cur) (g/elements ~gsym ~(get-type cur))]))
+              ArgumentVertex
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
+              CallBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+              (recur (enqueue-incs cur (pop stack) done true)
+                     (conj-done done cur)
+                     bf)
+              PatternEdge
+              (if (anon? cur)
+                (let [av (anon-vec cur done)
+                      target-node (last av)
+                      done (conj-done done cur)]
+                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av) true)
+                         (apply conj-done done cur av)
+                         (into bf (do-anons anon-vec-to-for
+                                            (get-name (tg/this cur)) av done))))
+                (u/errorf "Edges cannot be match-bound with generic patterns: %s" (g/describe cur)))
+              NegPatternEdge
+              (let [src (tg/this cur)
+                    trg (tg/that cur)
+                    done (conj-done done cur)]
+                (if (done trg)
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[:when (not (q/member? ~(get-name trg)
+                                                          ~(if-let [t (get-edge-type cur)]
+                                                             `(g/adjs ~(get-name src) ~t)
+                                                             `(g/neighbors ~(get-name src)))))]))
+                  (recur (enqueue-incs trg (pop stack) done)
+                         (conj-done done trg)
+                         (into bf `[~@(when-not (anon? trg)
+                                        `[~(get-name trg) (emf/eallcontents
+                                                           ~gsym ~(get-type trg))])
+                                    :when (empty? ~(if-let [t (get-edge-type cur)]
+                                                     `(g/adjs ~(get-name src) ~t)
+                                                     `(g/neighbors ~(get-name src))))]))))
+              ArgumentEdge
+              (u/errorf "There mustn't be argument edges with generic patterns: %s" (g/describe cur))
+              Precedes
+              (let [cob (tg/omega cur)]
+                (if (deps-defined? done cob)
+                  (recur (pop stack)
+                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
+                         (into bf (read-string (tg/value cob :form))))
+                  (recur (pop stack)
+                         (conj-done done cur)
+                         bf))))))
+        (validate-bf bf done pg)))))
+
+;;** defpattern and friends
 
 (defn bindings-to-arglist
   "Rips out the symbols declared in `bindings`.
@@ -564,8 +683,9 @@
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
-  {:emf pattern-graph-to-pattern-for-bindings-emf
-   :tg  pattern-graph-to-pattern-for-bindings-tg})
+  {:emf     pattern-graph-to-pattern-for-bindings-emf
+   :tg      pattern-graph-to-pattern-for-bindings-tg
+   :generic pattern-graph-to-pattern-for-bindings-generic})
 
 (defn ^:private get-and-remove-key-from-vector [v key get-val]
   (loop [nv [], ov v]
@@ -577,14 +697,14 @@
         (recur (conj nv (first ov)) (rest ov)))
       [nv nil])))
 
-(defn transform-pattern-vector
+(defn ^:private transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
   for `pattern-for`.  That vector contains metadata :distinct and :as.
 
 (Only for internal use.)"
   [name pattern args]
   (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
-        [pattern result]   (get-and-remove-key-from-vector pattern   :as       true)
+        [pattern result]   (get-and-remove-key-from-vector pattern :as       true)
         pgraph (pattern-to-pattern-graph name args pattern)
         ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
@@ -820,21 +940,22 @@
      :distinct]
 
   The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
-  models, is controlled by the option `:pattern-expansion-context` with
-  possible values `:tg` or `:emf` which can be specified in the `attr-map`
-  given to `defpattern`.  Instead of using that option for every rule, you can
-  also set `:pattern-expansion-context` metadata to the namespace defining
-  patterns, in which case that expansion context is used.  Finally, it is also
-  possible to bind `*pattern-expansion-context*` to `:tg` or `:emf` otherwise.
-  Note that this binding has to be available at compile-time."
+  models (or something else), is controlled by the option
+  `:pattern-expansion-context` with possible values `:generic` (default), `:tg`
+  or `:emf` which can be specified in the `attr-map` given to `defpattern`.
+  Instead of using that option for every rule, you can also set
+  `:pattern-expansion-context` metadata to the namespace defining patterns, in
+  which case that expansion context is used.  Finally, it is also possible to
+  bind `*pattern-expansion-context*` to otherwise.  Note that this binding has
+  to be available at compile-time."
 
   {:arglists '([name doc-string? attr-map? [args] [pattern]]
                  [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              *pattern-expansion-context*
-                                              (:pattern-expansion-context (meta *ns*)))]
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
       `(defn ~name ~(meta name)
          ~@(if (vector? (first more))
              (convert-spec name more)
@@ -857,8 +978,8 @@
     (u/errorf "No patterns vector in letpattern!"))
   (let [body (if (map? attr-map) body (cons attr-map body))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
-                                              *pattern-expansion-context*
-                                              (:pattern-expansion-context (meta *ns*)))]
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
       `(letfn [~@(map (fn [[n & more]]
                         `(~n ~@(if (vector? (first more))
                                  (convert-spec n more)
@@ -895,8 +1016,8 @@
                       (vary-meta name merge attr-map)
                       (with-meta (gensym "anon-pattern-") attr-map))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              *pattern-expansion-context*
-                                              (:pattern-expansion-context (meta *ns*)))]
+                                              (:pattern-expansion-context (meta *ns*))
+                                              *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (vector? (first more))
              (convert-spec name more)

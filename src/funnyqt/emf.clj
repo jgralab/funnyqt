@@ -1104,6 +1104,13 @@
                   (if (instance? java.util.Collection a) a [a])))
       [this])))
 
+;;# Neighbors
+
+(extend-protocol g/INeighbors
+  EObject
+  (neighbors [elem]
+    (erefs elem)))
+
 ;;# Generic Regular Path Expressions
 
 (extend-protocol q/ISimpleRegularPathExpression

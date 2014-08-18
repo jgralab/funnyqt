@@ -413,7 +413,7 @@ functions `record` and `enum-constant`."
 (extend-protocol g/IMMContainmentRole
   VertexClass
   (mm-containment-role? [this ref-kw]
-    (if-let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+    (if-let [^DirectedSchemaEdgeClass
              dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
       (let [ec  (.getEdgeClass dec)
             dir (.getDirection dec)
@@ -1021,31 +1021,47 @@ functions `record` and `enum-constant`."
             (let [f (last-inc v pred)]
               (and f (cons f (riseq-internal-1 f pred)))))))
 
+(defn ^:private type-matcher-from-ts-or-role [v ts]
+  (g/type-matcher v (if (keyword? ts)
+                      (if-let [^DirectedSchemaEdgeClass
+                               dec (.getDirectedEdgeClassForFarEndRole
+                                    ^VertexClass (attributed-element-class v)
+                                    (name ts))]
+                        (.getEdgeClass dec)
+                        (u/errorf "No such role %s at %s." ts v))
+                      ts)))
+
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `ds`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
   following `v` in the current vertex's incidence sequence.  `ts` is a type
   specification (see `funnyqt.generic/type-matcher`) and `ds` is a direction
-  specification (see `funnyqt.generic/direction-matcher`)."
+  specification (see `funnyqt.generic/direction-matcher`).
+
+  In fact, `ts` may also be a keyword naming a far-end role name, but this
+  feature is only an implementation detail."
   ([v]
      (iseq-internal v identity))
   ([v ts]
-     (iseq-internal v (g/type-matcher v ts)))
+     (iseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (iseq-internal v (every-pred (direction-matcher-1 ds) (g/type-matcher v ts)))))
+     (iseq-internal v (every-pred (direction-matcher-1 ds) (type-matcher-from-ts-or-role v ts)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
   preceding `v` in the current vertex's incidence sequence.  `ts` is a type
   specification (see `funnyqt.generic/type-matcher`) and `ds` is a direction
-  specification (see `funnyqt.generic/direction-matcher`)."
+  specification (see `funnyqt.generic/direction-matcher`).
+
+  In fact, `ts` may also be a keyword naming a far-end role name, but this
+  feature is only an implementation detail."
   ([v]
      (riseq-internal v identity))
   ([v ts]
-     (riseq-internal v (g/type-matcher v ts)))
+     (riseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (riseq-internal v (every-pred (direction-matcher-1 ds) (g/type-matcher v ts)))))
+     (riseq-internal v (every-pred (direction-matcher-1 ds) (type-matcher-from-ts-or-role v ts)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1197,7 +1213,7 @@ functions `record` and `enum-constant`."
 (extend-protocol g/IModifyAdjacencies
   Vertex
   (set-adjs! [v role vs]
-    (let [^de.uni_koblenz.jgralab.schema.impl.DirectedSchemaEdgeClass
+    (let [^DirectedSchemaEdgeClass
           dec (.getDirectedEdgeClassForFarEndRole
                ^VertexClass (attributed-element-class v)
                (name role))
@@ -1305,6 +1321,12 @@ functions `record` and `enum-constant`."
         (r/mapcat #(i/adjs*-internal % (rest roles)) a))
       [this])))
 
+;;# Neighbors
+
+(extend-protocol g/INeighbors
+  Vertex
+  (neighbors [v]
+    (map that (iseq v))))
 
 ;;# Traversal Context
 

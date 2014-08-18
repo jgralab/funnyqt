@@ -219,6 +219,14 @@
   [elem role & roles]
   (into [] (i/adjs*-internal elem (cons role roles))))
 
+;;# INeighbors
+
+(defprotocol INeighbors
+  (neighbors [elem]
+    "Returns the sequence of `elem`s neighbors.
+  Neighbors are all elements that are referenced by `elem` using an arbitrary
+  reference."))
+
 ;;# IModifyAdjacencies
 
 (defprotocol IModifyAdjacencies
