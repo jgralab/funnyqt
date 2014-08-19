@@ -668,6 +668,12 @@
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
+(defn ^:private argvec-to-hash-map
+  "Converts an argument vector [a b c] to a map {:a a, :b b, :c c}."
+  [argvec]
+  (zipmap (map #(keyword (name %)) argvec)
+          argvec))
+
 (defn ^:private verify-pattern-binding-form
   "Ensure that the pattern vector doesn't declare bindings twice, which would
   be a bug."
@@ -773,6 +779,7 @@
                   ;; parallelize.
                   (not (keyword? (first bf)))
                   (>= (binding-count bf) 2))
+           ;; Eager, Parallel Case
            (let [[sym expr & rbf] bf
                  rbf (vec rbf)
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
@@ -815,11 +822,14 @@
                         (combine!# coll#
                                    (pattern-for ~rbf
                                                 ~(or (:as (meta bf))
-                                                     (bindings-to-arglist bf))))))
+                                                     (argvec-to-hash-map
+                                                      (bindings-to-arglist bf)))))))
                      finalize#)))
+           ;; Lazy Case
            (let [code `(pattern-for ~bf
                                      ~(or (:as (meta bf))
-                                          (bindings-to-arglist bf)))
+                                          (argvec-to-hash-map
+                                           (bindings-to-arglist bf))))
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]
@@ -830,10 +840,12 @@
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
   an `args` vector, and a `pattern` vector.  When applied to a model, it
-  returns the seq of all matches.  By default, this seq is a lazy seq.  If
-  ^:eager metadata is attached to `name`, then the pattern is evaluated eagerly
-  giving rise to parallel evaluation.  The parallel evaluation may be
-  suppressed using ^:sequential metadata.
+  returns the sequence of all matches.  By default, this seq is a lazy seq.  If
+  ^:eager metadata is attached to `name` (or the :eager option is set to true
+  in the `attr-map`), then the pattern is evaluated eagerly giving rise to
+  parallel evaluation.  The parallel evaluation may be suppressed using
+  ^:sequential metadata (or by setting the :sequential option to true in
+  `attr-map`).
 
   `pattern` is a vector of symbols for nodes and edges.
 
@@ -904,23 +916,17 @@
     [v --> w
      :call [u (p-seq w [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]])]]
 
-  By default, the matches of a pattern are represented as vectors containing
-  the matched elements in the order of their declaration in the pattern.
+  By default, the matches of a pattern are represented as maps from keywords
+  named according to the pattern symbol identifiers to the matched elements.
 
     [v --> w
      :when-let [u (foobar w)]]
 
-  So in the example above, each match is represented as a vector of the form [v
-  w u]. However, the :as clause allows to define a custom match representation:
+  So the example above is equivalent to the following pattern with an :as form.
 
     [v --> w
      :when-let [u (foobar w)]
      :as {:u u, :v v, :w w}]
-
-  In that example, the matches are represented using a map from pattern
-  variable name to matched element.  Note that matches don't need to contain
-  only the matched elements.  They could also return, e.g., attribute values of
-  those.
 
   Finally, a pattern may contain a :distinct modifier.  If there is one, the
   lazy seq of matches which is the result of a applying the pattern won't

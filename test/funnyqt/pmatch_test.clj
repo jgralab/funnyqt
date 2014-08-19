@@ -83,7 +83,7 @@
   (let [fsmith (tg/vertex fg 12)
         r (given-fam-with-all-members-tg fg fsmith)]
     (is (= 4 (count r)))
-    (is (forall? #(= fsmith (first %)) r))))
+    (is (forall? #(= fsmith (:fam %)) r))))
 
 (defpattern long-anon-pattern-tg
   {:pattern-expansion-context :tg}
@@ -95,7 +95,7 @@
   (let [fsmith (tg/vertex fg 12)
         r (long-anon-pattern-tg fg fsmith)]
     (is (= 1 (count r)))
-    (is (= (first r) [(tg/vertex fg 12) (tg/vertex fg 1)]))))
+    (is (= (first r) {:fam (tg/vertex fg 12), :x (tg/vertex fg 1)}))))
 
 (deftest test-letpattern-tg
   (letpattern [(families-with-fathers-simple [g]
@@ -171,14 +171,14 @@
   (is (= 3 (count (families-with-fathers-generic fm (constantly true)))))
   (is (= 2 (count (families-with-fathers-generic fm #(= "Smith" (emf/eget % :lastName)))))))
 
-(defpattern same-family-generic
+(defpattern same-family-emf
   {:pattern-expansion-context :emf}
   [g]
   [f<Family> --> m1<Member>
    f --> m2<Member>
    :when (not= m1 m2)])
 
-(defpattern same-family-distinct-generic
+(defpattern same-family-distinct-emf
   {:pattern-expansion-context :emf}
   [g]
   [f<Family> --> m1<Member>
@@ -187,43 +187,43 @@
    :as #{m1 m2}
    :distinct])
 
-(deftest test-same-family-generic
+(deftest test-same-family-emf
   (is (= 62
-         (* 2 (count (same-family-distinct-generic fm)))
-         (count (same-family-generic fm)))))
+         (* 2 (count (same-family-distinct-emf fm)))
+         (count (same-family-emf fm)))))
 
-(defpattern given-fam-with-all-members-generic
+(defpattern given-fam-with-all-members-emf
   {:pattern-expansion-context :emf}
   [g fam]
   [fam --> mem<Member>])
 
-(deftest test-given-fam-with-all-members-generic
+(deftest test-given-fam-with-all-members-emf
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
-                                        (= "Smithway 17" (emf/eget f :street))))
+                                         (= "Smithway 17" (emf/eget f :street))))
                             (emf/eallcontents fm 'Family)))
-        r (given-fam-with-all-members-generic fm fsmith)]
+        r (given-fam-with-all-members-emf fm fsmith)]
     (is (= 4 (count r)))
-    (is (forall? #(= fsmith (first %)) r))))
+    (is (forall? #(= fsmith (:fam %)) r))))
 
-(defpattern long-anon-pattern-generic
+(defpattern long-anon-pattern-emf
   {:pattern-expansion-context :emf}
   [g fam]
   [fam --> <Member> --> <Family> -<sons>-> <> --> x<Family>
    :when (not= fam x)
    :as [(emf/eget x :lastName) (emf/eget x :street)]])
 
-(deftest test-long-anon-pattern
+(deftest test-long-anon-pattern-emf
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
                                          (= "Smithway 17" (emf/eget f :street))))
                             (emf/eallcontents fm 'Family)))
         ofsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
                                           (= "Smith Avenue 4" (emf/eget f :street))))
                              (emf/eallcontents fm 'Family)))
-        r (long-anon-pattern-generic fm fsmith)]
+        r (long-anon-pattern-emf fm fsmith)]
     (is (= 1 (count r)))
     (is (= [fsmith ofsmith]))))
 
-(deftest test-letpattern-generic
+(deftest test-letpattern-emf
   (letpattern [(families-with-fathers-simple [g]
                  [f<Family> -<father>-> m<Member>])
                (families-with-fathers
@@ -239,7 +239,7 @@
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
 
-(deftest test-pattern-generic
+(deftest test-pattern-emf
   (let [families-with-fathers-simple (pattern {:pattern-expansion-context :emf}
                                               [g]
                                                [f<Family> -<father>-> m<Member>])
@@ -255,7 +255,7 @@
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
 
-(deftest test-eager-pattern-generic
+(deftest test-eager-pattern-emf
   (let [lazy-pattern1 (pattern {:pattern-expansion-context :emf} [g]
                               [f<Family> -<father>-> m<Member>])
         eager-pattern1 (pattern {:pattern-expansion-context :emf, :eager true} [g]
@@ -322,7 +322,7 @@
                             (emf/eallcontents fm 'Family)))
         r (given-fam-with-all-members-generic fm fsmith)]
     (is (= 4 (count r)))
-    (is (forall? #(= fsmith (first %)) r))))
+    (is (forall? #(= fsmith (:fam %)) r))))
 
 (defpattern long-anon-pattern-generic
   [g fam]

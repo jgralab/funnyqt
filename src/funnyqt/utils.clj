@@ -228,7 +228,10 @@
 
 ;;# Misc
 
-(defn deep-vectorify [coll]
+(defn deep-vectorify
+  "Convert the collection `coll` to a vector.  If `coll` is a collection
+  containing collections, do it recursively."
+  [coll]
   (when (map? coll)
     (errorf "Cannot deep-vectorify map %s." coll))
   (if (coll? coll)

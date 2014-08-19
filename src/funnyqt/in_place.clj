@@ -84,14 +84,18 @@
       (let [pattern-vector (first more)
             bf          (@#'pm/transform-pattern-vector name pattern-vector args)
             custom-as   (:as (meta bf))
-            matchsyms   (if custom-as
-                          (u/deep-vectorify custom-as)
-                          (pm/bindings-to-arglist bf))
+            matchsyms   (pm/bindings-to-arglist bf)
+            pattern-vector (if custom-as
+                             pattern-vector
+                             (conj pattern-vector :as matchsyms))
             body        (next more)
             pattern     (gensym "pattern")
             matches     (gensym "matches")
             action-fn   (gensym "action-fn")
             match       (gensym "match")]
+        (when-not (= custom-as (u/deep-vectorify custom-as))
+          (u/errorf "The :as clause in patterns of in-plate rules must be a vector but was %s."
+                    custom-as))
         `(~args
           (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
                                      ;; forall rules can benefit from parallel
@@ -101,9 +105,7 @@
                                      ~args ~pattern-vector)
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
-                             (let [~matchsyms ~(if custom-as
-                                                 `(u/deep-vectorify ~match)
-                                                 match)]
+                             (let [~matchsyms ~match]
                                (when *on-matched-rule-fn*
                                  (*on-matched-rule-fn* '~name ~args ~match))
                                (if *as-test*
