@@ -441,7 +441,9 @@
   (let [gsym (first argvec)
         get-edge-type (fn [e]
                         (when-let [t (get-type e)]
-                          (keyword (second t))))
+                          (if (keyword? t)
+                            t
+                            (keyword (name (second t))))))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -540,7 +542,9 @@
   (let [gsym (first argvec)
         get-edge-type (fn [e]
                         (when-let [t (get-type e)]
-                          (keyword (second t))))
+                          (if (keyword? t)
+                            t
+                            (keyword (second t)))))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -851,6 +855,9 @@
 
     v<V>            ; A node of type V identified as v
     v<V> -e<E>-> v  ; An edge of type E starting and ending at node v of type V
+
+  V is a qualified name of a node type, E is a qualified name of an edge type.
+  E may also be a reference name (as symbol or keyword).
 
   Both the identifiers (v and e above) and the types enclosed in angle brackets
   are optional.  So this is a valid pattern, too.

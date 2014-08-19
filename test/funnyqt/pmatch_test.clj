@@ -16,8 +16,16 @@
   [g]
   [f<Family> -hf<HasFather>-> m<Member>])
 
+(defpattern families-with-fathers-simple-roles-tg
+  {:pattern-expansion-context :tg}
+  [g]
+  [f<Family> -hf<:father>-> m<Member>])
+
 (deftest test-families-with-fathers-simple-tg
-  (is (= 3 (count (families-with-fathers-simple-tg fg)))))
+  (is (= 3 (count (families-with-fathers-simple-tg fg))))
+  (is (= 3 (count (families-with-fathers-simple-roles-tg fg))))
+  (is (= (families-with-fathers-simple-tg fg)
+         (families-with-fathers-simple-roles-tg fg))))
 
 (defpattern families-with-fathers-tg
   {:pattern-expansion-context :tg}
@@ -155,8 +163,17 @@
   [g]
   [f<Family> -<father>-> m<Member>])
 
+(defpattern families-with-fathers-simple-kw-emf
+  {:pattern-expansion-context :emf}
+  [g]
+  [f<Family> -<:father>-> m<Member>])
+
 (deftest test-families-with-fathers-simple-emf
-  (is (= 3 (count (families-with-fathers-simple-emf fm)))))
+  (is (= 3
+         (count (families-with-fathers-simple-emf fm))
+         (count (families-with-fathers-simple-kw-emf fm))))
+  (is (= (families-with-fathers-simple-emf fm)
+         (families-with-fathers-simple-kw-emf fm))))
 
 (defpattern families-with-fathers-generic
   {:pattern-expansion-context :emf}
@@ -278,8 +295,16 @@
   [g]
   [f<Family> -<father>-> m<Member>])
 
+(defpattern families-with-fathers-simple-kw-generic
+  [g]
+  [f<Family> -<:father>-> m<Member>])
+
 (deftest test-families-with-fathers-simple-generic
-  (is (= 3 (count (families-with-fathers-simple-generic fm)))))
+  (is (= 3
+         (count (families-with-fathers-simple-generic fm))
+         (count (families-with-fathers-simple-kw-generic fm))))
+  (is (= (families-with-fathers-simple-generic fm)
+         (families-with-fathers-simple-kw-generic fm))))
 
 (defpattern families-with-fathers-generic
   ([g]
