@@ -52,11 +52,11 @@
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
 (defn call-binding-vars
-  "Returns the symbols bound by a :call in pattern p."
+  "Returns the symbols bound by a :for in pattern p."
   [p]
   (loop [p p, r []]
     (if (seq p)
-      (if (= :call (first p))
+      (if (= :for (first p))
         (recur (nnext p) (into r (flatten (map first (partition 2 (fnext p))))))
         (recur (next p) r))
       r)))
@@ -90,10 +90,10 @@
       (when (seq pattern)
         (cond
          ;; Constraints and non-pattern binding forms ;;
-         (#{:when :let :when-let :while :call} (first pattern))
+         (#{:when :let :when-let :while :for} (first pattern))
          (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
            (tg/set-value! v :form
-                          (if (= :call (first pattern))
+                          (if (= :for (first pattern))
                             (str (pr-str (fnext pattern)) "]")
                             (str "[" (str (pr-str (first pattern))  " ")
                                  (pr-str (fnext pattern)) "]")))
@@ -637,7 +637,7 @@
       (cond
        ;; Handle :let [x y, [u v] z]
        (or (= :let (first p))
-           (= :call (first p))
+           (= :for (first p))
            (= :when-let (first p)))
        (recur (rest (rest p))
               (vec (concat l
@@ -900,10 +900,10 @@
   true (i.e., not nil and not false) for a match to occur.
 
   Patterns may also include calls to other patterns and usual comprehension
-  binding forms using :call, i.e., pairs of variables and expressions.
+  binding forms using :for, i.e., pairs of variables and expressions.
 
     [v --> w
-     :call [u (p-seq w [p-+ [p-alt <>-- [<--- 'SomeEdgeType]]])]]
+     :for [u (p-seq w [p-+ [p-alt <>-- :someRef]])]]
 
   By default, the matches of a pattern are represented as maps from keywords
   named according to the pattern symbol identifiers to the matched elements.
@@ -919,11 +919,11 @@
 
   Finally, a pattern may contain a :distinct modifier.  If there is one, the
   lazy seq of matches which is the result of a applying the pattern won't
-  contain duplicates (where \"duplicates\" in defined by the :as clause).
+  contain duplicates (where \"duplicates\" is defined by the :as clause).
   Let's clarify that with an example.  Consider a model with only two nodes n1
-  and n2.  There are the following three edges: n1 --> n1, n1 --> n2, n1 -->
-  n2, and n2 --> n1.  Then the effects of :distinct (in combination with :as)
-  are as follows:
+  and n2.  There are the following four edges: n1 --> n1, n1 --> n2, n1 --> n2,
+  and n2 --> n1.  Then the effects of :distinct (in combination with :as) are
+  as follows:
 
     [x --> y]    => 4 matches: [n1 n1], [n1 n2], [n1 n2], [n2 n1]
 
