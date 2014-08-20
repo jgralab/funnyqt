@@ -397,16 +397,25 @@
                 (if (done trg)
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
-                         (into bf `[:when (empty? (filter
-                                                   #(= ~(get-name trg) (tg/that %))
-                                                   (tg/iseq ~(get-name src) ~(get-type cur)
-                                                            ~(if (tg/normal-edge? cur) :out :in))))]))
+                         (into bf `[:when (not (q/exists?
+                                                #(= ~(get-name trg) (tg/that %))
+                                                (tg/iseq ~(get-name src) ~(get-type cur)
+                                                         ~(if (tg/normal-edge? cur) :out :in))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
-                         (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))])
-                                    :when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
-                                                           ~(if (tg/normal-edge? cur) :out :in)))]))))
+                         (into bf (if (anon? trg)
+                                    (if-let [tt (get-type trg)]
+                                      `[:when (empty? (filter
+                                                       #(g/has-type? (tg/that %) ~tt)
+                                                       (tg/iseq ~(get-name src) ~(get-type cur)
+                                                                ~(if (tg/normal-edge? cur) :out :in))))]
+                                      `[:when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
+                                                               ~(if (tg/normal-edge? cur) :out :in)))])
+                                    `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))
+                                      :when (not (q/exists?
+                                                  #(= ~(get-name trg) (tg/that %))
+                                                  (tg/iseq ~(get-name src) ~(get-type cur)
+                                                           ~(if (tg/normal-edge? cur) :out :in))))])))))
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
@@ -506,12 +515,21 @@
                                                              `(emf/erefs ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
-                         (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallcontents
-                                                           ~gsym ~(get-type trg))])
-                                    :when (empty? ~(if-let [t (get-edge-type cur)]
-                                                     `(eget-1 ~(get-name src) ~t)
-                                                     `(emf/erefs ~(get-name src))))]))))
+                         (into bf (if (anon? trg)
+                                    (if-let [tt (get-type trg)]
+                                      `[:when (empty? (filter
+                                                       #(g/has-type? % ~tt)
+                                                       ~(if-let [t (get-edge-type cur)]
+                                                          `(eget-1 ~(get-name src) ~t)
+                                                          `(emf/erefs ~(get-name src)))))]
+                                      `[:when (empty? ~(if-let [t (get-edge-type cur)]
+                                                         `(eget-1 ~(get-name src) ~t)
+                                                         `(emf/erefs ~(get-name src))))])
+                                    `[~(get-name trg) (emf/eallcontents ~gsym ~(get-type trg))
+                                      :when (not (q/member? ~(get-name trg)
+                                                            ~(if-let [t (get-edge-type cur)]
+                                                               `(eget-1 ~(get-name src) ~t)
+                                                               `(emf/erefs ~(get-name src)))))])))))
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for EMF: %s" (g/describe cur))
               Precedes
@@ -607,12 +625,21 @@
                                                              `(g/neighbors ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
-                         (into bf `[~@(when-not (anon? trg)
-                                        `[~(get-name trg) (emf/eallcontents
-                                                           ~gsym ~(get-type trg))])
-                                    :when (empty? ~(if-let [t (get-edge-type cur)]
-                                                     `(g/adjs ~(get-name src) ~t)
-                                                     `(g/neighbors ~(get-name src))))]))))
+                         (into bf (if (anon? trg)
+                                    (if-let [tt (get-type trg)]
+                                      `[:when (empty? (filter
+                                                       #(g/has-type? % ~tt)
+                                                       ~(if-let [t (get-edge-type cur)]
+                                                          `(g/adjs ~(get-name src) ~t)
+                                                          `(g/neighbors ~(get-name src)))))]
+                                      `[:when (empty? ~(if-let [t (get-edge-type cur)]
+                                                         `(g/adjs ~(get-name src) ~t)
+                                                         `(g/neighbors ~(get-name src))))])
+                                    `[~(get-name trg) (emf/eallcontents ~gsym ~(get-type trg))
+                                      :when (not (q/member? ~(get-name trg)
+                                                            ~(if-let [t (get-edge-type cur)]
+                                                               `(g/adjs ~(get-name src) ~t)
+                                                               `(g/neighbors ~(get-name src)))))])))))
               ArgumentEdge
               (u/errorf "There mustn't be argument edges with generic patterns: %s" (g/describe cur))
               Precedes
