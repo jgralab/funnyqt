@@ -285,18 +285,7 @@
      ;;---
      :normal-v
      [(get-name target-node)
-      (let [code `(~@(if (:eager *conversion-opts*)
-                       `[into #{}]
-                       `[q/no-dups]))
-            anon-vec-form (anon-vec-transformer-fn startsym av)
-            coll (gensym "coll")]
-        (if (and (not= `for (first anon-vec-form))
-                 (= *pattern-expansion-context* :emf))
-          `(let [~coll ~anon-vec-form]
-             (if (u/unique-coll? ~coll)
-               ~coll
-               ~(concat code [coll])))
-          (concat code [anon-vec-form])))])))
+      (anon-vec-transformer-fn startsym av)])))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
@@ -443,7 +432,7 @@
                         (when-let [t (get-type e)]
                           (if (keyword? t)
                             t
-                            (keyword (name (second t))))))
+                            (u/errorf "Reference name must be a keyword but was %s." t))))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -544,7 +533,7 @@
                         (when-let [t (get-type e)]
                           (if (keyword? t)
                             t
-                            (keyword (second t)))))
+                            (u/errorf "Reference name must be a keyword but was %s." t))))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -853,14 +842,18 @@
 
   `pattern` is a vector of symbols for nodes and edges.
 
-    v<V>            ; A node of type V identified as v
-    v<V> -e<E>-> v  ; An edge of type E starting and ending at node v of type V
+    v<V>           ; A node of type V identified as v
+    v<V> -<E>-> v  ; An edge of type E starting and ending at node v of type V
 
-  V is a qualified name of a node type, E is a qualified name of an edge type.
-  E may also be a reference name (as symbol or keyword).
+  V is a qualified name of a node type, E is a reference name given as keyword
+  or a qualified edge type name in case the model representation has
+  first-class edges.  If it does, the edges can also be matched and added to
+  the match results by adding an identifier.
 
-  Both the identifiers (v and e above) and the types enclosed in angle brackets
-  are optional.  So this is a valid pattern, too.
+    v<V> -e<E>-> v
+
+  Both the identifiers and the types enclosed in angle brackets are optional.
+  So this is a valid pattern, too.
 
     [v --> <V> -<E>-> <> --> x<X>] ; An arbitrary node that is connected to
                                    ; an X-node x via some arbitrary forward
@@ -870,20 +863,10 @@
                                    ; leads to x.
 
   Such sequences of anonymous paths, i.e., edges and nodes without identifier,
-  must be anchored at named nodes like above (v and x).  Note that anonymous
-  paths result in fewer matches than if the intermediate nodes/edges were
-  named.  E.g., in a model with four nodes n1, n2, n3, and n4, and the edges n1
-  --> n2, n1 --> n3, n2 --> n4, and n3 --> n4, the pattern
-
-    [a --> b --> c]
-
-  has two matches [n1 n2 n4], and [n1 n3 n4].  In contrast, the pattern
-
-    [a --> <> --> c]
-
-  has only one match [n1 n4], because the anonymous intermediate node only
-  enforces the existence of a path from a to c without creating a match for
-  every such path.
+  must be anchored at named nodes like above (v and x).  Such patterns with
+  anonymous nodes and/or edges may result in many identical matches when there
+  are different paths leading from v to x that match the anonymous node/edge
+  sequence.  See the :distinct option below for suppressing that.
 
   Patterns may also include the arguments given to the defpattern, in which
   case those are assumed to be bound to one single node or edge, depending on
@@ -899,12 +882,11 @@
 
   Patterns may contain negative edges indicated by edge symbols with name !.
   Those must not exist for a match to succeed.  For example, the following
-  declares that there must be a Foo edge from v to w, but w must have no
-  outgoing edges at all, and v and w must not be connected with a forward Bar
-  edge.
+  declares that there must be a foo reference from v to w, but w must have no
+  outgoing edges at all, and v must not reference w with its bar reference.
 
-    [v -<Foo>-> w -!-> <>
-     v -!<Bar>-> w]
+    [v -<:foo>-> w -!-> <>
+     v -!<:bar>-> w]
 
   Moreover, a pattern may bind further variables using :let and :when-let.
 

@@ -17,7 +17,7 @@
 
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
-  [model] [p1<Process> -<next>-> p2]
+  [model] [p1<Process> -<:next>-> p2]
   (let [p (ecreate! model 'Process)]
     (eset! p :name (str "np" @counter))
     (swap! counter inc)
@@ -26,7 +26,7 @@
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
-  [model] [p1<Process> -<next>-> p -<next>-> p2]
+  [model] [p1<Process> -<:next>-> p -<:next>-> p2]
   (delete! p)
   (eset! p1 :next p2))
 
@@ -40,25 +40,25 @@
 
 (defrule unmount-rule
   "Matches a resource assigned to a process and deletes it."
-  [model] [r<Resource> -<taker>-> p]
+  [model] [r<Resource> -<:taker>-> p]
   (delete! r))
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
-  [model] [r<Resource> -<taker>-> p1 -!<requested>-> r
-           p1 -<next>-> p2]
+  [model] [r<Resource> -<:taker>-> p1 -!<:requested>-> r
+           p1 -<:next>-> p2]
   (eset! r :taker p2))
 
 (defrule request-rule
   "Matches a process that doesn't request any resource and a resource not held
   by that process and makes the process request that resource."
-  [model] [r<Resource> -!<holder>-> p<Process> -!<requested>-> <>]
+  [model] [r<Resource> -!<:holder>-> p<Process> -!<:requested>-> <>]
   (eadd! p :requested r))
 
 (defrule take-rule
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
-  ([model] [p<Process> -<requested>-> r -<taker>-> p]
+  ([model] [p<Process> -<:requested>-> r -<:taker>-> p]
      (take-rule model r p))
   ([model r p]
      (eunset! r :taker)
@@ -69,7 +69,7 @@
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
-  ([model] [r<Resource> -<holder>-> p
+  ([model] [r<Resource> -<:holder>-> p
             :when (empty? (eget p :requested))]
      (release-rule model r p))
   ([model r p]
@@ -81,7 +81,7 @@
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
-  ([model] [r<Resource> -<releaser>-> p1 -<next>-> p2]
+  ([model] [r<Resource> -<:releaser>-> p1 -<:next>-> p2]
      (give-rule model r p1))
   ([model r p1]
      (let [p2 (eget p1 :next)]
@@ -92,16 +92,16 @@
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
-  [model] [p1<Process> -<requested>-> r -<holder>-> p2]
+  [model] [p1<Process> -<:requested>-> r -<:holder>-> p2]
   (eadd! r :blocked p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
-  ([model] [p2<Process> -<requested>-> r1 -<holder>-> p1 -<blocked_by>-> r2
+  ([model] [p2<Process> -<:requested>-> r1 -<:holder>-> p1 -<:blocked_by>-> r2
           :when (not= r1 r2)]
      (waiting-rule model r1 r2 p1 p2))
-  ([model r1] [r1 -<requester>-> p2
-             r1 -<holder>-> p1 -<blocked_by>-> r2
+  ([model r1] [r1 -<:requester>-> p2
+             r1 -<:holder>-> p1 -<:blocked_by>-> r2
              :when (not= r1 r2)]
      (waiting-rule model r1 r2 p1 p2))
   ([model r1 r2 p1 p2]
@@ -111,13 +111,13 @@
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
-  [model] [r<Resource> -<blocked>-> p
+  [model] [r<Resource> -<:blocked>-> p
          :when (empty? (eget p :held))]
   (eremove! r :blocked p))
 
 (defrule unlock-rule
   "Matches a process holding and blocking a resource and releases it."
-  [model] [r<Resource> -<holder>-> p -<blocked_by>-> r]
+  [model] [r<Resource> -<:holder>-> p -<:blocked_by>-> r]
   (eunset! r :holder)
   (eremove! r :blocked p)
   (eset! r :releaser p))
@@ -160,17 +160,18 @@
 (defrule request-star-rule
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
-  [model] [r1<Resource> -<holder>-> p1 -<prev>-> p2 -<held>-> r2
+  [model] [r1<Resource> -<:holder>-> p1 -<:prev>-> p2 -<:held>-> r2
            :when (not (q/member? r2 (eget p1 :requested)))]
   (eadd! p1 :requested r2))
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([model] [p1<Process> -<requested>-> r1 -<holder>-> p2 -<held>-> r2]
+  ([model] [p1<Process> -<:requested>-> r1 -<:holder>-> p2 -<:held>-> r2
+            ]
      (eunset! r1 :holder)
      (eset! r1 :releaser p2))
-  ([model r2 p2] [p2 -<held>-> r1 -<requester>-> p1]
+  ([model r2 p2] [p2 -<:held>-> r1 -<:requester>-> p1]
      (eunset! r1 :holder)
      (eset! r1 :releaser p2)))
 
