@@ -3,9 +3,99 @@
   (:use funnyqt.generic)
   (:require [funnyqt.tg        :as tg]
             [funnyqt.emf       :as emf]
-            [funnyqt.generic   :as g])
+            [funnyqt.generic   :as g]
+            [funnyqt.query     :as q])
   (:use funnyqt.query)
   (:use clojure.test))
+
+;;# Tests on PMatchTest model/graph
+
+(def pmt-graph (let [g (tg/new-graph (tg/load-schema "test/input/PMatchTestSchema.tg"))
+                     b1 (tg/create-vertex! g 'B {:i 1})
+                     c1 (tg/create-vertex! g 'C {:i 1})
+                     c2 (tg/create-vertex! g 'C {:i 2})
+                     a1 (tg/create-vertex! g 'A {:i 1})
+                     b2 (tg/create-vertex! g 'B {:i 2})
+                     d1 (tg/create-vertex! g 'D {:j 1})
+                     d2 (tg/create-vertex! g 'D {:j 2})]
+                 (doto g
+                   (tg/create-edge! 'A2A b1 c1)
+                   (tg/create-edge! 'A2A c1 c1)
+                   (tg/create-edge! 'A2A c1 a1)
+                   (tg/create-edge! 'A2A a1 b2)
+                   (tg/create-edge! 'A2A b1 c2)
+                   (tg/create-edge! 'A2A c2 a1)
+                   (tg/create-edge! 'A2A c2 b2)
+                   (tg/create-edge! 'A2D c1 d1)
+                   (tg/create-edge! 'A2D a1 d1)
+                   (tg/create-edge! 'A2D c2 d2))))
+
+(emf/load-ecore-resource "test/input/PMatchTestMetamodel.ecore")
+(def pmt-model (let [m (emf/new-resource)
+                     b1 (emf/ecreate! m 'B {:i 1})
+                     c1 (emf/ecreate! m 'C {:i 1})
+                     c2 (emf/ecreate! m 'C {:i 2})
+                     a1 (emf/ecreate! m 'A {:i 1})
+                     b2 (emf/ecreate! m 'B {:i 2})
+                     d1 (emf/ecreate! m 'D {:j 1})
+                     d2 (emf/ecreate! m 'D {:j 2})]
+                 (g/add-adjs! b1 :t [c1 c2])
+                 (g/add-adjs! c1 :t [c1 a1])
+                 (g/add-adjs! a1 :t [b2])
+                 (g/add-adjs! c2 :t [a1 b2])
+                 (g/add-adjs! c1 :d [d1])
+                 (g/add-adjs! a1 :d [d1])
+                 (g/add-adjs! c2 :d [d2])
+                 m))
+
+(defn pmt-el [model cls val]
+  (q/the #(= (g/aval % (if (= 'D cls) :j :i)) val)
+         (g/elements model (symbol (str (name cls) "!")))))
+
+(defn pmt-matches-fn [& kw-cls-vals]
+  (fn [model]
+    (for [[kw cls val] (partition 3 kw-cls-vals)]
+      {kw (pmt-el model cls val)})))
+
+(defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
+  (let [r-gen-emf (p-gen pmt-model)
+        r-gen-tg  (p-gen pmt-graph)
+        r-emf     (p-emf pmt-model)
+        r-tg      (p-tg  pmt-graph)
+        match-count (or match-count (count r-gen-emf))]
+    (is (= match-count
+           (count r-gen-emf)
+           (count r-gen-tg)
+           (count r-emf)
+           (count r-tg)))
+    (if matches-fn
+      (do (is (= (matches-fn pmt-model) r-emf r-gen-emf))
+          (is (= (matches-fn pmt-graph) r-tg  r-gen-tg)))
+      (do
+        (is (= r-gen-emf r-emf))
+        (is (= r-gen-tg  r-tg))))))
+
+(deftest test-pmt
+  (testing "Testing pattern [a<A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A>])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A>])
+                5
+                (pmt-matches-fn :a 'B 1, :a 'C 1, :a 'C 2, :a 'A 1, :a 'B 2)))
+  (testing "Testing pattern [x]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [x])
+                (pattern {:pattern-expansion-context :emf}     [m] [x])
+                (pattern {:pattern-expansion-context :tg}      [m] [x])
+                7
+                (pmt-matches-fn :x 'B 1, :x 'C 1, :x 'C 2, :x 'A 1, :x 'B 2,
+                                :x 'D 1, :x 'D 2)))
+  (testing "Testing pattern [x<>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [x<>])
+                (pattern {:pattern-expansion-context :emf}     [m] [x<>])
+                (pattern {:pattern-expansion-context :tg}      [m] [x<>])
+                7
+                (pmt-matches-fn :x 'B 1, :x 'C 1, :x 'C 2, :x 'A 1, :x 'B 2,
+                                :x 'D 1, :x 'D 2))))
 
 ;;# TG
 
@@ -252,7 +342,7 @@
 (deftest test-pattern-emf
   (let [families-with-fathers-simple (pattern {:pattern-expansion-context :emf}
                                               [g]
-                                               [f<Family> -<:father>-> m<Member>])
+                                              [f<Family> -<:father>-> m<Member>])
         families-with-fathers (pattern {:pattern-expansion-context :emf}
                                        ([g]
                                           [f<Family> -<:father>-> m<Member>])

@@ -1,0 +1,12 @@
+TGraph 2;
+Schema pmatchtest.PMatchTestSchema;
+
+GraphClass PMatchTestGraph;
+
+VertexClass A {i : Integer};
+VertexClass B : A;
+VertexClass C : A;
+VertexClass D {j : Integer};
+
+EdgeClass A2A from A (0,*) role s to A (0,*) role t;
+EdgeClass A2D from A (0,*) to D (0,*) role d;
