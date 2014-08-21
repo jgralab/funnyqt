@@ -292,7 +292,9 @@
   [done cob]
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
 
-;;** TG
+;;** Models with first-class edges
+
+;;*** TG
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
@@ -427,15 +429,13 @@
                          bf))))))
         (validate-bf bf done pg)))))
 
-;;** EMF
+;;** Models with only references/roles
 
-(defn eget-1
-  "Only for internal use."
-  [eo r]
-  (when-let [x (emf/eget-raw eo r)]
-    (if (instance? java.util.Collection x) x [x])))
-
-(defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
+(defn pattern-graph-to-pattern-for-bindings-only-refs-base
+  "Internal transformer function that given a pattern argument vector `argvec`,
+  a pattern graph `pg` and an `elements-fn`, a `role-fn` and a `neighbors-fn`
+  transforms the pattern graph to a comprehension binding form."
+  [argvec pg elements-fn role-fn neighbors-fn]
   (let [gsym (first argvec)
         get-edge-type (fn [e]
                         (when-let [t (get-type e)]
@@ -454,8 +454,8 @@
                                                (into r (when-let [t (get-type el)]
                                                          [:when `(g/has-type? ~ncs ~t)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
-                                                                 `(eget-1 ~cs ~t)
-                                                                 `(emf/erefs ~cs))]))))
+                                                                 `(~role-fn ~cs ~t)
+                                                                 `(~neighbors-fn ~cs))]))))
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r) ;; only one binding [G_NNNN exp]
@@ -483,7 +483,7 @@
               PatternVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     (into bf `[~(get-name cur) (emf/eallcontents ~gsym ~(get-type cur))]))
+                     (into bf `[~(get-name cur) (~elements-fn ~gsym ~(get-type cur))]))
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -501,7 +501,7 @@
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
-                (u/errorf "Edges cannot be match-bound with EMF: %s" (g/describe cur)))
+                (u/errorf "Edges cannot be match-bound with models with just refs: %s" (g/describe cur)))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -511,8 +511,8 @@
                          (conj-done done trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
                                                           ~(if-let [t (get-edge-type cur)]
-                                                             `(eget-1 ~(get-name src) ~t)
-                                                             `(emf/erefs ~(get-name src)))))]))
+                                                             `(~role-fn ~(get-name src) ~t)
+                                                             `(~neighbors-fn ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done trg)
                          (into bf (if (anon? trg)
@@ -520,18 +520,18 @@
                                       `[:when (empty? (filter
                                                        #(g/has-type? % ~tt)
                                                        ~(if-let [t (get-edge-type cur)]
-                                                          `(eget-1 ~(get-name src) ~t)
-                                                          `(emf/erefs ~(get-name src)))))]
+                                                          `(~role-fn ~(get-name src) ~t)
+                                                          `(~neighbors-fn ~(get-name src)))))]
                                       `[:when (empty? ~(if-let [t (get-edge-type cur)]
-                                                         `(eget-1 ~(get-name src) ~t)
-                                                         `(emf/erefs ~(get-name src))))])
-                                    `[~(get-name trg) (emf/eallcontents ~gsym ~(get-type trg))
+                                                         `(~role-fn ~(get-name src) ~t)
+                                                         `(~neighbors-fn ~(get-name src))))])
+                                    `[~(get-name trg) (~elements-fn ~gsym ~(get-type trg))
                                       :when (not (q/member? ~(get-name trg)
                                                             ~(if-let [t (get-edge-type cur)]
-                                                               `(eget-1 ~(get-name src) ~t)
-                                                               `(emf/erefs ~(get-name src)))))])))))
+                                                               `(~role-fn ~(get-name src) ~t)
+                                                               `(~neighbors-fn ~(get-name src)))))])))))
               ArgumentEdge
-              (u/errorf "There mustn't be argument edges for EMF: %s" (g/describe cur))
+              (u/errorf "There mustn't be argument edges for models with just refs: %s" (g/describe cur))
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
@@ -543,115 +543,21 @@
                          bf))))))
         (validate-bf bf done pg)))))
 
-;;** Generic
+;;*** EMF
+
+(defn eget-1
+  "Only for internal use."
+  [eo r]
+  (when-let [x (emf/eget-raw eo r)]
+    (if (instance? java.util.Collection x) x [x])))
+
+(defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
+  (pattern-graph-to-pattern-for-bindings-only-refs-base argvec pg `emf/eallcontents `eget-1 `emf/erefs))
+
+;;*** Generic
 
 (defn pattern-graph-to-pattern-for-bindings-generic [argvec pg]
-  (let [gsym (first argvec)
-        get-edge-type (fn [e]
-                        (when-let [t (get-type e)]
-                          (if (keyword? t)
-                            t
-                            (u/errorf "Reference name must be a keyword but was %s." t))))
-        anon-vec-to-for (fn [start-sym av]
-                          (let [[v r]
-                                (loop [cs start-sym, av av, r []]
-                                  (if (seq av)
-                                    (let [el (first av)
-                                          ncs (if (tg/vertex? el) cs (gensym))]
-                                      (recur ncs
-                                             (rest av)
-                                             (if (tg/vertex? el)
-                                               (into r (when-let [t (get-type el)]
-                                                         [:when `(g/has-type? ~ncs ~t)]))
-                                               (into r `[~ncs ~(if-let [t (get-edge-type el)]
-                                                                 `(g/adjs ~cs ~t)
-                                                                 `(g/neighbors ~cs))]))))
-                                    [cs r]))]
-                            (if (== 2 (count r))
-                              (second r) ;; only one binding [G_NNNN exp]
-                              `(for ~r ~v))))]
-    ;; Check there are only anonymous edges.
-    (when-not (every? anon? (tg/eseq pg 'APatternEdge))
-      (u/errorf "Edges cannot be match-bound with generic patterns: %s"
-                (mapv g/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
-    (loop [stack [(q/the (tg/vseq pg 'Anchor))]
-           done #{}
-           bf []]
-      (if (seq stack)
-        (let [cur (peek stack)]
-          (if (done cur)
-            (recur (pop stack) done bf)
-            (case (g/qname cur)
-              Anchor
-              (recur (enqueue-incs cur (pop stack) done true)
-                     (conj-done done cur)
-                     bf)
-              HasStartPatternVertex
-              (recur (conj (pop stack) (tg/that cur))
-                     (conj-done done cur)
-                     bf)
-              PatternVertex
-              (recur (enqueue-incs cur (pop stack) done true)
-                     (conj-done done cur)
-                     (into bf `[~(get-name cur) (g/elements ~gsym ~(get-type cur))]))
-              ArgumentVertex
-              (recur (enqueue-incs cur (pop stack) done true)
-                     (conj-done done cur)
-                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
-              CallBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
-              (recur (enqueue-incs cur (pop stack) done true)
-                     (conj-done done cur)
-                     bf)
-              PatternEdge
-              (if (anon? cur)
-                (let [av (anon-vec cur done)
-                      target-node (last av)
-                      done (conj-done done cur)]
-                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av) true)
-                         (apply conj-done done cur av)
-                         (into bf (do-anons anon-vec-to-for
-                                            (get-name (tg/this cur)) av done))))
-                (u/errorf "Edges cannot be match-bound with generic patterns: %s" (g/describe cur)))
-              NegPatternEdge
-              (let [src (tg/this cur)
-                    trg (tg/that cur)
-                    done (conj-done done cur)]
-                (if (done trg)
-                  (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
-                         (into bf `[:when (not (q/member? ~(get-name trg)
-                                                          ~(if-let [t (get-edge-type cur)]
-                                                             `(g/adjs ~(get-name src) ~t)
-                                                             `(g/neighbors ~(get-name src)))))]))
-                  (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
-                         (into bf (if (anon? trg)
-                                    (if-let [tt (get-type trg)]
-                                      `[:when (empty? (filter
-                                                       #(g/has-type? % ~tt)
-                                                       ~(if-let [t (get-edge-type cur)]
-                                                          `(g/adjs ~(get-name src) ~t)
-                                                          `(g/neighbors ~(get-name src)))))]
-                                      `[:when (empty? ~(if-let [t (get-edge-type cur)]
-                                                         `(g/adjs ~(get-name src) ~t)
-                                                         `(g/neighbors ~(get-name src))))])
-                                    `[~(get-name trg) (emf/eallcontents ~gsym ~(get-type trg))
-                                      :when (not (q/member? ~(get-name trg)
-                                                            ~(if-let [t (get-edge-type cur)]
-                                                               `(g/adjs ~(get-name src) ~t)
-                                                               `(g/neighbors ~(get-name src)))))])))))
-              ArgumentEdge
-              (u/errorf "There mustn't be argument edges with generic patterns: %s" (g/describe cur))
-              Precedes
-              (let [cob (tg/omega cur)]
-                (if (deps-defined? done cob)
-                  (recur (pop stack)
-                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
-                         (into bf (read-string (tg/value cob :form))))
-                  (recur (pop stack)
-                         (conj-done done cur)
-                         bf))))))
-        (validate-bf bf done pg)))))
+  (pattern-graph-to-pattern-for-bindings-only-refs-base argvec pg `g/elements `g/adjs `g/neighbors))
 
 ;;** defpattern and friends
 
