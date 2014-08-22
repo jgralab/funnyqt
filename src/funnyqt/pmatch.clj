@@ -926,7 +926,7 @@
   "Establishes local patterns just like `letfn` establishes local functions.
   Every pattern in the `patterns` vector is specified as:
 
-    (pattern-name [args] [pattern-spec])
+    (pattern-name attr-map? [args] [pattern])
 
   For the syntax and semantics of patterns, see the `defpattern` docs.
 
@@ -952,8 +952,8 @@
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
   The syntax is
 
-    (pattern pattern-name? attr-map? [args] [pattern-spec])
-    (pattern pattern-name? attr-map? ([args] [pattern-spec])+)
+    (pattern pattern-name? attr-map? [args] [pattern])
+    (pattern pattern-name? attr-map? ([args] [pattern])+)
 
   For the syntax and semantics of patterns, see the `defpattern` docs.
 
