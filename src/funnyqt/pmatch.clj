@@ -48,7 +48,7 @@
       :out)
     (u/errorf "%s is not edge symbol." esym)))
 
-(defonce ^:private pattern-schema
+(def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
 (defn call-binding-vars
@@ -73,15 +73,13 @@
                                              (tg/eseq pg '[PatternEdge ArgumentEdge])))))
         check-unique (fn [n t]
                        (when (and n t (get-by-name n))
-                         (u/errorf "A pattern element with name %s is already declared!" n))
-                       (when (and t (argset n))
-                         (u/errorf "The pattern declares %s although that's an argument already!" n)))
+                         (u/errorf "A pattern element with name %s is already declared!" n)))
         get-or-make-v (fn [n t]
                         (if-let [v (and n (get-by-name n))]
                           v
                           (let [v (tg/create-vertex! pg (cond
                                                          (argset n)     'ArgumentVertex
-                                                         (callbounds n) 'CallBoundVertex
+                                                         (callbounds n) 'ForBoundVertex
                                                          :else          'PatternVertex))]
                             (when n (tg/set-value! v :name (name n)))
                             (when t (tg/set-value! v :type (name t)))
@@ -234,7 +232,7 @@
       (not (get-name elem))))
 
 (defn ^:private get-type [elem]
-  (when (g/has-type? elem '[PatternVertex PatternEdge NegPatternEdge])
+  (when (g/has-type? elem '[APatternVertex PatternEdge NegPatternEdge])
     (when-let [^String t (tg/value elem :type)]
       (if (.startsWith t ":")
         (read-string t)
@@ -275,12 +273,19 @@
      ;;---
      ;; Not already done ArgumentVertex, so declare it!
      (g/has-type? target-node 'ArgumentVertex)
-     [:when-let `[~(get-name target-node) ~(get-name target-node)]
+     [:when-let `[~(get-name target-node) ~(if (get-type target-node)
+                                             `(and ~(get-name target-node)
+                                                   (g/has-type? ~(get-name target-node)
+                                                                ~(get-type target-node))
+                                                   ~(get-name target-node))
+                                             (get-name target-node))]
       :when `(q/member? ~(get-name target-node)
                         ~(anon-vec-transformer-fn startsym av))]
      ;;---
-     (g/has-type? target-node 'CallBoundVertex)
-     [:when `(q/member? ~(get-name target-node)
+     (g/has-type? target-node 'ForBoundVertex)
+     `[~@(when (get-type target-node)
+           `[:when (g/has-type? ~(get-name target-node) ~(get-type target-node))])
+       :when (q/member? ~(get-name target-node)
                         ~(anon-vec-transformer-fn startsym av))]
      ;;---
      :normal-v
@@ -340,11 +345,20 @@
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
-                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
-              CallBoundVertex  ;; They're bound by ConstraintOrBinding/Preceedes
+                     (if (done cur)
+                       bf
+                       (into bf `[:when-let [~(get-name cur)
+                                             ~(if (get-type cur)
+                                                `(and ~(get-name cur)
+                                                      (g/has-type? ~(get-name cur) ~(get-type cur))
+                                                      ~(get-name cur))
+                                                (get-name cur))]])))
+              ForBoundVertex  ;; They're bound by ConstraintOrBinding/Preceedes
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
-                     bf)
+                     (if (get-type cur)
+                       (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                       validate-bf))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -362,14 +376,19 @@
                                 `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
                                           ~(if (tg/normal-edge? cur) :out :in))
                                 (cond
-                                 (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+                                 (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  (anon? trg) (do-anons anon-vec-to-for
                                                        `(tg/that ~(get-name cur))
                                                        (anon-vec trg done) done)
                                  ;;---
                                  (g/has-type? trg 'ArgumentVertex)
-                                 [:when-let [(get-name trg) (get-name trg)]
-                                  :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+                                 `[:when-let [~(get-name trg)
+                                              ~(if (get-type trg)
+                                                 `(and ~(get-name trg)
+                                                       (g/has-type? ~(get-name trg) ~(get-type trg))
+                                                       ~(get-name trg))
+                                                 (get-name trg))]
+                                   :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  ;;---
                                  :else (concat
                                         [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
@@ -382,14 +401,19 @@
                        (conj-done done cur trg)
                        (apply conj bf :when `(= ~(get-name src) (tg/this ~(get-name cur)))
                               (cond
-                               (done trg) [:when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+                               (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
                                (g/has-type? trg 'ArgumentVertex)
-                               [:when-let [(get-name trg) (get-name trg)]
-                                :when `(= ~(get-name trg) (tg/that ~(get-name cur)))]
+                               `[:when-let [~(get-name trg)
+                                            ~(if (get-type trg)
+                                               `(and ~(get-name trg)
+                                                     (g/has-type? ~(get-name trg) ~(get-type trg))
+                                                     ~(get-name trg))
+                                               (get-name trg))]
+                                 :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
                                :else (concat
-                                      [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
+                                      `[:let [~(get-name trg) (tg/that ~(get-name cur))]]
                                       (when-let [t (get-type trg)]
                                         `[:when (g/has-type? ~(get-name trg) ~t)]))))))
               NegPatternEdge
@@ -452,7 +476,7 @@
                                              (rest av)
                                              (if (tg/vertex? el)
                                                (into r (when-let [t (get-type el)]
-                                                         [:when `(g/has-type? ~ncs ~t)]))
+                                                         `[:when (g/has-type? ~ncs ~t)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(~role-fn ~cs ~t)
                                                                  `(~neighbors-fn ~cs))]))))
@@ -462,7 +486,7 @@
                               `(for ~r ~v))))]
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
-      (u/errorf "Edges mustn't be named for EMF: %s"
+      (u/errorf "Edges mustn't be named with models with only refs: %s"
                 (mapv g/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
     (loop [stack [(q/the (tg/vseq pg 'Anchor))]
            done #{}
@@ -487,11 +511,20 @@
               ArgumentVertex
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     (if (done cur) bf (into bf `[:when-let [~(get-name cur) ~(get-name cur)]])))
-              CallBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+                     (if (done cur)
+                       bf
+                       (into bf `[:when-let [~(get-name cur)
+                                             ~(if (get-type cur)
+                                                `(and ~(get-name cur)
+                                                      (g/has-type? ~(get-name cur) ~(get-type cur))
+                                                      ~(get-name cur))
+                                                (get-name cur))]])))
+              ForBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
-                     bf)
+                     (if (get-type cur)
+                       (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                       bf))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)

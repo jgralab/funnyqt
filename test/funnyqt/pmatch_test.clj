@@ -1,6 +1,5 @@
 (ns funnyqt.pmatch-test
   (:use funnyqt.pmatch)
-  (:use funnyqt.generic)
   (:require [funnyqt.tg        :as tg]
             [funnyqt.emf       :as emf]
             [funnyqt.generic   :as g]
@@ -20,10 +19,10 @@
                      d2 (tg/create-vertex! g 'D {:j 2})]
                  (doto g
                    (tg/create-edge! 'A2A b1 c1)
+                   (tg/create-edge! 'A2A b1 c2)
                    (tg/create-edge! 'A2A c1 c1)
                    (tg/create-edge! 'A2A c1 a1)
                    (tg/create-edge! 'A2A a1 b2)
-                   (tg/create-edge! 'A2A b1 c2)
                    (tg/create-edge! 'A2A c2 a1)
                    (tg/create-edge! 'A2A c2 b2)
                    (tg/create-edge! 'A2D c1 d1)
@@ -52,28 +51,39 @@
   (q/the #(= (g/aval % (if (= 'D cls) :j :i)) val)
          (g/elements model (symbol (str (name cls) "!")))))
 
-(defn pmt-matches-fn [& kw-cls-vals]
+(defn pmt-matches-fn [& maps]
   (fn [model]
-    (for [[kw cls val] (partition 3 kw-cls-vals)]
-      {kw (pmt-el model cls val)})))
+    (for [m maps]
+      (zipmap (keys m)
+              (map #(if (vector? %)
+                      (apply pmt-el model %)
+                      %)
+                   (vals m))))))
 
 (defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
   (let [r-gen-emf (p-gen pmt-model)
         r-gen-tg  (p-gen pmt-graph)
         r-emf     (p-emf pmt-model)
-        r-tg      (p-tg  pmt-graph)
+        r-tg      (when p-tg (p-tg pmt-graph))
         match-count (or match-count (count r-gen-emf))]
-    (is (= match-count
-           (count r-gen-emf)
-           (count r-gen-tg)
-           (count r-emf)
-           (count r-tg)))
+    (is (= match-count (count r-gen-emf) (count r-gen-tg) (count r-emf)))
+    (when p-tg
+      (is (= match-count) (count r-tg)))
     (if matches-fn
-      (do (is (= (matches-fn pmt-model) r-emf r-gen-emf))
-          (is (= (matches-fn pmt-graph) r-tg  r-gen-tg)))
       (do
-        (is (= r-gen-emf r-emf))
-        (is (= r-gen-tg  r-tg))))))
+        (is (= (set (matches-fn pmt-model)) (set r-emf) (set r-gen-emf)))
+        (is (= (set (matches-fn pmt-graph)) (set r-gen-tg)))
+        (when p-tg
+          (is (= (set (matches-fn pmt-graph)) (set r-tg)))))
+      (do
+        (is (= (set r-gen-emf) (set r-emf)))
+        (when p-tg
+          (is (= (set r-gen-tg) (set r-tg))))))))
+
+;; NOTE: We can't always test the :tg expansion here, because with :emf and
+;; :generic [a --> b] means "a references b somehow" whereas the meaning for
+;; :tg is "there is an edge starting at a and ending at b", i.e., there the
+;; edge direction is considered, thus there are fewer matches.
 
 (deftest test-pmt
   (testing "Testing pattern [a<A>]"
@@ -81,21 +91,134 @@
                 (pattern {:pattern-expansion-context :emf}     [m] [a<A>])
                 (pattern {:pattern-expansion-context :tg}      [m] [a<A>])
                 5
-                (pmt-matches-fn :a 'B 1, :a 'C 1, :a 'C 2, :a 'A 1, :a 'B 2)))
+                (pmt-matches-fn {:a ['B 1]} {:a ['C 1]} {:a ['C 2]} {:a ['A 1]} {:a ['B 2]})))
+  (testing "Testing pattern [x<!A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [x<!A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [x<!A>])
+                (pattern {:pattern-expansion-context :tg}      [m] [x<!A>])
+                2
+                (pmt-matches-fn {:x ['D 1]} {:x ['D 2]})))
+  (testing "Testing pattern [a<A!>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A!>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A!>])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A!>])
+                1
+                (pmt-matches-fn {:a ['A 1]})))
+  (testing "Testing pattern [a<!A!>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<!A!>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<!A!>])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<!A!>])
+                6
+                (pmt-matches-fn {:a ['B 1]} {:a ['C 1]} {:a ['C 2]}
+                                {:a ['B 2]} {:a ['D 1]} {:a ['D 2]})))
   (testing "Testing pattern [x]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [x])
                 (pattern {:pattern-expansion-context :emf}     [m] [x])
                 (pattern {:pattern-expansion-context :tg}      [m] [x])
                 7
-                (pmt-matches-fn :x 'B 1, :x 'C 1, :x 'C 2, :x 'A 1, :x 'B 2,
-                                :x 'D 1, :x 'D 2)))
+                (pmt-matches-fn {:x ['B 1]} {:x ['C 1]} {:x ['C 2]} {:x ['A 1]} {:x ['B 2]}
+                                {:x ['D 1]} {:x ['D 2]})))
   (testing "Testing pattern [x<>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [x<>])
                 (pattern {:pattern-expansion-context :emf}     [m] [x<>])
                 (pattern {:pattern-expansion-context :tg}      [m] [x<>])
                 7
-                (pmt-matches-fn :x 'B 1, :x 'C 1, :x 'C 2, :x 'A 1, :x 'B 2,
-                                :x 'D 1, :x 'D 2))))
+                (pmt-matches-fn {:x ['B 1]} {:x ['C 1]} {:x ['C 2]} {:x ['A 1]} {:x ['B 2]}
+                                {:x ['D 1]} {:x ['D 2]})))
+  (testing "Testing pattern [c<C> -<:t>-> a<A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> -<:t>-> a<A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> -<:t>-> a<A>])
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> -<:t>-> a<A>])
+                4
+                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
+                                {:c ['C 1], :a ['A 1]}
+                                {:c ['C 2], :a ['A 1]}
+                                {:c ['C 2], :a ['B 2]})))
+  (testing "Testing pattern [c<C> --> a<A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>])
+                nil
+                7
+                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
+                                {:c ['C 1], :a ['A 1]}
+                                {:c ['C 1], :a ['B 1]}
+                                {:c ['C 1], :a ['C 1]}
+                                {:c ['C 2], :a ['B 2]}
+                                {:c ['C 2], :a ['B 1]}
+                                {:c ['C 2], :a ['A 1]})))
+  (testing "Testing pattern [c<C> -<>-> a<A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> -<>-> a<A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> -<>-> a<A>])
+                nil
+                7
+                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
+                                {:c ['C 1], :a ['A 1]}
+                                {:c ['C 1], :a ['B 1]}
+                                {:c ['C 1], :a ['C 1]}
+                                {:c ['C 2], :a ['B 2]}
+                                {:c ['C 2], :a ['B 1]}
+                                {:c ['C 2], :a ['A 1]})))
+  (testing "Testing pattern [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
+                (pattern {:pattern-expansion-context :emf}     [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
+                (pattern {:pattern-expansion-context :tg}      [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
+                4
+                (pmt-matches-fn {:b ['B 1], :a ['C 1]}
+                                {:b ['B 1], :a ['A 1]}
+                                {:b ['B 1], :a ['B 2]}
+                                {:b ['B 1], :a ['B 2]})))
+  (testing "Testing pattern [a<A> -!<:d>-> <>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -!<:d>-> <>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A> -!<:d>-> <>])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A> -!<:d>-> <>])
+                2
+                (pmt-matches-fn {:a ['B 1]} {:a ['B 2]})))
+  (testing "Testing pattern [a<A> -!<:t>-> <C>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -!<:t>-> <C>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A> -!<:t>-> <C>])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A> -!<:t>-> <C>])
+                3
+                (pmt-matches-fn {:a ['A 1]} {:a ['B 2]} {:a ['C 2]})))
+  (testing "Testing pattern [a1<A> -!-> a2<A!>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a1<A> -!-> a2<A!>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a1<A> -!-> a2<A!>])
+                nil
+                2
+                (pmt-matches-fn {:a1 ['A 1] :a2 ['A 1]}
+                                {:a1 ['B 1] :a2 ['A 1]})))
+  (testing "Testing pattern [a<A> --> a]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> --> a])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A> --> a])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A> --> a])
+                1
+                (pmt-matches-fn {:a ['C 1]})))
+  (testing "Testing pattern [c<C> --> a<A>
+                             :when (= 1 (g/aval a :i))
+                             :when (= 1 (g/aval c :i))]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A>
+                                                                    :when (= 1 (g/aval a :i))
+                                                                    :when (= 1 (g/aval c :i))])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>
+                                                                    :when (= 1 (g/aval a :i))
+                                                                    :when (= 1 (g/aval c :i))])
+                nil
+                4
+                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
+                                {:c ['C 1], :a ['A 1]}
+                                {:c ['C 1], :a ['B 1]}
+                                {:c ['C 1], :a ['C 1]})))
+  (testing "Testing pattern [a<A> -<:d>-> d<D>
+                             :let [j (g/aval d :j)]]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -<:d>-> d<D>
+                                                                    :let [j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A> -<:d>-> d<D>
+                                                                    :let [j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A> -<:d>-> d<D>
+                                                                    :let [j (g/aval d :j)]])
+                3
+                (pmt-matches-fn {:a ['C 1] :d ['D 1] :j 1}
+                                {:a ['A 1] :d ['D 1] :j 1}
+                                {:a ['C 2] :d ['D 2] :j 2}))))
 
 ;;# TG
 

@@ -5,14 +5,13 @@ GraphClass PatternGraph { patternName : String };
 abstract VertexClass AVertex;
 
 abstract VertexClass APatternVertex : AVertex
-  { name : String };
+  { name : String, type : String };
 
-VertexClass PatternVertex : APatternVertex
-  { type : String };
+VertexClass PatternVertex : APatternVertex;
 
 VertexClass ArgumentVertex : APatternVertex;
 
-VertexClass CallBoundVertex : APatternVertex;
+VertexClass ForBoundVertex : APatternVertex;
 
 abstract EdgeClass APatternEdge
   from APatternVertex (0,*) role src
