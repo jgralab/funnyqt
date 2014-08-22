@@ -924,9 +924,10 @@
 
 (defmacro letpattern
   "Establishes local patterns just like `letfn` establishes local functions.
-  Every pattern in the `patterns` vector is specified as:
+  Every pattern in the `patterns` vector is specified as one of:
 
     (pattern-name attr-map? [args] [pattern])
+    (pattern-name attr-map? ([args] [pattern])+)
 
   For the syntax and semantics of patterns, see the `defpattern` docs.
 
