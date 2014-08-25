@@ -51,13 +51,75 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
+(defn bindings-to-arglist
+  "Rips out the symbols declared in `bindings`.
+  `bindings` is a binding vector with the syntax of `for`."
+  [bindings]
+  (loop [p bindings, l []]
+    (if (seq p)
+      (cond
+       ;; Handle :let [x y, [u v] z]
+       (or (= :let (first p))
+           (= :for (first p))
+           (= :when-let (first p)))
+       (recur (rest (rest p))
+              (vec (concat l
+                           (loop [ls (first (rest p)) bs []]
+                             (if (seq ls)
+                               (recur (rest (rest ls))
+                                      (let [v (first ls)]
+                                        (if (coll? v)
+                                          (into bs v)
+                                          (conj bs v))))
+                               bs)))))
+       ;; Ignore :when (exp ...)
+       (keyword? (first p)) (recur (nnext p) l)
+       ;; A vector destructuring form
+       (vector? (first p)) (recur (nnext p) (vec (concat l (remove #(= % '&) (first p)))))
+       ;; A map destructuring form: {a :a, b :b} or {:keys [a b c] :or {:a 1} :as m}
+       (map? (first p)) (recur (nnext p)
+                               (vec (concat l
+                                            (cond
+                                             (symbol? (first (keys (first p))))
+                                             (keys (first p))
+                                             ;;---
+                                             (keyword? (first (keys (first p))))
+                                             (let [syms (:keys (first p))]
+                                               (if-let [as (:as (first p))]
+                                                 (conj syms as)
+                                                 syms))
+                                             ;;---
+                                             :else (u/errorf "Cannot handle %s" (first p))))))
+       ;; Ups, what's that?!?
+       (coll? (first p))
+       (u/errorf "Cannot handle %s" (first p))
+       ;; That's a normal binding
+       :default (recur (rest (rest p)) (conj l (first p))))
+      (vec l))))
+
 (defn call-binding-vars
   "Returns the symbols bound by a :for in pattern p."
   [p]
-  (loop [p p, r []]
+  (loop [p p, r #{}]
     (if (seq p)
       (if (= :for (first p))
-        (recur (nnext p) (into r (flatten (map first (partition 2 (fnext p))))))
+        (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
+                           (apply conj r
+                                  (mapcat #(cond
+                                            (symbol? %)
+                                            [%]
+                                            ;;---
+                                            (and (map? %) (symbol? (first (keys %))))
+                                            (keys %)
+                                            ;;---
+                                            (and (map? %) (keyword? (first (keys %))))
+                                            (let [syms (:keys (first p))]
+                                              (if-let [as (:as (first p))]
+                                                (conj syms as)
+                                                syms))
+                                            ;;---
+                                            :else (u/errorf "Cannot handle %s" %))
+                                          syms))))
         (recur (next p) r))
       r)))
 
@@ -593,39 +655,6 @@
   (pattern-graph-to-pattern-for-bindings-only-refs-base argvec pg `g/elements `g/adjs `g/neighbors))
 
 ;;** defpattern and friends
-
-(defn bindings-to-arglist
-  "Rips out the symbols declared in `bindings`.
-  `bindings` is a binding vector with the syntax of `for`."
-  [bindings]
-  (loop [p bindings, l []]
-    (if (seq p)
-      (cond
-       ;; Handle :let [x y, [u v] z]
-       (or (= :let (first p))
-           (= :for (first p))
-           (= :when-let (first p)))
-       (recur (rest (rest p))
-              (vec (concat l
-                           (loop [ls (first (rest p)) bs []]
-                             (if (seq ls)
-                               (recur (rest (rest ls))
-                                      (let [v (first ls)]
-                                        (if (coll? v)
-                                          (into bs v)
-                                          (conj bs v))))
-                               bs)))))
-       ;; Ignore :when (exp ...)
-       (keyword? (first p)) (recur (rest (rest p)) l)
-       ;; A vector destructuring form
-       (vector? (first p)) (recur (rest (rest p)) (vec (concat l (first p))))
-       ;; Another destructuring form
-       (coll? (first p))
-       (u/errorf "Only vector destructuring is permitted outside :let, got: %s"
-                 (first p))
-       ;; That's a normal binding
-       :default (recur (rest (rest p)) (conj l (first p))))
-      (vec l))))
 
 (defn ^:private argvec-to-hash-map
   "Converts an argument vector [a b c] to a map {:a a, :b b, :c c}."

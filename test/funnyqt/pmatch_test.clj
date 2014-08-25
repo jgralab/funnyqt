@@ -207,18 +207,49 @@
                                 {:c ['C 1], :a ['A 1]}
                                 {:c ['C 1], :a ['B 1]}
                                 {:c ['C 1], :a ['C 1]})))
-  (testing "Testing pattern [a<A> -<:d>-> d<D>
-                             :let [j (g/aval d :j)]]"
-    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -<:d>-> d<D>
-                                                                    :let [j (g/aval d :j)]])
-                (pattern {:pattern-expansion-context :emf}     [m] [a<A> -<:d>-> d<D>
-                                                                    :let [j (g/aval d :j)]])
-                (pattern {:pattern-expansion-context :tg}      [m] [a<A> -<:d>-> d<D>
-                                                                    :let [j (g/aval d :j)]])
-                3
-                (pmt-matches-fn {:a ['C 1] :d ['D 1] :j 1}
-                                {:a ['A 1] :d ['D 1] :j 1}
-                                {:a ['C 2] :d ['D 2] :j 2}))))
+  (testing "Testing pattern [a<A> -<:t>-> c1<C>
+                             a    -<:t>-> c2<C>
+                             :when (not= c1 c2)
+                             a    -!<:s>-> <>]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -<:t>-> c1<C>
+                                                                    a    -<:t>-> c2<C>
+                                                                    :when (not= c1 c2)
+                                                                    a    -!<:s>-> <>])
+                (pattern {:pattern-expansion-context :emf}     [m] [a<A> -<:t>-> c1<C>
+                                                                    a    -<:t>-> c2<C>
+                                                                    :when (not= c1 c2)
+                                                                    a    -!<:s>-> <>])
+                nil
+                2
+                (pmt-matches-fn {:a ['B 1], :c1 ['C 1], :c2 ['C 2]}
+                                {:a ['B 1], :c1 ['C 2], :c2 ['C 1]})))
+  (testing "Testing pattern [c<C> --> d<D>
+                             :let [i (g/aval c :i)
+                                   j (g/aval d :j)]]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> d<D>
+                                                                    :let [i (g/aval c :i)
+                                                                          j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> d<D>
+                                                                    :let [i (g/aval c :i)
+                                                                          j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> d<D>
+                                                                    :let [i (g/aval c :i)
+                                                                          j (g/aval d :j)]])
+                2
+                (pmt-matches-fn {:c ['C 1] :d ['D 1] :i 1 :j 1}
+                                {:c ['C 2] :d ['D 2] :i 2 :j 2}))))
+
+(defpattern a-having-d
+  ([m]
+     [a<A> -<:d>-> <D>])
+  ([m a]
+     [a<A> -<:d>-> <D>]))
+
+(defpattern a-with-a-and-d [m]
+  [:for [{a1 :a} (a-having-d m)]
+   a1 -<:t>-> a2<A>
+   :when (a-having-d m a2)])
+
 
 ;;# TG
 
