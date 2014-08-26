@@ -243,7 +243,7 @@
       (if (seq seq-exprs)
         `(for ~seq-exprs
            ~body-expr)
-        (sequence nil)))))
+        [body-expr]))))
 
 ;;# Patter graph to pattern comprehension
 
@@ -335,14 +335,12 @@
      ;;---
      ;; Not already done ArgumentVertex, so declare it!
      (g/has-type? target-node 'ArgumentVertex)
-     [:when-let `[~(get-name target-node) ~(if (get-type target-node)
-                                             `(and ~(get-name target-node)
-                                                   (g/has-type? ~(get-name target-node)
-                                                                ~(get-type target-node))
-                                                   ~(get-name target-node))
-                                             (get-name target-node))]
-      :when `(q/member? ~(get-name target-node)
-                        ~(anon-vec-transformer-fn startsym av))]
+     `[:when-let [~(get-name target-node) ~(get-name target-node)]
+       ~@(when (get-type target-node)
+           `[:when (g/has-type? ~(get-name target-node)
+                                ~(get-type target-node))])
+      :when (q/member? ~(get-name target-node)
+                       ~(anon-vec-transformer-fn startsym av))]
      ;;---
      (g/has-type? target-node 'ForBoundVertex)
      `[~@(when (get-type target-node)
@@ -409,18 +407,17 @@
                      (conj-done done cur)
                      (if (done cur)
                        bf
-                       (into bf `[:when-let [~(get-name cur)
-                                             ~(if (get-type cur)
-                                                `(and ~(get-name cur)
-                                                      (g/has-type? ~(get-name cur) ~(get-type cur))
-                                                      ~(get-name cur))
-                                                (get-name cur))]])))
+                       (into bf (let [bf-addon `[:when-let [~(get-name cur) ~(get-name cur)]]]
+                                  (if (get-type cur)
+                                    (into bf-addon
+                                          `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                                    bf-addon)))))
               ForBoundVertex  ;; They're bound by ConstraintOrBinding/Preceedes
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
-                       validate-bf))
+                       bf))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -444,12 +441,9 @@
                                                        (anon-vec trg done) done)
                                  ;;---
                                  (g/has-type? trg 'ArgumentVertex)
-                                 `[:when-let [~(get-name trg)
-                                              ~(if (get-type trg)
-                                                 `(and ~(get-name trg)
-                                                       (g/has-type? ~(get-name trg) ~(get-type trg))
-                                                       ~(get-name trg))
-                                                 (get-name trg))]
+                                 `[:when-let [~(get-name trg) ~(get-name trg)]
+                                   ~@(when (get-type trg)
+                                       `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
                                    :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  ;;---
                                  :else (concat
@@ -466,12 +460,9 @@
                                (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
                                (g/has-type? trg 'ArgumentVertex)
-                               `[:when-let [~(get-name trg)
-                                            ~(if (get-type trg)
-                                               `(and ~(get-name trg)
-                                                     (g/has-type? ~(get-name trg) ~(get-type trg))
-                                                     ~(get-name trg))
-                                               (get-name trg))]
+                               `[:when-let [~(get-name trg) ~(get-name trg)]
+                                 ~@(when (get-type trg)
+                                     `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
                                  :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                ;;---
                                :else (concat
@@ -575,12 +566,11 @@
                      (conj-done done cur)
                      (if (done cur)
                        bf
-                       (into bf `[:when-let [~(get-name cur)
-                                             ~(if (get-type cur)
-                                                `(and ~(get-name cur)
-                                                      (g/has-type? ~(get-name cur) ~(get-type cur))
-                                                      ~(get-name cur))
-                                                (get-name cur))]])))
+                       (into bf (let [bf-addon `[:when-let [~(get-name cur) ~(get-name cur)]]]
+                                  (if (get-type cur)
+                                    (into bf-addon
+                                          `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                                    bf-addon)))))
               ForBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
               (recur (enqueue-incs cur (pop stack) done true)
                      (conj-done done cur)
@@ -962,21 +952,30 @@
 
   Following the patterns vector, an `attr-map` may be given for specifying the
   `*pattern-expansion-context*` in case it's not bound otherwise (see that
-  var's documentation and `defpattern`)."
+  var's documentation and `defpattern`).  The attr-maps of the individual
+  patterns may override entries of the letpattern's `attr-map`."
   {:arglists '([[patterns] attr-map? & body])}
-  [patterns attr-map & body]
+  [patterns & attr-map-body]
   (when-not (vector? patterns)
     (u/errorf "No patterns vector in letpattern!"))
-  (let [body (if (map? attr-map) body (cons attr-map body))]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context attr-map)
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
-      `(letfn [~@(map (fn [[n & more]]
-                        `(~n ~@(if (vector? (first more))
-                                 (convert-spec n more)
-                                 (mapv (partial convert-spec n) more))))
-                   patterns)]
-         ~@body))))
+  (let [[attr-map body] (if (map? (first attr-map-body))
+                          [(first attr-map-body) (next attr-map-body)]
+                          [{} attr-map-body])]
+    `(letfn [~@(map (fn [[n & more]]
+                      (let [[n more] (if (map? (first more))
+                                       [(vary-meta n merge attr-map (first more)) (next more)]
+                                       [n more])]
+                        (binding [*pattern-expansion-context*
+                                  (or (:pattern-expansion-context (meta n))
+                                      (:pattern-expansion-context attr-map)
+                                      (:pattern-expansion-context (meta *ns*))
+                                      *pattern-expansion-context*)]
+                          `(~n
+                            ~@(if (vector? (first more))
+                                (convert-spec n more)
+                                (mapv (partial convert-spec n) more))))))
+                 patterns)]
+       ~@body)))
 
 (defmacro pattern
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.

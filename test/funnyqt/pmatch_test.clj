@@ -237,18 +237,50 @@
                                                                           j (g/aval d :j)]])
                 2
                 (pmt-matches-fn {:c ['C 1] :d ['D 1] :i 1 :j 1}
-                                {:c ['C 2] :d ['D 2] :i 2 :j 2}))))
-
-(defpattern a-having-d
-  ([m]
-     [a<A> -<:d>-> <D>])
-  ([m a]
-     [a<A> -<:d>-> <D>]))
-
-(defpattern a-with-a-and-d [m]
-  [:for [{a1 :a} (a-having-d m)]
-   a1 -<:t>-> a2<A>
-   :when (a-having-d m a2)])
+                                {:c ['C 2] :d ['D 2] :i 2 :j 2})))
+  (testing "Testing iterated bindings with :for"
+    (letpattern [(a-having-d-generic
+                  {:pattern-expansion-context :generic}
+                  ([m]
+                     [a<A> -<:d>-> d<D>])
+                  ([m a d]
+                     [a<A> -<:d>-> d<D>]))
+                 (a-having-d-emf
+                  {:pattern-expansion-context :emf}
+                  ([m]
+                     [a<A> -<:d>-> d<D>])
+                  ([m a d]
+                     [a<A> -<:d>-> d<D>]))
+                 (a-having-d-tg
+                  {:pattern-expansion-context :tg}
+                  ([m]
+                     [a<A> -<:d>-> d<D>])
+                  ([m a d]
+                     [a<A> -<:d>-> d<D>]))
+                 (a-with-a-and-d-generic
+                  {:pattern-expansion-context :generic}
+                  [m]
+                  [:for [{a1 :a, d :d} (a-having-d-generic m)]
+                   a1 -<:t>-> a2<A>
+                   :when (a-having-d-generic m a2 d)])
+                 (a-with-a-and-d-emf
+                  {:pattern-expansion-context :emf}
+                  [m]
+                  [:for [{a1 :a, d :d} (a-having-d-emf m)]
+                   a1 -<:t>-> a2<A>
+                   :when (a-having-d-emf m a2 d)])
+                 (a-with-a-and-d-tg
+                  {:pattern-expansion-context :tg}
+                  [m]
+                  [:for [{a1 :a, d :d} (a-having-d-tg m)]
+                   a1 -<:t>-> a2<A>
+                   :when (a-having-d-tg m a2 d)])]
+      (pmt-assert a-with-a-and-d-generic
+                  a-with-a-and-d-emf
+                  a-with-a-and-d-tg
+                  2
+                  (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
+                                  {:a1 ['C 1], :a2 ['C 1], :d ['D 1]})))))
 
 
 ;;# TG
