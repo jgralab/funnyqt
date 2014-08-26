@@ -97,7 +97,7 @@
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
-(defn call-binding-vars
+(defn for-bound-vars
   "Returns the symbols bound by a :for in pattern p."
   [p]
   (loop [p p, r #{}]
@@ -124,7 +124,7 @@
       r)))
 
 (defn pattern-to-pattern-graph [pname argvec pattern]
-  (let [callbounds (into #{} (call-binding-vars pattern))
+  (let [forbounds (into #{} (for-bound-vars pattern))
         argset (into #{} argvec)
         pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
@@ -140,9 +140,9 @@
                         (if-let [v (and n (get-by-name n))]
                           v
                           (let [v (tg/create-vertex! pg (cond
-                                                         (argset n)     'ArgumentVertex
-                                                         (callbounds n) 'ForBoundVertex
-                                                         :else          'PatternVertex))]
+                                                         (argset n)    'ArgumentVertex
+                                                         (forbounds n) 'ForBoundVertex
+                                                         :else         'PatternVertex))]
                             (when n (tg/set-value! v :name (name n)))
                             (when t (tg/set-value! v :type (name t)))
                             v)))]
