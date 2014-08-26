@@ -280,8 +280,57 @@
                   a-with-a-and-d-tg
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
+                                  {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing pattern composition with :include"
+    (letpattern [(a-having-d-generic
+                  {:pattern-expansion-context :generic}
+                  ([m]
+                     [a<A> -<:d>-> d<D>])
+                  ([m a d]
+                     [a<A> -<:d>-> d<D>]))
+                 (a-having-d-emf
+                  {:pattern-expansion-context :emf}
+                  ([m]
+                     [a<A> -<:d>-> d<D>])
+                  ([m a d]
+                     [a<A> -<:d>-> d<D>]))
+                 ;; Use edge types for TG since this will navigate pattern
+                 ;; edges backwards.  This ensures a larger test coverage.
+                 (a-having-d-tg
+                  {:pattern-expansion-context :tg}
+                  ([m]
+                     [a<A> -<A2D>-> d<D>])
+                  ([m a d]
+                     [a<A> -<A2D>-> d<D>]))
+                 (a-with-a-and-d-generic
+                  {:pattern-expansion-context :generic}
+                  [m]
+                  ;; The patten number is optional.  With a-having-d-* both
+                  ;; versions 0 and 1 are identical, so it doesn't matter what
+                  ;; to chose.
+                  [:include [(a-having-d-generic :a a1)
+                             (a-having-d-generic 1 :a a2)]
+                   a1 -<:t>-> a2])
+                 (a-with-a-and-d-emf
+                  {:pattern-expansion-context :emf}
+                  [m]
+                  [:include [(a-having-d-emf :a a1)
+                             (a-having-d-emf 1 :a a2)]
+                   a1 -<:t>-> a2])
+                 ;; Use edge types for TG since this will navigate pattern
+                 ;; edges backwards.  This ensures a larger test coverage.
+                 (a-with-a-and-d-tg
+                  {:pattern-expansion-context :tg}
+                  [m]
+                  [:include [(a-having-d-tg 0 :a a1)
+                             (a-having-d-tg :a a2)]
+                   a1 -<A2A>-> a2])]
+      (pmt-assert a-with-a-and-d-generic
+                  a-with-a-and-d-emf
+                  a-with-a-and-d-tg
+                  2
+                  (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]})))))
-
 
 ;;# TG
 

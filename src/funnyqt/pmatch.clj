@@ -21,14 +21,14 @@
 
 (defn ^:private vertex-sym? [sym]
   (and (symbol? sym)
-       (re-matches #"[a-zA-Z0-9_]*(<[a-zA-Z0-9._!]*>)?" (name sym))))
+       (re-matches #"([a-zA-Z0-9_]*)(<[a-zA-Z0-9._!]*>)?" (name sym))))
 
 (defn ^:private edge-sym? [sym]
   (and
    (symbol? sym)
-   (re-matches #"<?-[!a-zA-Z0-9_]*(<[a-zA-Z0-9._!:]*>)?->?" (name sym))
    (or (re-matches #"<-.*-" (name sym))
-       (re-matches #"-.*->" (name sym)))))
+       (re-matches #"-.*->" (name sym)))
+   (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?(->?)" (name sym))))
 
 (defn ^:private name-and-type [sym]
   (if (or (vertex-sym? sym) (edge-sym? sym))
@@ -130,22 +130,19 @@
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
              g)
         get-by-name (fn [n]
-                      (first (filter #(= (name n) (tg/value % :name))
-                                     (concat (tg/vseq pg 'APatternVertex)
-                                             (tg/eseq pg '[PatternEdge ArgumentEdge])))))
-        check-unique (fn [n t]
-                       (when (and n t (get-by-name n))
-                         (u/errorf "A pattern element with name %s is already declared!" n)))
+                      (when n
+                        (first (filter #(= (name n) (tg/value % :name))
+                                       (concat (tg/vseq pg 'APatternVertex)
+                                               (tg/eseq pg '[PatternEdge ArgumentEdge]))))))
         get-or-make-v (fn [n t]
-                        (if-let [v (and n (get-by-name n))]
-                          v
-                          (let [v (tg/create-vertex! pg (cond
-                                                         (argset n)    'ArgumentVertex
-                                                         (forbounds n) 'ForBoundVertex
-                                                         :else         'PatternVertex))]
-                            (when n (tg/set-value! v :name (name n)))
-                            (when t (tg/set-value! v :type (name t)))
-                            v)))]
+                        (let [v (or (get-by-name n)
+                                    (tg/create-vertex! pg (cond
+                                                           (argset n)    'ArgumentVertex
+                                                           (forbounds n) 'ForBoundVertex
+                                                           :else         'PatternVertex)))]
+                          (when n (tg/set-value! v :name (name n)))
+                          (when t (tg/set-value! v :type (name t)))
+                          v))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
         (cond
@@ -165,7 +162,6 @@
                                            [n t] (name-and-type sym)
                                            nsym (second pattern)
                                            [nvn nvt] (name-and-type nsym)
-                                           _ (check-unique nvn nvt)
                                            nv (get-or-make-v nvn nvt)]
                                        (let [e (apply tg/create-edge!
                                                       pg (cond
@@ -272,13 +268,6 @@
   namespace."
   :generic)
 
-(defn ^:private enqueue-incs
-  ([cur stack done]
-     (enqueue-incs cur stack done false))
-  ([cur stack done only-out]
-     (into stack (remove done
-                         (tg/riseq cur nil (when only-out :out))))))
-
 (defn ^:private conj-done [done & elems]
   (into done (mapcat #(if (tg/edge? %)
                         (vector % (tg/inverse-edge %))
@@ -317,6 +306,14 @@
       (if cur
         (conj vec cur)
         vec))))
+
+(defn ^:private enqueue-incs [cur stack done]
+  (into stack (remove (fn [i]
+                        (or (done i)
+                            (when-let [t (get-type i)]
+                              (and (not (tg/normal-edge? i))
+                                   (keyword? t)))))
+                      (tg/riseq cur))))
 
 (defn ^:private validate-bf [bf done pg]
   (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
@@ -550,7 +547,7 @@
             (recur (pop stack) done bf)
             (case (g/qname cur)
               Anchor
-              (recur (enqueue-incs cur (pop stack) done true)
+              (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      bf)
               HasStartPatternVertex
@@ -558,11 +555,11 @@
                      (conj-done done cur)
                      bf)
               PatternVertex
-              (recur (enqueue-incs cur (pop stack) done true)
+              (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (into bf `[~(get-name cur) (~elements-fn ~gsym ~(get-type cur))]))
               ArgumentVertex
-              (recur (enqueue-incs cur (pop stack) done true)
+              (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (done cur)
                        bf
@@ -572,7 +569,7 @@
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
               ForBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
-              (recur (enqueue-incs cur (pop stack) done true)
+              (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
@@ -582,7 +579,7 @@
                 (let [av (anon-vec cur done)
                       target-node (last av)
                       done (conj-done done cur)]
-                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av) true)
+                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av))
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
@@ -681,6 +678,91 @@
         (recur (conj nv (first ov)) (rest ov)))
       [nv nil])))
 
+(defn ^:private replace-id
+  ([new-id name old-id type]
+     (symbol (str new-id type)))
+  ([new-id name head old-id type tail]
+     (symbol (str head new-id type tail))))
+
+(defn ^:private replace-ids-in-bindings [bindings rmap]
+  (vec (mapcat (fn [[sym exp]]
+                 (if-let [new-id (get rmap (keyword sym))]
+                   [new-id exp]
+                   [sym exp]))
+               (partition 2 bindings))))
+
+(defn ^:private replace-ids-in-include [includes rmap]
+  (vec (map (fn [[p num & replacements]]
+              (list* p num
+                     (map #(if-let [r (and (symbol? %)
+                                           (get rmap (keyword %)))]
+                             r %)
+                          replacements)))
+            includes)))
+
+(defn ^:private rename-included [pattern rmap]
+  ;; rmap is {:oldId newId, ...}
+  (loop [p pattern, r []]
+    (if (seq p)
+      (let [cur (first p)]
+        (cond
+         ;; Vertex syms
+         (vertex-sym? cur)
+         (let [[_ oid _ :as match] (vertex-sym? cur)]
+           (recur (next p)
+                  (conj r (if (contains? rmap (keyword oid))
+                            (apply replace-id (get rmap (keyword oid)) match)
+                            cur))))
+         ;; Edge syms
+         (edge-sym? cur)
+         (let [[_ _ oid _ _ :as match] (edge-sym? cur)]
+           (recur (next p)
+                  (conj r (if (contains? rmap (keyword oid))
+                            (apply replace-id (get rmap (keyword oid)) match)
+                            cur))))
+         ;; :let/:when-let/:for bindings
+         (#{:let :when-let :for} cur)
+         (recur (nnext p)
+                (into r [cur (replace-ids-in-bindings (fnext p) rmap)]))
+         ;; Recursive :include
+         (= :include cur)
+         (recur (nnext p)
+                (into r [cur (replace-ids-in-include (fnext p) rmap)]))
+         ;; Else
+         :else (recur (next p) (conj r cur))))
+      r)))
+
+(def ^:dynamic ^:private *letpattern-pattern-specs*
+  "A map from letpattern-defined patterns (symbols) to their vector of pattern
+  specifications."
+  {})
+
+(defn ^:private get-included-pattern [include]
+  (let [[name & more] include
+        [num keyvals] (if (integer? (first more))
+                        [(first more) (next more)]
+                        [0 more])
+        replace-map (apply hash-map keyvals)]
+    (if-let [pattern-specs-or-var (or (get *letpattern-pattern-specs* name)
+                                      (resolve name))]
+      (if-let [pattern-specs (if (var? pattern-specs-or-var)
+                               (::pattern-specs (meta pattern-specs-or-var))
+                               pattern-specs-or-var)]
+        (if-let [pattern (get pattern-specs num)]
+          (rename-included pattern replace-map)
+          (u/errorf "No %. pattern spec for included pattern %s." num name))
+        (u/errorf "No pattern specs for included pattern %s." name))
+      (u/errorf "Cannot resolve included pattern %s." name))))
+
+(defn ^:private include-includes [pattern]
+  (loop [p pattern, r []]
+    (if (seq p)
+      (if (= :include (first p))
+        (let [incs (mapcat get-included-pattern (fnext p))]
+          (recur (vec (concat incs (nnext p))) r))
+        (recur (next p) (conj r (first p))))
+      r)))
+
 (defn ^:private transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
   for `pattern-for`.  That vector contains metadata :distinct and :as.
@@ -689,8 +771,11 @@
   [name pattern args]
   (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
         [pattern result]   (get-and-remove-key-from-vector pattern :as       true)
+        pattern (include-includes pattern)
+        ;; _ (println "PATTERN:" pattern)
         pgraph (pattern-to-pattern-graph name args pattern)
-        ;;_ (future (funnyqt.visualization/print-model pgraph :gtk))
+        ;; _ (do (require 'funnyqt.visualization)
+        ;;       (future (funnyqt.visualization/print-model pgraph :gtk)))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
       (binding [*conversion-opts* (assoc (meta name)
@@ -873,7 +958,8 @@
     [v -<:foo>-> w -!-> <>
      v -!<:bar>-> w]
 
-  Moreover, a pattern may bind further variables using :let and :when-let.
+  Moreover, a pattern may bind further variables using :let and :when-let which
+  also become part of the matches.
 
     [v --> w
      :let [a (foo v), b (bar v)]
@@ -884,11 +970,16 @@
   is, in the example above, a and b could be nil, but c has to be logically
   true (i.e., not nil and not false) for a match to occur.
 
-  Patterns may also include calls to other patterns and usual comprehension
-  binding forms using :for, i.e., pairs of variables and expressions.
+  Patterns may also contain usual comprehension binding forms using :for, i.e.,
+  pairs of variables and expressions.
 
     [v --> w
      :for [u (p-seq w [p-+ [p-alt <>-- :someRef]])]]
+
+  Lastly, patterns can be composed of other patterns bound by either defpattern
+  or letpattern.
+
+    TODO: document pattern composition!!!
 
   By default, the matches of a pattern are represented as maps from keywords
   named according to the pattern symbol identifiers to the matched elements.
@@ -932,7 +1023,10 @@
   {:arglists '([name doc-string? attr-map? [args] [pattern]]
                  [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
-  (let [[name more] (m/name-with-attributes name more)]
+  (let [[name more] (m/name-with-attributes name more)
+        name (vary-meta name assoc ::pattern-specs `'~(if (vector? (first more))
+                                                        [(fnext more)]
+                                                        (vec (map fnext more))))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
                                               *pattern-expansion-context*)]
@@ -960,22 +1054,32 @@
     (u/errorf "No patterns vector in letpattern!"))
   (let [[attr-map body] (if (map? (first attr-map-body))
                           [(first attr-map-body) (next attr-map-body)]
-                          [{} attr-map-body])]
-    `(letfn [~@(map (fn [[n & more]]
-                      (let [[n more] (if (map? (first more))
-                                       [(vary-meta n merge attr-map (first more)) (next more)]
-                                       [n more])]
-                        (binding [*pattern-expansion-context*
-                                  (or (:pattern-expansion-context (meta n))
-                                      (:pattern-expansion-context attr-map)
-                                      (:pattern-expansion-context (meta *ns*))
-                                      *pattern-expansion-context*)]
-                          `(~n
-                            ~@(if (vector? (first more))
-                                (convert-spec n more)
-                                (mapv (partial convert-spec n) more))))))
-                 patterns)]
-       ~@body)))
+                          [{} attr-map-body])
+        names-with-specs (apply hash-map (mapcat (fn [[n & more]]
+                                                   (let [more (if (map? (first more))
+                                                                (next more)
+                                                                more)]
+                                                     [n (if (vector? (first more))
+                                                          [(fnext more)]
+                                                          (vec (map fnext more)))]))
+                                                 patterns))]
+    (binding [*letpattern-pattern-specs* (merge *letpattern-pattern-specs*
+                                                names-with-specs)]
+      `(letfn [~@(map (fn [[n & more]]
+                        (let [[n more] (if (map? (first more))
+                                         [(vary-meta n merge attr-map (first more)) (next more)]
+                                         [n more])]
+                          (binding [*pattern-expansion-context*
+                                    (or (:pattern-expansion-context (meta n))
+                                        (:pattern-expansion-context attr-map)
+                                        (:pattern-expansion-context (meta *ns*))
+                                        *pattern-expansion-context*)]
+                            `(~n
+                              ~@(if (vector? (first more))
+                                  (convert-spec n more)
+                                  (mapv (partial convert-spec n) more))))))
+                   patterns)]
+         ~@body))))
 
 (defmacro pattern
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
