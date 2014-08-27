@@ -238,7 +238,7 @@
                 2
                 (pmt-matches-fn {:c ['C 1] :d ['D 1] :i 1 :j 1}
                                 {:c ['C 2] :d ['D 2] :i 2 :j 2})))
-  (testing "Testing iterated bindings with :for"
+  (testing "Testing iterated bindings with :for (1)"
     (letpattern [(a-having-d-generic
                   {:pattern-expansion-context :generic}
                   ([m]
@@ -281,6 +281,28 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing iterated bindings with :for (2)"
+    (letpattern [(c-with-d-generic {:pattern-expansion-context :generic}
+                                   [m]
+                                   [c<C> -<:d>-> d<D>
+                                    :for [follower (p-+ c :t)]])
+                 (c-with-d-emf {:pattern-expansion-context :emf}
+                               [m]
+                               [c<C> -<:d>-> d<D>
+                                :for [follower (p-+ c :t)]])
+                 (c-with-d-tg {:pattern-expansion-context :tg}
+                              [m]
+                              [c<C> -<:d>-> d<D>
+                               :for [follower (p-+ c :t)]])]
+      (pmt-assert c-with-d-generic
+                  c-with-d-emf
+                  c-with-d-tg
+                  5
+                  (pmt-matches-fn {:c ['C 1] :d ['D 1] :follower ['C 1]}
+                                  {:c ['C 1] :d ['D 1] :follower ['A 1]}
+                                  {:c ['C 1] :d ['D 1] :follower ['B 2]}
+                                  {:c ['C 2] :d ['D 2] :follower ['A 1]}
+                                  {:c ['C 2] :d ['D 2] :follower ['B 2]}))))
   (testing "Testing pattern composition with :extends"
     (letpattern [(a-A [m] [a<A>])
                  (a-having-d-generic
