@@ -51,14 +51,19 @@
   (q/the #(= (g/aval % (if (= 'D cls) :j :i)) val)
          (g/elements model (symbol (str (name cls) "!")))))
 
-(defn pmt-matches-fn [& maps]
+(defn pmt-matches-fn [& matches]
   (fn [model]
-    (for [m maps]
-      (zipmap (keys m)
-              (map #(if (vector? %)
-                      (apply pmt-el model %)
-                      %)
-                   (vals m))))))
+    (for [m matches]
+      (cond
+       (map? m) (zipmap (keys m)
+                        (map #(if (vector? %)
+                                (apply pmt-el model %)
+                                %)
+                             (vals m)))
+       (vector? m) (map #(if (vector? %)
+                           (apply pmt-el model %)
+                           %)
+                        m)))))
 
 (defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
   (let [r-gen-emf (p-gen pmt-model)
@@ -362,7 +367,26 @@
                   a-with-a-having-d-tg
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
-                                  {:a1 ['C 1], :a2 ['C 1], :d ['D 1]})))))
+                                  {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing :as clause"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C> --> d<D>
+                              :let [i (g/aval c :i)
+                                    j (g/aval d :j)]
+                              :as [c d i j]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C> --> d<D>
+                              :let [i (g/aval c :i)
+                                    j (g/aval d :j)]
+                              :as [c d i j]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C> --> d<D>
+                              :let [i (g/aval c :i)
+                                    j (g/aval d :j)]
+                              :as [c d i j]])
+                2
+                (pmt-matches-fn [['C 1] ['D 1] 1 1]
+                                [['C 2] ['D 2] 2 2]))))
 
 
 ;;# TG
