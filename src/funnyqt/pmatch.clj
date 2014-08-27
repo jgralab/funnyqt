@@ -51,52 +51,6 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn bindings-to-arglist
-  "Rips out the symbols declared in `bindings`.
-  `bindings` is a binding vector with the syntax of `for`."
-  [bindings]
-  (loop [p bindings, l []]
-    (if (seq p)
-      (cond
-       ;; Handle :let [x y, [u v] z]
-       (or (= :let (first p))
-           (= :for (first p))
-           (= :when-let (first p)))
-       (recur (rest (rest p))
-              (vec (concat l
-                           (loop [ls (first (rest p)) bs []]
-                             (if (seq ls)
-                               (recur (rest (rest ls))
-                                      (let [v (first ls)]
-                                        (if (coll? v)
-                                          (into bs v)
-                                          (conj bs v))))
-                               bs)))))
-       ;; Ignore :when (exp ...)
-       (keyword? (first p)) (recur (nnext p) l)
-       ;; A vector destructuring form
-       (vector? (first p)) (recur (nnext p) (vec (concat l (remove #(= % '&) (first p)))))
-       ;; A map destructuring form: {a :a, b :b} or {:keys [a b c] :or {:a 1} :as m}
-       (map? (first p)) (recur (nnext p)
-                               (vec (concat l
-                                            (cond
-                                             (symbol? (first (keys (first p))))
-                                             (keys (first p))
-                                             ;;---
-                                             (keyword? (first (keys (first p))))
-                                             (let [syms (:keys (first p))]
-                                               (if-let [as (:as (first p))]
-                                                 (conj syms as)
-                                                 syms))
-                                             ;;---
-                                             :else (u/errorf "Cannot handle %s" (first p))))))
-       ;; Ups, what's that?!?
-       (coll? (first p))
-       (u/errorf "Cannot handle %s" (first p))
-       ;; That's a normal binding
-       :default (recur (rest (rest p)) (conj l (first p))))
-      (vec l))))
-
 (defn for-bound-vars
   "Returns the symbols bound by a :for in pattern p."
   [p]
@@ -649,6 +603,52 @@
   (zipmap (map #(keyword (name %)) argvec)
           argvec))
 
+(defn bindings-to-arglist
+  "Rips out the symbols declared in `bindings`.
+  `bindings` is a binding vector with the syntax of `for`."
+  [bindings]
+  (loop [p bindings, l []]
+    (if (seq p)
+      (cond
+       ;; Handle :let [x y, [u v] z]
+       (or (= :let (first p))
+           (= :for (first p))
+           (= :when-let (first p)))
+       (recur (rest (rest p))
+              (vec (concat l
+                           (loop [ls (first (rest p)) bs []]
+                             (if (seq ls)
+                               (recur (rest (rest ls))
+                                      (let [v (first ls)]
+                                        (if (coll? v)
+                                          (into bs v)
+                                          (conj bs v))))
+                               bs)))))
+       ;; Ignore :when (exp ...)
+       (keyword? (first p)) (recur (nnext p) l)
+       ;; A vector destructuring form
+       (vector? (first p)) (recur (nnext p) (vec (concat l (remove #(= % '&) (first p)))))
+       ;; A map destructuring form: {a :a, b :b} or {:keys [a b c] :or {:a 1} :as m}
+       (map? (first p)) (recur (nnext p)
+                               (vec (concat l
+                                            (cond
+                                             (symbol? (first (keys (first p))))
+                                             (keys (first p))
+                                             ;;---
+                                             (keyword? (first (keys (first p))))
+                                             (let [syms (:keys (first p))]
+                                               (if-let [as (:as (first p))]
+                                                 (conj syms as)
+                                                 syms))
+                                             ;;---
+                                             :else (u/errorf "Cannot handle %s" (first p))))))
+       ;; Ups, what's that?!?
+       (coll? (first p))
+       (u/errorf "Cannot handle %s" (first p))
+       ;; That's a normal binding
+       :default (recur (rest (rest p)) (conj l (first p))))
+      (vec l))))
+
 (defn ^:private verify-pattern-binding-form
   "Ensure that the pattern vector doesn't declare bindings twice, which would
   be a bug."
@@ -691,16 +691,26 @@
                    [sym exp]))
                (partition 2 bindings))))
 
-(defn ^:private replace-ids-in-include [includes rmap]
-  (vec (map (fn [[p num & replacements]]
-              (list* p num
-                     (map #(if-let [r (and (symbol? %)
-                                           (get rmap (keyword %)))]
-                             r %)
-                          replacements)))
-            includes)))
+(defn ^:private normalize-extended [extended]
+  ;; A single extended has one of the following forms:
+  ;;   - some-pattern     ; extend some-pattern
+  ;;   - (some-pattern)   ; ditto
+  ;;   - (some-pattern 2) ; extend 3rd pattern of some-pattern which has
+  ;;                      ; multiple arities.
+  ;;   - (some-pattern :a a1 :b b1) ; extend some-pattern with renamings.
+  ;;   - (some-pattern 2 :a a1) ; extend 3rd pattern of some-pattern with
+  ;;                            ; renamings.
+  (let [[name & more] (if (symbol? extended)
+                        [extended]
+                        extended)
+        [num keyvals] (if (integer? (first more))
+                        [(first more) (next more)]
+                        [0 more])
+        replace-map (apply hash-map keyvals)]
+    [name num replace-map]))
 
-(defn ^:private rename-included [pattern rmap]
+(declare get-extended-pattern)
+(defn ^:private rename-extended [pattern rmap]
   ;; rmap is {:oldId newId, ...}
   (loop [p pattern, r []]
     (if (seq p)
@@ -724,42 +734,37 @@
          (#{:let :when-let :for} cur)
          (recur (nnext p)
                 (into r [cur (replace-ids-in-bindings (fnext p) rmap)]))
-         ;; Recursive :include
-         (= :include cur)
-         (recur (nnext p)
-                (into r [cur (replace-ids-in-include (fnext p) rmap)]))
+         ;; Recursive :extends
+         (= :extends cur)
+         (recur (vec (concat (mapcat get-extended-pattern (fnext p)) (nnext p)))
+                r)
          ;; Else
          :else (recur (next p) (conj r cur))))
       r)))
 
 (def ^:dynamic ^:private *letpattern-pattern-specs*
   "A map from letpattern-defined patterns (symbols) to their vector of pattern
-  specifications."
+  specifications.  Bound during compilation to expand :extends clauses."
   {})
 
-(defn ^:private get-included-pattern [include]
-  (let [[name & more] include
-        [num keyvals] (if (integer? (first more))
-                        [(first more) (next more)]
-                        [0 more])
-        replace-map (apply hash-map keyvals)]
+(defn ^:private get-extended-pattern [extended]
+  (let [[name num replace-map] (normalize-extended extended)]
     (if-let [pattern-specs-or-var (or (get *letpattern-pattern-specs* name)
                                       (resolve name))]
       (if-let [pattern-specs (if (var? pattern-specs-or-var)
                                (::pattern-specs (meta pattern-specs-or-var))
                                pattern-specs-or-var)]
         (if-let [pattern (get pattern-specs num)]
-          (rename-included pattern replace-map)
-          (u/errorf "No %. pattern spec for included pattern %s." num name))
-        (u/errorf "No pattern specs for included pattern %s." name))
-      (u/errorf "Cannot resolve included pattern %s." name))))
+          (rename-extended pattern replace-map)
+          (u/errorf "No %. pattern spec for extended pattern %s." num name))
+        (u/errorf "No pattern specs for extended pattern %s." name))
+      (u/errorf "Cannot resolve extended pattern %s." name))))
 
-(defn ^:private include-includes [pattern]
+(defn ^:private merge-extends [pattern]
   (loop [p pattern, r []]
     (if (seq p)
-      (if (= :include (first p))
-        (let [incs (mapcat get-included-pattern (fnext p))]
-          (recur (vec (concat incs (nnext p))) r))
+      (if (= :extends (first p))
+        (recur (nnext p) (vec (concat r (mapcat get-extended-pattern (fnext p)))))
         (recur (next p) (conj r (first p))))
       r)))
 
@@ -771,7 +776,7 @@
   [name pattern args]
   (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
         [pattern result]   (get-and-remove-key-from-vector pattern :as       true)
-        pattern (include-includes pattern)
+        pattern (merge-extends pattern)
         ;; _ (println "PATTERN:" pattern)
         pgraph (pattern-to-pattern-graph name args pattern)
         ;; _ (do (require 'funnyqt.visualization)
@@ -976,10 +981,38 @@
     [v --> w
      :for [u (p-seq w [p-+ [p-alt <>-- :someRef]])]]
 
-  Lastly, patterns can be composed of other patterns bound by either defpattern
-  or letpattern.
+  Lastly, patterns can be composed of other named patterns bound by either
+  defpattern or letpattern using :extends clauses.
 
-    TODO: document pattern composition!!!
+    (defpattern a-A [m] [a<A>])
+    (defpattern b-B [m] [b<B>])
+    (defpattern a-b2 [m] [:extends [a-A
+                                    (b-B :b b2)]
+                          a --> b2])
+
+  In the example above, the pattern a-b2 extends a-A, which means a-A's pattern
+  is also part of a-b2's pattern.  It also extends b-B, however, the node named
+  b in b-B should be named b2 in a-b2.  The pattern a-b2 is completely
+  equivalent to the following definition.
+
+    (defpattern a-b2* [m] [a<A> b2<B> a --> b2])
+
+  Extend clauses may be recursive, and there may be multiple :extends clauses
+  in a pattern.
+
+  Extending patterns may also override the types of elements of the extended
+  patterns.  For example,
+
+    (defpattern b1-b2 [m] [:extends [(a-b2 :a b1)]
+                           b1<B>]
+
+  defines that b1-b2 extends a-b2 thereby renaming a to b1.  Additionally, b1's
+  type is defined to be B instead of A as defined by a-b2.
+
+  In case an extended pattern is overloaded on arity, the :extends clause may
+  specify which pattern to take using [:extends [(some-pattern 1)]] where the 1
+  denotes the pattern of the second version.  0, i.e., the first version, is
+  the default.
 
   By default, the matches of a pattern are represented as maps from keywords
   named according to the pattern symbol identifiers to the matched elements.
