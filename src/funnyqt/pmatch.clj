@@ -734,7 +734,7 @@
          (#{:let :when-let :for} cur)
          (recur (nnext p)
                 (into r [cur (replace-ids-in-bindings (fnext p) rmap)]))
-         ;; Recursive :extends
+         ;; Transitive :extends
          (= :extends cur)
          (recur (vec (concat (mapcat get-extended-pattern (fnext p)) (nnext p)))
                 r)
@@ -997,7 +997,7 @@
 
     (defpattern a-b2* [m] [a<A> b2<B> a --> b2])
 
-  Extend clauses may be recursive, and there may be multiple :extends clauses
+  Extend clauses may be transitive, and there may be multiple :extends clauses
   in a pattern.
 
   Extending patterns may also override the types of elements of the extended

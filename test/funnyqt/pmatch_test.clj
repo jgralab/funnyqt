@@ -257,27 +257,27 @@
                      [a<A> -<:d>-> d<D>])
                   ([m a d]
                      [a<A> -<:d>-> d<D>]))
-                 (a-with-a-and-d-generic
+                 (a-with-a-having-d-generic
                   {:pattern-expansion-context :generic}
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-generic m)]
                    a1 -<:t>-> a2<A>
                    :when (a-having-d-generic m a2 d)])
-                 (a-with-a-and-d-emf
+                 (a-with-a-having-d-emf
                   {:pattern-expansion-context :emf}
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-emf m)]
                    a1 -<:t>-> a2<A>
                    :when (a-having-d-emf m a2 d)])
-                 (a-with-a-and-d-tg
+                 (a-with-a-having-d-tg
                   {:pattern-expansion-context :tg}
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-tg m)]
                    a1 -<:t>-> a2<A>
                    :when (a-having-d-tg m a2 d)])]
-      (pmt-assert a-with-a-and-d-generic
-                  a-with-a-and-d-emf
-                  a-with-a-and-d-tg
+      (pmt-assert a-with-a-having-d-generic
+                  a-with-a-having-d-emf
+                  a-with-a-having-d-tg
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
@@ -334,7 +334,7 @@
                   ([m a d]
                      [:extends [(a-A)]
                       a -<A2D>-> d<D>]))
-                 (a-with-a-and-d-generic
+                 (a-with-a-having-d-generic
                   {:pattern-expansion-context :generic}
                   [m]
                   ;; The patten number is optional.  With a-having-d-* both
@@ -343,7 +343,7 @@
                   [:extends [(a-having-d-generic :a a1)
                              (a-having-d-generic 1 :a a2)]
                    a1 -<:t>-> a2])
-                 (a-with-a-and-d-emf
+                 (a-with-a-having-d-emf
                   {:pattern-expansion-context :emf}
                   [m]
                   [:extends [(a-having-d-emf :a a1)
@@ -351,15 +351,15 @@
                    a1 -<:t>-> a2])
                  ;; Use edge types for TG since this will navigate pattern
                  ;; edges backwards.  This ensures a larger test coverage.
-                 (a-with-a-and-d-tg
+                 (a-with-a-having-d-tg
                   {:pattern-expansion-context :tg}
                   [m]
                   [:extends [(a-having-d-tg 0 :a a1)
                              (a-having-d-tg :a a2)]
                    a1 -<A2A>-> a2])]
-      (pmt-assert a-with-a-and-d-generic
-                  a-with-a-and-d-emf
-                  a-with-a-and-d-tg
+      (pmt-assert a-with-a-having-d-generic
+                  a-with-a-having-d-emf
+                  a-with-a-having-d-tg
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]})))))
