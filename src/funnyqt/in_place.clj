@@ -376,7 +376,7 @@
       ;; Deliver nil if the window is closed.
       (.addWindowListener d (proxy [java.awt.event.WindowAdapter] []
                               (windowClosed [ev]
-                                (when-not (instance? java.awt.Point)
+                                (when-not (instance? java.awt.Point posp)
                                   (deliver posp (.getLocation d)))
                                 (deliver thunkp nil))))
       (.setLayout cp (BoxLayout. cp BoxLayout/Y_AXIS))

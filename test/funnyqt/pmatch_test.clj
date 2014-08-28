@@ -73,7 +73,7 @@
         match-count (or match-count (count r-gen-emf))]
     (is (= match-count (count r-gen-emf) (count r-gen-tg) (count r-emf)))
     (when p-tg
-      (is (= match-count) (count r-tg)))
+      (is (= match-count (count r-tg))))
     (if matches-fn
       (do
         (is (= (set (matches-fn pmt-model)) (set r-emf) (set r-gen-emf)))
@@ -550,7 +550,7 @@
 (deftest test-families-with-fathers-simple-emf
   (is (= 3 (count (families-with-fathers-simple-emf fm)))))
 
-(defpattern families-with-fathers-generic
+(defpattern families-with-fathers-emf
   {:pattern-expansion-context :emf}
   ([g]
      [f<Family> -<:father>-> m<Member>])
@@ -558,10 +558,10 @@
      [f<Family> -<:father>-> m<Member>
       :when (famconst f)]))
 
-(deftest test-families-with-fathers-generic
-  (is (= 3 (count (families-with-fathers-generic fm))))
-  (is (= 3 (count (families-with-fathers-generic fm (constantly true)))))
-  (is (= 2 (count (families-with-fathers-generic fm #(= "Smith" (emf/eget % :lastName)))))))
+(deftest test-families-with-fathers-emf
+  (is (= 3 (count (families-with-fathers-emf fm))))
+  (is (= 3 (count (families-with-fathers-emf fm (constantly true)))))
+  (is (= 2 (count (families-with-fathers-emf fm #(= "Smith" (emf/eget % :lastName)))))))
 
 (defpattern same-family-emf
   {:pattern-expansion-context :emf}
@@ -728,7 +728,7 @@
   [g fam]
   [fam --> <Member> --> <Family> -<:sons>-> <> --> x<Family>
    :when (not= fam x)
-   :as [(g/aval x :lastName) (g/aval x :street)]])
+   :as [fam x]])
 
 (deftest test-long-anon-pattern-generic
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
@@ -739,7 +739,7 @@
                              (emf/eallcontents fm 'Family)))
         r (long-anon-pattern-generic fm fsmith)]
     (is (= 3 (count r)))
-    (is (= [fsmith ofsmith]))))
+    (is (= r [[fsmith ofsmith] [fsmith ofsmith] [fsmith ofsmith]]))))
 
 (deftest test-letpattern-generic
   (letpattern [(families-with-fathers-simple [g]

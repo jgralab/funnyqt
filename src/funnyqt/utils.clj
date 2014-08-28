@@ -103,7 +103,7 @@
   ([msg]
      `(error ~msg nil))
   ([msg cause]
-     `(throw (Exception. ~msg ~cause))))
+     `(throw (java.lang.Exception. ~msg ~cause))))
 
 (defmacro errorf
   "Throws an exception with the given `msg` and `objs` passed to `format`.
