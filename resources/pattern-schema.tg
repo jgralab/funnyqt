@@ -11,7 +11,7 @@ VertexClass PatternVertex : APatternVertex;
 
 VertexClass ArgumentVertex : APatternVertex;
 
-VertexClass ForBoundVertex : APatternVertex;
+VertexClass BindingVarVertex : APatternVertex;
 
 abstract EdgeClass APatternEdge
   from APatternVertex (0,*) role src
@@ -34,8 +34,13 @@ EdgeClass ArgumentEdge : APatternEdge
 
 VertexClass Anchor : AVertex;
 
-VertexClass ConstraintOrBinding : AVertex
+abstract VertexClass ConstraintOrBinding : AVertex
   { form : String };
+
+VertexClass Constraint : ConstraintOrBinding;
+VertexClass Binding : ConstraintOrBinding;
+VertexClass ConstraintAndBinding : Constraint, Binding;
+
 
 EdgeClass Precedes
   from AVertex (1,1)

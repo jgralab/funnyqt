@@ -51,12 +51,12 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn for-bound-vars
-  "Returns the symbols bound by a :for in pattern p."
+(defn binding-vars
+  "Returns the symbols bound by a :for, :let, or :when-let in pattern p."
   [p]
   (loop [p p, r #{}]
     (if (seq p)
-      (if (= :for (first p))
+      (if (#{:for :let :when-let} (first p))
         (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
                            (apply conj r
                                   (mapcat #(cond
@@ -77,8 +77,32 @@
         (recur (next p) r))
       r)))
 
+(defn ^:private local-vars
+  "Returns the set of local variables (symbols) that are used in `form`.
+  E.g., those are the dependencies the form needs to evaluate."
+  [form]
+  (cond
+   ;; let & when-let & if-let & loop
+   (and (seq? form)
+        (or (= (first form) `let)
+            (= (first form) `loop)
+            (= (first form) `when-let)
+            (= (first form) `if-let)))
+   (set (concat (mapcat local-vars (map second (partition 2 (second form))))
+                (mapcat local-vars (nnext form))))
+   ;; vectors & sets
+   (or (vector? form)
+       (set? form))
+   (set (mapcat local-vars form))
+   ;; funcalls
+   (seq? form)
+   (set (mapcat local-vars (rest form)))
+   ;; symbols
+   (and (symbol? form)
+        (not (namespace form))) #{form}))
+
 (defn pattern-to-pattern-graph [pname argvec pattern]
-  (let [forbounds (into #{} (for-bound-vars pattern))
+  (let [binding-var-set (into #{} (binding-vars pattern))
         argset (into #{} argvec)
         pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
@@ -91,24 +115,54 @@
         get-or-make-v (fn [n t]
                         (let [v (or (get-by-name n)
                                     (tg/create-vertex! pg (cond
-                                                           (argset n)    'ArgumentVertex
-                                                           (forbounds n) 'ForBoundVertex
-                                                           :else         'PatternVertex)))]
+                                                           (argset n)          'ArgumentVertex
+                                                           (binding-var-set n) 'BindingVarVertex
+                                                           :else               'PatternVertex)))]
                           (when n (tg/set-value! v :name (name n)))
                           (when t (tg/set-value! v :type (name t)))
-                          v))]
+                          v))
+        local-vars-in-contstr-or-binding (fn [kw expr]
+                                           (condp = kw
+                                             ;; the constraint expression
+                                             :when (local-vars expr)
+                                             ;; the exp in :when-let [var exp]
+                                             :when-let (local-vars (second expr))
+                                             ;; the exps is :let/for [a exp1, b exp2, ...]
+                                             (apply clojure.set/union
+                                                    (map (fn [[var exp]]
+                                                           (local-vars exp))
+                                                         (partition 2 expr)))))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
         (cond
          ;; Constraints and non-pattern binding forms ;;
-         (#{:when :let :when-let :while :for} (first pattern))
-         (let [v (tg/create-vertex! pg 'ConstraintOrBinding)]
+         (#{:when :let :when-let :for} (first pattern))
+         (let [v (tg/create-vertex! pg (condp = (first pattern)
+                                         :when     'Constraint
+                                         :when-let 'ConstraintAndBinding
+                                         'Binding))]
            (tg/set-value! v :form
                           (if (= :for (first pattern))
                             (str (pr-str (fnext pattern)) "]")
                             (str "[" (str (pr-str (first pattern))  " ")
                                  (pr-str (fnext pattern)) "]")))
-           (doseq [ex-v (remove #(= v %) (tg/vseq pg))]
+           ;; Create Precedes edges only for the pattern vertices that declare
+           ;; the variables used in the constraint.
+           (doseq [ex-v (remove
+                         #(or (= v %)
+                              (and (g/has-type? % 'Binding)
+                                   (let [lvs (local-vars-in-contstr-or-binding (first pattern)
+                                                                               (second pattern))
+                                         decls (binding-vars (read-string (tg/value % :form)))]
+                                     (empty? (clojure.set/intersection lvs decls))))
+                              (and (g/has-type? % 'APatternVertex)
+                                   (let [name (tg/value % :name)]
+                                     (and name
+                                          (not (contains?
+                                                (local-vars-in-contstr-or-binding (first pattern)
+                                                                                  (second pattern))
+                                                (symbol name)))))))
+                                (tg/vseq pg '!Constraint))]
              (tg/create-edge! pg 'Precedes ex-v v))
            (recur (nnext pattern) v))
          ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,6 +192,13 @@
                                                             (q/the (tg/vseq pg 'Anchor)) v))
                                          (recur (rest pattern) v))
          :else (u/errorf "Don't know how to handle pattern part: %s" (first pattern)))))
+    ;; Move Precedes edges to the front of iseqs so that constraints are
+    ;; evaluated as soon as possible.
+    (doseq [v (tg/vseq pg)]
+      (doseq [p (vec (tg/iseq v 'Precedes :out))
+              :let [fi (tg/first-inc v #(g/has-type? % '!Precedes))]
+              :when (and fi (tg/before-inc? fi p))]
+        (tg/put-before-inc! p fi)))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
@@ -293,7 +354,7 @@
       :when (q/member? ~(get-name target-node)
                        ~(anon-vec-transformer-fn startsym av))]
      ;;---
-     (g/has-type? target-node 'ForBoundVertex)
+     (g/has-type? target-node 'BindingVarVertex)
      `[~@(when (get-type target-node)
            `[:when (g/has-type? ~(get-name target-node) ~(get-type target-node))])
        :when (q/member? ~(get-name target-node)
@@ -363,7 +424,7 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              ForBoundVertex  ;; They're bound by ConstraintOrBinding/Preceedes
+              BindingVarVertex  ;; They're bound by ConstraintOrBinding/Preceedes
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (get-type cur)
@@ -376,12 +437,12 @@
                       done (conj-done done cur)]
                   ;;(println av)
                   (recur (enqueue-incs target-node (pop stack) done)
-                         (apply conj-done done av)
+                         (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for (get-name (tg/this cur)) av done))))
                 (let [trg (tg/that cur)
                       done (conj-done done cur)]
                   (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
+                         (conj-done done cur trg)
                          (apply conj bf `~(get-name cur)
                                 `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
                                           ~(if (tg/normal-edge? cur) :out :in))
@@ -426,13 +487,13 @@
                     done (conj-done done cur)]
                 (if (done trg)
                   (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
+                         (conj-done done cur trg)
                          (into bf `[:when (not (q/exists?
                                                 #(= ~(get-name trg) (tg/that %))
                                                 (tg/iseq ~(get-name src) ~(get-type cur)
                                                          ~(if (tg/normal-edge? cur) :out :in))))]))
                   (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
+                         (conj-done done cur trg)
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
                                       `[:when (empty? (filter
@@ -449,8 +510,8 @@
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
-                  (recur (pop stack)
-                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
+                  (recur (enqueue-incs cob (pop stack) done)
+                         (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
                          (into bf (read-string (tg/value cob :form))))
                   (recur (pop stack)
                          (conj-done done cur)
@@ -522,7 +583,7 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              ForBoundVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+              BindingVarVertex  ;; Actually bound by ConstraintOrBinding/Precedes
               (recur (enqueue-incs cur (pop stack) done)
                      (conj-done done cur)
                      (if (get-type cur)
@@ -544,13 +605,13 @@
                     done (conj-done done cur)]
                 (if (done trg)
                   (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
+                         (conj-done done cur trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
                                                           ~(if-let [t (get-edge-type cur)]
                                                              `(~role-fn ~(get-name src) ~t)
                                                              `(~neighbors-fn ~(get-name src)))))]))
                   (recur (enqueue-incs trg (pop stack) done)
-                         (conj-done done trg)
+                         (conj-done done cur trg)
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
                                       `[:when (empty? (filter
@@ -571,8 +632,8 @@
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
-                  (recur (pop stack)
-                         (apply conj-done done cob (tg/iseq cob 'Precedes :in))
+                  (recur (enqueue-incs cob (pop stack) done)
+                         (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
                          (into bf (read-string (tg/value cob :form))))
                   (recur (pop stack)
                          (conj-done done cur)
@@ -791,29 +852,6 @@
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
-(defn ^:private local-vars
-  "Returns the set of local variables (symbols) that are used in `form`.
-  E.g., those are the dependencies the form needs to evaluate."
-  [form]
-  (cond
-   ;; let & when-let & if-let & loop
-   (and (seq? form)
-        (or (= (first form) `let)
-            (= (first form) `loop)
-            (= (first form) `when-let)
-            (= (first form) `if-let)))
-   (set (concat (mapcat local-vars (map second (partition 2 (second form))))
-                (mapcat local-vars (nnext form))))
-   ;; vectors & sets
-   (or (vector? form)
-       (set? form))
-   (set (mapcat local-vars form))
-   ;; funcalls
-   (seq? form)
-   (set (mapcat local-vars (rest form)))
-   ;; symbols
-   (and (symbol? form)
-        (not (namespace form))) #{form}))
 
 (defn ^:private get-and-remove-constraint-from-vector
   "Removes all constraints depending only on the syms in set `deps` from `v`.
