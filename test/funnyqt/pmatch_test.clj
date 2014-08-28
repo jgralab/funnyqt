@@ -60,10 +60,11 @@
                                 (apply pmt-el model %)
                                 %)
                              (vals m)))
-       (vector? m) (map #(if (vector? %)
-                           (apply pmt-el model %)
-                           %)
-                        m)))))
+       (coll? m) (into (empty m)
+                       (map #(if (vector? %)
+                               (apply pmt-el model %)
+                               %)
+                            m))))))
 
 (defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
   (let [r-gen-emf (p-gen pmt-model)
@@ -386,7 +387,38 @@
                               :as [c d i j]])
                 2
                 (pmt-matches-fn [['C 1] ['D 1] 1 1]
-                                [['C 2] ['D 2] 2 2]))))
+                                [['C 2] ['D 2] 2 2])))
+  (testing "Testing :distinct clause"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A> :distinct])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A> :distinct])
+                nil
+                6
+                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
+                                {:c ['C 1], :a ['A 1]}
+                                {:c ['C 1], :a ['B 1]}
+                                {:c ['C 2], :a ['B 2]}
+                                {:c ['C 2], :a ['B 1]}
+                                {:c ['C 2], :a ['A 1]})))
+  (testing "Testing :distinct with :as"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [n1 --> n2
+                                                                    :when (not= n1 n2)
+                                                                    :as #{n1 n2} :distinct])
+                (pattern {:pattern-expansion-context :emf}     [m] [n1 --> n2
+                                                                    :when (not= n1 n2)
+                                                                    :as #{n1 n2} :distinct])
+                (pattern {:pattern-expansion-context :tg}      [m] [n1 --> n2
+                                                                    :when (not= n1 n2)
+                                                                    :as #{n1 n2} :distinct])
+                9
+                (pmt-matches-fn #{['B 1] ['C 1]}
+                                #{['C 1] ['A 1]}
+                                #{['C 1] ['D 1]}
+                                #{['A 1] ['B 2]}
+                                #{['A 1] ['D 1]}
+                                #{['B 1] ['C 2]}
+                                #{['C 2] ['A 1]}
+                                #{['C 2] ['B 2]}
+                                #{['C 2] ['D 2]}))))
 
 
 ;;# TG
