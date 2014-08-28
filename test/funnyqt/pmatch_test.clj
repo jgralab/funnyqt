@@ -714,7 +714,9 @@
 
 (defpattern given-fam-with-all-members-generic
   [g fam]
-  [fam --> mem<Member>])
+  [fam --> mem<Member>
+   ;; Test that the special :map result form works
+   :as :map])
 
 (deftest test-given-fam-with-all-members-generic
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))
@@ -728,7 +730,8 @@
   [g fam]
   [fam --> <Member> --> <Family> -<:sons>-> <> --> x<Family>
    :when (not= fam x)
-   :as [fam x]])
+   ;; Test that the special :vector result form works
+   :as :vector])
 
 (deftest test-long-anon-pattern-generic
   (let [fsmith (the (filter (fn [f] (and (= "Smith" (emf/eget f :lastName))

@@ -836,7 +836,15 @@
     (let [bf (transform-pattern-vector name pattern args)
           binding-count (fn [bf]
                           (count (filter (fn [[var expr]] (symbol? var))
-                                         (partition 2 bf))))]
+                                         (partition 2 bf))))
+          result-form (or (when-let [result-form (:as (meta bf))]
+                            (condp = result-form
+                              :vector (bindings-to-arglist bf)
+                              :map (argvec-to-hash-map
+                                    (bindings-to-arglist bf))
+                              result-form))
+                          (argvec-to-hash-map
+                           (bindings-to-arglist bf)))]
       (verify-pattern-binding-form bf args)
       `(~args
         ~(if (and (:eager (meta name))
@@ -888,16 +896,10 @@
                       n# combine!#
                       (fn [coll# ~sym]
                         (combine!# coll#
-                                   (pattern-for ~rbf
-                                                ~(or (:as (meta bf))
-                                                     (argvec-to-hash-map
-                                                      (bindings-to-arglist bf)))))))
+                                   (pattern-for ~rbf ~result-form))))
                      finalize#)))
            ;; Lazy Case
-           (let [code `(pattern-for ~bf
-                                     ~(or (:as (meta bf))
-                                          (argvec-to-hash-map
-                                           (bindings-to-arglist bf))))
+           (let [code `(pattern-for ~bf ~result-form)
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]
@@ -1025,6 +1027,13 @@
     [v --> w
      :when-let [u (foobar w)]
      :as {:u u, :v v, :w w}]
+
+  To represent matches as vectors, one could write :as [v w u].  There is also
+  the shorthand :as :vector which represents matches as vectors where the
+  values are ordered according their occurence in the pattern.
+  Thus, :as :vector is equivalent to :as [v w u] here.  For reasons of
+  symmetry, there is also the shorthand :as :map which is equivalent to
+  omitting the :as clause, i.e., matches are represented as maps.
 
   Finally, a pattern may contain a :distinct modifier.  If there is one, the
   lazy seq of matches which is the result of a applying the pattern won't
