@@ -17,13 +17,28 @@
 ;; Then users can check if their pattern is anchored at the right node, or if
 ;; they should reformulate it to speed up things.
 
+(comment
+  ;; Die Transformation von :all zu :let fehlt noch.
+  (pattern [m]
+           [a --> b
+            :all [a --> cs --> ds --> b]])
+  ;;=> transformed to
+  (pattern [m]
+           [a --> b
+            :let [all (pattern [a b]
+                               [a --> cs --> ds --> b])]]))
+
 ;;# Pattern to pattern graph
 
-(defn ^:private vertex-sym? [sym]
+(defn ^:private vertex-sym?
+  "Returns [match id <type>] if sym is a vertex symbol."
+  [sym]
   (and (symbol? sym)
        (re-matches #"([a-zA-Z0-9_]*)(<[a-zA-Z0-9._!]*>)?" (name sym))))
 
-(defn ^:private edge-sym? [sym]
+(defn ^:private edge-sym?
+  "Returns [match arrow id <type> arrow] if sym is an edge symbol."
+  [sym]
   (and
    (symbol? sym)
    (or (re-matches #"<-.*-" (name sym))
@@ -51,33 +66,63 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn binding-vars
-  "Returns the symbols bound by a :for, :let, or :when-let in pattern p."
+(defn ^:private pattern-bound-vars
+  "Returns the symbols bound by node and edge symbols in pattern `p`."
   [p]
   (loop [p p, r #{}]
     (if (seq p)
-      (if (#{:for :let :when-let} (first p))
-        (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
-                           (apply conj r
-                                  (mapcat #(cond
-                                            (symbol? %)
-                                            [%]
-                                            ;;---
-                                            (and (map? %) (symbol? (first (keys %))))
-                                            (keys %)
-                                            ;;---
-                                            (and (map? %) (keyword? (first (keys %))))
-                                            (let [syms (:keys (first p))]
-                                              (if-let [as (:as (first p))]
-                                                (conj syms as)
-                                                syms))
-                                            ;;---
-                                            :else (u/errorf "Cannot handle %s" %))
-                                          syms))))
-        (recur (next p) r))
+      (let [cur (first p)]
+        (cond
+         (vertex-sym? cur)
+         (let [[_ id] (vertex-sym? cur)]
+           (recur (next p) (conj r (symbol id))))
+         ;;---
+         (edge-sym? cur)
+         (let [[_ _ id] (edge-sym? cur)]
+           (recur (next p) (conj r (symbol id))))
+         ;;---
+         (= :all cur)
+         (recur (nnext p) (apply conj r (pattern-bound-vars (fnext p))))
+         ;;---
+         :else (recur (next p) r)))
       r)))
 
-(defn ^:private local-vars
+(defn ^:private binding-bound-vars
+  "Returns the symbols bound by a :for, :let, or :when-let in pattern `p`."
+  [p]
+  (loop [p p, r #{}]
+    (if (seq p)
+      (let [cur (first p)]
+        (cond
+         (#{:for :let :when-let} cur)
+         (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
+                            (apply conj r
+                                   (mapcat #(cond
+                                             (symbol? %)
+                                             [%]
+                                             ;; Vector destructuring [a b]
+                                             (vector? %)
+                                             %
+                                             ;; Map destructuring {a :a, b :b}
+                                             (and (map? %) (symbol? (first (keys %))))
+                                             (keys %)
+                                             ;; Map destructuring {:keys [a b] :as m}
+                                             (and (map? %) (keyword? (first (keys %))))
+                                             (let [syms (:keys cur)]
+                                               (if-let [as (:as cur)]
+                                                 (conj syms as)
+                                                 syms))
+                                             ;;---
+                                             :else (u/errorf "Cannot handle %s" %))
+                                           syms))))
+         ;;---
+         (= :all cur)
+         (recur (nnext p) (apply conj r (binding-bound-vars (fnext p))))
+         ;;---
+         :else (recur (next p) r)))
+      r)))
+
+(defn ^:private used-vars
   "Returns the set of local variables (symbols) that are used in `form`.
   E.g., those are the dependencies the form needs to evaluate."
   [form]
@@ -88,21 +133,43 @@
             (= (first form) `loop)
             (= (first form) `when-let)
             (= (first form) `if-let)))
-   (set (concat (mapcat local-vars (map second (partition 2 (second form))))
-                (mapcat local-vars (nnext form))))
+   (set (concat (mapcat used-vars (map second (partition 2 (second form))))
+                (mapcat used-vars (nnext form))))
    ;; vectors & sets
    (or (vector? form)
        (set? form))
-   (set (mapcat local-vars form))
+   (set (mapcat used-vars form))
    ;; funcalls
    (seq? form)
-   (set (mapcat local-vars (rest form)))
+   (set (mapcat used-vars (rest form)))
    ;; symbols
    (and (symbol? form)
         (not (namespace form))) #{form}))
 
+(defn ^:private vars-used-in-constr-or-binding
+  "Returns the set of vars (symbols) that are used (not declared!) in the
+  expressions of constraints and binding forms."
+  [p]
+  (loop [p p, r #{}]
+    (if (seq p)
+      (let [cur (first p)]
+        (if (#{:let :for :when :when-let} cur)
+          (let [[kw expr] p]
+            (condp = kw
+              ;; the constraint expression
+              :when (recur (nnext p) (into r (used-vars expr)))
+              ;; the exp in :when-let [var exp]
+              :when-let (recur (nnext p) (into r (used-vars (second expr))))
+              ;; the exps is :let/for [a exp1, b exp2, ...]
+              (recur (nnext p) (into r (apply clojure.set/union
+                                              (map (fn [[var exp]]
+                                                     (used-vars exp))
+                                                   (partition 2 expr)))))))
+          (recur (next p) r)))
+      r)))
+
 (defn pattern-to-pattern-graph [pname argvec pattern]
-  (let [binding-var-set (into #{} (binding-vars pattern))
+  (let [binding-var-set (into #{} (binding-bound-vars pattern))
         argset (into #{} argvec)
         pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
@@ -120,18 +187,7 @@
                                                            :else               'PatternVertex)))]
                           (when n (tg/set-value! v :name (name n)))
                           (when t (tg/set-value! v :type (name t)))
-                          v))
-        local-vars-in-contstr-or-binding (fn [kw expr]
-                                           (condp = kw
-                                             ;; the constraint expression
-                                             :when (local-vars expr)
-                                             ;; the exp in :when-let [var exp]
-                                             :when-let (local-vars (second expr))
-                                             ;; the exps is :let/for [a exp1, b exp2, ...]
-                                             (apply clojure.set/union
-                                                    (map (fn [[var exp]]
-                                                           (local-vars exp))
-                                                         (partition 2 expr)))))]
+                          v))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
         (cond
@@ -151,16 +207,16 @@
            (doseq [ex-v (remove
                          #(or (= v %)
                               (and (g/has-type? % 'Binding)
-                                   (let [lvs (local-vars-in-contstr-or-binding (first pattern)
-                                                                               (second pattern))
-                                         decls (binding-vars (read-string (tg/value % :form)))]
+                                   (let [lvs (vars-used-in-constr-or-binding
+                                              [(first pattern) (second pattern)])
+                                         decls (binding-bound-vars (read-string (tg/value % :form)))]
                                      (empty? (clojure.set/intersection lvs decls))))
                               (and (g/has-type? % 'APatternVertex)
                                    (let [name (tg/value % :name)]
                                      (and name
                                           (not (contains?
-                                                (local-vars-in-contstr-or-binding (first pattern)
-                                                                                  (second pattern))
+                                                (vars-used-in-constr-or-binding
+                                                 [(first pattern) (second pattern)])
                                                 (symbol name)))))))
                                 (tg/vseq pg '!Constraint))]
              (tg/create-edge! pg 'Precedes ex-v v))
@@ -860,7 +916,7 @@
   [v deps]
   (loop [v v, nv [], cs []]
     (if-let [[x y & r] (seq v)]
-      (if (and (= :when x) (clojure.set/subset? (local-vars y) deps))
+      (if (and (= :when x) (clojure.set/subset? (used-vars y) deps))
         (recur r nv (conj cs y))
         (recur r (conj nv x y) cs))
       [nv cs])))
