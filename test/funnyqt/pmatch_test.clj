@@ -373,7 +373,29 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
-  (testing "Testing :nested patterns."
+  (testing "Testing :nested patterns. (1)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :nested [ds [c -<:d>-> d :as d]
+                                       ss [c -<:s>-> s :as s]
+                                       ts [c -<:t>-> t :as t]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :nested [ds [c -<:d>-> d :as d]
+                                       ss [c -<:s>-> s :as s]
+                                       ts [c -<:t>-> t :as t]]])
+                (comment
+                  ;; FIXME: Why the nonreachable elements?
+                  (pattern {:pattern-expansion-context :tg}
+                           [m] [c<C>
+                                :nested [ds [c -<:d>-> d :as d]
+                                         ss [c <-<:s>- s :as s]
+                                         ts [c -<:t>-> t :as t]]]))
+                2
+                (pmt-matches-fn
+                 {:c ['C 1], :ds (list ['D 1]), :ss (list ['B 1] ['C 1]), :ts (list ['C 1] ['A 1])}
+                 {:c ['C 2], :ds (list ['D 2]), :ss (list ['B 1]), :ts (list ['A 1] ['B 2])})))
+  (testing "Testing :nested patterns. (2)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [a<A> -<:d>-> d<D>
                               :nested [f1 [a -<:t>-> a1

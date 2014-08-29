@@ -80,11 +80,15 @@
         (cond
          (vertex-sym? cur)
          (let [[_ id] (vertex-sym? cur)]
-           (recur (next p) (conj r (symbol id))))
+           (recur (next p) (if (seq id)
+                             (conj r (symbol id))
+                             r)))
          ;;---
          (edge-sym? cur)
          (let [[_ _ id] (edge-sym? cur)]
-           (recur (next p) (conj r (symbol id))))
+           (recur (next p) (if (seq id)
+                             (conj r (symbol id))
+                             r)))
          (#{:nested :when :when-let :for :let} cur)
          (recur (nnext p) r)
          ;;---
