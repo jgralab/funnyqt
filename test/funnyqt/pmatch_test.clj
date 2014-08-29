@@ -397,21 +397,20 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [a<A> -<:d>-> d<D>
                               :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
                 (pattern {:pattern-expansion-context :emf}
                          [m] [a<A> -<:d>-> d<D>
                               :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
                 (pattern {:pattern-expansion-context :tg}
                          [m] [a<A> -<:d>-> d<D>
                               :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
                 3
                 (pmt-matches-fn
-                 {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list {:a2 ['C 1]}
-                                                                      {:a2 ['A 1]})}
-                                                {:a1 ['A 1] :f2 (list {:a2 ['B 2]})})}
-                 {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list {:a2 ['B 2]})}
+                 {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list ['C 1] ['A 1])}
+                                                {:a1 ['A 1] :f2 (list ['B 2])})}
+                 {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list ['B 2])}
                                                 {:a1 ['B 2] :f2 nil})}
                  {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 nil})})))
   (testing "Testing :as clause"
