@@ -51,20 +51,24 @@
   (q/the #(= (g/aval % (if (= 'D cls) :j :i)) val)
          (g/elements model (symbol (str (name cls) "!")))))
 
+(defn pmt-matches [model & matches]
+  (for [m matches]
+    (cond
+     (and (vector? m)
+          (= 2 (count m))
+          (symbol? (first m))
+          (integer? (second m)))  (apply pmt-el model m)
+     (map? m)     (zipmap (keys m)
+                          (mapcat (partial pmt-matches model) (vals m)))
+     (coll? m)    (into (empty m) (let [r (mapcat (partial pmt-matches model) m)]
+                                    (if (vector? m)
+                                      r
+                                      (reverse r))))
+     :else m)))
+
 (defn pmt-matches-fn [& matches]
   (fn [model]
-    (for [m matches]
-      (cond
-       (map? m) (zipmap (keys m)
-                        (map #(if (vector? %)
-                                (apply pmt-el model %)
-                                %)
-                             (vals m)))
-       (coll? m) (into (empty m)
-                       (map #(if (vector? %)
-                               (apply pmt-el model %)
-                               %)
-                            m))))))
+    (apply pmt-matches model matches)))
 
 (defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
   (let [r-gen-emf (p-gen pmt-model)
@@ -369,6 +373,27 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing :nested patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [a<A> -<:d>-> d<D>
+                              :nested [f1 [a -<:t>-> a1
+                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [a<A> -<:d>-> d<D>
+                              :nested [f1 [a -<:t>-> a1
+                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [a<A> -<:d>-> d<D>
+                              :nested [f1 [a -<:t>-> a1
+                                           :nested [f2 [a1 -<:t>-> a2]]]]])
+                3
+                (pmt-matches-fn
+                 {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list {:a2 ['C 1]}
+                                                                      {:a2 ['A 1]})}
+                                                {:a1 ['A 1] :f2 (list {:a2 ['B 2]})})}
+                 {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list {:a2 ['B 2]})}
+                                                {:a1 ['B 2] :f2 nil})}
+                 {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 nil})})))
   (testing "Testing :as clause"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C> --> d<D>
@@ -386,8 +411,8 @@
                                     j (g/aval d :j)]
                               :as [c d i j]])
                 2
-                (pmt-matches-fn [['C 1] ['D 1] 1 1]
-                                [['C 2] ['D 2] 2 2])))
+                (pmt-matches-fn (list ['C 1] ['D 1] 1 1)
+                                (list ['C 2] ['D 2] 2 2))))
   (testing "Testing :distinct clause"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A> :distinct])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A> :distinct])

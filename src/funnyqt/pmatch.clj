@@ -169,12 +169,48 @@
           (recur (next p) r)))
       r)))
 
+(def ^:dynamic *pattern-expansion-context*
+  "Defines the expansion context of a pattern, i.e., if a pattern expands into
+  a query on a TGraph or an EMF model.  The possible values are :generic
+  (default), :tg and :emf.
+
+  The value :generic makes patterns expand into code that works for both EMF
+  and TGraph models.  More precisely, the code only assumes that the
+  INeighbors, IAdjacenciesInternal, and IElements protocols are extended upon
+  the concrete model representation's classes.
+
+  Note that the expansion of the :emf and :tg expansion context is slightly
+  faster than the expansion of the :generic context.  Furthermore, the :tg
+  expansion context allows for more expressive patterns in that edges may be
+  match-bound (x<X> -e<E>-> y<Y>).  This is forbidden for :emf (since there are
+  no first-class edges) and :generic.
+
+  Usually, you won't bind this variable directly (using `binding`) but instead
+  you specify the expansion context for a given pattern using the `attr-map` of
+  a `defpattern` or `letpattern` form, or you declare the expansion context for
+  a complete namespace using `:pattern-expansion-context` metadata for the
+  namespace."
+  :generic)
+
+(defn ^:private get-and-remove-key-from-vector
+  "Returns [new-pattern key-or-val]."
+  [v key get-val]
+  (loop [nv [], ov v]
+    (if (seq ov)
+      (if (= key (first ov))
+        (if get-val
+          [(vec (concat nv (nnext ov))) (fnext ov)]
+          [(vec (concat nv (next ov))) (first ov)])
+        (recur (conj nv (first ov)) (rest ov)))
+      [nv nil])))
+
 (defn pattern-to-pattern-graph [pname argvec pattern]
   (let [binding-var-vec (binding-bound-vars pattern)
         binding-var-set (into #{} binding-var-vec)
         pattern-var-vec (pattern-bound-vars pattern)
         pattern-var-set (into #{} pattern-var-vec)
         argset (into #{} argvec)
+        model-sym (first argvec)
         pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
              g)
@@ -230,17 +266,29 @@
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
            (recur (vec (concat
-                        [:let (mapcat
-                               (fn [[npvar np]]
-                                 (let [new-bindings (binding-bound-vars np)
-                                       new-pattern-els (pattern-bound-vars np)
-                                       argvec (vec (clojure.set/intersection
-                                                    (clojure.set/union binding-var-set
-                                                                       pattern-var-set)
-                                                    (clojure.set/union (set new-bindings)
-                                                                       (set new-pattern-els))))]
-                                   [npvar `((pattern ~argvec ~np) ~@argvec)]))
-                               (partition 2 (fnext pattern)))]
+                        [:let (vec (mapcat
+                                    (fn [[npvar np]]
+                                      (let [new-bindings (binding-bound-vars np)
+                                            new-pattern-els (pattern-bound-vars np)
+                                            argvec (into [model-sym]
+                                                         (clojure.set/intersection
+                                                          (clojure.set/union binding-var-set
+                                                                             pattern-var-set)
+                                                          (clojure.set/union (set new-bindings)
+                                                                             (set new-pattern-els))))
+                                            new-only-bindings (clojure.set/difference
+                                                               (clojure.set/union (set new-bindings)
+                                                                                  (set new-pattern-els))
+                                                               (clojure.set/union binding-var-set
+                                                                                  pattern-var-set))
+                                            [np result-form] (get-and-remove-key-from-vector np :as true)
+                                            result-form (or result-form
+                                                            (zipmap (map keyword new-only-bindings)
+                                                                    new-only-bindings))]
+                                        [npvar `((pattern {:pattern-expansion-context ~*pattern-expansion-context*}
+                                                          ~argvec ~(conj np :as result-form))
+                                                 ~@argvec)]))
+                                    (partition 2 (fnext pattern))))]
                         (nnext pattern)))
                   lv)
            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -335,29 +383,6 @@
 ;;# Patter graph to pattern comprehension
 
 (def ^:private ^:dynamic *conversion-opts* nil)
-
-(def ^:dynamic *pattern-expansion-context*
-  "Defines the expansion context of a pattern, i.e., if a pattern expands into
-  a query on a TGraph or an EMF model.  The possible values are :generic
-  (default), :tg and :emf.
-
-  The value :generic makes patterns expand into code that works for both EMF
-  and TGraph models.  More precisely, the code only assumes that the
-  INeighbors, IAdjacenciesInternal, and IElements protocols are extended upon
-  the concrete model representation's classes.
-
-  Note that the expansion of the :emf and :tg expansion context is slightly
-  faster than the expansion of the :generic context.  Furthermore, the :tg
-  expansion context allows for more expressive patterns in that edges may be
-  match-bound (x<X> -e<E>-> y<Y>).  This is forbidden for :emf (since there are
-  no first-class edges) and :generic.
-
-  Usually, you won't bind this variable directly (using `binding`) but instead
-  you specify the expansion context for a given pattern using the `attr-map` of
-  a `defpattern` or `letpattern` form, or you declare the expansion context for
-  a complete namespace using `:pattern-expansion-context` metadata for the
-  namespace."
-  :generic)
 
 (defn ^:private conj-done [done & elems]
   (into done (mapcat #(if (tg/edge? %)
@@ -804,16 +829,6 @@
   {:emf     pattern-graph-to-pattern-for-bindings-emf
    :tg      pattern-graph-to-pattern-for-bindings-tg
    :generic pattern-graph-to-pattern-for-bindings-generic})
-
-(defn ^:private get-and-remove-key-from-vector [v key get-val]
-  (loop [nv [], ov v]
-    (if (seq ov)
-      (if (= key (first ov))
-        (if get-val
-          [(vec (concat nv (nnext ov))) (fnext ov)]
-          [(vec (concat nv (next ov))) (first ov)])
-        (recur (conj nv (first ov)) (rest ov)))
-      [nv nil])))
 
 (defn ^:private replace-id
   ([new-id name old-id type]
