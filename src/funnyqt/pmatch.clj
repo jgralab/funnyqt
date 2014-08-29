@@ -18,15 +18,18 @@
 ;; they should reformulate it to speed up things.
 
 (comment
-  ;; Die Transformation von :all zu :let fehlt noch.
+  ;; Die Transformation von :nested zu :let fehlt noch.
   (pattern [m]
            [a --> b
-            :all [a --> cs --> ds --> b]])
+            :nested [n1 [a --> c --> d --> b]
+                     n2 [a --> e]]])
   ;;=> transformed to
   (pattern [m]
            [a --> b
-            :let [all (pattern [a b]
-                               [a --> cs --> ds --> b])]]))
+            :let [n1 (pattern [a b]
+                              [a --> cs --> ds --> b])
+                  n2 (pattern [a]
+                              [a --> e])]]))
 
 ;;# Pattern to pattern graph
 
@@ -67,9 +70,11 @@
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
 (defn ^:private pattern-bound-vars
-  "Returns the symbols bound by node and edge symbols in pattern `p`."
+  "Returns the symbols bound by node and edge symbols in pattern `p`.  Does not
+  recurse into :nested clauses.  The symbols are returned as a vector of
+  distinct elements in declaration order."
   [p]
-  (loop [p p, r #{}]
+  (loop [p p, r []]
     (if (seq p)
       (let [cur (first p)]
         (cond
@@ -80,23 +85,23 @@
          (edge-sym? cur)
          (let [[_ _ id] (edge-sym? cur)]
            (recur (next p) (conj r (symbol id))))
-         ;;---
-         (= :all cur)
-         (recur (nnext p) (apply conj r (pattern-bound-vars (fnext p))))
+         (#{:nested :when :when-let :for :let} cur)
+         (recur (nnext p) r)
          ;;---
          :else (recur (next p) r)))
-      r)))
+      (vec (distinct r)))))
 
 (defn ^:private binding-bound-vars
-  "Returns the symbols bound by a :for, :let, or :when-let in pattern `p`."
+  "Returns the symbols bound by a :for, :let, :nested, or :when-let in pattern
+  `p`.  Does not recurse into the expressions of the binding forms.  The
+  symbols are returned as a vector of distinct elements in declaration order."
   [p]
-  (loop [p p, r #{}]
+  (loop [p p, r []]
     (if (seq p)
       (let [cur (first p)]
-        (cond
-         (#{:for :let :when-let} cur)
-         (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
-                            (apply conj r
+        (if (#{:for :let :when-let :nested} cur)
+          (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
+                             (into r
                                    (mapcat #(cond
                                              (symbol? %)
                                              [%]
@@ -115,12 +120,8 @@
                                              ;;---
                                              :else (u/errorf "Cannot handle %s" %))
                                            syms))))
-         ;;---
-         (= :all cur)
-         (recur (nnext p) (apply conj r (binding-bound-vars (fnext p))))
-         ;;---
-         :else (recur (next p) r)))
-      r)))
+          (recur (next p) r)))
+      (vec (distinct r)))))
 
 (defn ^:private used-vars
   "Returns the set of local variables (symbols) that are used in `form`.
@@ -169,7 +170,10 @@
       r)))
 
 (defn pattern-to-pattern-graph [pname argvec pattern]
-  (let [binding-var-set (into #{} (binding-bound-vars pattern))
+  (let [binding-var-vec (binding-bound-vars pattern)
+        binding-var-set (into #{} binding-var-vec)
+        pattern-var-vec (pattern-bound-vars pattern)
+        pattern-var-set (into #{} pattern-var-vec)
         argset (into #{} argvec)
         pg (let [g (tg/new-graph pattern-schema)]
              (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
@@ -223,8 +227,22 @@
                            (tg/vseq pg '!Constraint))]
                (tg/create-edge! pg 'Precedes ex-v v))
              (recur (nnext pattern) v))
-           ;; Nested patterns: :all [p1 [a --> b], p2 [a --> c]]
-           ;; TODO
+           ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
+           (= :nested cur)
+           (recur (vec (concat
+                        [:let (mapcat
+                               (fn [[npvar np]]
+                                 (let [new-bindings (binding-bound-vars np)
+                                       new-pattern-els (pattern-bound-vars np)
+                                       argvec (vec (clojure.set/intersection
+                                                    (clojure.set/union binding-var-set
+                                                                       pattern-var-set)
+                                                    (clojure.set/union (set new-bindings)
+                                                                       (set new-pattern-els))))]
+                                   [npvar `((pattern ~argvec ~np) ~@argvec)]))
+                               (partition 2 (fnext pattern)))]
+                        (nnext pattern)))
+                  lv)
            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? cur) (let [[n t] (name-and-type cur)
                                  nsym (second pattern)
@@ -1079,8 +1097,8 @@
     [v --> w
      :for [u (p-seq w [p-+ [p-alt <>-- :someRef]])]]
 
-  Lastly, patterns can be composed of other named patterns bound by either
-  defpattern or letpattern using :extends clauses.
+  Patterns can be composed of other named patterns bound by either defpattern
+  or letpattern using :extends clauses.
 
     (defpattern a-A [m] [a<A>])
     (defpattern b-B [m] [b<B>])
