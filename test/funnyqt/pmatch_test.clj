@@ -384,13 +384,11 @@
                               :nested [ds [c -<:d>-> d :as d]
                                        ss [c -<:s>-> s :as s]
                                        ts [c -<:t>-> t :as t]]])
-                (comment
-                  ;; FIXME: Why the nonreachable elements?
-                  (pattern {:pattern-expansion-context :tg}
-                           [m] [c<C>
-                                :nested [ds [c -<:d>-> d :as d]
-                                         ss [c <-<:s>- s :as s]
-                                         ts [c -<:t>-> t :as t]]]))
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :nested [ds [c -<:d>-> d :as d]
+                                       ss [c <-<A2A>- s :as s]
+                                       ts [c -<:t>-> t :as t]]])
                 2
                 (pmt-matches-fn
                  {:c ['C 1], :ds (list ['D 1]), :ss (list ['B 1] ['C 1]), :ts (list ['C 1] ['A 1])}
