@@ -190,64 +190,66 @@
                           v))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
-        (cond
-         ;; Constraints and non-pattern binding forms ;;
-         (#{:when :let :when-let :for} (first pattern))
-         (let [v (tg/create-vertex! pg (condp = (first pattern)
-                                         :when     'Constraint
-                                         :when-let 'ConstraintAndBinding
-                                         'Binding))]
-           (tg/set-value! v :form
-                          (if (= :for (first pattern))
-                            (str (pr-str (fnext pattern)) "]")
-                            (str "[" (str (pr-str (first pattern))  " ")
-                                 (pr-str (fnext pattern)) "]")))
-           ;; Create Precedes edges only for the pattern vertices that declare
-           ;; the variables used in the constraint.
-           (doseq [ex-v (remove
-                         #(or (= v %)
-                              (and (g/has-type? % 'Binding)
-                                   (let [lvs (vars-used-in-constr-or-binding
-                                              [(first pattern) (second pattern)])
-                                         decls (binding-bound-vars (read-string (tg/value % :form)))]
-                                     (empty? (clojure.set/intersection lvs decls))))
-                              (and (g/has-type? % 'APatternVertex)
-                                   (let [name (tg/value % :name)]
-                                     (and name
-                                          (not (contains?
-                                                (vars-used-in-constr-or-binding
-                                                 [(first pattern) (second pattern)])
-                                                (symbol name)))))))
-                                (tg/vseq pg '!Constraint))]
-             (tg/create-edge! pg 'Precedes ex-v v))
-           (recur (nnext pattern) v))
-         ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-         (edge-sym? (first pattern)) (let [sym (first pattern)
-                                           [n t] (name-and-type sym)
-                                           nsym (second pattern)
-                                           [nvn nvt] (name-and-type nsym)
-                                           nv (get-or-make-v nvn nvt)]
-                                       (let [e (apply tg/create-edge!
-                                                      pg (cond
-                                                          (= '! n)   'NegPatternEdge
-                                                          (argset n) 'ArgumentEdge
-                                                          :else      'PatternEdge)
-                                                      (if (= :out (edge-dir sym))
-                                                        [lv nv]
-                                                        [nv lv]))]
-                                         (when (and n (not (g/has-type? e 'NegPatternEdge)))
-                                           (tg/set-value! e :name (name n)))
-                                         (when t (tg/set-value! e :type (name t))))
-                                       (recur (nnext pattern) nv))
-         ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-         (vertex-sym? (first pattern)) (let [sym (first pattern)
-                                             [n t] (name-and-type sym)
-                                             v (get-or-make-v n t)]
-                                         (when (zero? (tg/ecount pg 'HasStartPatternVertex))
-                                           (tg/create-edge! pg 'HasStartPatternVertex
-                                                            (q/the (tg/vseq pg 'Anchor)) v))
-                                         (recur (rest pattern) v))
-         :else (u/errorf "Don't know how to handle pattern part: %s" (first pattern)))))
+        (let [cur (first pattern)]
+          (cond
+           ;; Constraints and non-pattern binding forms
+           (#{:when :let :when-let :for} cur)
+           (let [v (tg/create-vertex! pg (condp = cur
+                                           :when     'Constraint
+                                           :when-let 'ConstraintAndBinding
+                                           'Binding))]
+             (tg/set-value! v :form
+                            (if (= :for cur)
+                              (str (pr-str (fnext pattern)) "]")
+                              (str "[" (str (pr-str cur)  " ")
+                                   (pr-str (fnext pattern)) "]")))
+             ;; Create Precedes edges only for the pattern vertices that declare
+             ;; the variables used in the constraint.
+             (doseq [ex-v (remove
+                           #(or (= v %)
+                                (and (g/has-type? % 'Binding)
+                                     (let [lvs (vars-used-in-constr-or-binding
+                                                [cur (second pattern)])
+                                           decls (binding-bound-vars
+                                                  (read-string (tg/value % :form)))]
+                                       (empty? (clojure.set/intersection lvs decls))))
+                                (and (g/has-type? % 'APatternVertex)
+                                     (let [name (tg/value % :name)]
+                                       (and name
+                                            (not (contains?
+                                                  (vars-used-in-constr-or-binding
+                                                   [cur (second pattern)])
+                                                  (symbol name)))))))
+                           (tg/vseq pg '!Constraint))]
+               (tg/create-edge! pg 'Precedes ex-v v))
+             (recur (nnext pattern) v))
+           ;; Nested patterns: :all [p1 [a --> b], p2 [a --> c]]
+           ;; TODO
+           ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+           (edge-sym? cur) (let [[n t] (name-and-type cur)
+                                 nsym (second pattern)
+                                 [nvn nvt] (name-and-type nsym)
+                                 nv (get-or-make-v nvn nvt)]
+                             (let [e (apply tg/create-edge!
+                                            pg (cond
+                                                (= '! n)   'NegPatternEdge
+                                                (argset n) 'ArgumentEdge
+                                                :else      'PatternEdge)
+                                            (if (= :out (edge-dir cur))
+                                              [lv nv]
+                                              [nv lv]))]
+                               (when (and n (not (g/has-type? e 'NegPatternEdge)))
+                                 (tg/set-value! e :name (name n)))
+                               (when t (tg/set-value! e :type (name t))))
+                             (recur (nnext pattern) nv))
+           ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+           (vertex-sym? cur) (let [[n t] (name-and-type cur)
+                                   v (get-or-make-v n t)]
+                               (when (zero? (tg/ecount pg 'HasStartPatternVertex))
+                                 (tg/create-edge! pg 'HasStartPatternVertex
+                                                  (q/the (tg/vseq pg 'Anchor)) v))
+                               (recur (rest pattern) v))
+           :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
     ;; Move Precedes edges to the front of iseqs so that constraints are
     ;; evaluated as soon as possible.
     (doseq [v (tg/vseq pg)]
