@@ -1038,46 +1038,70 @@
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
-  an `args` vector, and a `pattern` vector.  When applied to a model, it
-  returns the sequence of all matches.  By default, this seq is a lazy seq.  If
-  ^:eager metadata is attached to `name` (or the :eager option is set to true
-  in the `attr-map`), then the pattern is evaluated eagerly giving rise to
-  parallel evaluation.  The parallel evaluation may be suppressed using
-  ^:sequential metadata (or by setting the :sequential option to true in
-  `attr-map`).
+  an `args` vector, and a `pattern` vector.  The first argument in `args` must
+  denote the model which the pattern is applied to.
+
+  When applied to a model, it returns the sequence of all matches.  By default,
+  this seq is a lazy seq.  If ^:eager metadata is attached to `name` (or
+  the :eager option is set to true in the `attr-map`), then the pattern is
+  evaluated eagerly giving rise to parallel evaluation.  The parallel
+  evaluation may be suppressed using ^:sequential metadata (or by setting
+  the :sequential option to true in `attr-map`).
+
+  Node and Edge Symbols
+  =====================
 
   `pattern` is a vector of symbols for nodes and edges.
 
-    v<V>           ; A node of type V identified as v
-    v<V> -<E>-> v  ; An edge of type E starting and ending at node v of type V
+    v<V>            ; A node of type V identified as v
+    v<V> -<:e>-> v  ; A node v of type V referencing itself with an e-reference
 
-  V is a qualified name of a node type, E is a reference name given as keyword
-  or a qualified edge type name in case the model representation has
-  first-class edges.  If it does, the edges can also be matched and added to
-  the match results by adding an identifier.
+  V is a qualified name of a node type.  Edge types are either reference names
+  given as keywords or a qualified edge type name in case the model
+  representation has first-class edges.  If it does, the edges can also be
+  matched and added to the match results by adding an identifier.
+
+  Every edge symbol in a pattern must have a node symbol at its start and at
+  its end.
 
     v<V> -e<E>-> v
+
+  Anonymous Node and Edge Symbols
+  ===============================
 
   Both the identifiers and the types enclosed in angle brackets are optional.
   So this is a valid pattern, too.
 
-    [v --> <V> -<E>-> <> --> x<X>] ; An arbitrary node that is connected to
-                                   ; an X-node x via some arbitrary forward
-                                   ; edge leading to some V-node from which
-                                   ; an E-edge leads some arbitrary other
-                                   ; node from which another arbitrary edge
-                                   ; leads to x.
+    [v --> <V> -<:e>-> <> --> x<X>] ; An arbitrary node v that is connected to
+                                    ; an X-node x via some arbitrary reference
+                                    ; leading to some V-node from which
+                                    ; an e-reference leads some arbitrary other
+                                    ; node from which another arbitrary reference
+                                    ; leads to x.
 
-  Such sequences of anonymous paths, i.e., edges and nodes without identifier,
-  must be anchored at named nodes like above (v and x).  Such patterns with
-  anonymous nodes and/or edges may result in many identical matches when there
-  are different paths leading from v to x that match the anonymous node/edge
-  sequence.  See the :distinct option below for suppressing that.
+  Such patterns with anonymous nodes and/or edges may result in many identical
+  matches when there are different paths leading from v to x that match the
+  anonymous node/edge sequence.  See the :distinct option below for suppressing
+  that.
+
+  Argument Node and Edge Symbols
+  ==============================
 
   Patterns may also include the arguments given to the defpattern, in which
   case those are assumed to be bound to one single node or edge, depending on
   their usage in the pattern, e.g., arg must be a node and -arg-> must be an
   edge.
+
+  For example, the following pattern receives an argument s which according to
+  the usage in a pattern must be a node.
+
+    (defpattern foobar [m s] [s --> t])
+
+  The pattern returns matches of the form {:s s, :t t} where s is the node
+  given as argument and t is a node referenced from s.
+
+  Constraints
+  ===========
 
   Patters may further include arbitrary constraints that must hold for a valid
   match using :when clauses:
@@ -1086,6 +1110,9 @@
      :when (pred1? v)
      :when (not (pred2? w))]
 
+  Negative Edges
+  ==============
+
   Patterns may contain negative edges indicated by edge symbols with name !.
   Those must not exist for a match to succeed.  For example, the following
   declares that there must be a foo reference from v to w, but w must have no
@@ -1093,6 +1120,9 @@
 
     [v -<:foo>-> w -!-> <>
      v -!<:bar>-> w]
+
+  Local Bindings
+  ==============
 
   Moreover, a pattern may bind further variables using :let and :when-let which
   also become part of the matches.
@@ -1104,7 +1134,11 @@
   Hereby, the variables bound by :let (a and b) are taken as-is whereas the
   variables bound by :when-let must be logically true in order to match.  That
   is, in the example above, a and b could be nil, but c has to be logically
-  true (i.e., not nil and not false) for a match to occur.
+  true (i.e., not nil and not false) for a match to occur.  a, b, and c are
+  also part of the matches.
+
+  Comprehension Bindings
+  ======================
 
   Patterns may also contain usual comprehension binding forms using :for, i.e.,
   pairs of variables and expressions.
@@ -1112,13 +1146,17 @@
     [v --> w
      :for [u (p-seq w [p-+ [p-alt <>-- :someRef]])]]
 
+  Again, u is also part of the matches.
+
+  Pattern Inheritance
+  ===================
+
   Patterns can be composed of other named patterns bound by either defpattern
   or letpattern using :extends clauses.
 
     (defpattern a-A [m] [a<A>])
     (defpattern b-B [m] [b<B>])
-    (defpattern a-b2 [m] [:extends [a-A
-                                    (b-B :b b2)]
+    (defpattern a-b2 [m] [:extends [a-A, (b-B :b b2)]
                           a --> b2])
 
   In the example above, the pattern a-b2 extends a-A, which means a-A's pattern
@@ -1145,6 +1183,41 @@
   denotes the pattern of the second version.  0, i.e., the first version, is
   the default.
 
+  Nested Patterns
+  ===============
+
+  A pattern can include nested pattern using :nested clauses.  Each :nested
+  clause contains arbitrary many symbol-pattern pairs.
+
+    [a<A> -<:d>-> d<D>
+     :nested [f1 [a -<:t>-> a1
+                  :nested [f2 [a1 -<:t>-> a2]]]]]
+
+  So in the example above, the outer pattern has one inner pattern whose
+  matches are bound to f1.  The nested pattern has another nested pattern whose
+  matches are bound to f2.  Each pattern has access to the preceeding variables
+  in the outer patterns, i.e., the first nested pattern can see a and d (and
+  actually uses a), and the innermost nested pattern can see a, d, and a1 (and
+  actually uses a1).
+
+  The matches of the pattern above have the following structure.
+
+    {:a a
+     :d d
+     :f1 ({:a1 a1
+           :f2 ({:a2 a2}
+                ...)}
+          ...)}
+
+  As can be seen, by default the elements already matched by an outer pattern
+  are omitted in the matches of inner patterns, e.g., the :f1 matches don't
+  include :a, and the :f2 matches don't include :a1.
+
+  The :f1 and :f2 values are lazy sequences of nested pattern matches.
+
+  Match Representation
+  ====================
+
   By default, the matches of a pattern are represented as maps from keywords
   named according to the pattern symbol identifiers to the matched elements.
 
@@ -1164,6 +1237,9 @@
   symmetry, there is also the shorthand :as :map which is equivalent to
   omitting the :as clause, i.e., matches are represented as maps.
 
+  Distinct Matches
+  ================
+
   Finally, a pattern may contain a :distinct modifier.  If there is one, the
   lazy seq of matches which is the result of a applying the pattern won't
   contain duplicates (where \"duplicates\" is defined by the :as clause).
@@ -1180,6 +1256,9 @@
     [x --> y     => 2 matches: #{n1 n1}, #{n1 n2}
      :as #{x y}
      :distinct]
+
+  Pattern Expansion Context
+  =========================
 
   The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
   models (or something else), is controlled by the option
