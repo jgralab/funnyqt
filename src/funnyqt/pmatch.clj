@@ -242,11 +242,12 @@
                                            :when     'Constraint
                                            :when-let 'ConstraintAndBinding
                                            'Binding))]
-             (tg/set-value! v :form
-                            (if (= :for cur)
-                              (str (pr-str (fnext pattern)) "]")
-                              (str "[" (str (pr-str cur)  " ")
-                                   (pr-str (fnext pattern)) "]")))
+             (binding [*print-meta* true]
+               (tg/set-value! v :form
+                              (if (= :for cur)
+                                (str (pr-str (fnext pattern)) "]")
+                                (str "[" (str (pr-str cur)  " ")
+                                     (pr-str (fnext pattern)) "]"))))
              ;; Create Precedes edges only for the pattern vertices that declare
              ;; the variables used in the constraint.
              (doseq [ex-v (remove
@@ -272,7 +273,8 @@
            (recur (vec (concat
                         [:let (vec (mapcat
                                     (fn [[npvar np]]
-                                      (let [new-bindings (binding-bound-vars np)
+                                      (let [pattern-meta (meta np)
+                                            new-bindings (binding-bound-vars np)
                                             new-pattern-els (pattern-bound-vars np)
                                             argvec (into [model-sym]
                                                          (clojure.set/intersection
@@ -289,7 +291,8 @@
                                             result-form (or result-form
                                                             (zipmap (map keyword new-only-bindings)
                                                                     new-only-bindings))]
-                                        [npvar `((pattern {:pattern-expansion-context ~*pattern-expansion-context*}
+                                        [npvar `((pattern ~(merge {:pattern-expansion-context *pattern-expansion-context*}
+                                                                  pattern-meta)
                                                           ~argvec ~(conj np :as result-form))
                                                  ~@argvec)]))
                                     (partition 2 (fnext pattern))))]
