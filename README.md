@@ -45,7 +45,7 @@ representation.
 
   - _funnyqt.emf_: The EMF-specific core API
   - _funnyqt.tg_: The TGraph-specific core API (JGraLab)
-  - _funnyqt.protocols_: Core functions working with both kinds of models/model
+  - _funnyqt.generic_: Core functions working with both kinds of models/model
     elements
 
 The **functional querying API** builds upon the core API and provides features
@@ -98,8 +98,12 @@ models using the [core.logic](http://github.com/clojure/core.logic) library.
   - _funnyqt.relational.tg_: TGraph-specific relations
 
 Based on the relational querying API, there's a **bidirectional transformation
-API**.  Such a transformation specifies correspondences between a left and a
-right model in terms of relations between elements in those models.  Such a
+API**.
+
+  - _funnyqt.bidi_: Bidirectional model transformations
+
+Such a transformation specifies correspondences between a left and a right
+model in terms of relations between elements in those models.  Such a
 transformation can be used to generate a new right model from a given left
 model and vice versa.  Additionally, it can be used to synchronize between two
 existing models in either direction.
@@ -140,6 +144,12 @@ The FunnyQT API docs generated for the current release are
   both BX'14 and ICMT'14, but I consider it to be my best paper so far anyway
   (and the only one about FunnyQT bidirectional transformations),
   http://userpages.uni-koblenz.de/~horn/mypapers/funnyqt-bidi2014.pdf
+
+- _Solving the TTC Movie Database Case with FunnyQT_, Tassilo Horn,
+  [TTC 2014](http://www.transformation-tool-contest.eu/solutions_movie.html)
+
+- _Solving the TTC FIXML Case with FunnyQT_, Tassilo Horn,
+  [TTC 2014](http://www.transformation-tool-contest.eu/solutions_fixml.html)
 
 # Getting FunnyQT
 
