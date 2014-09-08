@@ -1,6 +1,6 @@
 (ns funnyqt.polyfns-test
   (:require [funnyqt.tg        :as tg])
-  (:require [funnyqt.generic :as p])
+  (:require [funnyqt.generic   :as p])
   (:require [funnyqt.polyfns   :refer :all])
   (:require [funnyqt.utils     :as u])
   (:use [funnyqt.tg-test       :only [rg]])
@@ -34,14 +34,14 @@
 (try
   (aec-name-no-default (tg/first-vertex rg))
   (catch Exception e
-    (if (re-matches #"2 polyfns are applicable.*" (.getMessage e))
+    (if (re-matches #"Multiple polyfn impls for type junctions\.Airport\." (.getMessage e))
       (println "Tie in polyfn impls successfully detected.")
       (u/errorf "Tie in polyfn impls for aec-name-no-default not detected!"))))
 
 (try
   (aec-name-with-default (tg/first-vertex rg))
   (catch Exception e
-    (if (re-matches #"2 polyfns are applicable.*" (.getMessage e))
+    (if (re-matches #"Multiple polyfn impls for type junctions\.Airport\." (.getMessage e))
       (println "Tie in polyfn impls successfully detected.")
       (u/errorf "Tie in polyfn impls for aec-name-with-default not detected!"))))
 

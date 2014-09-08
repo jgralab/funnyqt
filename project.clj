@@ -10,7 +10,7 @@
   excellent Marginalia tool."
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.cache "0.6.4"]
-                 [de.uni-koblenz.ist/jgralab "7.7.14"]
+                 [de.uni-koblenz.ist/jgralab "7.7.15"]
                  [org.clojure/core.logic "0.8.8"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
@@ -19,7 +19,7 @@
   :profiles {:dev
              {:dependencies
               [[criterium "0.4.3"]
-               [org.clojure/tools.namespace "0.2.5"]]}}
+               [org.clojure/tools.namespace "0.2.6"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]

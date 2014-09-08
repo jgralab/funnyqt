@@ -7,7 +7,9 @@ element as first argument which is used to dispatch among implementations.
 Every polyfn has to be declared once using `declare-polyfn`, and then
 implementations for specific types map be provided using `defpolyfn`.  When a
 polyfn is called, the most specific implementation for the model element type
-is looked up and invoked.
+is invoked.  In case of multiple inheritance, a class inheriting two different
+implementations is an error.  It must provide an own implementation in order
+to remove ambiguities.
 
 Example
 -------
@@ -42,15 +44,13 @@ types is provided:
 
 ;;# Utility protocols
 
-(defn find-polyfn-impl [m t]
-  (loop [ts [t]]
-    (when (seq ts)
-      (let [fns (remove nil? (map #(m (g/qname %)) ts))]
-        (if (seq fns)
-          (if (fnext fns)
-            (u/errorf "%s polyfns are applicable for type %s" (count fns) t)
-            (first fns))
-          (recur (set (mapcat g/mm-direct-super-classes ts))))))))
+(defn find-polyfn-impl [spec-map t]
+  (or (spec-map (g/qname t))
+      (let [impls (map (partial find-polyfn-impl spec-map)
+                       (g/mm-direct-super-classes t))]
+        (if (fnext impls)
+          (u/errorf "Multiple polyfn impls for type %s." (g/qname t))
+          (first impls)))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
   (let [meta-map (meta polyfn-var)
