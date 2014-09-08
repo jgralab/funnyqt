@@ -72,7 +72,16 @@ types is provided:
   types are provided later using `defpolyfn`.  If an optional `body` is
   provided, this is executed if no implementation for `model-elem`s type was
   added using `defpolyfn`.  The default behavior in that case (i.e., `body`
-  omitted) is to throw an exception."
+  omitted) is to throw an exception.
+
+  By default, when a polyfn is called for the very first time a dispatch table
+  is computed which maps metamodel classes to the implementation for that type.
+  If the metamodel changes afterwards, then the dispatch table might be wrong
+  and needs to be recomputed which will happen if one reset!s
+  the ::polyfn-dispatch-table metadata atom to nil.  One can also omit building
+  a dispatch table by adding :no-dispatch-table metadata to the polyfn name.
+  In that case, the implementation is computed with each call and never
+  cached."
 
   {:arglists '([name doc-string? [model-elem & more] & body])}
   [name & more]
@@ -84,17 +93,28 @@ types is provided:
                     ::polyfn-spec-table     `(atom {})
                     ::polyfn-dispatch-table `(atom nil))
        ~argvec
-       (let [meta-map# (meta #'~name)
-             ~type-var (g/mm-class ~(first argvec))]
-         (when-not (deref (::polyfn-dispatch-table meta-map#))
-           (build-polyfn-dispatch-table #'~name ~type-var))
-         (let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
-           (if-let [f# (dispatch-map# ~type-var)]
-             (f# ~@argvec)
+       ~(if (:no-dispatch-table (meta (resolve name)))
+          `(if-let [f# (find-polyfn-impl @(::polyfn-spec-table (meta #'~name))
+                                         (g/mm-class ~(first argvec)))]
+             (f# ~argvec)
              (do
                ~@(or body
                      `[(u/errorf "No polyfn implementation defined for type %s"
-                                 (print-str ~type-var))]))))))))
+                                 (print-str (g/mm-class ~(first argvec))))])))
+          `(let [meta-map# (meta #'~name)
+                 ~type-var (g/mm-class ~(first argvec))
+                 call-impl# (fn [dispatch-map#]
+                              (if-let [f# (dispatch-map# ~type-var)]
+                                (f# ~@argvec)
+                                (do
+                                  ~@(or body
+                                        `[(u/errorf "No polyfn implementation defined for type %s"
+                                                    (print-str ~type-var))]))))]
+             (if-let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
+               (call-impl# dispatch-map#)
+               (do
+                 (build-polyfn-dispatch-table #'~name ~type-var)
+                 (call-impl# (deref (::polyfn-dispatch-table meta-map#))))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for objects of type `type`
