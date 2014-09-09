@@ -1,7 +1,9 @@
 (ns funnyqt.generic
   "Generic protocols extended upon many different types, and generic functions."
-  (:require [funnyqt.internal :as i]
-            [funnyqt.utils    :as u]))
+  (:require [clojure.string   :as str]
+            [funnyqt.internal :as i]
+            [funnyqt.utils    :as u]
+            inflections.core))
 
 ;;# Describing Elements
 
@@ -21,6 +23,15 @@
   where Integer is the key domain and String is the value domain.  Of course,
   that may be recursive, so [Map Integer [List String]] corresponds to the java
   domain Map<Integer, List<String>>."))
+
+;;# Uniqe Names
+
+(defprotocol IUniqueName
+  (uname [this]
+    "Returns the unique name of element class `this` as a symbol.
+  The unique name is the class' simple name if it is unique in the complete
+  metamodel, else, i.e., there's a foo.X and a bar.X class in the metamodel, it
+  is the qualified name."))
 
 ;;# Unset properties
 
@@ -341,3 +352,243 @@
     "Returns true if `role` (given as keyword) is a containment role,
   i.e., the target objects are contained my `class`."))
 
+;;# Metamodel-specific API generator
+
+(defn ^:private no-nils [coll]
+  (doall (remove nil? coll)))
+
+(defmacro metamodel-ns-generator
+  "A helper macro to generate metamodel specific APIs in some namespace.
+
+  `mm-file` is the file containing the metamodel (an ecore or tg file, or
+  something that's recognized by `mm-load`).
+
+  The `nssym` denotes the name of the namespace in which to generate the API.
+  If `nssym` is nil, generate it in the current namespace.
+
+  The new namespace (in case nssym was given) is required using the given
+  `alias` (if non-nil): (require '[nssym :as alias])
+
+  `prefix` is an optional prefix all generated functions should have given as
+  symbol or string.  (This is mainly useful if the functions are generated in
+  the current namespace in order not to clash with standard functions such as
+  clojure.core/name.)
+
+  `element-class-fn` is a function receiving a metamodel class and the
+  `prefix`.  It should return a valid definition-form, e.g., a (defn
+  <prefix>do-eclass [...]  ...).
+
+  `attr-fn` is a function receiving an attribute name as keyword, a set of
+  classes that have such an attribute, and the `prefix`.  It should return a
+  valid definition-form.
+
+  `ref-fn` is a function receiving a reference name as keyword, a set of
+  element classes that have such a reference, and the `prefix`.  It should
+  return a valid definition-form.
+
+  The functions are called with all classes/attributes/references of the
+  metamodel."
+  [mm-file nssym alias prefix element-class-fn attr-fn ref-fn]
+  (let [metamodel (mm-load mm-file)
+        atts (atom {}) ;; map from attribute kws to set of eclasses that have it
+        refs (atom {}) ;; map from reference kws to set of eclasses that have it
+        old-ns *ns*]
+    `(do
+       ~@(when nssym
+           `[(ns ~nssym
+               ;; Don't refer anything from clojure.core so that we don't get
+               ;; warnings about redefinitions.
+               (:refer-clojure :only []))
+             ;; Remove all java.lang imports so that clashes with generated
+             ;; vars cannot occur.
+             (doseq [[sym# cls#] (ns-imports *ns*)]
+               (ns-unmap *ns* sym#))])
+       ~@(concat
+          (no-nils
+           (for [mm-cls (mm-element-classes metamodel)]
+             (do
+               (doseq [a (mm-attributes mm-cls)]
+                 (swap! atts
+                        #(update-in %1 [%2] conj mm-cls)
+                        a))
+               (doseq [r (mm-references mm-cls)]
+                 (swap! refs
+                        #(update-in %1 [%2] conj mm-cls)
+                        r))
+             (when element-class-fn
+               ((resolve element-class-fn) mm-cls prefix)))))
+        (no-nils
+         (when attr-fn
+           (for [[a owners] @atts]
+             ((resolve attr-fn) a owners prefix))))
+        (no-nils
+         (when ref-fn
+           (for [[r owners] @refs]
+             ((resolve ref-fn) r owners prefix)))))
+       (in-ns '~(ns-name old-ns))
+       ~@(when alias
+           [`(require '~(vector nssym :as alias))]))))
+
+;;# Metamodel-specific functional API
+
+(defn ^:private create-element-class-fns [cls prefix]
+  `(do
+     ~(when-not (mm-abstract? cls)
+        `(defn ~(symbol (str prefix "create-" (uname cls) "!"))
+           ~(format "Creates a new %s object and adds it to model `m`.
+  Properties are set according to `prop-map`.
+  Shorthand for (create-element! m '%s prop-map)."
+                    (qname cls)
+                    (qname cls))
+           ([~'m]
+              (create-element! ~'m '~(qname cls)))
+           ([~'m ~'prop-map]
+              (create-element! ~'m '~(qname cls) ~'prop-map))))
+
+     (defn ~(symbol (let [n (uname cls)]
+                      (str prefix "all-" (inflections.core/plural (str n)))))
+       ~(format "Returns the sequence of %s elements in `m`.
+  Shorthand for (elements m '%s)."
+                (qname cls)
+                (qname cls))
+       [~'m]
+       (elements ~'m '~(qname cls)))
+
+     ;; TYPE PRED
+     (defn ~(symbol (str prefix "isa-" (uname cls) "?"))
+       ~(format "Returns true if `el` is a %s-element."
+                (qname cls))
+       [~'el]
+       (has-type? ~'el '~(qname cls)))))
+
+(defn ^:private create-attribute-fns [attr owners prefix]
+  (let [owner-string (str/join ", " (apply sorted-set (map qname owners)))]
+    `(do
+       (defn ~(symbol (str prefix (name attr)))
+         ~(format "Returns the value of `el`s %s attribute.
+  Possible types for `el`: %s"
+                  (name attr)
+                  owner-string)
+         [~'el]
+         (aval ~'el ~attr))
+       (defn ~(symbol (str prefix "set-" (name attr) "!"))
+         ~(format "Sets the value of `el`s %s attribute to `val`.
+  Possible types for `el`: %s"
+                  (name attr)
+                  owner-string)
+         [~'el ~'val]
+         (set-aval! ~'el ~attr ~'val)))))
+
+(defn ^:private create-reference-fns [ref owners prefix]
+  (let [multi? (group-by (fn [cls]
+                           (mm-multi-valued-property? cls ref))
+                         owners)
+        owner-string (str/join ", " (apply sorted-set (map qname owners)))]
+    `(do
+       ;; GETTER
+       (defn ~(symbol (str prefix "->" (name ref)))
+         ~(format "Returns the %s in `el`s %s reference.
+  Possible types for `el`: %s"
+                  (cond
+                   ;; This ref is always multi-valued
+                   (and (multi? true) (not (multi? false))) "objects"
+                   ;; This ref is always single-valued
+                   (and (not (multi? true)) (multi? false)) "object"
+                   :else "object[s]")
+                  (name ref)
+                  owner-string)
+         [~'el]
+         (if (mm-multi-valued-property? (mm-class ~'el) ~ref)
+           (adjs ~'el ~ref)
+           (adj ~'el ~ref)))
+
+       ;; SETTER
+       (defn ~(symbol (str prefix "->set-" (name ref) "!"))
+         ~(format "Sets `el`s %s reference to `refed`.
+  `refed` must be a %s.
+  Possible types for `el`: %s"
+                  (name ref)
+                  (cond
+                   ;; This ref is always multi-valued
+                   (and (multi? true) (not (multi? false))) "collection of objects"
+                   ;; This ref is always single-valued
+                   (and (not (multi? true)) (multi? false)) "single object"
+                   :else "single object or coll of objects, depending on `el`s type")
+                  owner-string)
+         [~'el ~'refed]
+         (if (mm-multi-valued-property? (mm-class ~'el) ~ref)
+           (set-adjs! ~'el ~ref ~'refed)
+           (set-adj! ~'el ~ref ~'refed)))
+
+       ;; ADDER
+       ~@(when (multi? true)
+           `[(defn ~(symbol (str prefix "->add-" (name ref) "!"))
+               ~(format "Adds `obj` and `more` elements to `el`s %s reference.
+  Possible types for `el`: %s"
+                        (name ref)
+                        owner-string)
+               [~'el ~'obj ~'& ~'more]
+               (add-adj! ~'el ~ref ~'obj)
+               (doseq [o# ~'more]
+                 (add-adj! ~'el ~ref o#))
+               ~'el)
+             (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
+               ~(format "Adds all `objs` to `el`s %s reference.
+  Possible types for `el`: %s"
+                        (name ref)
+                        owner-string)
+               [~'el ~'objs]
+               (add-adjs! ~'el ~ref ~'objs))]))))
+
+(defmacro generate-metamodel-functions
+  "Generates a metamodel-specific API consisting of functions for creating
+  elements and functions for accessing properties (attributes and references).
+
+  `mm-file` is the file containing the metamodel for which to generate the API.
+  This file must be loadable with `mm-load` which see.
+
+  `nssym` is a symbol denoting the new namespace in which to generate.  It may
+  be nil in which case the current namespace is used.
+
+  `alias` is an alias under which the newly generated namespace will be
+  required.
+
+  `prefix` is an optional prefix all generated functions should use.  (That's
+  mostly useful when generating in an existing namespace to prevent name
+  clashes.)
+
+  The following functions are generated:
+
+  For any element class Foo in the metamodel, a (create-Foo! model) function,
+  an (all-Foos model) function, and a (isa-Foo? el) type check predicate is
+  generated.
+
+  For any attribute name attr, the following functions are generated:
+
+    (attr el)          ;; Returns the attr value of el
+    (set-attr! el val) ;; Sets the attr value of el to val
+
+  For any reference name ref, the following functions are generated:
+
+    (->ref el)                  ;; Returns the element(s) in el's ref role
+    (->set-ref! el refed)       ;; Sets el's ref reference to refed
+    (->add-ref! el r1 r2 r3...) ;; Adds r1, r2, and r3 to el's ref reference
+    (->addall-ref! el rs)       ;; Adds all elements in rs to el's ref reference
+
+  The add-* functions are only generated if ref occurs as a multi-valued
+  reference.  If el's ref-reference is multi-valued, then the setter wants a
+  collection of elements, else a single element."
+  ([mm-file]
+     `(generate-metamodel-functions ~mm-file nil nil nil))
+  ([mm-file nssym]
+     `(generate-metamodel-functions ~mm-file ~nssym nil nil))
+  ([mm-file nssym alias]
+     `(generate-metamodel-functions ~mm-file ~nssym ~alias nil))
+  ([mm-file nssym alias prefix]
+     `(metamodel-ns-generator ~mm-file
+                              ~nssym
+                              ~alias
+                              ~prefix
+                              create-element-class-fns
+                              create-attribute-fns
+                              create-reference-fns)))

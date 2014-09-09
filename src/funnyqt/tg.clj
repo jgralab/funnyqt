@@ -260,6 +260,14 @@ functions `record` and `enum-constant`."
   (qname [d]
     (symbol (.getQualifiedName d))))
 
+(extend-protocol g/IUniqueName
+  NamedElement
+  (uname [nec]
+    (symbol (.getUniqueName nec)))
+  AttributedElement
+  (uname [ae]
+    (g/uname (.getAttributedElementClass ae))))
+
 (extend-protocol g/IMMAbstract
   GraphElementClass
   (mm-abstract? [this]
@@ -419,8 +427,9 @@ functions `record` and `enum-constant`."
   VertexClass
   (mm-references [vc]
     (mapcat (fn [^IncidenceClass ic]
-              (when-let [role (.getRolename ic)]
-                [(keyword role)]))
+              (let [role (.getRolename ic)]
+                (when (seq role)
+                  [(keyword role)])))
             (concat (.getValidToFarIncidenceClasses vc)
                     (.getValidFromFarIncidenceClasses vc)))))
 

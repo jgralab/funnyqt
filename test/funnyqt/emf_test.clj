@@ -331,52 +331,85 @@
                                 test.functional.families.emf
                                 fams)
 
+(g/generate-metamodel-functions "test/input/Families.ecore"
+                                test.functional.families.generic-emf
+                                gfams)
+
 (deftest test-generated-api
   (let [m (new-resource)
-        root (fams/create-FamilyModel! m)
+        root (gfams/create-FamilyModel! m)
         fam  (fams/create-Family! nil)
         m1   (fams/create-Member! nil {:firstName "Ben"})
         m2   (fams/create-Member! nil)]
     (is (= "Ben"
            (eget m1 :firstName)
-           (fams/firstName m1)))
+           (fams/firstName m1)
+           (gfams/firstName m1)))
 
     (is (and
          (fams/isa-Member? m1)
          (fams/isa-Member? m2)
          (fams/isa-Family? fam)
-         (fams/isa-FamilyModel? root)))
+         (fams/isa-FamilyModel? root)
+         (gfams/isa-Member? m1)
+         (gfams/isa-Member? m2)
+         (gfams/isa-Family? fam)
+         (gfams/isa-FamilyModel? root)))
 
     (is (= false
            (fams/isa-Member? fam)
            (fams/isa-Family? root)
-           (fams/isa-FamilyModel? m1)))
+           (fams/isa-FamilyModel? m1)
+           (gfams/isa-Member? fam)
+           (gfams/isa-Family? root)
+           (gfams/isa-FamilyModel? m1)))
 
     (fams/set-firstName! m1 "Bob")
     (is (= "Bob"
            (eget m1 :firstName)
-           (fams/firstName m1)))
+           (fams/firstName m1)
+           (gfams/firstName m1)))
+
+    (gfams/set-firstName! m1 "Bobby")
+    (is (= "Bobby"
+           (eget m1 :firstName)
+           (fams/firstName m1)
+           (gfams/firstName m1)))
 
     (fams/->add-sons! fam m1 m2)
     (is (= [m1 m2]
            (eget fam :sons)
-           (fams/->sons fam)))
+           (fams/->sons fam)
+           (gfams/->sons fam)))
 
     (fams/->set-sons! fam [m2 m1])
     (is (= [m2 m1]
            (eget fam :sons)
-           (fams/->sons fam)))
+           (fams/->sons fam)
+           (gfams/->sons fam)))
+
+    (fams/->set-sons! fam [m1 m2])
+    (is (= [m1 m2]
+           (eget fam :sons)
+           (fams/->sons fam)
+           (gfams/->sons fam)))
 
     (fams/->add-families! root fam)
-    (fams/->addall-members! root [m1 m2])
+    (gfams/->addall-members! root [m1 m2])
     (is (= [m1 m2]
            (eget root :members)
-           (fams/->members root)))
+           (fams/->members root)
+           (gfams/->members root)))
 
-    (is (= (eallcontents m 'FamilyModel) (fams/eall-FamilyModels m)))
-    (is (= (eallcontents m 'Member)      (fams/eall-Members m)))
-    (is (= (eallcontents m 'Family)      (fams/eall-Families m)))
-    ))
+    (is (= (eallcontents m 'FamilyModel)
+           (fams/eall-FamilyModels m)
+           (gfams/all-FamilyModels m)))
+    (is (= (eallcontents m 'Member)
+           (fams/eall-Members m)
+           (gfams/all-Members m)))
+    (is (= (eallcontents m 'Family)
+           (fams/eall-Families m)
+           (gfams/all-Families m)))))
 
 (load-ecore-resource "test/input/AddressBook.ecore")
 

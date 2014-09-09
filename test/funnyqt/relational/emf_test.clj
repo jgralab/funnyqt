@@ -42,11 +42,11 @@
                (families/+firstName family-model ?elem ?val)
                (== q [?elem ?val]))))))
 
-(t/deftest test-adjo
+(t/deftest test-refo
   (let [fam-carter (q/the #(= "Carter" (emf/eget % :lastName))
                           (emf/eallcontents family-model 'Family))]
     (t/is (= (g/adjs fam-carter :daughters)
              (run* [q]
-               (adjo family-model fam-carter :daughters q))
+               (refo family-model fam-carter :daughters q))
              (run* [q]
                (families/+->daughters family-model fam-carter q))))))

@@ -248,64 +248,96 @@
                            test.functional.routemap.tg
                            rg)
 
+(g/generate-metamodel-functions "test/input/greqltestgraph.tg"
+                                test.functional.routemap.generic-tg
+                                grg)
+
 (deftest test-generated-functional-api
   (let [g (new-graph (schema rg))
         ^Vertex city (rg/create-City! g {:name "Ebernhahn"})
         ^Vertex cr1  (rg/create-Plaza! g {:name "Rathausplatz"})
-        ^Vertex cr2  (rg/create-Plaza! g {:name "Schulplatz"})
+        ^Vertex cr2  (grg/create-Plaza! g {:name "Schulplatz"})
         hcr1  (rg/create-ContainsCrossroad! g city cr1)
         hcr2  (rg/create-ContainsCrossroad! g city cr2)]
     (is (vertex? city))
-    (is (g/has-type? city 'City!))
-    (is (= "Ebernhahn" (value city :name) (rg/name city)))
+    (is (and (g/has-type? city 'City!)
+             (rg/isa-City? city)
+             (grg/isa-City? city)))
+    (is (= "Ebernhahn"
+           (value city :name)
+           (rg/name city)
+           (grg/name city)))
 
     (is (vertex? cr1))
     (is (and
          (g/has-type? cr1 'Plaza)
          (rg/isa-Plaza? cr1)
+         (grg/isa-Plaza? cr1)
          (rg/isa-Junction? cr1)
+         (grg/isa-Junction? cr1)
          (not (rg/isa-City? cr1))
+         (not (grg/isa-City? cr1))
          (not (rg/isa-Street? cr1))))
 
-    (is (= "Rathausplatz" (value cr1 :name) (rg/name cr1)))
+    (is (= "Rathausplatz"
+           (value cr1 :name)
+           (rg/name cr1)
+           (grg/name cr1)))
 
     (is (edge? hcr1))
     (is (g/has-type? hcr1 'ContainsCrossroad))
 
-    ;; both should return the city vertex
+    ;; all should return the city vertex
     (is (= city
            (set-value! city :name "Dernbach")
-           (rg/set-name! city "Dernbach")))
-    (is (= "Dernbach" (rg/name city)))
+           (rg/set-name! city "Dernbach")
+           (grg/set-name! city "Dernbach")))
+    (is (= "Dernbach"
+           (rg/name city)
+           (grg/name city)))
 
     (is (= [cr1 cr2]
            (.adjacences city "crossroads")
-           (rg/->crossroads city)))
+           (rg/->crossroads city)
+           (grg/->crossroads city)))
 
     (is (= city
            (first (.adjacences cr1 "locality"))
            (first (.adjacences cr2 "locality"))
            (rg/->locality cr1)
-           (rg/->locality cr2)))
+           (grg/->locality cr1)
+           (rg/->locality cr2)
+           (grg/->locality cr2)))
 
     (rg/->set-crossroads! city [])
     (is (= []
            (.adjacences city "crossroads")
-           (funnyqt.generic/adjs city :crossroads)
-           (rg/->crossroads city)))
+           (g/adjs city :crossroads)
+           (rg/->crossroads city)
+           (grg/->crossroads city)))
 
     (rg/->set-crossroads! city [cr2 cr1])
     (is (= [cr2 cr1]
            (.adjacences city "crossroads")
-           (funnyqt.generic/adjs city :crossroads)
-           (rg/->crossroads city)))
+           (g/adjs city :crossroads)
+           (rg/->crossroads city)
+           (grg/->crossroads city)))
+
+    (grg/->set-crossroads! city [cr1 cr2])
+    (is (= [cr1 cr2]
+           (.adjacences city "crossroads")
+           (g/adjs city :crossroads)
+           (rg/->crossroads city)
+           (grg/->crossroads city)))
 
     (rg/->add-crossroads! city cr1)
-    (rg/->addall-crossroads! city [cr1 cr1])
-    (is (= [cr2 cr1 cr1 cr1 cr1]
+    (rg/->addall-crossroads! city [cr2 cr1])
+    (is (= [cr1 cr2 cr1 cr2 cr1]
            (.adjacences city "crossroads")
-           (funnyqt.generic/adjs city :crossroads)
-           (rg/->crossroads city)))))
+           (g/adjs city :crossroads)
+           (rg/->crossroads city)
+           (grg/->crossroads city)))))
+
 ;;* More tests
 
 (deftest test-adjs
