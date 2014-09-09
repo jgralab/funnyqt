@@ -44,12 +44,13 @@ types is provided:
 
 ;;# Utility protocols
 
-(defn find-polyfn-impl [spec-map t]
+(defn find-polyfn-impl [polyfn-sym spec-map t]
   (or (spec-map (g/qname t))
-      (let [impls (map (partial find-polyfn-impl spec-map)
-                       (g/mm-direct-super-classes t))]
+      (let [impls (remove nil? (map (partial find-polyfn-impl polyfn-sym spec-map)
+                                    (g/mm-direct-super-classes t)))]
         (if (fnext impls)
-          (u/errorf "Multiple polyfn impls for type %s." (g/qname t))
+          (u/errorf "Multiple %s polyfn impls for type %s."
+                    polyfn-sym (g/qname t))
           (first impls)))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
@@ -57,7 +58,8 @@ types is provided:
         spec-map (deref (::polyfn-spec-table meta-map))
         dispatch-map-atom (::polyfn-dispatch-table meta-map)]
     (let [dm (apply hash-map (mapcat (fn [c]
-                                       (when-let [pfn (find-polyfn-impl spec-map c)]
+                                       (when-let [pfn (find-polyfn-impl (:name meta-map)
+                                                                        spec-map c)]
                                          [c pfn]))
                                      (g/mm-classes cls)))]
       (reset! dispatch-map-atom dm))))
@@ -79,42 +81,49 @@ types is provided:
   If the metamodel changes afterwards, then the dispatch table might be wrong
   and needs to be recomputed which will happen if one reset!s
   the ::polyfn-dispatch-table metadata atom to nil.  One can also omit building
-  a dispatch table by adding :no-dispatch-table metadata to the polyfn name.
-  In that case, the implementation is computed with each call and never
-  cached."
+  a dispatch table by adding :no-dispatch-table metadata to the polyfn name or
+  by setting it to true in the polyfn's `attr-map`.  In that case, the
+  implementation is computed with each call and never cached."
 
-  {:arglists '([name doc-string? [model-elem & more] & body])}
+  {:arglists '([name doc-string? attr-map? [model-elem & more] & body])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
+        [attr-map more] (if (map? (first more))
+                          [(first more) (rest more)]
+                          [{} more])
         argvec      (first more)
         body        (next more)
-        type-var    (gensym "type__")]
-    `(defn ~name ~(assoc (meta name)
-                    ::polyfn-spec-table     `(atom {})
-                    ::polyfn-dispatch-table `(atom nil))
+        type-var    (gensym "type__")
+        attr-map    (let [am (merge (meta name)
+                                    attr-map
+                                    {::polyfn-spec-table `(atom {})})]
+                      (if (:no-dispatch-table am)
+                        am
+                        (assoc am ::polyfn-dispatch-table `(atom nil))))]
+    `(defn ~name ~attr-map
        ~argvec
-       ~(if (:no-dispatch-table (meta (resolve name)))
-          `(if-let [f# (find-polyfn-impl @(::polyfn-spec-table (meta #'~name))
+       ~(if (:no-dispatch-table attr-map)
+          `(if-let [f# (find-polyfn-impl (:name (meta #'~name))
+                                         @(::polyfn-spec-table (meta #'~name))
                                          (g/mm-class ~(first argvec)))]
              (f# ~argvec)
              (do
                ~@(or body
                      `[(u/errorf "No polyfn implementation defined for type %s"
                                  (print-str (g/mm-class ~(first argvec))))])))
-          `(let [meta-map# (meta #'~name)
-                 ~type-var (g/mm-class ~(first argvec))
-                 call-impl# (fn [dispatch-map#]
+          `(let [~type-var  (g/mm-class ~(first argvec))
+                 call-impl# (fn [dispatch-map# ~type-var]
                               (if-let [f# (dispatch-map# ~type-var)]
                                 (f# ~@argvec)
                                 (do
                                   ~@(or body
                                         `[(u/errorf "No polyfn implementation defined for type %s"
                                                     (print-str ~type-var))]))))]
-             (if-let [dispatch-map# (deref (::polyfn-dispatch-table meta-map#))]
-               (call-impl# dispatch-map#)
+             (if-let [dispatch-map# @(::polyfn-dispatch-table (meta #'~name))]
+               (call-impl# dispatch-map# ~type-var)
                (do
                  (build-polyfn-dispatch-table #'~name ~type-var)
-                 (call-impl# (deref (::polyfn-dispatch-table meta-map#))))))))))
+                 (call-impl# @(::polyfn-dispatch-table (meta #'~name)) ~type-var))))))))
 
 (defmacro defpolyfn
   "Defines an implementation of the polyfn `name` for objects of type `type`
@@ -134,7 +143,7 @@ types is provided:
       (u/errorf "#'%s is not declared as a polyfn." name))
     `(do
        ~@(for [type (if (seq? types) types [types])]
-           (let [^String n    (clojure.core/name type)]
+           (let [^String n (clojure.core/name type)]
              (when-not (symbol? type)
                (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
                          type (class type)))
@@ -143,7 +152,9 @@ types is provided:
                (u/errorf "The type given to defpolyfn must be a plain qname symbol but was %s."
                          type))
              ;; Update the specs
-             `(swap! (::polyfn-spec-table (meta (var ~name)))
+             `(swap! (::polyfn-spec-table (meta #'~name))
                      assoc '~type (fn ~argvec ~@body))))
-       ;; Reset the dispatch table
-       (reset! (::polyfn-dispatch-table (meta (var ~name))) nil))))
+       ;; Reset the dispatch table if it's a polyfn without :no-dispatch-table
+       ;; metadata
+       (when-not (:no-dispatch-table (meta #'~name))
+         (reset! (::polyfn-dispatch-table (meta #'~name)) nil)))))
