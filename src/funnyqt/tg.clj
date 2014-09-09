@@ -131,6 +131,8 @@ functions `record` and `enum-constant`."
              (.invoke im nil (to-array []))))
          s))))
 
+(alter-var-root #'g/mm-load-handlers assoc #".*\.tg(z|\.gz)?$" load-schema)
+
 (defn save-schema
   "Saves schema `s` to `file`."
   [^Schema g ^String file]
@@ -360,12 +362,25 @@ functions `record` and `enum-constant`."
   AttributedElementClass
   (meta-model-object? [this] true))
 
-(extend-protocol g/IMMClasses
+(extend-protocol g/IMMElementClasses
   GraphElementClass
-  (mm-classes [aec]
+  (mm-element-classes [aec]
     (let [^GraphClass gc (.getGraphClass aec)]
-      (concat (.getVertexClasses gc)
-              (.getEdgeClasses gc)))))
+      (.getVertexClasses gc)))
+  Schema
+  (mm-element-classes [schema]
+    (let [^GraphClass gc (.getGraphClass schema)]
+      (.getVertexClasses gc))))
+
+(extend-protocol g/IMMRelationshipClasses
+  GraphElementClass
+  (mm-relationship-classes [aec]
+    (let [^GraphClass gc (.getGraphClass aec)]
+      (.getEdgeClasses gc)))
+  Schema
+  (mm-relationship-classes [schema]
+    (let [^GraphClass gc (.getGraphClass schema)]
+      (.getEdgeClasses gc))))
 
 (extend-protocol g/IMMClass
   AttributedElement

@@ -187,11 +187,14 @@
   ^org.eclipse.emf.ecore.EObject [^EObject eo]
   (.eClass eo))
 
+(declare eallcontents)
 (defn eclasses
   "Returns the lazy seq of EClasses known by the global registry.
   Also see: `with-ns-uris`"
-  []
-  (filter eclass? (eclassifiers)))
+  ([]
+     (filter eclass? (eclassifiers)))
+  ([ecore-resource]
+     (filter eclass? (eallcontents ecore-resource))))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
@@ -273,10 +276,27 @@
   EClass
   (meta-model-object? [this] true))
 
-(extend-protocol g/IMMClasses
+(extend-protocol g/IMMElementClasses
   EClass
-  (mm-classes [cls]
-    (eclasses)))
+  (mm-element-classes [cls]
+    (eclasses))
+  Resource
+  (mm-element-classes [res]
+    (eclasses res))
+  ResourceSet
+  (mm-element-classes [rs]
+    (eclasses rs)))
+
+(extend-protocol g/IMMRelationshipClasses
+  EClass
+  (mm-relationship-classes [cls]
+    nil)
+  Resource
+  (mm-relationship-classes [res]
+    nil)
+  ResourceSet
+  (mm-relationship-classes [rs]
+    nil))
 
 (extend-protocol g/IMMClass
   EObject
@@ -396,6 +416,8 @@
     (register-epackages
      (all-epackages-in-resource res))
     res))
+
+(alter-var-root #'g/mm-load-handlers assoc #".*\.ecore$" load-ecore-resource)
 
 (defn save-resource
   "Saves the given `resource`.  If given a file `f`, saves to it.
@@ -942,18 +964,6 @@
   ([r src-rs trg-rs src-ts trg-ts]
      (epairs-internal r erefs src-rs trg-rs src-ts trg-ts)))
 
-(extend-protocol g/IRelationships
-  Resource
-  (relationships
-    ([this]
-       (epairs this))
-    ([this [src-rs [s t]]]
-       (let [src-role (when (keyword? s) s)
-             src-cls  (when (symbol? s) s)
-             trg-role (when (keyword? t) t)
-             trg-cls  (when (symbol? t) t)]
-         (epairs this src-role trg-role src-cls trg-cls)))))
-
 (defn ecrosspairs
   "Returns the lazy seq of all cross-reference edges in `r` in terms of [src trg] pairs.
   `r` may be a Resource or ResourceSet.  Restrictions may be defined in terms
@@ -1311,7 +1321,7 @@
                                (all-epackages-in-resource ecore-model))
              (concat
               (no-nils
-               (for [^EClass ecl (eclasses)]
+               (for [^EClass ecl (eclasses ecore-model)]
                  (do
                    (doseq [a (map #(keyword (.getName ^EAttribute %))
                                   (seq (.getEAttributes ecl)))]

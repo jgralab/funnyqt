@@ -1,6 +1,7 @@
 (ns funnyqt.generic
   "Generic protocols extended upon many different types, and generic functions."
-  (:require [funnyqt.internal :as i]))
+  (:require [funnyqt.internal :as i]
+            [funnyqt.utils    :as u]))
 
 ;;# Describing Elements
 
@@ -81,14 +82,10 @@
     "Returns the lazy sequence of elements in `model` restricted by `type-spec`."))
 
 (defprotocol IRelationships
-  (relationships [model] [modes spec]
-    "Returns the lazy seq of relationships en `model` restricted by `spec`.
-  The value of spec is framework specific.  For TGraphs it's a symbol denoting
-  an EdgeClass name, and for EMF it's a vector [src trg] of source and target
-  reference names given as keyword, or source and target classes given as
-  symbols.  Both may be nil meaning to accept any reference.  The return value
-  is also framework specific.  For TGraphs it's a seq of Edges, for EMF it's a
-  seq of [src-eobject trg-eobject] tuples."))
+  (relationships [model] [modes type-spec]
+    "Returns the lazy seq of relationships in `model` restricted by `type-spec`.
+  This is intended to be extended upon models with first-class edges such as
+  JGraLab where `type-spec` is a type specification on edge classes."))
 
 ;;# Generic access to enumeration constants
 
@@ -270,7 +267,20 @@
   nil
   (meta-model-object? [this] false))
 
-;;# Metamodel Protocols
+;;# Metamodel Access & Metamodel Protocols
+
+(defonce ^{:doc "A map from regular expressions to functions to load a metamodel."}
+  mm-load-handlers
+  {})
+
+(defn mm-load [file]
+  (loop [handlers mm-load-handlers]
+    (if (seq handlers)
+      (let [[rx handler] (first handlers)]
+        (if (re-matches rx file)
+          (handler file)
+          (recur (rest handlers))))
+      (u/errorf "No mm-load-handler for %s." file))))
 
 (defprotocol IMMAbstract
   "A protocol for checking if an element class is abstract."
@@ -287,9 +297,15 @@
   (mm-abstract? [this]
     (java.lang.reflect.Modifier/isAbstract (.getModifiers this))))
 
-(defprotocol IMMClasses
-  (mm-classes [cls]
-    "Returns all classes in the metamodel containing `cls`."))
+(defprotocol IMMElementClasses
+  (mm-element-classes [mm-or-cls]
+    "Returns all element classes in the metamodel `mm-or-cls` or in the
+    metamodel containing class `mm-or-cls`."))
+
+(defprotocol IMMRelationshipClasses
+  (mm-relationship-classes [mm-or-cls]
+    "Returns all relationship classes in the metamodel `mm-or-cls` or in the
+    metamodel containing class `mm-or-cls`."))
 
 (defprotocol IMMClass
   (mm-class [model-element] [model mm-class-sym]

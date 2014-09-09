@@ -61,7 +61,8 @@ types is provided:
                                        (when-let [pfn (find-polyfn-impl (:name meta-map)
                                                                         spec-map c)]
                                          [c pfn]))
-                                     (g/mm-classes cls)))]
+                                     (concat (g/mm-element-classes cls)
+                                             (g/mm-relationship-classes cls))))]
       (reset! dispatch-map-atom dm))))
 
 ;;# Polyfns
