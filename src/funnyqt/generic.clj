@@ -321,6 +321,16 @@
     "Return true iff super is a direct or indirect super class of sub.
   (mm-super-class? c c) is false."))
 
+(defprotocol IMMAttributes
+  (mm-attributes [cls]
+    "Returns the sequence of attributes declared for class `cls`.
+  Each attribute is represented as a keyword."))
+
+(defprotocol IMMReferences
+  (mm-references [cls]
+    "Returns the sequence of references declared for class `cls`.
+  Each attribute is represented as a keyword."))
+
 (defprotocol IMMMultiValuedProperty
   (mm-multi-valued-property? [cls prop]
     "Returns true iff `prop` (given as keyword) is a multi-valued property

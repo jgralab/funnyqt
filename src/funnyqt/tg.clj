@@ -57,7 +57,7 @@ functions `record` and `enum-constant`."
                                   ListDomain SetDomain MapDomain
                                   AttributedElementClass NamedElement
                                   GraphClass VertexClass EdgeClass Attribute
-                                  GraphElementClass)
+                                  GraphElementClass IncidenceClass)
    (de.uni_koblenz.jgralab.schema.impl DirectedSchemaEdgeClass)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
    (de.uni_koblenz.jgralab.schema.codegenerator CodeGeneratorConfiguration)
@@ -407,6 +407,22 @@ functions `record` and `enum-constant`."
   GraphElementClass
   (mm-super-class? [this sub]
     (.isSuperClassOf this sub)))
+
+(extend-protocol g/IMMAttributes
+  AttributedElementClass
+  (mm-attributes [aec]
+    (map (fn [^Attribute attr]
+           (keyword (.getName attr)))
+         (.getOwnAttributeList aec))))
+
+(extend-protocol g/IMMReferences
+  VertexClass
+  (mm-references [vc]
+    (mapcat (fn [^IncidenceClass ic]
+              (when-let [role (.getRolename ic)]
+                [(keyword role)]))
+            (concat (.getValidToFarIncidenceClasses vc)
+                    (.getValidFromFarIncidenceClasses vc)))))
 
 (extend-protocol g/IMMMultiValuedProperty
   AttributedElementClass

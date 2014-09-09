@@ -325,6 +325,20 @@
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 
+(extend-protocol g/IMMAttributes
+  EClass
+  (mm-attributes [cls]
+    (map (fn [^EAttribute attr]
+           (keyword (.getName attr)))
+         (.getEAttributes cls))))
+
+(extend-protocol g/IMMReferences
+  EClass
+  (mm-references [cls]
+    (map (fn [^EReference ref]
+           (keyword (.getName ref)))
+         (.getEReferences cls))))
+
 (extend-protocol g/IMMMultiValuedProperty
   EClass
   (mm-multi-valued-property? [cls prop]
