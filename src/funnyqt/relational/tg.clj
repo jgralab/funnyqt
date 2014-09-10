@@ -482,11 +482,11 @@
   ([schema-file nssym alias]
      `(generate-schema-relations ~schema-file ~nssym ~alias nil))
   ([schema-file nssym alias prefix]
-     `(tg/schema-ns-generator ~schema-file
-                              ~nssym
-                              ~alias
-                              ~prefix
-                              create-vc-relations
-                              create-ec-relations
-                              create-attr-relations
-                              create-reference-relations)))
+     `(tg/schema-api-generator ~schema-file
+                               ~nssym
+                               ~alias
+                               ~prefix
+                               create-vc-relations
+                               create-ec-relations
+                               create-attr-relations
+                               create-reference-relations)))

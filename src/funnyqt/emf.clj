@@ -339,6 +339,12 @@
            (keyword (.getName ref)))
          (.getEReferences cls))))
 
+(extend-protocol g/IMMBooleanAttribute
+  EClass
+  (mm-boolean-attribute? [ec attr]
+    (let [^EAttribute ea (.getEStructuralFeature ec (name attr))]
+      (= "EBoolean" (.getName (.getEAttributeType ea))))))
+
 (extend-protocol g/IMMMultiValuedProperty
   EClass
   (mm-multi-valued-property? [cls prop]
@@ -1300,7 +1306,7 @@
 (defn ^:private no-nils [coll]
   (doall (remove nil? coll)))
 
-(defmacro ecore-model-ns-generator
+(defmacro ecore-model-api-generator
   "A helper macro to generate metamodel specific APIs in some namespace.
 
   `ecore-file` is the ecore file containing the metamodel.
@@ -1411,9 +1417,9 @@
 (defn ^:private create-eattribute-fns [attr owners prefix]
   (let [bool? (group-by (fn [^EClass ec]
                           (let [^EAttribute ea (.getEStructuralFeature ec (name attr))]
-                            (= "Boolean" (-> ea
-                                             .getEAttributeType
-                                             .getName))))
+                            (= "EBoolean" (-> ea
+                                              .getEAttributeType
+                                              .getName))))
                         owners)]
     `(do
        ~@(when (bool? true)
@@ -1541,7 +1547,7 @@
   ([ecore-file nssym alias]
      `(generate-ecore-model-functions ~ecore-file ~nssym ~alias nil))
   ([ecore-file nssym alias prefix]
-     `(ecore-model-ns-generator ~ecore-file
+     `(ecore-model-api-generator ~ecore-file
                                 ~nssym
                                 ~alias
                                 ~prefix

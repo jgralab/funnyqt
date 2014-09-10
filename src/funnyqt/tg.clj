@@ -433,6 +433,13 @@ functions `record` and `enum-constant`."
             (concat (.getValidToFarIncidenceClasses vc)
                     (.getValidFromFarIncidenceClasses vc)))))
 
+(extend-protocol g/IMMBooleanAttribute
+  AttributedElementClass
+  (mm-boolean-attribute? [aec attr]
+    (-> (.getAttribute aec (name attr))
+        .getDomain
+        .isBoolean)))
+
 (extend-protocol g/IMMMultiValuedProperty
   AttributedElementClass
   (mm-multi-valued-property? [cls prop]
@@ -1738,7 +1745,7 @@ functions `record` and `enum-constant`."
 (defn ^:private no-nils [coll]
   (doall (remove nil? coll)))
 
-(defmacro schema-ns-generator
+(defmacro schema-api-generator
   "A helper macro for generating a schema-specific API in some namespace.
   The namespace is named `nssym`.  If that's nil, then use the current
   namespace.
@@ -2098,7 +2105,7 @@ functions `record` and `enum-constant`."
   ([schema-file nssym alias]
      `(generate-schema-functions ~schema-file ~nssym ~alias nil))
   ([schema-file nssym alias prefix]
-     `(schema-ns-generator ~schema-file
+     `(schema-api-generator ~schema-file
                            ~nssym
                            ~alias
                            ~prefix

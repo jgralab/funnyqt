@@ -342,6 +342,11 @@
     "Returns the sequence of references declared for class `cls`.
   Each attribute is represented as a keyword."))
 
+(defprotocol IMMBooleanAttribute
+  (mm-boolean-attribute? [cls attr]
+    "Returns true iff `attr` (given as keyword) is a boolean attribute of
+  metamodel class `cls`."))
+
 (defprotocol IMMMultiValuedProperty
   (mm-multi-valued-property? [cls prop]
     "Returns true iff `prop` (given as keyword) is a multi-valued property
@@ -357,7 +362,7 @@
 (defn ^:private no-nils [coll]
   (doall (remove nil? coll)))
 
-(defmacro metamodel-ns-generator
+(defmacro metamodel-api-generator
   "A helper macro to generate metamodel specific APIs in some namespace.
 
   `mm-file` is the file containing the metamodel (an ecore or tg file, or
@@ -462,15 +467,27 @@
        (has-type? ~'el '~(qname cls)))))
 
 (defn ^:private create-attribute-fns [attr owners prefix]
-  (let [owner-string (str/join ", " (apply sorted-set (map qname owners)))]
+  (let [owner-string (str/join ", " (apply sorted-set (map qname owners)))
+        bool? (group-by #(and (satisfies? IMMBooleanAttribute %)
+                              (mm-boolean-attribute? % attr))
+                        owners)]
     `(do
-       (defn ~(symbol (str prefix (name attr)))
-         ~(format "Returns the value of `el`s %s attribute.
+       ~@(when (bool? true)
+           `[(defn ~(symbol (str prefix (name attr) "?"))
+               ~(format "Returns the value of `el`s %s attribute.
   Possible types for `el`: %s"
-                  (name attr)
-                  owner-string)
-         [~'el]
-         (aval ~'el ~attr))
+                        (name attr)
+                        owner-string)
+               [~'el]
+               (aval ~'el ~attr))])
+       ~@(when (bool? false)
+           `[(defn ~(symbol (str prefix (name attr)))
+               ~(format "Returns the value of `el`s %s attribute.
+  Possible types for `el`: %s"
+                        (name attr)
+                        owner-string)
+               [~'el]
+               (aval ~'el ~attr))])
        (defn ~(symbol (str prefix "set-" (name attr) "!"))
          ~(format "Sets the value of `el`s %s attribute to `val`.
   Possible types for `el`: %s"
@@ -480,8 +497,7 @@
          (set-aval! ~'el ~attr ~'val)))))
 
 (defn ^:private create-reference-fns [ref owners prefix]
-  (let [multi? (group-by (fn [cls]
-                           (mm-multi-valued-property? cls ref))
+  (let [multi? (group-by #(mm-multi-valued-property? % ref)
                          owners)
         owner-string (str/join ", " (apply sorted-set (map qname owners)))]
     `(do
@@ -568,6 +584,8 @@
     (attr el)          ;; Returns the attr value of el
     (set-attr! el val) ;; Sets the attr value of el to val
 
+  For boolean attributes the getter is named attr?.
+
   For any reference name ref, the following functions are generated:
 
     (->ref el)                  ;; Returns the element(s) in el's ref role
@@ -585,7 +603,7 @@
   ([mm-file nssym alias]
      `(generate-metamodel-functions ~mm-file ~nssym ~alias nil))
   ([mm-file nssym alias prefix]
-     `(metamodel-ns-generator ~mm-file
+     `(metamodel-api-generator ~mm-file
                               ~nssym
                               ~alias
                               ~prefix
