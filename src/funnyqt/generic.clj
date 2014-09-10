@@ -105,6 +105,12 @@
   This is intended to be extended upon models with first-class relationships such as
   JGraLab where `type-spec` is a type specification on relationship classes."))
 
+(defprotocol IIncidentRelationships
+  (incident-relationships [elem] [elem type-spec] [elem type-spec dir-spec]
+    "Returns the lazy seq of relationships incident to `elem`.
+  May be restricted by the type specification `type-spec` and the direction
+  specification `dir-spec` (:in, :out, or :inout)."))
+
 ;;# Generic access to enumeration constants
 
 (defprotocol IEnumConstant
@@ -480,8 +486,8 @@
            ([~'m ~'prop-map]
               (create-element! ~'m '~(qname cls) ~'prop-map))))
 
-     (defn ~(symbol (let [n (escaped-uname-str cls)]
-                      (str prefix "all-" (inflections.core/plural (str n)))))
+     (defn ~(symbol (str prefix "all-" (inflections.core/plural
+                                        (escaped-uname-str cls))))
        ~(format "Returns the sequence of %s elements in `m`.
   Shorthand for (elements m '%s)."
                 (qname cls)
@@ -511,12 +517,24 @@
            ([~'model ~'alpha ~'omega ~'attr-map]
               (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega ~'attr-map))))
 
-     ;; ESEQ FN
-     (defn ~(symbol (str prefix "all-" (escaped-uname-str rel-cls)))
+     ;; SEQ FN
+     (defn ~(symbol (str prefix "all-" (inflections.core/plural
+                                        (escaped-uname-str rel-cls))))
        ~(format "Returns the lazy sequence of %s relationships in `model`."
                 (qname rel-cls))
        [~'model]
        (relationships ~'model '~(qname rel-cls)))
+
+     (defn ~(symbol (str prefix "incident-" (inflections.core/plural
+                                             (escaped-uname-str rel-cls))))
+       ~(format "Returns the lazy sequence of `el`s incident %s relationships.
+  May be restricted to incoming or outgoing relationships using the direction
+  specification `ds` (:in, :out, or :inout (default))."
+                (qname rel-cls))
+       ([~'el]
+          (incident-relationships ~'el '~(qname rel-cls) :inout))
+       ([~'el ~'ds]
+          (incident-relationships ~'el '~(qname rel-cls) ~'ds)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (escaped-uname-str rel-cls) "?"))

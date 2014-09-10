@@ -726,7 +726,7 @@ functions `record` and `enum-constant`."
          n
          (recur (.getPrevEdge n))))))
 
-(defn ^:private direction-matcher-1 [ds]
+(defn ^:private direction-matcher-tg [ds]
   ;; case does a constant time dispatch, so only use cond if the ds was not
   ;; given as keyword (or is nil).
   (case ds
@@ -743,13 +743,13 @@ functions `record` and `enum-constant`."
 (extend-protocol g/IDirectionMatcher
   AttributedElement
   (direction-matcher [this ds]
-    (direction-matcher-1 ds))
+    (direction-matcher-tg ds))
   Schema
   (direction-matcher [this ds]
-    (direction-matcher-1 ds))
+    (direction-matcher-tg ds))
   AttributedElementClass
   (direction-matcher [this ds]
-    (direction-matcher-1 ds)))
+    (direction-matcher-tg ds)))
 
 (defn first-inc
   "Returns the first incidence in iseq of `v`.
@@ -1092,7 +1092,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (iseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (iseq-internal v (every-pred (direction-matcher-1 ds) (type-matcher-from-ts-or-role v ts)))))
+     (iseq-internal v (every-pred (direction-matcher-tg ds) (type-matcher-from-ts-or-role v ts)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
@@ -1108,7 +1108,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (riseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (riseq-internal v (every-pred (direction-matcher-1 ds) (type-matcher-from-ts-or-role v ts)))))
+     (riseq-internal v (every-pred (direction-matcher-tg ds) (type-matcher-from-ts-or-role v ts)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1125,6 +1125,16 @@ functions `record` and `enum-constant`."
        (eseq this))
     ([this ts]
        (eseq this ts))))
+
+(extend-protocol g/IIncidentRelationships
+  Vertex
+  (incident-relationships
+    ([v]
+       (iseq v nil nil))
+    ([v ts]
+       (iseq v ts nil))
+    ([v ts ds]
+       (iseq v ts ds))))
 
 (extend-protocol g/IContainer
   Vertex
@@ -1253,7 +1263,7 @@ functions `record` and `enum-constant`."
   ([^Vertex v ts]
      (unlink! v ts nil))
   ([^Vertex v ts ds]
-     (let [pred (every-pred (direction-matcher-1 ds) (g/type-matcher v ts))]
+     (let [pred (every-pred (direction-matcher-tg ds) (g/type-matcher v ts))]
        (while (when-let [e (first-inc v pred)]
                 (g/delete! e))))))
 
@@ -1311,7 +1321,7 @@ functions `record` and `enum-constant`."
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts ds]
-     (let [pred (every-pred (direction-matcher-1 ds) (g/type-matcher from ts))]
+     (let [pred (every-pred (direction-matcher-tg ds) (g/type-matcher from ts))]
        (loop [inc (first-inc from pred)]
          (when inc
            (set-this! inc to)
@@ -1544,7 +1554,7 @@ functions `record` and `enum-constant`."
   (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
-                           (direction-matcher-1 ds)
+                           (direction-matcher-tg ds)
                            (g/type-matcher (first vs) ts)
                            (or pred identity)
                            (if (seq this-aks)
@@ -1927,9 +1937,9 @@ functions `record` and `enum-constant`."
 
 (defn ^:private create-attr-fns [attr owners prefix]
   (let [bool? (group-by (fn [^AttributedElementClass aec]
-                          (= "Boolean" (-> (.getAttribute aec (name attr))
-                                           .getDomain
-                                           .getQualifiedName)))
+                          (-> (.getAttribute aec (name attr))
+                              .getDomain
+                              .isBoolean))
                         owners)]
     `(do
        ~@(when (bool? true)
