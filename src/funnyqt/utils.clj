@@ -226,6 +226,16 @@
                                              x)))
                           form)))
 
+;;# Protocol Checks
+
+(defn satisfies-protocol? [x protocol msg]
+  (if (satisfies? protocol x)
+    true
+    (do
+      (println (format "%s doesn't satisfy protocol %s => %s"
+                       x (:name (meta (:var protocol))) msg))
+      nil)))
+
 ;;# Misc
 
 (defn deep-vectorify

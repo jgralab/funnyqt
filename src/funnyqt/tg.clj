@@ -1838,11 +1838,11 @@ functions `record` and `enum-constant`."
 
 ;;# Schema-specific functional API
 
-(defn ^:private create-vc-create-fn [^VertexClass vc prefix]
+(defn ^:private create-vc-fns [^VertexClass vc prefix]
   `(do
      ;; CREATE FN
      ~(when-not (g/mm-abstract? vc)
-        `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName vc) \. \$) "!"))
+        `(defn ~(symbol (str prefix "create-" (g/escaped-uname-str vc) "!"))
            ~(format "Create a new %s vertex in graph `g`.
   An additional `prop-map` may be supplied.
   Shorthand for (create-vertex! g '%s props)."
@@ -1854,24 +1854,24 @@ functions `record` and `enum-constant`."
               (create-vertex! ~'g '~(g/qname vc) ~'prop-map))))
 
      ;; VSEQ FN
-     (defn ~(symbol (str prefix "vseq-" (str/replace (.getUniqueName vc) \. \$)))
+     (defn ~(symbol (str prefix "vseq-" (g/escaped-uname-str vc)))
        ~(format "Returns the lazy sequence of %s vertices in `g`."
                 (g/qname vc))
        [~'g]
        (vseq ~'g '~(g/qname vc)))
 
      ;; TYPE PRED
-     (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName vc) \. \$) "?"))
+     (defn ~(symbol (str prefix "isa-" (g/escaped-uname-str vc) "?"))
        ~(format "Returns true if `v` is a %s-vertex."
                 (g/qname vc))
        [~'v]
        (g/has-type? ~'v '~(g/qname vc)))))
 
-(defn ^:private create-ec-create-fn [^EdgeClass ec prefix]
+(defn ^:private create-ec-fns [^EdgeClass ec prefix]
   `(do
      ~(when-not (g/mm-abstract? ec)
         ;; CREATE FN
-        `(defn ~(symbol (str prefix "create-" (str/replace (.getUniqueName ec) \. \$) "!"))
+        `(defn ~(symbol (str prefix "create-" (g/escaped-uname-str ec) "!"))
            ~(format "Create a new %s edge from `alpha` to `omega` in graph `g`.
   An additional `attr-map` may be supplied.
   Shorthand for (create-edge! g '%s alpha omega attr-map).
@@ -1888,7 +1888,7 @@ functions `record` and `enum-constant`."
               (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attr-map))))
 
      ;; ESEQ FN
-     (defn ~(symbol (str prefix "eseq-" (str/replace (.getUniqueName ec) \. \$)))
+     (defn ~(symbol (str prefix "eseq-" (g/escaped-uname-str ec)))
        ~(format "Returns the lazy sequence of %s edges in `g`.
   `g` may be a graph or an edge.  In the latter case, returns all edges
   following `g` in the edge sequence.
@@ -1902,7 +1902,7 @@ functions `record` and `enum-constant`."
        (eseq ~'g '~(g/qname ec)))
 
      ;; ISEQ FN
-     (defn ~(symbol (str prefix "iseq-" (str/replace (.getUniqueName ec) \. \$)))
+     (defn ~(symbol (str prefix "iseq-" (g/escaped-uname-str ec)))
        ~(format "Returns the lazy sequence of `v`s %s incidences restricted by `ds`.
   `v` may be a vertex or an edge.  In the latter case, returns all incidences
   following `v` in the current vertex's incidence sequence.
@@ -1919,7 +1919,7 @@ functions `record` and `enum-constant`."
           (iseq ~'v '~(g/qname ec) ~'ds)))
 
      ;; TYPE PRED
-     (defn ~(symbol (str prefix "isa-" (str/replace (.getUniqueName ec) \. \$) "?"))
+     (defn ~(symbol (str prefix "isa-" (g/escaped-uname-str ec) "?"))
        ~(format "Returns true if `e` is a %s-edge."
                 (g/qname ec))
        [~'e]
@@ -2109,7 +2109,7 @@ functions `record` and `enum-constant`."
                            ~nssym
                            ~alias
                            ~prefix
-                           create-vc-create-fn
-                           create-ec-create-fn
+                           create-vc-fns
+                           create-ec-fns
                            create-attr-fns
                            create-role-fns)))

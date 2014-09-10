@@ -33,6 +33,13 @@
   metamodel, else, i.e., there's a foo.X and a bar.X class in the metamodel, it
   is the qualified name."))
 
+(defn escaped-uname-str
+  "Returns the unique name of metamodel `cls` as a string where dots are
+  replaced by $ (in the fully qualified case).
+  Utility function used by the API generator macros."
+  [cls]
+  (str/replace (str (uname cls)) \. \$))
+
 ;;# Unset properties
 
 (defprotocol IUnset
@@ -95,8 +102,8 @@
 (defprotocol IRelationships
   (relationships [model] [modes type-spec]
     "Returns the lazy seq of relationships in `model` restricted by `type-spec`.
-  This is intended to be extended upon models with first-class edges such as
-  JGraLab where `type-spec` is a type specification on edge classes."))
+  This is intended to be extended upon models with first-class relationships such as
+  JGraLab where `type-spec` is a type specification on relationship classes."))
 
 ;;# Generic access to enumeration constants
 
@@ -124,7 +131,7 @@
   denoting an EReference name.  The return value is also framework specific.
   For TGraphs it is an Edge, for EMF it is the tuple [src-elem trg-elem].
   `attr-map` is a map from attribute names (as keywords) to values to be set.
-  Clearly, this is unsupported by frameworks without explicit edges with
+  Clearly, this is unsupported by frameworks without explicit relationships with
   attributes."))
 
 ;;# Type Matcher
@@ -155,7 +162,7 @@
 
 (defprotocol IDirectionMatcher
   (direction-matcher [model dir-spec]
-    "Returns a matcher function that accepts edges of direction `dir-spec`.
+    "Returns a matcher function that accepts relationships of direction `dir-spec`.
   `dir-spec` may be one of the keywords :in, :out, or :inout.  If `dir-spec` is
   nil, then any direction is allowed (aka :inout).
 
@@ -383,6 +390,9 @@
   `prefix`.  It should return a valid definition-form, e.g., a (defn
   <prefix>do-eclass [...]  ...).
 
+  `relationship-class-fn` is to be a function that receives a relationship
+  class and `prefix` and returns a valid definition-form.
+
   `attr-fn` is a function receiving an attribute name as keyword, a set of
   classes that have such an attribute, and the `prefix`.  It should return a
   valid definition-form.
@@ -393,7 +403,7 @@
 
   The functions are called with all classes/attributes/references of the
   metamodel."
-  [mm-file nssym alias prefix element-class-fn attr-fn ref-fn]
+  [mm-file nssym alias prefix element-class-fn relationship-class-fn attr-fn ref-fn]
   (let [metamodel (mm-load mm-file)
         atts (atom {}) ;; map from attribute kws to set of eclasses that have it
         refs (atom {}) ;; map from reference kws to set of eclasses that have it
@@ -410,18 +420,38 @@
                (ns-unmap *ns* sym#))])
        ~@(concat
           (no-nils
-           (for [mm-cls (mm-element-classes metamodel)]
+           (for [mm-cls (and (u/satisfies-protocol? metamodel IMMElementClasses
+                                                    "Generating no element class functions.")
+                             (mm-element-classes metamodel))]
              (do
-               (doseq [a (mm-attributes mm-cls)]
+               (doseq [a (and (u/satisfies-protocol? mm-cls IMMAttributes
+                                                     "Generating no attribute functions.")
+                              (mm-attributes mm-cls))]
                  (swap! atts
                         #(update-in %1 [%2] conj mm-cls)
                         a))
-               (doseq [r (mm-references mm-cls)]
+               (doseq [r (and (u/satisfies-protocol? mm-cls IMMReferences
+                                                     "Generating no reference functions.")
+                              (mm-references mm-cls))]
                  (swap! refs
                         #(update-in %1 [%2] conj mm-cls)
                         r))
              (when element-class-fn
                ((resolve element-class-fn) mm-cls prefix)))))
+          (no-nils
+           (for [rel-cls (and (u/satisfies-protocol? metamodel IMMRelationshipClasses
+                                                     "Generating no relationship class functions.")
+                              (mm-relationship-classes metamodel))]
+             (do
+               ;; Collect attributes
+               (doseq [a (and (u/satisfies-protocol? rel-cls IMMAttributes
+                                                     "Generating to relationship attribute functions.")
+                              (mm-attributes rel-cls))]
+                 (swap! atts
+                        #(update-in %1 [%2] conj rel-cls)
+                        a))
+               (when relationship-class-fn
+                 ((resolve relationship-class-fn) rel-cls prefix)))))
         (no-nils
          (when attr-fn
            (for [[a owners] @atts]
@@ -439,7 +469,7 @@
 (defn ^:private create-element-class-fns [cls prefix]
   `(do
      ~(when-not (mm-abstract? cls)
-        `(defn ~(symbol (str prefix "create-" (uname cls) "!"))
+        `(defn ~(symbol (str prefix "create-" (escaped-uname-str cls) "!"))
            ~(format "Creates a new %s object and adds it to model `m`.
   Properties are set according to `prop-map`.
   Shorthand for (create-element! m '%s prop-map)."
@@ -450,7 +480,7 @@
            ([~'m ~'prop-map]
               (create-element! ~'m '~(qname cls) ~'prop-map))))
 
-     (defn ~(symbol (let [n (uname cls)]
+     (defn ~(symbol (let [n (escaped-uname-str cls)]
                       (str prefix "all-" (inflections.core/plural (str n)))))
        ~(format "Returns the sequence of %s elements in `m`.
   Shorthand for (elements m '%s)."
@@ -460,15 +490,45 @@
        (elements ~'m '~(qname cls)))
 
      ;; TYPE PRED
-     (defn ~(symbol (str prefix "isa-" (uname cls) "?"))
+     (defn ~(symbol (str prefix "isa-" (escaped-uname-str cls) "?"))
        ~(format "Returns true if `el` is a %s-element."
                 (qname cls))
        [~'el]
        (has-type? ~'el '~(qname cls)))))
 
+(defn ^:private create-relationship-class-fns [rel-cls prefix]
+  `(do
+     ~(when-not (mm-abstract? rel-cls)
+        ;; CREATE FN
+        `(defn ~(symbol (str prefix "create-" (escaped-uname-str rel-cls) "!"))
+           ~(format "Create a new %s relationship from `alpha` to `omega` in graph `model`.
+  An additional `attr-map` may be supplied.
+  Shorthand for (create-relationship! model '%s alpha omega attr-map)."
+                    (qname rel-cls)
+                    (qname rel-cls))
+           ([~'model ~'alpha ~'omega]
+              (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega))
+           ([~'model ~'alpha ~'omega ~'attr-map]
+              (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega ~'attr-map))))
+
+     ;; ESEQ FN
+     (defn ~(symbol (str prefix "all-" (escaped-uname-str rel-cls)))
+       ~(format "Returns the lazy sequence of %s relationships in `model`."
+                (qname rel-cls))
+       [~'model]
+       (relationships ~'model '~(qname rel-cls)))
+
+     ;; TYPE PRED
+     (defn ~(symbol (str prefix "isa-" (escaped-uname-str rel-cls) "?"))
+       ~(format "Returns true if `e` is a %s-relationship."
+                (qname rel-cls))
+       [~'e]
+       (has-type? ~'e '~(qname rel-cls)))))
+
 (defn ^:private create-attribute-fns [attr owners prefix]
   (let [owner-string (str/join ", " (apply sorted-set (map qname owners)))
-        bool? (group-by #(and (satisfies? IMMBooleanAttribute %)
+        bool? (group-by #(and (u/satisfies-protocol? % IMMBooleanAttribute
+                                                     "Generating no ?-predicates.")
                               (mm-boolean-attribute? % attr))
                         owners)]
     `(do
@@ -579,6 +639,10 @@
   an (all-Foos model) function, and a (isa-Foo? el) type check predicate is
   generated.
 
+  For any relationship class Bar in the metamodel, a (create-Bar! model start
+  end) function, an (all-Bars model) function, and a (isa-Foo? el) type check
+  predicate is generated.
+
   For any attribute name attr, the following functions are generated:
 
     (attr el)          ;; Returns the attr value of el
@@ -608,5 +672,6 @@
                               ~alias
                               ~prefix
                               create-element-class-fns
+                              create-relationship-class-fns
                               create-attribute-fns
                               create-reference-fns)))

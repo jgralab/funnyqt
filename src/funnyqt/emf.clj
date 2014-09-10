@@ -287,17 +287,6 @@
   (mm-element-classes [rs]
     (eclasses rs)))
 
-(extend-protocol g/IMMRelationshipClasses
-  EClass
-  (mm-relationship-classes [cls]
-    nil)
-  Resource
-  (mm-relationship-classes [res]
-    nil)
-  ResourceSet
-  (mm-relationship-classes [rs]
-    nil))
-
 (extend-protocol g/IMMClass
   EObject
   (mm-class
@@ -1386,7 +1375,7 @@
 (defn ^:private create-eclass-fns [^EClass ec prefix]
   `(do
      ~(when-not (g/mm-abstract? ec)
-        `(defn ~(symbol (str prefix "create-" (g/uname ec) "!"))
+        `(defn ~(symbol (str prefix "create-" (g/escaped-uname-str ec) "!"))
            ~(format "Creates a new %s object and adds it to resource `r`.
   Properties are set according to `prop-map`.
   `r` may be nil.
@@ -1398,8 +1387,8 @@
            ([~'r ~'prop-map]
               (ecreate! ~'r '~(g/qname ec) ~'prop-map))))
 
-     (defn ~(symbol (let [n (g/uname ec)]
-                      (str prefix "eall-" (inflections.core/plural (str n)))))
+     (defn ~(symbol (let [n (g/escaped-uname-str ec)]
+                      (str prefix "eall-" (inflections.core/plural n))))
        ~(format "Returns the sequence of %s objects in `r`.
   Shorthand for (eallcontents r '%s)."
                 (g/qname ec)
@@ -1408,7 +1397,7 @@
        (eallcontents ~'r '~(g/qname ec)))
 
      ;; TYPE PRED
-     (defn ~(symbol (str prefix "isa-" (g/uname ec) "?"))
+     (defn ~(symbol (str prefix "isa-" (g/escaped-uname-str ec) "?"))
        ~(format "Returns true if `eo` is a %s-EObject."
                 (g/qname ec))
        [~'eo]
