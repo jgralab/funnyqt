@@ -1,6 +1,6 @@
 (ns funnyqt.model2model
   (:require [funnyqt.utils        :as u]
-            [funnyqt.generic    :as p]
+            [funnyqt.generic      :as g]
             [funnyqt.query        :as q]
             [clojure.tools.macro  :as tm]
             [flatland.ordered.map :as om]))
@@ -66,7 +66,7 @@
 (defn ^:private type-constrs [a-t-m wrap-in-and]
   (let [form (for [[e t] a-t-m
                    :when t]
-               `(p/has-type? ~e ~t))]
+               `(g/has-type? ~e ~t))]
     (if wrap-in-and
       (cons `and form)
       form)))
@@ -112,7 +112,7 @@
       (vec (mapcat (fn [[sym type model prop-map]]
                      [sym (if (and (seq? type) (= 'quote (first type)))
                             ;; type is a type-spec
-                            `(p/create-element! ~(or model (first outs)) ~type ~prop-map)
+                            `(g/create-element! ~(or model (first outs)) ~type ~prop-map)
                             ;; type is an expression
                             (if (or model prop-map)
                               (u/errorf "%s is initialized by expression %s where no model and prop-map are supported: %s"
@@ -430,7 +430,7 @@
            ~@(if main-fn
                `[(~'main)]
                (for [m ins]
-                 `(doseq [~elem-var (p/elements ~m ~type-spec)]
+                 `(doseq [~elem-var (g/elements ~m ~type-spec)]
                     ~@(for [r (keys top-rules)]
                         `(~r ~elem-var)))))
            @*trace*)))))
