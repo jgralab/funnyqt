@@ -6,30 +6,14 @@
             [funnyqt.generic     :as g]
             [funnyqt.query       :as q]
             [funnyqt.query.tg    :as qtg]
-            [funnyqt.query.emf   :as qemf]
             [funnyqt.utils       :as u]
             [funnyqt.tg          :as tg]
-            [funnyqt.query       :as q]
             [funnyqt.emf         :as emf]))
 
 ;; TODO: Patterns and rules should support ^:perf-stat metadata which records
 ;; the number of nodes of the types occuring in the pattern in the host graph.
 ;; Then users can check if their pattern is anchored at the right node, or if
 ;; they should reformulate it to speed up things.
-
-(comment
-  ;; Die Transformation von :nested zu :let fehlt noch.
-  (pattern [m]
-           [a --> b
-            :nested [n1 [a --> c --> d --> b]
-                     n2 [a --> e]]])
-  ;;=> transformed to
-  (pattern [m]
-           [a --> b
-            :let [n1 (pattern [a b]
-                              [a --> cs --> ds --> b])
-                  n2 (pattern [a]
-                              [a --> e])]]))
 
 ;;# Pattern to pattern graph
 
