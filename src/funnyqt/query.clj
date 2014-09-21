@@ -262,7 +262,9 @@
 
 ;;# Regular Path Expressions
 
-(defn ^:private p-apply
+(defn p-apply
+  "Applies the regular path expression `p` to the start node or set of start
+  nodes `n`."
   [n p]
   (cond
    ;; funs: -->
