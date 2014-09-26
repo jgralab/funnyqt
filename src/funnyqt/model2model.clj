@@ -57,11 +57,11 @@
                (apply hash-map v)))
       :name name)))
 
-(defn ^:private make-disjunct-rule-calls [args gens]
-  (map (fn [w] `(apply ~w ~args)) gens))
+(defn ^:private make-disjunct-rule-calls [arg-vec gens]
+  (map (fn [w] `(apply ~w ~arg-vec)) gens))
 
-(defn ^:private make-trace-lookup [args rule]
-  `(get ((deref *trace*) ~(keyword (name rule))) ~args))
+(defn ^:private make-trace-lookup [id rule]
+  `(get ((deref *trace*) ~(keyword (name rule))) ~id))
 
 (defn ^:private type-constrs [a-t-m wrap-in-and]
   (let [form (for [[e t] a-t-m
@@ -126,6 +126,11 @@
 (defn ^:private convert-rule [outs rule-map]
   (let [a-t-m (args-types-map (:from rule-map))
         arg-vec (vec (keys a-t-m))
+        ident (or (:identity rule-map)
+                  (when (= 1 (count arg-vec))
+                    (first arg-vec))
+                  arg-vec)
+        id (gensym "id")
         create-vec (create-vector (:to rule-map) outs)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
@@ -135,12 +140,12 @@
         creation-form (if (seq created)
                         `(let ~(vec (concat (:let rule-map) create-vec))
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~arg-vec ~retval)
+                                  assoc ~id ~retval)
                            ~@(:body rule-map)
                            ~retval)
                         `(let [ret# (do ~@(:body rule-map))]
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~arg-vec ret#)
+                                  assoc ~id ret#)
                            ret#))
         wl-and-creation-form (if (:when-let rule-map)
                                `(let ~(vec (:when-let rule-map))
@@ -152,29 +157,30 @@
                                        ~wl-and-creation-form)
                                     wl-and-creation-form)]
     (when-let [uks (seq (disj (set (keys rule-map))
-                              :name :from :let :to :when :when-let :body :disjuncts))]
+                              :name :from :let :to :when :when-let :body :disjuncts :identity))]
       (u/errorf "Unknown keys in rule: %s" uks))
     `(~(:name rule-map) ~arg-vec
-      ~(if-let [d (:disjuncts rule-map)]
-         (let [drs (disjunct-rules rule-map)
-               d (take-last 2 d)
-               result-spec (if (= :result (first d))
-                             (second d)
-                             (gensym "disj-rule-result"))
-               disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
-                                      (when-let [~result-spec r#]
-                                        (let ~(vec (:let rule-map))
-                                          ~@(:body rule-map)
-                                          r#)))]
-           `(when (and ~@(type-constrs a-t-m false)
-                       ~(or (:when rule-map) true))
-              ~(if (:when-let rule-map)
-                 `(when-let ~(:when-let rule-map)
-                    ~disj-calls-and-body)
-                 disj-calls-and-body)))
-         `(or ~(make-trace-lookup arg-vec (:name rule-map))
-              (when ~(type-constrs a-t-m true)
-                ~when-wl-and-creation-form))))))
+      (let [~id ~ident]
+        ~(if-let [d (:disjuncts rule-map)]
+           (let [drs (disjunct-rules rule-map)
+                 d (take-last 2 d)
+                 result-spec (if (= :result (first d))
+                               (second d)
+                               (gensym "disj-rule-result"))
+                 disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
+                                        (when-let [~result-spec r#]
+                                          (let ~(vec (:let rule-map))
+                                            ~@(:body rule-map)
+                                            r#)))]
+             `(when (and ~@(type-constrs a-t-m false)
+                         ~(or (:when rule-map) true))
+                ~(if (:when-let rule-map)
+                   `(when-let ~(:when-let rule-map)
+                      ~disj-calls-and-body)
+                   disj-calls-and-body)))
+           `(or ~(make-trace-lookup id (:name rule-map))
+                (when ~(type-constrs a-t-m true)
+                  ~when-wl-and-creation-form)))))))
 
 (defmacro deftransformation
   "Creates a model-to-model transformation named `name` with the declared
@@ -197,30 +203,42 @@
 
     (a2b
       :from [a 'InClass, x]
+      :identity [(aval a :name) x]
       :when (some-predicate? a)
-      :when-let [x (some-fn a)]
+      :when-let [v (some-fn a)]
       :let  [y (some-other-fn a x)
              z (some-other-fn2 a x y)]
       :to [b 'OutClass
            c 'OutClass2
            d (a2d a)]
-      (do-stuff-with a b c))
+      (do-stuff-with a x v b y z b c d))
 
   :from declares the number and types of elements for which this rule is
-  applicable.  Providing types is optional.  So the rule above has to be called
+  applicable.  Providing types is optional thus making it possible to have
+  strings or numbers as input elements.  So the rule above has to be called
   with 2 arguments a and x, and the first one needs to be of metamodel type
   InClass.
+
+  :identity is an expression on the rule's input elements.  Traceability links
+  are managed from the elements' identity to the elements created in that
+  rule.  :identity is optional.  If omitted and the rule has just one input
+  element, that element is the identity.  If it has more input elements, then a
+  vector containing them in the order declared by :from is the identity.
+
   :when constrains the input elements to those satisfying some predicate.
   The :when clause is optional.
+
   :when-let has a vector of variable-expression pairs.  The expressions are
   evaluated and bound to the respective vars.  The rule may only be applied if
-  the vars are non-nil (which makes the \"when\"-part in :when-let).
+  all the vars are non-nil (which makes the \"when\"-part in :when-let).
   The :when-let is optional, and it is evaluated after :from and :when already
   matched.
+
   :let has a vector of variable-expression pairs.  The expressions are
   evaluated and bound to the respective vars.  The :let is evaluated
   after :when-let has matched, that is, the vars bound by :when-let may be used
   in the :let expressions, but not the other way round.
+
   :to is a vector of output elements (paired with their types) that are to be
   created.  As can be seen with the last example element d, an element may also
   be created by invoking another rule.
@@ -254,13 +272,13 @@
   set attributes and references of the newly created objects by calling other
   rules.
 
-  A rule always returns the elements that where created for a given input
-  element in terms of the :to clause.  If the called rule's :to clause creates
-  only one object, the result of a call is this object.  If its :to clause
-  creates multiple objects, the result of a call is a vector of the created
-  objects in the order of their declaration in :to.  The :to clause is optional,
-  though.  If omitted, the last expression in the rule's body is treated as its
-  return value.
+  A rule always returns the elements that where created for the given input
+  elements (or rather their identity) in terms of the :to clause.  If the
+  called rule's :to clause creates only one object, the result of a call is
+  this object.  If its :to clause creates multiple objects, the result of a
+  call is a vector of the created objects in the order of their declaration
+  in :to.  The :to clause is optional, though.  If omitted, the last expression
+  in the rule's body is treated as its return value.
 
   Disjunctive Rules
   =================

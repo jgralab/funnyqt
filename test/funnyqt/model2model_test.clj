@@ -63,6 +63,10 @@
            (gen-tg/->set-parents! p (map member2person ps))))
   (member2male
    :from [m 'Member]
+   ;; Just for testing purposes, use the full name as identity rather than the
+   ;; Member element itself.
+   :identity (str (emf/eget m :firstName) " "
+                  (emf/eget (family m) :lastName))
    :when (male? m)
    :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}])
   (member2female
@@ -131,6 +135,7 @@
            (g/set-adjs! p :parents (map member2person ps))))
   (member2male
    :from [m 'Member]
+   :identity (emf/eget m :firstName)
    :when (male? m)
    :let  [w (wife m)]
    :to   [p 'Male :in out]
