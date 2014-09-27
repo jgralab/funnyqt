@@ -642,7 +642,7 @@ functions `record` and `enum-constant`."
   "Returns the first vertex of graph `g`.
   May be restricted to the first vertex for which `pred` returns true."
   ([^Graph g]
-     (first-vertex g identity))
+     (.getFirstVertex g))
   ([^Graph g pred]
      (loop [v (.getFirstVertex g)]
        (if (or (nil? v) (pred v))
@@ -653,7 +653,7 @@ functions `record` and `enum-constant`."
   "Returns the last vertex of graph `g`.
   May be restricted to the last vertex for which `pred` returns true."
   ([^Graph g]
-     (last-vertex g identity))
+     (.getLastVertex g))
   ([^Graph g pred]
      (loop [v (.getLastVertex g)]
        (if (or (nil? v) (pred v))
@@ -664,7 +664,7 @@ functions `record` and `enum-constant`."
   "Returns the vertex following `v` in vseq.
   May be restricted to the next vertex for which `pred` returns true."
   ([^Vertex v]
-     (next-vertex v identity))
+     (.getNextVertex v))
   ([^Vertex v pred]
      (loop [n (.getNextVertex v)]
        (if (or (nil? n) (pred n))
@@ -675,7 +675,7 @@ functions `record` and `enum-constant`."
   "Returns the vertex preceding `v` in vseq.
   May be restricted to the previous vertex for which `pred` returns true."
   ([^Vertex v]
-     (prev-vertex v identity))
+     (.getPrevVertex v))
   ([^Vertex v pred]
      (loop [n (.getPrevVertex v)]
        (if (or (nil? n) (pred n))
@@ -686,7 +686,7 @@ functions `record` and `enum-constant`."
   "Returns the first edge of graph `g`.
   May be restricted to the first edge for which `pred` returns true."
   ([^Graph g]
-     (first-edge g identity))
+     (.getFirstEdge g))
   ([^Graph g pred]
      (loop [e (.getFirstEdge g)]
        (if (or (nil? e) (pred e))
@@ -697,7 +697,7 @@ functions `record` and `enum-constant`."
   "Returns the last edge of graph `g`.
   May be restricted to the last edge for which `pred` returns true."
   ([^Graph g]
-     (last-edge g identity))
+     (.getLastEdge g))
   ([^Graph g pred]
      (loop [e (.getLastEdge g)]
        (if (or (nil? e) (pred e))
@@ -708,7 +708,7 @@ functions `record` and `enum-constant`."
   "Returns the edge following `e` in eseq.
   May be restricted to the next edge for which `pred` returns true."
   ([^Edge e]
-     (next-edge e identity))
+     (.getNextEdge e))
   ([^Edge e pred]
      (loop [n (.getNextEdge e)]
        (if (or (nil? n) (pred n))
@@ -719,7 +719,7 @@ functions `record` and `enum-constant`."
   "Returns the edge preceding `e` in eseq.
   May be restricted to the previous edge for which `pred` returns true."
   ([^Edge e]
-     (prev-edge e identity))
+     (.getPrevEdge e))
   ([^Edge e pred]
      (loop [n (.getPrevEdge e)]
        (if (or (nil? n) (pred n))
@@ -1546,7 +1546,7 @@ functions `record` and `enum-constant`."
 
 ;;# Generic Regular Path Expressions
 
-(defn ---
+(defn ^:private ---
   "For internal use only.
   Returns the vertices reachable from `v` via incidences with direction `ds`
   and aggregation kinds, restricted by `ts`, and `pred` (on the edges)."
