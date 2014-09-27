@@ -37,6 +37,12 @@
              (or (vector? (:to m))
                  (u/errorf ":to must be a vector: %s" form))
              true)
+           (if (contains? m :identity)
+             (or (and (vector? (:identity m))
+                      (= 2 (count (:identity m)))
+                      (symbol? (first (:identity m))))
+                 (u/errorf ":identity must have form [id id-exp]: %s" form))
+             true)
            (if (and (contains? (meta name) :top)
                     (not= (count (keys (args-types-map (:from m)))) 1))
              (u/errorf "Top-level rules must declare exactly one argument: %s" form)
@@ -46,6 +52,11 @@
 (def ^{:dynamic true
        :doc "A map {rule {input output}}."}
   *trace*)
+
+(defn resolve-in
+  "Resolve the inputs `ins` of `rule` (given as keyword) in the transformation trace."
+  [rule ins]
+  (get-in @*trace* [rule ins]))
 
 (defn ^:private rule-as-map [rule]
   (let [[name & body] rule]
@@ -59,9 +70,6 @@
 
 (defn ^:private make-disjunct-rule-calls [arg-vec gens]
   (map (fn [w] `(apply ~w ~arg-vec)) gens))
-
-(defn ^:private make-trace-lookup [id rule]
-  `(get ((deref *trace*) ~(keyword (name rule))) ~id))
 
 (defn ^:private type-constrs [a-t-m wrap-in-and]
   (let [form (for [[e t] a-t-m
@@ -126,61 +134,88 @@
 (defn ^:private convert-rule [outs rule-map]
   (let [a-t-m (args-types-map (:from rule-map))
         arg-vec (vec (keys a-t-m))
-        ident (or (:identity rule-map)
-                  (when (= 1 (count arg-vec))
-                    (first arg-vec))
-                  arg-vec)
-        id (gensym "id")
+        trace-src (if (= 1 (count arg-vec))
+                    (first arg-vec)
+                    arg-vec)
         create-vec (create-vector (:to rule-map) outs)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
                  (first created)
                  created)
         wl-vars (map first (partition 2 (:when-let rule-map)))
+        existing (gensym "existing")
+        [id id-exp] (:identity rule-map)
+        id-form (fn [body]
+                  (if id
+                    `(let [~id ~id-exp] ~body)
+                      body))
         creation-form (if (seq created)
                         `(let ~(vec (concat (:let rule-map) create-vec))
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~id ~retval)
+                                  assoc ~trace-src ~retval)
+                           ~@(when (:identity rule-map)
+                               `[(swap! *trace* update-in [~(keyword (:name rule-map))]
+                                        assoc ~id ~retval)])
                            ~@(:body rule-map)
                            ~retval)
                         `(let [ret# (do ~@(:body rule-map))]
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~id ret#)
+                                  assoc ~trace-src ret#)
+                           ~@(when (:identity rule-map)
+                               `[(swap! *trace* update-in [~(keyword (:name rule-map))]
+                                        assoc ~id ~retval)])
                            ret#))
-        wl-and-creation-form (if (:when-let rule-map)
-                               `(let ~(vec (:when-let rule-map))
-                                  (when (and ~@wl-vars)
-                                    ~creation-form))
-                               creation-form)
-        when-wl-and-creation-form (if (:when rule-map)
-                                    `(when ~(or (:when rule-map) true)
-                                       ~wl-and-creation-form)
-                                    wl-and-creation-form)]
+        when-let-form (fn [creation-form]
+                        (if (:when-let rule-map)
+                          `(let ~(vec (:when-let rule-map))
+                             (when (and ~@wl-vars)
+                               ~creation-form))
+                          creation-form))
+        when-when-let-form (fn [when-let-form]
+                             (if (:when rule-map)
+                               `(when ~(or (:when rule-map) true)
+                                  ~when-let-form)
+                               when-let-form))]
     (when-let [uks (seq (disj (set (keys rule-map))
-                              :name :from :let :to :when :when-let :body :disjuncts :identity))]
+                              :name :from :let :to :when :when-let :body :disjuncts :identity
+                              :dup-identity-eval))]
       (u/errorf "Unknown keys in rule: %s" uks))
     `(~(:name rule-map) ~arg-vec
-      (let [~id ~ident]
-        ~(if-let [d (:disjuncts rule-map)]
-           (let [drs (disjunct-rules rule-map)
-                 d (take-last 2 d)
-                 result-spec (if (= :result (first d))
-                               (second d)
-                               (gensym "disj-rule-result"))
-                 disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
-                                        (when-let [~result-spec r#]
-                                          (let ~(vec (:let rule-map))
-                                            ~@(:body rule-map)
-                                            r#)))]
-             `(when (and ~@(type-constrs a-t-m false)
-                         ~(or (:when rule-map) true))
-                ~(if (:when-let rule-map)
-                   `(when-let ~(:when-let rule-map)
-                      ~disj-calls-and-body)
-                   disj-calls-and-body)))
-           `(or ~(make-trace-lookup id (:name rule-map))
-                (when ~(type-constrs a-t-m true)
-                  ~when-wl-and-creation-form)))))))
+      ~(id-form
+        (if-let [d (:disjuncts rule-map)]
+          (let [drs (disjunct-rules rule-map)
+                d (take-last 2 d)
+                result-spec (if (= :result (first d))
+                              (second d)
+                              (gensym "disj-rule-result"))
+                disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
+                                       (when-let [~result-spec r#]
+                                         (let ~(vec (:let rule-map))
+                                           ~@(:body rule-map)
+                                           r#)))]
+            `(when (and ~@(type-constrs a-t-m false)
+                        ~(or (:when rule-map) true))
+               ~(if (:when-let rule-map)
+                  `(when-let ~(:when-let rule-map)
+                     ~disj-calls-and-body)
+                  disj-calls-and-body)))
+          `(let [~existing (resolve-in ~(keyword (:name rule-map))
+                                       ~(if (:identity rule-map)
+                                          id trace-src))]
+             ~(if (and (:identity rule-map)
+                       (:dup-identity-eval rule-map))
+                `(if (and ~existing (not (contains? @*trace* ~trace-src)))
+                   ~(when-when-let-form
+                     (if (seq created)
+                       `(let ~(vec (concat (:let rule-map)
+                                           [retval existing]))
+                          ~retval)
+                       `(do ~@(:body rule-map))))
+                   (when ~(type-constrs a-t-m true)
+                     ~(when-when-let-form creation-form)))
+                `(or ~existing
+                     (when ~(type-constrs a-t-m true)
+                       ~(when-when-let-form creation-form))))))))))
 
 (defmacro deftransformation
   "Creates a model-to-model transformation named `name` with the declared
@@ -203,7 +238,8 @@
 
     (a2b
       :from [a 'InClass, x]
-      :identity [(aval a :name) x]
+      :identity [id [(aval a :name) x]]
+      :dup-identity-eval true
       :when (some-predicate? a)
       :when-let [v (some-fn a)]
       :let  [y (some-other-fn a x)
@@ -219,11 +255,23 @@
   with 2 arguments a and x, and the first one needs to be of metamodel type
   InClass.
 
-  :identity is an expression on the rule's input elements.  Traceability links
-  are managed from the elements' identity to the elements created in that
-  rule.  :identity is optional.  If omitted and the rule has just one input
-  element, that element is the identity.  If it has more input elements, then a
-  vector containing them in the order declared by :from is the identity.
+  :identity is a var-expression tuple.  The expression should compute an
+  identity of the rule's input elements.  Traceability links are managed also
+  from the elements' identity to the elements created in that rule.  :identity
+  is optional.  By default, if the rule is called again with different elements
+  that have the same identity, the results of the first evaluation are
+  immediately returned.  If :dup-identity-eval is true and the rule is called
+  with different elements that have the same identity, then the constraints are
+  checked again, :let-bindings are established, the existing output elements
+  are retrieved and bound to the vars in :to (without creating new elements),
+  and then the body is evaluated again (with the new similar input elements and
+  the old existing output elements).  This can be used to merge duplicate
+  elements in the source to one canonical output element that subsumes the
+  properties of all input elements.  To distinguish if body is evaluated the
+  first time or an additional time for a similar element, check
+  if (resolve-in :rule-name id) returns nil.  If so, it's the first time.
+  Else, it's an additional time and you might want to use only add!-operations
+  and no set!-operations.
 
   :when constrains the input elements to those satisfying some predicate.
   The :when clause is optional.
