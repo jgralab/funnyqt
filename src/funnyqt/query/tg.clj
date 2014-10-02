@@ -93,7 +93,7 @@
              [AggregationKind/NONE AggregationKind/SHARED]
              [AggregationKind/NONE AggregationKind/SHARED] ts pred)))
 
-(defn <>--
+(defn <?>--
   "Aggregation path expression starting at whole `v`, optionally restricted by
   `ts` and `pred` (on the edges)."
   ([v]
@@ -103,7 +103,7 @@
   ([v ts pred]
      (--- v :inout nil [AggregationKind/SHARED AggregationKind/COMPOSITE] ts pred)))
 
-(defn --<>
+(defn --<?>
   "Aggregation path expression starting at part `v`, optionally restricted by
   `ts` and `pred` (on the edges)."
   ([v]
@@ -133,7 +133,7 @@
   ([v ts pred]
      (--- v :inout [AggregationKind/SHARED] nil ts pred)))
 
-(defn <*>--
+(defn <>--
   "Composition path expression starting at whole `v`, optionally restricted by
   `ts` and `pred` (on the edges)."
   ([v]
@@ -143,7 +143,7 @@
   ([v ts pred]
      (--- v :inout nil [AggregationKind/COMPOSITE] ts pred)))
 
-(defn --<*>
+(defn --<>
   "Composition path expression starting at part `v`, optionally restricted by
   `ts` and `pred` (on the edges)."
   ([v]
