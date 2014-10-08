@@ -139,11 +139,16 @@ types is provided:
   [name & more]
   (let [[name more]   (tm/name-with-attributes name more)
         [types more]   [(first more) (next more)]
+        types          (if (seq? types)
+                         (if (= 'quote (first types))
+                           (u/errorf "The defpolyfn impl type mustn't be quoted: %s" types)
+                           types)
+                         [types])
         [argvec body] [(first more) (next more)]]
     (when-not (find (meta (resolve name)) ::polyfn-spec-table)
       (u/errorf "#'%s is not declared as a polyfn." name))
     `(do
-       ~@(for [type (if (seq? types) types [types])]
+       ~@(for [type types]
            (let [^String n (clojure.core/name type)]
              (when-not (symbol? type)
                (u/errorf "The type given to a defpolyfn must be a symbol but was %s (%s)."
