@@ -6,6 +6,10 @@
   (:use [funnyqt.tg-test       :only [rg]])
   (:use clojure.test))
 
+;;* Tests
+
+;;** Tests with the route-graph
+
 (declare-polyfn aec-name-no-default [elem])
 
 (declare-polyfn aec-name-no-default-no-dispatch-table
@@ -21,7 +25,6 @@
   "Junction")
 (defpolyfn aec-name-with-default junctions.Junction [elem]
   "Junction")
-
 
 (defpolyfn aec-name-no-default localities.Locality [elem]
   "Locality")
@@ -117,10 +120,10 @@
 
   (doseq [x (tg/vseq rg 'County)]
     (is (thrown-with-msg? Exception
-                          #"No polyfn implementation defined"
+                          #"No aec-name-no-default polyfn implementation defined"
                           (aec-name-no-default x)))
     (is (thrown-with-msg? Exception
-                          #"No polyfn implementation defined"
+                          #"No aec-name-no-default-no-dispatch-table polyfn implementation defined"
                           (aec-name-no-default-no-dispatch-table x)))
     (is (= "--undefined--" (aec-name-with-default x))))
 
@@ -129,3 +132,38 @@
     (is (= "NoConnEdge" (aec-name-no-default-no-dispatch-table conn)))
     (is (= "NoConnEdge" (aec-name-with-default conn)))))
 
+;;** Tests with the PolyfnTestSchema
+
+(declare-polyfn ^:no-dispatch-table foo [el])
+(defpolyfn foo A [el] :a)
+
+(declare-polyfn ^:no-dispatch-table bar [el] :default)
+(defpolyfn bar A [el] :a)
+(defpolyfn bar B [el] :b)
+
+(deftest test-with-polyfntestgraph
+  (let [g (tg/new-graph (tg/load-schema "test/input/polyfntestschema.tg"))
+        a (tg/create-vertex! g 'A)
+        b (tg/create-vertex! g 'B)
+        c (tg/create-vertex! g 'C)
+        d (tg/create-vertex! g 'D)
+        e (tg/create-vertex! g 'E)
+        f (tg/create-vertex! g 'F)]
+    ;; foo
+    (is (= :a (foo a)))
+    (is (= :a (foo b)))
+    (is (= :a (foo c)))
+    (is (= :a (foo d)))
+    (is (thrown-with-msg? Exception #"No foo polyfn implementation defined for type E"
+                          (foo e)))
+    (is (= :a (foo f)))
+
+    ;; bar
+    (is (= :a (bar a)))
+    (is (= :b (bar b)))
+    (is (= :a (bar c)))
+    (is (thrown-with-msg? Exception #"Multiple bar polyfn impls for type D."
+                          (bar d)))
+    (is (= :default (bar e)))
+    (is (thrown-with-msg? Exception #"Multiple bar polyfn impls for type F."
+                          (bar f)))))

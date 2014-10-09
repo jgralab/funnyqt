@@ -44,14 +44,19 @@ types is provided:
 
 ;;# Utility protocols
 
-(defn find-polyfn-impl [polyfn-sym spec-map t]
-  (or (spec-map (g/qname t))
-      (let [impls (remove nil? (map (partial find-polyfn-impl polyfn-sym spec-map)
-                                    (g/mm-direct-super-classes t)))]
-        (if (fnext impls)
-          (u/errorf "Multiple %s polyfn impls for type %s."
-                    polyfn-sym (g/qname t))
-          (first impls)))))
+(defn find-polyfn-impl
+  ([polyfn-sym spec-map type]
+     (find-polyfn-impl polyfn-sym spec-map type type))
+  ([polyfn-sym spec-map orig-type type]
+     (or (spec-map (g/qname type))
+         (let [impls (into #{}
+                           (comp (map (partial find-polyfn-impl polyfn-sym spec-map orig-type))
+                                 (remove nil? ))
+                           (g/mm-direct-super-classes type))]
+           (if (fnext impls)
+             (u/errorf "Multiple %s polyfn impls for type %s."
+                       polyfn-sym (g/qname orig-type))
+             (first impls))))))
 
 (defn build-polyfn-dispatch-table [polyfn-var cls]
   (let [meta-map (meta polyfn-var)
@@ -110,16 +115,17 @@ types is provided:
              (f# ~argvec)
              (do
                ~@(or body
-                     `[(u/errorf "No polyfn implementation defined for type %s"
-                                 (print-str (g/mm-class ~(first argvec))))])))
+                     `[(u/errorf "No %s polyfn implementation defined for type %s"
+                                 '~name (g/qname ~(first argvec)))])))
           `(let [~type-var  (g/mm-class ~(first argvec))
                  call-impl# (fn [dispatch-map# ~type-var]
                               (if-let [f# (dispatch-map# ~type-var)]
                                 (f# ~@argvec)
                                 (do
                                   ~@(or body
-                                        `[(u/errorf "No polyfn implementation defined for type %s"
-                                                    (print-str ~type-var))]))))]
+                                        `[(u/errorf
+                                           "No %s polyfn implementation defined for type %s"
+                                           '~name (g/qname ~type-var))]))))]
              (if-let [dispatch-map# @(::polyfn-dispatch-table (meta #'~name))]
                (call-impl# dispatch-map# ~type-var)
                (do

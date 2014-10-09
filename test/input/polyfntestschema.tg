@@ -1,0 +1,10 @@
+TGraph 2;
+Schema funnyqt.test.polyfntest.PolyfnTestSchema;
+GraphClass PolyfnTestGraph;
+
+VertexClass A;
+VertexClass B: A;
+VertexClass C: A;
+VertexClass D: B, C;
+VertexClass E;
+VertexClass F: D, E;
