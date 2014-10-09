@@ -279,7 +279,16 @@
 (extend-protocol g/IMMElementClasses
   EClass
   (mm-element-classes [cls]
-    (eclasses))
+    (let [top-pkg (loop [^EPackage p (.getEPackage cls)]
+                    (if-let [sup (.getESuperPackage p)]
+                      (recur sup)
+                      p))
+          subs (eallsubpackages top-pkg)
+          uris (into [] (comp (map #(.getNsURI ^EPackage %))
+                              (remove nil?))
+                     (cons top-pkg subs))]
+      (with-ns-uris uris
+        (eclasses))))
   Resource
   (mm-element-classes [res]
     (eclasses res))
