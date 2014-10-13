@@ -120,19 +120,26 @@
 
 ;;### Creating
 
+(defn ^:private get-aec [g aec]
+  (if (tg/attributed-element-class? aec)
+    aec
+    (tg/attributed-element-class g aec)))
+
 (defn ^:private create-ec!
   [^Graph g {:keys [qname abstract
                     from from-multis from-role from-kind
                     to to-multis to-role to-kind]}]
-  (with-open-schema g
-    (-> (.getGraphClass ^Schema (tg/schema g))
-        (doto (.createEdgeClass
-               (name qname)
-               (tg/attributed-element-class g from) (first from-multis)
-               (second from-multis) from-role from-kind
-               (tg/attributed-element-class g to) (first to-multis)
-               (second to-multis) to-role to-kind)
-          (.setAbstract (boolean abstract))))))
+  (let [source-vc (get-aec g from)
+        target-vc (get-aec g to)]
+    (with-open-schema g
+      (-> (.getGraphClass ^Schema (tg/schema g))
+          (doto (.createEdgeClass
+                 (name qname)
+                 source-vc (first from-multis)
+                 (second from-multis) (name from-role) from-kind
+                 target-vc (first to-multis)
+                 (second to-multis) (name to-role) to-kind)
+            (.setAbstract (boolean abstract)))))))
 
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
@@ -326,8 +333,8 @@
   "Makes all `subs` sub-classes of `super`."
   [g super & subs]
   (with-open-schema g
-    (let [^GraphElementClass superaec (tg/attributed-element-class g super)
-          subaecs (map #(tg/attributed-element-class g %1) subs)]
+    (let [^GraphElementClass superaec (get-aec g super)
+          subaecs (map #(get-aec g %1) subs)]
       (doseq [^GraphElementClass subaec subaecs]
         (let [new-atts (handle-attribute-clashes superaec subaec)]
           (if (isa? (class superaec) VertexClass)
