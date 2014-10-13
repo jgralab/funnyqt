@@ -96,12 +96,14 @@
 (defn ^:private create-vc!
   [g {:keys [qname abstract]}]
   (with-open-schema g
-    (-> (.getGraphClass ^Schema (tg/schema g))
-        (doto ^VertexClass (.createVertexClass (name qname))
-          (.setAbstract (boolean abstract))))))
+    (let [gc (.getGraphClass ^Schema (tg/schema g))
+          vc (.createVertexClass gc (name qname))]
+      (.setAbstract vc (boolean abstract))
+      vc)))
 
 (defn create-vertex-class!
   "Creates VertexClass + instances in `g`.
+  Returns the newly created VertexClass.
   The map given as first argument provides the schema properties.
   For `archs`, see function `etg/create-vertices!`."
   ([g {:keys [qname abstract]
@@ -113,8 +115,9 @@
        :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-vertex-class! g props)
-     (etg/create-vertices! g qname archs)))
+     (let [vc (create-vertex-class! g props)]
+       (etg/create-vertices! g qname archs)
+       vc)))
 
 ;;## EdgeClasses
 
@@ -132,17 +135,18 @@
   (let [source-vc (get-aec g from)
         target-vc (get-aec g to)]
     (with-open-schema g
-      (-> (.getGraphClass ^Schema (tg/schema g))
-          (doto (.createEdgeClass
-                 (name qname)
-                 source-vc (first from-multis)
-                 (second from-multis) (name from-role) from-kind
-                 target-vc (first to-multis)
-                 (second to-multis) (name to-role) to-kind)
-            (.setAbstract (boolean abstract)))))))
+      (let [gc (.getGraphClass ^Schema (tg/schema g))
+            ec (.createEdgeClass gc (name qname)
+                                 source-vc (first from-multis)
+                                 (second from-multis) (name from-role) from-kind
+                                 target-vc (first to-multis)
+                                 (second to-multis) (name to-role) to-kind)]
+        (.setAbstract ec (boolean abstract))
+        ec))))
 
 (defn create-edge-class!
   "Creates an EdgeClass + instances.
+  Returns the newly created EdgeClass.
   The map given as first argument provides the schema properties.
   For `archs`, see function `etg/create-edges!`."
   ([g {:keys [qname abstract
@@ -167,8 +171,9 @@
        :as props}
     archs]
      {:pre [qname (or (nil? archs) (fn? archs))]}
-     (create-edge-class! g props)
-     (etg/create-edges! g qname archs)))
+     (let [ec (create-edge-class! g props)]
+       (etg/create-edges! g qname archs)
+       ec)))
 
 ;;## Attributes
 
@@ -202,14 +207,14 @@
   [g {:keys [qname domain default]}]
   (with-open-schema g
     (let [[qn aname _] (u/split-qname qname)
-          aec          ^AttributedElementClass (tg/attributed-element-class g qn)]
-      (.createAttribute aec aname (tg/domain g domain) default)
-      (fix-attr-array-after-add!
-       (element-seq g aec)
-       (.getAttribute aec aname)))))
+          aec          ^AttributedElementClass (tg/attributed-element-class g qn)
+          attr (.createAttribute aec aname (tg/domain g domain) default)]
+      (fix-attr-array-after-add! (element-seq g aec) attr)
+      attr)))
 
 (defn create-attribute!
-  "Creates an attribute and sets values.
+  "Creates an Attribute and sets values.
+  Returns the newly created Attribute.
   The map given as first argument determines the schema properties.
   For `valfn`, see `etg/set-values!`."
   ([g {:keys [qname domain default] :as props}]
@@ -217,8 +222,9 @@
      (create-attr! g props))
   ([g {:keys [qname domain default] :as props} valfn]
      {:pre [valfn]}
-     (create-attribute! g props)
-     (etg/set-values! g qname valfn)))
+     (let [attr (create-attribute! g props)]
+       (etg/set-values! g qname valfn)
+       attr)))
 
 ;;### Renaming
 
@@ -330,14 +336,15 @@
          (remove isect supkeys))))
 
 (defn add-sub-classes!
-  "Makes all `subs` sub-classes of `super`."
+  "Makes all `subs` sub-classes of `super`.
+  Returns `super` again."
   [g super & subs]
   (with-open-schema g
     (let [^GraphElementClass superaec (get-aec g super)
           subaecs (map #(get-aec g %1) subs)]
       (doseq [^GraphElementClass subaec subaecs]
         (let [new-atts (handle-attribute-clashes superaec subaec)]
-          (if (isa? (class superaec) VertexClass)
+          (if (instance? VertexClass superaec)
             (do
               (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
               (apply fix-attr-array-after-add! (tg/vseq g subaec)
@@ -345,11 +352,14 @@
             (do
               (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
               (apply fix-attr-array-after-add! (tg/eseq g subaec)
-                     new-atts))))))))
+                     new-atts))))))
+    super))
 
 (defn add-super-classes!
-  "Makes all `supers` super-classes of `sub`."
+  "Makes all `supers` super-classes of `sub`.
+  Returns `sub` again."
   [g sub & supers]
   (doseq [super supers]
-    (add-sub-classes! g super sub)))
+    (add-sub-classes! g super sub)
+    sub))
 
