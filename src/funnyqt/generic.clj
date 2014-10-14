@@ -208,10 +208,15 @@
   (apply comp (for [r roles]
                 (mapcat #(i/adjs-internal % r allow-unknown-ref single-valued)))))
 
-(defn adjs-transducer [role & roles]
+(defn adjs-transducer
+  "Returns a transducer traversing `role` and `roles` one after the other."
+  [role & roles]
   (adjs-transducer-1 (cons role roles) false false))
 
-(defn adjs*-transducer [role & roles]
+(defn adjs*-transducer
+  "Returns a transducer traversing `role` and `roles` one after the other.
+  Errors if some role is not defined for an element."
+  [role & roles]
   (adjs-transducer-1 (cons role roles) true false))
 
 (defn adj
