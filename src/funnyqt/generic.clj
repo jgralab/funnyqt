@@ -199,46 +199,51 @@
 
 ;;# Adacencies
 
+(defn ^:private zero-or-one [s]
+  (if (next s)
+    (u/errorf "More than one adjacent element found: %s" s)
+    (first s)))
+
+(defn ^:private adjs-transducer-1 [roles allow-unknown-ref single-valued]
+  (apply comp (for [r roles]
+                (mapcat #(i/adjs-internal % r allow-unknown-ref single-valued)))))
+
+(defn adjs-transducer [role & roles]
+  (adjs-transducer-1 (cons role roles) false false))
+
+(defn adjs*-transducer [role & roles]
+  (adjs-transducer-1 (cons role roles) true false))
+
 (defn adj
   "Traverses single-valued `role` and more `roles` starting at `elem`.
   Returns the target object.
   Errors if a role is undefined, intermediate targets are nil, or there are
   more elements that can be reached that way."
   [elem role & roles]
-  (i/adj-internal elem (cons role roles)))
+  (zero-or-one (sequence (adjs-transducer-1 (cons role roles) false true)
+                         [elem])))
 
 (defn adj*
   "Like `adj`, but doesn't error if some role is not defined.  In that case, it
   simply returns nil."
   [elem role & roles]
-  (i/adj*-internal elem (cons role roles)))
-
-(defn reducible-adjs
-  "Traverses `role` and more `roles` starting at `elem`.
-  Returns a reducible collection (see clojure.core.reducers).
-  Errors if a role is undefined."
-  [elem role & roles]
-  (i/adjs-internal elem (cons role roles)))
-
-(defn reducible-adjs*
-  "Like `adjs`, but doesn't error if some role is not defined.  In that case,
-  it simply returns the empty vector.
-  Returns a reducible collection (see clojure.core.reducers)."
-  [elem role & roles]
-  (i/adjs*-internal elem (cons role roles)))
+  (zero-or-one (sequence (adjs-transducer-1 (cons role roles) true true)
+                         [elem])))
 
 (defn adjs
   "Traverses `role` and more `roles` starting at `elem`.
   Returns a vector of target objects.
   Errors if a role is undefined."
   [elem role & roles]
-  (into [] (i/adjs-internal elem (cons role roles))))
+  (into [] (adjs-transducer-1 (cons role roles) false false)
+        [elem]))
 
 (defn adjs*
   "Like `adjs`, but doesn't error if some role is not defined.  In that case,
   it simply returns the empty vector."
   [elem role & roles]
-  (into [] (i/adjs*-internal elem (cons role roles))))
+  (into [] (adjs-transducer-1 (cons role roles) true false)
+        [elem]))
 
 ;;# INeighbors
 

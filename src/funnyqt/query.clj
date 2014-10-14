@@ -273,7 +273,8 @@
    (vector? p)      (apply (first p) n (rest p))
    ;; adjacences / that-role names
    (u/prop-name? p) (into (os/ordered-set)
-                          (r/mapcat #(g/reducible-adjs* % p) (u/oset n)))
+                          (g/adjs*-transducer p)
+                          (u/oset n))
    :else (u/errorf "Don't know how to apply %s." p)))
 
 (defprotocol ISimpleRegularPathExpression

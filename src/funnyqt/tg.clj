@@ -1330,53 +1330,27 @@ functions `record` and `enum-constant`."
 
 ;;# Adjancencies
 
-(defn ^:private maybe-traverse [^Vertex v role allow-unknown-ref single-valued]
-  (let [role (name role)]
-    (if-let [^DirectedSchemaEdgeClass dec
-             (.getDirectedEdgeClassForFarEndRole
-              ^VertexClass (attributed-element-class v)
-              role)]
-      (if single-valued
-        (let [^EdgeClass ec (.getEdgeClass dec)
-              dir (.getDirection dec)
-              ub (if (= dir EdgeDirection/OUT)
-                   (-> ec .getTo .getMax)
-                   (-> ec .getFrom .getMax))]
-          (if (== ub 1)
-            (.adjacences v role)
-            (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
-                      role ec ub)))
-        (.adjacences v role))
-      (when-not allow-unknown-ref
-        (u/errorf "No %s role at vertex %s" role v)))))
-
-(defn ^:private zero-or-one [s]
-  (if (next s)
-    (u/errorf "More than one adjacent vertex found: %s" s)
-    (first s)))
-
 (extend-protocol i/IAdjacenciesInternal
   Vertex
-  (adj-internal [this roles]
-    (if (seq roles)
-      (when-let [target (zero-or-one (maybe-traverse this (first roles) false true))]
-        (recur target (rest roles)))
-      this))
-  (adj*-internal [this roles]
-    (if (seq roles)
-      (when-let [target (zero-or-one (maybe-traverse this (first roles) true true))]
-        (recur target (rest roles)))
-      this))
-  (adjs-internal [this roles]
-    (if (seq roles)
-      (when-let [a (seq (maybe-traverse this (first roles) false false))]
-        (r/mapcat #(i/adjs-internal % (rest roles)) a))
-      [this]))
-  (adjs*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (seq (maybe-traverse this (first roles) true false))]
-        (r/mapcat #(i/adjs*-internal % (rest roles)) a))
-      [this])))
+  (adjs-internal [this role allow-unknown-role single-valued]
+    (let [role (name role)]
+      (if-let [^DirectedSchemaEdgeClass dec
+               (.getDirectedEdgeClassForFarEndRole
+                ^VertexClass (attributed-element-class this)
+                role)]
+        (if single-valued
+          (let [^EdgeClass ec (.getEdgeClass dec)
+                dir (.getDirection dec)
+                ub (if (= dir EdgeDirection/OUT)
+                     (-> ec .getTo .getMax)
+                     (-> ec .getFrom .getMax))]
+            (if (== ub 1)
+              (.adjacences this role)
+              (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
+                        role ec ub)))
+          (.adjacences this role))
+        (when-not allow-unknown-role
+          (u/errorf "No %s role at vertex %s" role this))))))
 
 ;;# Neighbors
 

@@ -1109,42 +1109,25 @@
 
 ;;# Adjancencies
 
-(defn ^:private eget-ref ^EReference [^EObject eo ref allow-unknown-ref single-valued]
-  (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass eo) (name ref))]
-    (if (ereference? sf)
-      (if single-valued
-        (if (.isMany sf)
-          (u/errorf "Must not call adj on many-valued EReference '%s'." sf)
-          (.eGet eo sf))
-        (.eGet eo sf))
-      (u/errorf "'%s' at %s is no EReference." sf eo))
-    (when-not allow-unknown-ref
-      (u/errorf "No such structural feature '%s' at %s." ref eo))))
+(defn ^:private ensure-coll [x]
+  (if (or (nil? x)
+          (instance? java.util.Collection x))
+    x
+    [x]))
 
 (extend-protocol i/IAdjacenciesInternal
   EObject
-  (adj-internal [this roles]
-    (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) false true))]
-        (recur a (rest roles)))
-      this))
-  (adj*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (emf2clj (eget-ref this (first roles) true true))]
-        (recur a (rest roles)))
-      this))
-  (adjs-internal [this roles]
-    (if (seq roles)
-      (when-let [a (eget-ref this (first roles) false false)]
-        (r/mapcat #(i/adjs-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this]))
-  (adjs*-internal [this roles]
-    (if (seq roles)
-      (when-let [a (eget-ref this (first roles) true false)]
-        (r/mapcat #(i/adjs*-internal % (rest roles))
-                  (if (instance? java.util.Collection a) a [a])))
-      [this])))
+  (adjs-internal [this ref allow-unknown-ref single-valued]
+    (if-let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name ref))]
+      (if (ereference? sf)
+        (if single-valued
+          (if (.isMany sf)
+            (u/errorf "Must not call adj on many-valued EReference '%s'." sf)
+            (ensure-coll (.eGet this sf)))
+          (ensure-coll (.eGet this sf)))
+        (u/errorf "'%s' at %s is no EReference." sf this))
+      (when-not allow-unknown-ref
+        (u/errorf "No such structural feature '%s' at %s." ref this)))))
 
 ;;# Neighbors
 
