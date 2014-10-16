@@ -1196,6 +1196,24 @@
   denotes the pattern of the second version.  0, i.e., the first version, is
   the default.
 
+  Negative Patterns
+  =================
+
+  A pattern may include arbitrarily many negative patterns which implement
+  negative application conditions (NACs).  In order for the pattern to match,
+  all included negative patterns must not match.
+
+    [b<B>
+     :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                b -<:t>-> c2<C> -<:t>-> a
+                :when (not= c1 c2)]]
+
+  This pattern matches all B-nodes b which are not connected to two different
+  C-nodes c1 and c2 that both reference the same A-node a.
+
+  If a negative pattern is not connected to the surrounding pattern, then it
+  acts as a global NAC.
+
   Nested Patterns
   ===============
 
