@@ -229,7 +229,10 @@
                                                                     a    -<:t>-> c2<C>
                                                                     :when (not= c1 c2)
                                                                     a    -!<:s>-> <>])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [a<A> -<:t>-> c1<C>
+                                                                    a    -<:t>-> c2<C>
+                                                                    :when (not= c1 c2)
+                                                                    a    -!<:s>-> <>])
                 2
                 (pmt-matches-fn {:a ['B 1], :c1 ['C 1], :c2 ['C 2]}
                                 {:a ['B 1], :c1 ['C 2], :c2 ['C 1]})))
@@ -376,6 +379,24 @@
   (testing "Testing :negative patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :when (not= c1 c2)]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :when (not= c1 c2)]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :when (not= c1 c2)]])
+                1
+                (pmt-matches-fn {:b ['B 2]})))
+  (testing "Testing :negative patterns. (2)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
                                            -<:s>-> c2<C> -<:s>-> b
                                          :when (not= c1 c2)]])
@@ -386,12 +407,12 @@
                                          :when (not= c1 c2)]])
                 (pattern {:pattern-expansion-context :tg}
                          [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
+                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                                           -<:s>-> c2<C> -<:s>-> b
                                          :when (not= c1 c2)]])
                 1
                 (pmt-matches-fn {:b ['B 2]})))
-  (testing "Testing :negative patterns. (2, global NAC)"
+  (testing "Testing :negative patterns. (3, global NAC)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [a<A>
                               :negative [c1<C> -<:d>-> d1<D>

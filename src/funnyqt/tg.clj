@@ -1069,14 +1069,15 @@ functions `record` and `enum-constant`."
               (and f (cons f (riseq-internal-1 f pred)))))))
 
 (defn ^:private type-matcher-from-ts-or-role [v ts]
-  (g/type-matcher v (if (keyword? ts)
-                      (if-let [^DirectedSchemaEdgeClass
-                               dec (.getDirectedEdgeClassForFarEndRole
-                                    ^VertexClass (attributed-element-class v)
-                                    (name ts))]
-                        (.getEdgeClass dec)
-                        (u/errorf "No such role %s at %s." ts v))
-                      ts)))
+  (if (keyword? ts)
+    (if-let [^DirectedSchemaEdgeClass
+             dec (.getDirectedEdgeClassForFarEndRole
+                  ^VertexClass (attributed-element-class v)
+                  (name ts))]
+      (every-pred (direction-matcher-tg (.getDirection dec))
+                  (g/type-matcher v (.getEdgeClass dec)))
+      (u/errorf "No such role %s at %s." ts v))
+    (g/type-matcher v ts)))
 
 (defn iseq
   "Returns the lazy seq of incidences of `v` restricted by `ts` and `ds`.

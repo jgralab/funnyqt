@@ -489,6 +489,14 @@
 
 (defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
   (let [gsym (first argvec)
+        inc-dir (fn [e]
+                  ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
+                  ;; --<:role>-> does not in order to stay compatible with the
+                  ;; generic version.
+                  (cond
+                   (keyword? (get-type e)) nil
+                   (tg/normal-edge? e)     :out
+                   :else                   :in))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -502,8 +510,7 @@
                                                          ~@(when-let [t (get-type el)]
                                                              [:when `(g/has-type? ~ncs ~t)])])
                                                (into r `[~ncs (tg/iseq ~cs ~(get-type el)
-                                                                       ~(if (tg/normal-edge? el)
-                                                                          :out :in))]))))
+                                                                       ~(inc-dir el))]))))
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r)  ;; only one binding [G_NNNN exp]
@@ -559,7 +566,7 @@
                          (conj-done done cur trg)
                          (apply conj bf `~(get-name cur)
                                 `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
-                                          ~(if (tg/normal-edge? cur) :out :in))
+                                          ~(inc-dir cur))
                                 (cond
                                  (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                  (anon? trg) (do-anons anon-vec-to-for
@@ -605,7 +612,7 @@
                          (into bf `[:when (not (q/exists?
                                                 #(= ~(get-name trg) (tg/that %))
                                                 (tg/iseq ~(get-name src) ~(get-type cur)
-                                                         ~(if (tg/normal-edge? cur) :out :in))))]))
+                                                         ~(inc-dir cur))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done cur trg)
                          (into bf (if (anon? trg)
@@ -613,14 +620,14 @@
                                       `[:when (empty? (filter
                                                        #(g/has-type? (tg/that %) ~tt)
                                                        (tg/iseq ~(get-name src) ~(get-type cur)
-                                                                ~(if (tg/normal-edge? cur) :out :in))))]
+                                                                ~(inc-dir cur))))]
                                       `[:when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
-                                                               ~(if (tg/normal-edge? cur) :out :in)))])
+                                                               ~(inc-dir cur)))])
                                     `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))
                                       :when (not (q/exists?
                                                   #(= ~(get-name trg) (tg/that %))
                                                   (tg/iseq ~(get-name src) ~(get-type cur)
-                                                           ~(if (tg/normal-edge? cur) :out :in))))])))))
+                                                           ~(inc-dir cur))))])))))
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
