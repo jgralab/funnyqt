@@ -373,6 +373,42 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing :negative patterns. (1)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                                           -<:s>-> c2<C> -<:s>-> b
+                                         :when (not= c1 c2)]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                                           -<:s>-> c2<C> -<:s>-> b
+                                         :when (not= c1 c2)]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [b<B>
+                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :when (not= c1 c2)]])
+                1
+                (pmt-matches-fn {:b ['B 2]})))
+  (testing "Testing :negative patterns. (2, global NAC)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [a<A>
+                              :negative [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [a<A>
+                              :negative [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [a<A>
+                              :negative [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                0
+                (pmt-matches-fn)))
   (testing "Testing :nested patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
@@ -863,4 +899,3 @@
     (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))
-

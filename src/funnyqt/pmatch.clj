@@ -32,12 +32,17 @@
        (re-matches #"-.*->" (name sym)))
    (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?(->?)" (name sym))))
 
-(defn ^:private name-and-type [sym]
-  (if (or (vertex-sym? sym) (edge-sym? sym))
-    (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
-                                      (name sym))]
-      [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
-    (u/errorf "No valid pattern symbol: %s" sym)))
+(defn ^:private name-and-type
+  ([sym]
+     (name-and-type sym nil))
+  ([sym cur-edge]
+     (when (and cur-edge (edge-sym? sym))
+       (u/errorf "Dangling edge in pattern: %s" cur-edge))
+     (if (or (vertex-sym? sym) (edge-sym? sym))
+       (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
+                                         (name sym))]
+         [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
+       (u/errorf "No valid pattern symbol: %s" sym))))
 
 (defn ^:private neg-edge-sym? [sym]
   (and (edge-sym? sym)
@@ -192,6 +197,41 @@
         (recur (conj nv (first ov)) (rest ov)))
       [nv nil])))
 
+(defn ^:private build-nested-pattern [pattern model-sym binding-var-set pattern-var-set]
+  (let [pattern-meta (meta pattern)
+        new-bindings (binding-bound-vars pattern)
+        new-pattern-els (pattern-bound-vars pattern)
+        argvec (into [model-sym]
+                     (clojure.set/intersection
+                      (clojure.set/union binding-var-set
+                                         pattern-var-set)
+                      (clojure.set/union (set new-bindings)
+                                         (set new-pattern-els))))
+        new-only-bindings (clojure.set/difference
+                           (clojure.set/union (set new-bindings)
+                                              (set new-pattern-els))
+                           (clojure.set/union binding-var-set
+                                              pattern-var-set))
+        [pattern result-form] (get-and-remove-key-from-vector pattern :as true)
+        result-form (or result-form
+                        (zipmap (map keyword new-only-bindings)
+                                new-only-bindings))]
+    `((pattern ~(merge {:pattern-expansion-context *pattern-expansion-context*}
+                       pattern-meta)
+               ~argvec ~(conj pattern :as result-form))
+      ~@argvec)))
+
+(defn ^:private negative-spec-to-when-empty [negative-spec model-sym binding-var-set pattern-var-set]
+  ;; negative-spec is [...neg-pattern...]
+  [:when `(empty? ~(build-nested-pattern negative-spec model-sym binding-var-set pattern-var-set))])
+
+(defn ^:private nested-specs-to-let [nested-specs model-sym binding-var-set pattern-var-set]
+  ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
+  [:let (vec (mapcat
+              (fn [[npvar np]]
+                [npvar (build-nested-pattern np model-sym binding-var-set pattern-var-set)])
+              (partition 2 nested-specs)))])
+
 (defn pattern-to-pattern-graph [pname argvec pattern]
   (let [binding-var-vec (binding-bound-vars pattern)
         binding-var-set (into #{} binding-var-vec)
@@ -252,40 +292,20 @@
                            (tg/vseq pg '!Constraint))]
                (tg/create-edge! pg 'Precedes ex-v v))
              (recur (nnext pattern) v))
+           ;; Negative patterns: :negative [a --> b]
+           (= :negative cur)
+           (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym binding-var-set pattern-var-set)
+                               (nnext pattern)))
+                  lv)
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
-           (recur (vec (concat
-                        [:let (vec (mapcat
-                                    (fn [[npvar np]]
-                                      (let [pattern-meta (meta np)
-                                            new-bindings (binding-bound-vars np)
-                                            new-pattern-els (pattern-bound-vars np)
-                                            argvec (into [model-sym]
-                                                         (clojure.set/intersection
-                                                          (clojure.set/union binding-var-set
-                                                                             pattern-var-set)
-                                                          (clojure.set/union (set new-bindings)
-                                                                             (set new-pattern-els))))
-                                            new-only-bindings (clojure.set/difference
-                                                               (clojure.set/union (set new-bindings)
-                                                                                  (set new-pattern-els))
-                                                               (clojure.set/union binding-var-set
-                                                                                  pattern-var-set))
-                                            [np result-form] (get-and-remove-key-from-vector np :as true)
-                                            result-form (or result-form
-                                                            (zipmap (map keyword new-only-bindings)
-                                                                    new-only-bindings))]
-                                        [npvar `((pattern ~(merge {:pattern-expansion-context *pattern-expansion-context*}
-                                                                  pattern-meta)
-                                                          ~argvec ~(conj np :as result-form))
-                                                 ~@argvec)]))
-                                    (partition 2 (fnext pattern))))]
-                        (nnext pattern)))
+           (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
+                               (nnext pattern)))
                   lv)
            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? cur) (let [[n t] (name-and-type cur)
                                  nsym (second pattern)
-                                 [nvn nvt] (name-and-type nsym)
+                                 [nvn nvt] (name-and-type nsym cur)
                                  nv (get-or-make-v nvn nvt)]
                              (let [e (apply tg/create-edge!
                                             pg (cond
@@ -308,12 +328,14 @@
                                (recur (rest pattern) v))
            :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
     ;; Move Precedes edges to the front of iseqs so that constraints are
-    ;; evaluated as soon as possible.
-    (doseq [v (tg/vseq pg)]
-      (doseq [p (vec (tg/iseq v 'Precedes :out))
-              :let [fi (tg/first-inc v #(g/has-type? % '!Precedes))]
-              :when (and fi (tg/before-inc? fi p))]
-        (tg/put-before-inc! p fi)))
+    ;; evaluated as soon as possible.  TODO: That's probably not a good idea.
+    ;; A constraint may be much more expensive to evaluate than to exclude a
+    ;; match by its structure.  So "as written by the user" seems to be better.
+    #_(doseq [v (tg/vseq pg)]
+        (doseq [p (vec (tg/iseq v 'Precedes :out))
+                :let [fi (tg/first-inc v #(g/has-type? % '!Precedes))]
+                :when (and fi (tg/before-inc? fi p))]
+          (tg/put-before-inc! p fi)))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
