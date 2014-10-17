@@ -275,19 +275,19 @@
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-generic m)]
                    a1 -<:t>-> a2<A>
-                   :when (a-having-d-generic m a2 d)])
+                   :when (seq (a-having-d-generic m a2 d))])
                  (a-with-a-having-d-emf
                   {:pattern-expansion-context :emf}
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-emf m)]
                    a1 -<:t>-> a2<A>
-                   :when (a-having-d-emf m a2 d)])
+                   :when (seq (a-having-d-emf m a2 d))])
                  (a-with-a-having-d-tg
                   {:pattern-expansion-context :tg}
                   [m]
                   [:for [{a1 :a, d :d} (a-having-d-tg m)]
                    a1 -<:t>-> a2<A>
-                   :when (a-having-d-tg m a2 d)])]
+                   :when (seq (a-having-d-tg m a2 d))])]
       (pmt-assert a-with-a-having-d-generic
                   a-with-a-having-d-emf
                   a-with-a-having-d-tg
@@ -376,6 +376,75 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing patterns with arguments."
+    (pmt-assert (fn [m]
+                  ((pattern
+                     {:pattern-expansion-context :generic}
+                     [m cur]
+                     [cur<A> -<:t>-> next<A>])
+                   m (pmt-el m 'B 1)))
+                (fn [m]
+                  ((pattern
+                     {:pattern-expansion-context :emf}
+                     [m cur]
+                     [cur<A> -<:t>-> next<A>])
+                   m (pmt-el m 'B 1)))
+                (fn [m]
+                  ((pattern
+                     {:pattern-expansion-context :tg}
+                     [m cur]
+                     [cur<A> -<:t>-> next<A>])
+                   m (pmt-el m 'B 1)))
+                2
+                (pmt-matches-fn {:cur ['B 1] :next ['C 1]}
+                                {:cur ['B 1] :next ['C 2]})))
+  (testing "Testing recursive patterns."
+    (letpattern [(successors-generic
+                  {:pattern-expansion-context :generic}
+                  [m cur known]
+                  [:when (not (known cur))
+                   cur<A> -<:t>-> next<A>
+                   :let [nnexts (successors-generic m next (conj known cur))]])
+                 (successors-emf
+                  {:pattern-expansion-context :emf}
+                  [m cur known]
+                  [:when (not (known cur))
+                   cur<A> -<:t>-> next<A>
+                   :let [nnexts (successors-emf m next (conj known cur))]])
+                 (successors-tg
+                  {:pattern-expansion-context :tg}
+                  [m cur known]
+                  [:when (not (known cur))
+                   cur<A> -<:t>-> next<A>
+                   :let [nnexts (successors-tg m next (conj known cur))]])]
+      (pmt-assert (fn [m]
+                    (successors-generic m (pmt-el m 'B 1) #{}))
+                  (fn [m]
+                    (successors-emf m (pmt-el m 'B 1) #{}))
+                  (fn [m]
+                    (successors-tg m (pmt-el m 'B 1) #{}))
+                  2
+                  (pmt-matches-fn
+                   '{:cur [B 1],
+                     :next [C 1],
+                     :nnexts ({:cur [C 1],
+                              :next [C 1],
+                              :nnexts ()}
+                              {:cur [C 1],
+                               :next [A 1],
+                               :nnexts ({:cur [A 1],
+                                         :next [B 2],
+                                         :nnexts ()})})}
+                   '{:cur [B 1],
+                     :next [C 2],
+                     :nnexts ({:cur [C 2],
+                               :next [A 1],
+                               :nnexts ({:cur [A 1],
+                                         :next [B 2],
+                                         :nnexts ()})}
+                              {:cur [C 2],
+                               :next [B 2],
+                               :nnexts ()})}))))
   (testing "Testing :negative patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [b<B>
@@ -468,8 +537,8 @@
                  {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list ['C 1] ['A 1])}
                                                 {:a1 ['A 1] :f2 (list ['B 2])})}
                  {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list ['B 2])}
-                                                {:a1 ['B 2] :f2 nil})}
-                 {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 nil})})))
+                                                {:a1 ['B 2] :f2 ()})}
+                 {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 ()})})))
   (testing "Testing :as clause"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C> --> d<D>

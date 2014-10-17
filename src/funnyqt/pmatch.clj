@@ -281,7 +281,7 @@
                                                 [cur (second pattern)])
                                            decls (binding-bound-vars
                                                   (read-string (tg/value % :form)))]
-                                       (empty? (clojure.set/intersection lvs decls))))
+                                       (empty? (clojure.set/intersection lvs (set decls)))))
                                 (and (g/has-type? % 'APatternVertex)
                                      (let [name (tg/value % :name)]
                                        (and name
@@ -1038,8 +1038,8 @@
                                          (clojure.core.reducers/cat l# r#)
                                          l#))))
                     finalize# ~(if (:distinct (meta bf))
-                                 `(fn [~chm] (seq (.keySet ~chm)))
-                                 `seq)]
+                                 `(fn [~chm] (sequence (.keySet ~chm)))
+                                 `sequence)]
                 (->> ~vectorvar
                      (clojure.core.reducers/fold
                       n# combine!#
@@ -1052,9 +1052,9 @@
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]
-             `(seq ~(if (:eager (meta name))
-                      `(doall ~code)
-                      code))))))))
+             (if (:eager (meta name))
+               `(doall ~code)
+               `(sequence ~code))))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
