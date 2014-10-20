@@ -160,7 +160,7 @@
   process, and releases the requested one."
   ([g] [p1<Process> -rq<Request>-> r1 -h1<HeldBy>-> p2 <-h2<HeldBy>- r2]
      (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-  ([g r2 h2 p2] [p2 <-h1- r1 <-rq<Request>- p1]
+  ([g r2 h2 p2] [p2 <-h1<_>- r1 <-rq<Request>- p1]
      (release-star-rule g r2 h2 p2 h1 r1 rq p1))
   ([g r2 h2 p2 h1 r1 rq p1]
      (g/delete! h1)

@@ -147,7 +147,7 @@
   (testing "Testing pattern [c<C> --> a<A>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A>])
                 7
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
@@ -159,7 +159,7 @@
   (testing "Testing pattern [c<C> -<>-> a<A>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> -<>-> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> -<>-> a<A>])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> -<>-> a<A>])
                 7
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
@@ -192,7 +192,7 @@
   (testing "Testing pattern [a1<A> -!-> a2<A!>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a1<A> -!-> a2<A!>])
                 (pattern {:pattern-expansion-context :emf}     [m] [a1<A> -!-> a2<A!>])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [a1<A> -!-> a2<A!>])
                 2
                 (pmt-matches-fn {:a1 ['A 1] :a2 ['A 1]}
                                 {:a1 ['B 1] :a2 ['A 1]})))
@@ -211,7 +211,9 @@
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>
                                                                     :when (= 1 (g/aval a :i))
                                                                     :when (= 1 (g/aval c :i))])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A>
+                                                                    :when (= 1 (g/aval a :i))
+                                                                    :when (= 1 (g/aval c :i))])
                 4
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
@@ -343,10 +345,10 @@
                   {:pattern-expansion-context :tg}
                   ([m]
                      [:extends [a-A]
-                      a -<A2D>-> d<D>])
+                      a -<:d>-> d<D>])
                   ([m a d]
                      [:extends [(a-A)]
-                      a -<A2D>-> d<D>]))
+                      a -<:d>-> d<D>]))
                  (a-with-a-having-d-generic
                   {:pattern-expansion-context :generic}
                   [m]
@@ -369,7 +371,7 @@
                   [m]
                   [:extends [(a-having-d-tg 0 :a a1)
                              (a-having-d-tg :a a2)]
-                   a1 -<A2A>-> a2])]
+                   a1 -<:t>-> a2])]
       (pmt-assert a-with-a-having-d-generic
                   a-with-a-having-d-emf
                   a-with-a-having-d-tg
@@ -513,7 +515,7 @@
                 (pattern {:pattern-expansion-context :tg}
                          [m] [c<C>
                               :nested [ds [c -<:d>-> d :as d]
-                                       ss [c <-<A2A>- s :as s]
+                                       ss [c -<:s>-> s :as s]
                                        ts [c -<:t>-> t :as t]]])
                 2
                 (pmt-matches-fn
@@ -561,7 +563,7 @@
   (testing "Testing :distinct clause"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A> :distinct])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A> :distinct])
-                nil
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A> :distinct])
                 6
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
@@ -680,7 +682,7 @@
 (defpattern long-anon-pattern-tg
   {:pattern-expansion-context :tg}
   [g fam]
-  [fam --> <Member> <-- <> -<HasSon>-> <> <-- x<Family>
+  [fam --> <Member> <-<_>- <> -<HasSon>-> <> <-<_>- x<Family>
    :when (not= fam x)])
 
 (deftest test-long-anon-pattern-tg
@@ -728,11 +730,11 @@
         eager-pattern1 (pattern {:pattern-expansion-context :tg, :eager true} [g]
                                 [f<Family> -hf<HasFather>-> m<Member>])
         lazy-pattern2 (pattern {:pattern-expansion-context :tg} [g]
-                               [m1<Member> <-- <> --> m2<Member>
+                               [m1<Member> <-<_>- <> --> m2<Member>
                                 :when (distinct? m1 m2)
                                 :as #{m1 m2} :distinct])
         eager-pattern2 (pattern {:pattern-expansion-context :tg, :eager true} [g]
-                                [m1<Member> <-- <> --> m2<Member>
+                                [m1<Member> <-<_>- <> --> m2<Member>
                                  :when (distinct? m1 m2)
                                  :as #{m1 m2} :distinct])]
     (is (= (lazy-pattern1 fg) (eager-pattern1 fg)))
@@ -989,3 +991,4 @@
     (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))
+

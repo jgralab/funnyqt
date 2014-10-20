@@ -41,7 +41,10 @@
      (if (or (vertex-sym? sym) (edge-sym? sym))
        (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
                                          (name sym))]
-         [(and (seq s) (symbol s)) (and (seq t) (symbol t))])
+         [(and (seq s) (symbol s))
+          (and (seq t) (if (.startsWith t ":")
+                         (keyword t)
+                         (symbol t)))])
        (u/errorf "No valid pattern symbol: %s" sym))))
 
 (defn ^:private neg-edge-sym? [sym]
@@ -307,6 +310,10 @@
                                  nsym (second pattern)
                                  [nvn nvt] (name-and-type nsym cur)
                                  nv (get-or-make-v nvn nvt)]
+                             (when (and (or (nil? t) (keyword? t)) (= :in (edge-dir cur)))
+                               (u/errorf
+                                "References may only specified in forward direction but got %s"
+                                cur))
                              (let [e (apply tg/create-edge!
                                             pg (cond
                                                 (= '! n)   'NegPatternEdge
@@ -491,12 +498,21 @@
   (let [gsym (first argvec)
         inc-dir (fn [e]
                   ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
-                  ;; --<:role>-> does not in order to stay compatible with the
-                  ;; generic version.
+                  ;; --> and -<:role>-> do not in order to stay compatible with
+                  ;; the generic version.
                   (cond
+                   (nil? (get-type e))     nil
                    (keyword? (get-type e)) nil
                    (tg/normal-edge? e)     :out
                    :else                   :in))
+        inc-type (fn [e]
+                   ;; -<_>-> accepts all edges of all ECs, and since an "edge
+                   ;; class" name is given (the underscore), also the direction
+                   ;; is considered.
+                   (when-let [ec (get-type e)]
+                     (if (= ec ''_)
+                       nil
+                       ec)))
         anon-vec-to-for (fn [start-sym av]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -509,7 +525,7 @@
                                                (into r `[:let [~ncs (tg/that ~cs)]
                                                          ~@(when-let [t (get-type el)]
                                                              [:when `(g/has-type? ~ncs ~t)])])
-                                               (into r `[~ncs (tg/iseq ~cs ~(get-type el)
+                                               (into r `[~ncs (tg/iseq ~cs ~(inc-type el)
                                                                        ~(inc-dir el))]))))
                                     [cs r]))]
                             (if (== 2 (count r))
@@ -565,7 +581,7 @@
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done cur trg)
                          (apply conj bf `~(get-name cur)
-                                `(tg/iseq ~(get-name (tg/this cur)) ~(get-type cur)
+                                `(tg/iseq ~(get-name (tg/this cur)) ~(inc-type cur)
                                           ~(inc-dir cur))
                                 (cond
                                  (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
@@ -611,7 +627,7 @@
                          (conj-done done cur trg)
                          (into bf `[:when (not (q/exists?
                                                 #(= ~(get-name trg) (tg/that %))
-                                                (tg/iseq ~(get-name src) ~(get-type cur)
+                                                (tg/iseq ~(get-name src) ~(inc-type cur)
                                                          ~(inc-dir cur))))]))
                   (recur (enqueue-incs trg (pop stack) done)
                          (conj-done done cur trg)
@@ -619,14 +635,14 @@
                                     (if-let [tt (get-type trg)]
                                       `[:when (empty? (filter
                                                        #(g/has-type? (tg/that %) ~tt)
-                                                       (tg/iseq ~(get-name src) ~(get-type cur)
+                                                       (tg/iseq ~(get-name src) ~(inc-type cur)
                                                                 ~(inc-dir cur))))]
-                                      `[:when (empty? (tg/iseq ~(get-name src) ~(get-type cur)
+                                      `[:when (empty? (tg/iseq ~(get-name src) ~(inc-type cur)
                                                                ~(inc-dir cur)))])
                                     `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))
                                       :when (not (q/exists?
                                                   #(= ~(get-name trg) (tg/that %))
-                                                  (tg/iseq ~(get-name src) ~(get-type cur)
+                                                  (tg/iseq ~(get-name src) ~(inc-type cur)
                                                            ~(inc-dir cur))))])))))
               Precedes
               (let [cob (tg/omega cur)]
