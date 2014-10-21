@@ -284,8 +284,9 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> --> a])
                 (pattern {:pattern-expansion-context :emf}     [m] [a<A> --> a])
                 (pattern {:pattern-expansion-context :tg}      [m] [a<A> --> a])
-                1
-                (pmt-matches-fn {:a ['C 1]})))
+                2
+                (pmt-matches-fn {:a ['C 1]}
+                                {:a ['C 1]})))
   (testing "Testing pattern [c<C> --> a<A>
                              :when (= 1 (g/aval a :i))
                              :when (= 1 (g/aval c :i))]"

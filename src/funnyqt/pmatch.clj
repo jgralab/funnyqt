@@ -462,26 +462,13 @@
      (anon? target-node)
      [:when `(seq ~(anon-vec-transformer-fn startsym av))]
      ;;---
-     (done target-node)
-     [:when `(q/member? ~(get-name target-node)
-                        ~(anon-vec-transformer-fn startsym av))]
+     (or (done target-node)
+         (g/has-type? target-node '[:or ArgumentVertex BindingVarVertex]))
+     `[~(get-name target-node)
+       (filter (partial = ~(get-name target-node))
+               ~(anon-vec-transformer-fn startsym av))]
      ;;---
-     ;; Not already done ArgumentVertex, so declare it!
-     (g/has-type? target-node 'ArgumentVertex)
-     `[:when-let [~(get-name target-node) ~(get-name target-node)]
-       ~@(when (get-type target-node)
-           `[:when (g/has-type? ~(get-name target-node)
-                                ~(get-type target-node))])
-      :when (q/member? ~(get-name target-node)
-                       ~(anon-vec-transformer-fn startsym av))]
-     ;;---
-     (g/has-type? target-node 'BindingVarVertex)
-     `[~@(when (get-type target-node)
-           `[:when (g/has-type? ~(get-name target-node) ~(get-type target-node))])
-       :when (q/member? ~(get-name target-node)
-                        ~(anon-vec-transformer-fn startsym av))]
-     ;;---
-     :normal-v
+     :normal-not-done-vertex
      [(get-name target-node)
       (anon-vec-transformer-fn startsym av)])))
 
@@ -847,19 +834,6 @@
        :default (recur (rest (rest p)) (conj l (first p))))
       (vec l))))
 
-(defn ^:private verify-pattern-binding-form
-  "Ensure that the pattern vector doesn't declare bindings twice, which would
-  be a bug."
-  [pattern args]
-  (let [blist (bindings-to-arglist pattern)]
-    (if-let [double-syms (seq (mapcat (fn [[sym freq]]
-                                        (when (> freq 1)
-                                          (str "- " sym " is declared " freq " times\n")))
-                                      (frequencies blist)))]
-      (u/errorf "These symbols are declared multiple times:\n%s"
-                (clojure.string/join double-syms))
-      pattern)))
-
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
   {:emf     pattern-graph-to-pattern-for-bindings-emf
@@ -1010,7 +984,6 @@
                               result-form))
                           (argvec-to-hash-map
                            (bindings-to-arglist bf)))]
-      (verify-pattern-binding-form bf args)
       `(~args
         ~(if (and (:eager (meta name))
                   (not (:sequential (meta name)))
