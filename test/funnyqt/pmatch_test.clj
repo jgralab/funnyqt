@@ -252,6 +252,27 @@
                    m (pmt-el m 'C 1) (pmt-el m 'B 2)))
                 0
                 (pmt-matches-fn)))
+  (testing "Testing pattern with non-model-args (4)"
+    (pmt-assert (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :generic}
+                    [m a]
+                    [a<A> --> a])
+                   m (pmt-el m 'C 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :emf}
+                    [m a]
+                    [a<A> --> a])
+                   m (pmt-el m 'C 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :tg}
+                    [m a]
+                    [a<A> --> a])
+                   m (pmt-el m 'C 1)))
+                2
+                (pmt-matches-fn {:a ['C 1]} {:a ['C 1]})))
   (testing "Testing pattern [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
