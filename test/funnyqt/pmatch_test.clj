@@ -173,19 +173,19 @@
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1)))
                 1
                 (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
@@ -194,19 +194,19 @@
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m a]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1)))
                 0
                 (pmt-matches-fn)))
@@ -215,19 +215,19 @@
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1) (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1) (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'A 1) (pmt-el m 'B 2)))
                 1
                 (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
@@ -236,19 +236,19 @@
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1) (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1) (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m a b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'C 1) (pmt-el m 'B 2)))
                 0
                 (pmt-matches-fn)))
@@ -278,41 +278,40 @@
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'B 2)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m b]
-                    [a<A> -<:t>-> b<B>])
+                    [a<A!> -<:t>-> b<B>])
                    m (pmt-el m 'B 2)))
-                2
-                (pmt-matches-fn {:b ['B 2], :a ['A 1]}
-                                {:b ['B 2], :a ['C 2]})))
+                1
+                (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
   (testing "Testing pattern with non-model-args (7)"
     (pmt-assert (fn [m]
                   ((pattern
                     {:pattern-expansion-context :generic}
                     [m b]
-                    [a<A> -<:s>-> b<B>])
+                    [a<A!> -<:s>-> b<B>])
                    m (pmt-el m 'C 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
                     [m b]
-                    [a<A> -<:s>-> b<B>])
+                    [a<A!> -<:s>-> b<B>])
                    m (pmt-el m 'C 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
                     [m b]
-                    [a<A> -<:s>-> b<B>])
+                    [a<A!> -<:s>-> b<B>])
                    m (pmt-el m 'C 1)))
                 0
                 (pmt-matches-fn)))
