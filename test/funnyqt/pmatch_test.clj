@@ -168,6 +168,90 @@
                                 {:c ['C 2], :a ['B 2]}
                                 {:c ['C 2], :a ['B 1]}
                                 {:c ['C 2], :a ['A 1]})))
+  (testing "Testing pattern with non-model-args (1)"
+    (pmt-assert (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :generic}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :emf}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :tg}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1)))
+                1
+                (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
+  (testing "Testing pattern with non-model-args (2)"
+    (pmt-assert (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :generic}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :emf}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :tg}
+                    [m a]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1)))
+                0
+                (pmt-matches-fn)))
+  (testing "Testing pattern with non-model-args (3)"
+    (pmt-assert (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :generic}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1) (pmt-el m 'B 2)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :emf}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1) (pmt-el m 'B 2)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :tg}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'A 1) (pmt-el m 'B 2)))
+                1
+                (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
+  (testing "Testing pattern with non-model-args (4)"
+    (pmt-assert (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :generic}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1) (pmt-el m 'B 2)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :emf}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1) (pmt-el m 'B 2)))
+                (fn [m]
+                  ((pattern
+                    {:pattern-expansion-context :tg}
+                    [m a b]
+                    [a<A> -<:t>-> b<B>])
+                   m (pmt-el m 'C 1) (pmt-el m 'B 2)))
+                0
+                (pmt-matches-fn)))
   (testing "Testing pattern [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
