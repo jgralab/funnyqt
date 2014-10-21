@@ -252,7 +252,7 @@
                    m (pmt-el m 'C 1) (pmt-el m 'B 2)))
                 0
                 (pmt-matches-fn)))
-  (testing "Testing pattern with non-model-args (4)"
+  (testing "Testing pattern with non-model-args (5)"
     (pmt-assert (fn [m]
                   ((pattern
                     {:pattern-expansion-context :generic}
