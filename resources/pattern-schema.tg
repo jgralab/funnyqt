@@ -30,7 +30,7 @@ EdgeClass NegPatternEdge : APatternEdge
 EdgeClass ArgumentEdge : APatternEdge
   from APatternVertex (0,*)
   to APatternVertex (0,*)
-  { name : String };
+  { name : String, type : String };
 
 VertexClass Anchor : AVertex;
 

@@ -43,7 +43,7 @@
                                          (name sym))]
          [(and (seq s) (symbol s))
           (and (seq t) (if (.startsWith t ":")
-                         (keyword t)
+                         (keyword (subs t 1))
                          (symbol t)))])
        (u/errorf "No valid pattern symbol: %s" sym))))
 
@@ -256,8 +256,8 @@
                                                            (argset n)          'ArgumentVertex
                                                            (binding-var-set n) 'BindingVarVertex
                                                            :else               'PatternVertex)))]
-                          (when n (tg/set-value! v :name (name n)))
-                          (when t (tg/set-value! v :type (name t)))
+                          (when n (tg/set-value! v :name (str n)))
+                          (when t (tg/set-value! v :type (str t)))
                           v))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
@@ -324,7 +324,7 @@
                                               [nv lv]))]
                                (when (and n (not (g/has-type? e 'NegPatternEdge)))
                                  (tg/set-value! e :name (name n)))
-                               (when t (tg/set-value! e :type (name t))))
+                               (when t (tg/set-value! e :type (str t))))
                              (recur (nnext pattern) nv))
            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (vertex-sym? cur) (let [[n t] (name-and-type cur)
@@ -419,7 +419,8 @@
       (not (get-name elem))))
 
 (defn ^:private get-type [elem]
-  (when (g/has-type? elem '[APatternVertex PatternEdge NegPatternEdge])
+  (when (g/has-type? elem '[APatternVertex PatternEdge
+                            NegPatternEdge ArgumentEdge])
     (when-let [^String t (tg/value elem :type)]
       (if (.startsWith t ":")
         (read-string t)
@@ -589,22 +590,31 @@
               ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
+                (println (g/describe cur) (inc-type cur) (get-type cur))
                 (recur (enqueue-incs trg (pop stack) done)
                        (conj-done done cur trg)
-                       (apply conj bf :when `(= ~(get-name src) (tg/this ~(get-name cur)))
-                              (cond
-                               (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
-                               ;;---
-                               (g/has-type? trg 'ArgumentVertex)
-                               `[:when-let [~(get-name trg) ~(get-name trg)]
-                                 ~@(when (get-type trg)
-                                     `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
-                                 :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
-                               ;;---
-                               :else (concat
-                                      `[:let [~(get-name trg) (tg/that ~(get-name cur))]]
-                                      (when-let [t (get-type trg)]
-                                        `[:when (g/has-type? ~(get-name trg) ~t)]))))))
+                       (vec
+                        (concat
+                         bf
+                         (when-let [t (inc-type cur)]
+                           (println "AE-type =" t)
+                           (if (keyword? t)
+                             (u/errorf "Argument edge type cannot be a keyword! %s" t)
+                             `[:when (g/has-type? ~(get-name cur) ~t)]))
+                         `[:when (= ~(get-name src) (tg/this ~(get-name cur)))]
+                         (cond
+                          (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
+                          ;;---
+                          (g/has-type? trg 'ArgumentVertex)
+                          `[:when-let [~(get-name trg) ~(get-name trg)]
+                            ~@(when (get-type trg)
+                                `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
+                            :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
+                          ;;---
+                          :else (concat
+                                 `[:let [~(get-name trg) (tg/that ~(get-name cur))]]
+                                 (when-let [t (get-type trg)]
+                                   `[:when (g/has-type? ~(get-name trg) ~t)])))))))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)

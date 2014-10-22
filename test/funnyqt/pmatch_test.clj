@@ -277,42 +277,42 @@
     (pmt-assert (fn [m]
                   ((pattern
                     {:pattern-expansion-context :generic}
-                    [m b]
-                    [a<A!> -<:t>-> b<B>])
-                   m (pmt-el m 'B 2)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'A 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
-                    [m b]
-                    [a<A!> -<:t>-> b<B>])
-                   m (pmt-el m 'B 2)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'A 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
-                    [m b]
-                    [a<A!> -<:t>-> b<B>])
-                   m (pmt-el m 'B 2)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'A 1)))
                 1
                 (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
   (testing "Testing pattern with non-model-args (7)"
     (pmt-assert (fn [m]
                   ((pattern
                     {:pattern-expansion-context :generic}
-                    [m b]
-                    [a<A!> -<:s>-> b<B>])
-                   m (pmt-el m 'C 1)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'B 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :emf}
-                    [m b]
-                    [a<A!> -<:s>-> b<B>])
-                   m (pmt-el m 'C 1)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'B 1)))
                 (fn [m]
                   ((pattern
                     {:pattern-expansion-context :tg}
-                    [m b]
-                    [a<A!> -<:s>-> b<B>])
-                   m (pmt-el m 'C 1)))
+                    [m a]
+                    [b<B> -<:s>-> a<A!>])
+                   m (pmt-el m 'B 1)))
                 0
                 (pmt-matches-fn)))
   (testing "Testing pattern [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>]"
