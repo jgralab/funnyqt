@@ -360,46 +360,6 @@
                    (tg/value pg :patternName))))))
     pg))
 
-;;# Pattern comprehension
-
-(defn ^:private shortcut-when-let-vector [lv]
-  (letfn [(whenify [s]
-            (if (coll? s)
-              (mapcat (fn [v] [:when v]) s)
-              [:when s]))]
-    (mapcat (fn [[s v]]
-              (concat [:let [s v]]
-                      (whenify s)))
-            (partition 2 lv))))
-
-(defn ^:private shortcut-when-let-bindings
-  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
-  [bindings]
-  (loop [p bindings, nb []]
-    (if (seq p)
-      (if (= :when-let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
-
-(defmacro pattern-for
-  [seq-exprs body-expr]
-  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
-        [bind exp] seq-exprs]
-    (condp = bind
-      :let `(let ~exp
-              (pattern-for ~(vec (rest (rest seq-exprs)))
-                           ~body-expr))
-      :when `(when ~exp
-               (pattern-for ~(vec (rest (rest seq-exprs)))
-                            ~body-expr))
-      ;; default
-      (if (seq seq-exprs)
-        `(for ~seq-exprs
-           ~body-expr)
-        [body-expr]))))
-
 ;;# Patter graph to pattern comprehension
 
 (def ^:private ^:dynamic *conversion-opts* nil)
@@ -482,7 +442,7 @@
 
 ;;*** TG
 
-(defn pattern-graph-to-pattern-for-bindings-tg [argvec pg]
+(defn pattern-graph-to-for+-bindings-tg [argvec pg]
   (let [gsym (first argvec)
         inc-dir (fn [e]
                   ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
@@ -654,7 +614,7 @@
 
 ;;** Models with only references/roles
 
-(defn pattern-graph-to-pattern-for-bindings-only-refs-base
+(defn pattern-graph-to-for+-bindings-only-refs-base
   "Internal transformer function that given a pattern argument vector `argvec`,
   a pattern graph `pg` and an `elements-fn`, a `role-fn` and a `neighbors-fn`
   transforms the pattern graph to a comprehension binding form."
@@ -782,13 +742,13 @@
   (when-let [x (emf/eget-raw eo r)]
     (if (instance? java.util.Collection x) x [x])))
 
-(defn pattern-graph-to-pattern-for-bindings-emf [argvec pg]
-  (pattern-graph-to-pattern-for-bindings-only-refs-base argvec pg `emf/eallcontents `eget-1 `emf/erefs))
+(defn pattern-graph-to-for+-bindings-emf [argvec pg]
+  (pattern-graph-to-for+-bindings-only-refs-base argvec pg `emf/eallcontents `eget-1 `emf/erefs))
 
 ;;*** Generic
 
-(defn pattern-graph-to-pattern-for-bindings-generic [argvec pg]
-  (pattern-graph-to-pattern-for-bindings-only-refs-base argvec pg `g/elements `g/adjs `g/neighbors))
+(defn pattern-graph-to-for+-bindings-generic [argvec pg]
+  (pattern-graph-to-for+-bindings-only-refs-base argvec pg `g/elements `g/adjs `g/neighbors))
 
 ;;** defpattern and friends
 
@@ -846,9 +806,9 @@
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
-  {:emf     pattern-graph-to-pattern-for-bindings-emf
-   :tg      pattern-graph-to-pattern-for-bindings-tg
-   :generic pattern-graph-to-pattern-for-bindings-generic})
+  {:emf     pattern-graph-to-for+-bindings-emf
+   :tg      pattern-graph-to-for+-bindings-tg
+   :generic pattern-graph-to-for+-bindings-generic})
 
 (defn ^:private replace-id
   ([new-id name old-id type]
@@ -942,7 +902,7 @@
 
 (defn ^:private transform-pattern-vector
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
-  for `pattern-for`.  That vector contains metadata :distinct and :as.
+  for `funnyqt.utils/for+`.  That vector contains metadata :distinct and :as.
 
 (Only for internal use.)"
   [name pattern args]
@@ -1044,10 +1004,10 @@
                       n# combine!#
                       (fn [coll# ~sym]
                         (combine!# coll#
-                                   (pattern-for ~rbf ~result-form))))
+                                   (u/for+ ~rbf ~result-form))))
                      finalize#)))
            ;; Lazy Case
-           (let [code `(pattern-for ~bf ~result-form)
+           (let [code `(u/for+ ~bf ~result-form)
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]

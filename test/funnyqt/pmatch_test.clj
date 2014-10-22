@@ -738,7 +738,32 @@
                                 #{['B 1] ['C 2]}
                                 #{['C 2] ['A 1]}
                                 #{['C 2] ['B 2]}
-                                #{['C 2] ['D 2]}))))
+                                #{['C 2] ['D 2]})))
+  (testing "Testing example from impl chapter."
+    (pmt-assert (pattern
+                 {:pattern-expansion-context :generic}
+                 [m]
+                 [a1<A> -<:t>-> a2<A>
+                  a1 -<:d>-> d
+                  a2 -!<:d>-> <>
+                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+                (pattern
+                 {:pattern-expansion-context :emf}
+                 [m]
+                 [a1<A> -<:t>-> a2<A>
+                  a1 -<:d>-> d
+                  a2 -!<:d>-> <>
+                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+                (pattern
+                 {:pattern-expansion-context :tg}
+                 [m]
+                 [a1<A> -<:t>-> a2<A>
+                  a1 -<:d>-> d
+                  a2 -!<:d>-> <>
+                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+                2
+                (pmt-matches-fn {:a1 ['A 1] :a2 ['B 2] :d ['D 1] :a3s ()}
+                                {:a1 ['C 2] :a2 ['B 2] :d ['D 2] :a3s ()}))))
 
 
 ;;# TG
@@ -1139,4 +1164,3 @@
     (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))
-

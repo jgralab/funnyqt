@@ -261,3 +261,47 @@
       (instance? org.eclipse.emf.common.util.UniqueEList l)
       (and (instance? org.eclipse.emf.common.util.AbstractEList l)
            (.invoke AbstractElist-isUnique l (make-array Object 0)))))
+
+(defn ^:private shortcut-when-let-vector [lv]
+  (letfn [(whenify [s]
+            (if (coll? s)
+              (mapcat (fn [v] [:when v]) s)
+              [:when s]))]
+    (mapcat (fn [[s v]]
+              (concat [:let [s v]]
+                      (whenify s)))
+            (partition 2 lv))))
+
+(defn ^:private shortcut-when-let-bindings
+  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  [bindings]
+  (loop [p bindings, nb []]
+    (if (seq p)
+      (if (= :when-let (first p))
+        (recur (rest (rest p))
+               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
+        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
+      (vec nb))))
+
+(defmacro for+
+  "An enhanced version of clojure.core/for with the following additional
+  features.
+
+  - :let [var exp,...]    may occur as first element
+  - :when exp             may occur as first element
+  - :when-let [var expr]  bindings"
+  [seq-exprs body-expr]
+  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
+        [bind exp] seq-exprs]
+    (condp = bind
+      :let `(let ~exp
+              (for+ ~(vec (rest (rest seq-exprs)))
+                           ~body-expr))
+      :when `(when ~exp
+               (for+ ~(vec (rest (rest seq-exprs)))
+                            ~body-expr))
+      ;; default
+      (if (seq seq-exprs)
+        `(for ~seq-exprs
+           ~body-expr)
+        [body-expr]))))
