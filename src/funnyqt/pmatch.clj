@@ -973,7 +973,7 @@
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
                  vectorvar (gensym "vector")
                  chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
-             `(let [~vectorvar (into [] ~(if constraints
+             `(let [~vectorvar (into [] ~(if (seq constraints)
                                            `(filter (fn [~sym] (and ~@constraints))
                                                     ~expr)
                                            expr))
