@@ -404,13 +404,17 @@
         (conj vec cur)
         vec))))
 
-(defn ^:private enqueue-incs [cur stack done]
-  (into stack (remove (fn [i]
+(defn ^:private init-queue [pg]
+  (conj clojure.lang.PersistentQueue/EMPTY
+        (q/the (tg/vseq pg 'Anchor))))
+
+(defn ^:private enqueue-incs [cur queue done]
+  (into queue (remove (fn [i]
                         (or (done i)
                             (when-let [t (get-type i)]
                               (and (not (tg/normal-edge? i))
                                    (keyword? t)))))
-                      (tg/riseq cur))))
+                      (tg/iseq cur))))
 
 (defn ^:private validate-bf [bf done pg]
   (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
@@ -479,28 +483,28 @@
                             (if (== 2 (count r))
                               (second r)  ;; only one binding [G_NNNN exp]
                               `(for ~r ~v))))]
-    (loop [stack [(q/the (tg/vseq pg 'Anchor))]
+    (loop [queue (init-queue pg)
            done #{}
            bf []]
-      (if (seq stack)
-        (let [cur (peek stack)]
+      (if (seq queue)
+        (let [cur (peek queue)]
           (if (done cur)
-            (recur (pop stack) done bf)
+            (recur (pop queue) done bf)
             (case (g/qname cur)
               Anchor
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
               HasStartPatternVertex
-              (recur (conj (pop stack) (tg/that cur))
+              (recur (conj (pop queue) (tg/that cur))
                      (conj-done done cur)
                      bf)
               PatternVertex
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (into bf `[~(get-name cur) (tg/vseq ~gsym ~(get-type cur))]))
               ArgumentVertex
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (done cur)
                        bf
@@ -510,7 +514,7 @@
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
               BindingVarVertex  ;; They're bound by ConstraintOrBinding/Preceedes
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
@@ -521,12 +525,12 @@
                       target-node (last av)
                       done (conj-done done cur)]
                   ;;(println av)
-                  (recur (enqueue-incs target-node (pop stack) done)
+                  (recur (enqueue-incs target-node (pop queue) done)
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for (get-name (tg/this cur)) av done))))
                 (let [trg (tg/that cur)
                       done (conj-done done cur)]
-                  (recur (enqueue-incs trg (pop stack) done)
+                  (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (apply conj bf `~(get-name cur)
                                 `(tg/iseq ~(get-name (tg/this cur)) ~(inc-type cur)
@@ -551,7 +555,7 @@
               (let [src (tg/this cur)
                     trg (tg/that cur)]
                 (println (g/describe cur) (inc-type cur) (get-type cur))
-                (recur (enqueue-incs trg (pop stack) done)
+                (recur (enqueue-incs trg (pop queue) done)
                        (conj-done done cur trg)
                        (vec
                         (concat
@@ -580,13 +584,13 @@
                     trg (tg/that cur)
                     done (conj-done done cur)]
                 (if (done trg)
-                  (recur (enqueue-incs trg (pop stack) done)
+                  (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf `[:when (not (q/exists?
                                                 #(= ~(get-name trg) (tg/that %))
                                                 (tg/iseq ~(get-name src) ~(inc-type cur)
                                                          ~(inc-dir cur))))]))
-                  (recur (enqueue-incs trg (pop stack) done)
+                  (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
@@ -604,10 +608,10 @@
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
-                  (recur (enqueue-incs cob (pop stack) done)
+                  (recur (enqueue-incs cob (pop queue) done)
                          (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
                          (into bf (read-string (tg/value cob :form))))
-                  (recur (pop stack)
+                  (recur (pop queue)
                          (conj-done done cur)
                          bf))))))
         (validate-bf bf done pg)))))
@@ -647,28 +651,28 @@
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named with models with only refs: %s"
                 (mapv g/describe (remove anon? (tg/eseq pg 'APatternEdge)))))
-    (loop [stack [(q/the (tg/vseq pg 'Anchor))]
+    (loop [queue (init-queue pg)
            done #{}
            bf []]
-      (if (seq stack)
-        (let [cur (peek stack)]
+      (if (seq queue)
+        (let [cur (peek queue)]
           (if (done cur)
-            (recur (pop stack) done bf)
+            (recur (pop queue) done bf)
             (case (g/qname cur)
               Anchor
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
               HasStartPatternVertex
-              (recur (conj (pop stack) (tg/that cur))
+              (recur (conj (pop queue) (tg/that cur))
                      (conj-done done cur)
                      bf)
               PatternVertex
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (into bf `[~(get-name cur) (~elements-fn ~gsym ~(get-type cur))]))
               ArgumentVertex
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (done cur)
                        bf
@@ -678,7 +682,7 @@
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
               BindingVarVertex  ;; Actually bound by ConstraintOrBinding/Precedes
-              (recur (enqueue-incs cur (pop stack) done)
+              (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
@@ -688,7 +692,7 @@
                 (let [av (anon-vec cur done)
                       target-node (last av)
                       done (conj-done done cur)]
-                  (recur (enqueue-incs target-node (pop stack) (apply conj-done done av))
+                  (recur (enqueue-incs target-node (pop queue) (apply conj-done done av))
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
@@ -698,13 +702,13 @@
                     trg (tg/that cur)
                     done (conj-done done cur)]
                 (if (done trg)
-                  (recur (enqueue-incs trg (pop stack) done)
+                  (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
                                                           ~(if-let [t (get-edge-type cur)]
                                                              `(~role-fn ~(get-name src) ~t)
                                                              `(~neighbors-fn ~(get-name src)))))]))
-                  (recur (enqueue-incs trg (pop stack) done)
+                  (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
@@ -726,10 +730,10 @@
               Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
-                  (recur (enqueue-incs cob (pop stack) done)
+                  (recur (enqueue-incs cob (pop queue) done)
                          (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
                          (into bf (read-string (tg/value cob :form))))
-                  (recur (pop stack)
+                  (recur (pop queue)
                          (conj-done done cur)
                          bf))))))
         (validate-bf bf done pg)))))

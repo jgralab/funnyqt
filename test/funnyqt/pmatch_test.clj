@@ -1164,3 +1164,4 @@
     (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))
+
