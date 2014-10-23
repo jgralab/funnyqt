@@ -1334,11 +1334,11 @@ functions `record` and `enum-constant`."
 (extend-protocol i/IAdjacenciesInternal
   Vertex
   (adjs-internal [this role allow-unknown-role single-valued]
-    (let [role (name role)]
+    (let [role-name (name role)]
       (if-let [^DirectedSchemaEdgeClass dec
                (.getDirectedEdgeClassForFarEndRole
                 ^VertexClass (attributed-element-class this)
-                role)]
+                role-name)]
         (if single-valued
           (let [^EdgeClass ec (.getEdgeClass dec)
                 dir (.getDirection dec)
@@ -1346,10 +1346,10 @@ functions `record` and `enum-constant`."
                      (-> ec .getTo .getMax)
                      (-> ec .getFrom .getMax))]
             (if (== ub 1)
-              (.adjacences this role)
+              (map that (iseq this role))
               (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
                         role ec ub)))
-          (.adjacences this role))
+          (map that (iseq this role)))
         (when-not allow-unknown-role
           (u/errorf "No %s role at vertex %s" role this))))))
 

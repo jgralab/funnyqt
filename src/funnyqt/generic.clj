@@ -205,17 +205,22 @@
     (first s)))
 
 (defn ^:private adjs-transducer-1 [roles allow-unknown-ref single-valued]
-  (apply comp (for [r roles]
-                (mapcat #(i/adjs-internal % r allow-unknown-ref single-valued)))))
+  (let [step-fn (fn [r]
+                  (fn [v]
+                    (i/adjs-internal v r allow-unknown-ref single-valued)))]
+    (if (= 1 (count roles))
+      (mapcat (step-fn (first roles)))
+      (apply comp (for [r roles]
+                    (mapcat (step-fn r)))))))
 
 (defn adjs-transducer
-  "Returns a transducer traversing `role` and `roles` one after the other."
+  "Returns a transducer traversing `role` and `roles` one after the other.
+  Errors if some role is not defined for an element."
   [role & roles]
   (adjs-transducer-1 (cons role roles) false false))
 
 (defn adjs*-transducer
-  "Returns a transducer traversing `role` and `roles` one after the other.
-  Errors if some role is not defined for an element."
+  "Returns a transducer traversing `role` and `roles` one after the other."
   [role & roles]
   (adjs-transducer-1 (cons role roles) true false))
 
