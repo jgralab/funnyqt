@@ -969,6 +969,24 @@
                   (>= (binding-count bf) 2))
            ;; Eager, Parallel Case
            (let [[sym expr & rbf] bf
+                 default-min-partition-size 16
+                 default-partitions-per-cpu 32
+                 [MIN-PARTITION-SIZE PARTITIONS-PER-CPU] (cond
+                                                          (vector? (:eager (meta name)))
+                                                          (let [[mps ppc] (:eager (meta name))]
+                                                            [(or mps default-min-partition-size)
+                                                             (or ppc default-partitions-per-cpu)])
+                                                          ;;---
+                                                          (true? (:eager (meta name)))
+                                                          [default-min-partition-size
+                                                           default-partitions-per-cpu]
+                                                          ;;---
+                                                          :else (u/errorf
+                                                                 (str ":eager option must be true or "
+                                                                      "a vector of the form "
+                                                                      "[MIN-PARTITION-SIZE PARTITIONS-PER-CPU] "
+                                                                      "but was %s")
+                                                                 (:eager (meta name))))
                  rbf (vec rbf)
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
                  vectorvar (gensym "vector")
@@ -977,9 +995,18 @@
                                            `(filter (fn [~sym] (and ~@constraints))
                                                     ~expr)
                                            expr))
-                    n# (max 16 (long (/ (count ~vectorvar)
-                                        (* ~(binding-count rbf)
-                                           100 (.availableProcessors (Runtime/getRuntime))))))
+                    ;; We want to have about 20 packages of work per CPU, e.g.,
+                    ;; we want to have 20 * #CPUs partitions.  This means the
+                    ;; vector has to be partitioned into partitions of size
+                    ;; #vector / (20 * #CPUs).  That allows to keep all cores
+                    ;; busy if some partitions are much more expensive than
+                    ;; others.  However, partitions mustn't be too small, too.
+                    ;; Else the parallelization suffers from the coordination
+                    ;; overhead.
+                    n# (max ~MIN-PARTITION-SIZE
+                            (long (/ (count ~vectorvar)
+                                     (* ~PARTITIONS-PER-CPU
+                                        (.availableProcessors (Runtime/getRuntime))))))
                     ~@(when (:distinct (meta bf))
                         `[~chm (java.util.concurrent.ConcurrentHashMap.
                                 (* ~(binding-count rbf) (count ~vectorvar))
@@ -992,14 +1019,9 @@
                                          l#
                                          (clojure.core.reducers/reduce
                                           (fn [~chm o#]
-                                            (doto ~chm (.putIfAbsent o# true)))
+                                            (doto ~chm (.putIfAbsent o# Boolean/TRUE)))
                                           l# r#))))
-                                 `(fn
-                                    ([] (java.util.LinkedList.))
-                                    ([l# r#]
-                                       (if (seq r#)
-                                         (clojure.core.reducers/cat l# r#)
-                                         l#))))
+                                 `clojure.core.reducers/cat)
                     finalize# ~(if (:distinct (meta bf))
                                  `(fn [~chm] (sequence (.keySet ~chm)))
                                  `sequence)]
@@ -1025,11 +1047,7 @@
   denote the model which the pattern is applied to.
 
   When applied to a model, it returns the sequence of all matches.  By default,
-  this seq is a lazy seq.  If ^:eager metadata is attached to `name` (or
-  the :eager option is set to true in the `attr-map`), then the pattern is
-  evaluated eagerly giving rise to parallel evaluation.  The parallel
-  evaluation may be suppressed using ^:sequential metadata (or by setting
-  the :sequential option to true in `attr-map`).
+  this seq is a lazy seq.
 
   Node and Edge Symbols
   =====================
@@ -1258,18 +1276,52 @@
      :as #{x y}
      :distinct]
 
-  Pattern Expansion Context
-  =========================
+  Available Options
+  =================
 
-  The expansion of a pattern, i.e., if it expands to a query on TGraphs or EMF
-  models (or something else), is controlled by the option
-  `:pattern-expansion-context` with possible values `:generic` (default), `:tg`
-  or `:emf` which can be specified in the `attr-map` given to `defpattern`.
+  The :eager option
+  -----------------
+
+  If ^:eager metadata is attached to `name` (or the :eager option is set to
+  true in the `attr-map`), then the pattern is evaluated eagerly giving rise to
+  parallel evaluation.  Here, the matches of the first node in the `pattern` is
+  computed sequentially and put into a vector.  This vector is then partitioned
+  and the remaining pattern matching process is performed in parallel on the
+  individual partitions.  By default, the vector of matches of the first node
+  in the pattern is partitioned so that there are at most 32 partitions to be
+  processed per CPU (keep CPUs busy!), however, every partition has at least 16
+  elements (not too much contention!).  This seems to be a good heuristic, but
+  of course it cannot be optimal in every situation.
+
+  Therefore, the :eager option may also be set to a vector of the form
+
+    [MIN-PARTITION-SIZE MAX-PARTITIONS-PER-CPU]
+
+  where MIN-PARTITION-SIZE denotes the minimal number of elements in a
+  partition, and MAX-PARTITIONS-PER-CPU denotes the maximum number of
+  partitions to be processed per CPU.
+
+  The :sequential option
+  ----------------------
+
+  The parallel evaluation induced by :eager may be suppressed using
+  ^:sequential metadata (or by setting the :sequential option to true in
+  `attr-map`).
+
+  The :pattern-expansion-context option
+  -------------------------------------
+
+  The expansion of a pattern, i.e., if it expands into a generic query, a query
+  on TGraphs, or a query on EMF models (or something else), is controlled by
+  the option `:pattern-expansion-context` with possible values
+  `:generic` (default), `:tg` or `:emf` which can be specified in the
+  `attr-map` given to `defpattern` or as metadata.
+
   Instead of using that option for every rule, you can also set
   `:pattern-expansion-context` metadata to the namespace defining patterns, in
-  which case that expansion context is used.  Finally, it is also possible to
-  bind `*pattern-expansion-context*` to otherwise.  Note that this binding has
-  to be available at compile-time."
+  which case that expansion context is used for all patterns in that namespace.
+  Finally, it is also possible to bind `*pattern-expansion-context*` otherwise.
+  Note that this binding has to be available at compile-time."
 
   {:arglists '([name doc-string? attr-map? [args] [pattern]]
                  [name doc-string? attr-map? ([args] [pattern])+])}
