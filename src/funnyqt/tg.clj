@@ -720,7 +720,7 @@ functions `record` and `enum-constant`."
          n
          (recur (.getPrevEdge n))))))
 
-(defn ^:private direction-matcher-tg [ds]
+(defn ^:private direction-matcher [ds]
   ;; case does a constant time dispatch, so only use cond if the ds was not
   ;; given as keyword (or is nil).
   (case ds
@@ -733,17 +733,6 @@ functions `record` and `enum-constant`."
      (= ds EdgeDirection/IN)    (complement normal-edge?)
      (= ds EdgeDirection/INOUT) identity
      :default (u/errorf "Unknown direction %s" ds))))
-
-(extend-protocol g/IDirectionMatcher
-  AttributedElement
-  (direction-matcher [this ds]
-    (direction-matcher-tg ds))
-  Schema
-  (direction-matcher [this ds]
-    (direction-matcher-tg ds))
-  AttributedElementClass
-  (direction-matcher [this ds]
-    (direction-matcher-tg ds)))
 
 (defn first-inc
   "Returns the first incidence in iseq of `v`.
@@ -1068,7 +1057,7 @@ functions `record` and `enum-constant`."
              dec (.getDirectedEdgeClassForFarEndRole
                   ^VertexClass (attributed-element-class v)
                   (name ts))]
-      (every-pred (direction-matcher-tg (.getDirection dec))
+      (every-pred (direction-matcher (.getDirection dec))
                   (g/type-matcher v (.getEdgeClass dec)))
       (u/errorf "No such role %s at %s." ts v))
     (g/type-matcher v ts)))
@@ -1087,7 +1076,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (iseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (iseq-internal v (every-pred (direction-matcher-tg ds) (type-matcher-from-ts-or-role v ts)))))
+     (iseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
@@ -1103,7 +1092,7 @@ functions `record` and `enum-constant`."
   ([v ts]
      (riseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (riseq-internal v (every-pred (direction-matcher-tg ds) (type-matcher-from-ts-or-role v ts)))))
+     (riseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
 
 (extend-protocol g/IElements
   Graph
@@ -1258,7 +1247,7 @@ functions `record` and `enum-constant`."
   ([^Vertex v ts]
      (unlink! v ts nil))
   ([^Vertex v ts ds]
-     (let [pred (every-pred (direction-matcher-tg ds) (g/type-matcher v ts))]
+     (let [pred (every-pred (direction-matcher ds) (g/type-matcher v ts))]
        (while (when-let [e (first-inc v pred)]
                 (g/delete! e))))))
 
@@ -1316,7 +1305,7 @@ functions `record` and `enum-constant`."
   ([from to ts]
      (relink! from to ts identity))
   ([from to ts ds]
-     (let [pred (every-pred (direction-matcher-tg ds) (g/type-matcher from ts))]
+     (let [pred (every-pred (direction-matcher ds) (g/type-matcher from ts))]
        (loop [inc (first-inc from pred)]
          (when inc
            (set-this! inc to)
@@ -1523,7 +1512,7 @@ functions `record` and `enum-constant`."
   (let [vs (u/oset v)]
     (if (seq vs)
       (let [complete-pred (every-pred
-                           (direction-matcher-tg ds)
+                           (direction-matcher ds)
                            (g/type-matcher (first vs) ts)
                            (or pred identity)
                            (if (seq this-aks)
