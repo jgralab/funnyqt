@@ -539,9 +539,7 @@
   EObject
   (is-instance? [object class]
     (and (eclass? class)
-         (.isInstance ^EClass class object)))
-  (has-type? [obj spec]
-    ((type-matcher-cached obj spec) obj)))
+         (.isInstance ^EClass class object))))
 
 ;;## Traversal Stuff
 

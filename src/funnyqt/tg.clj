@@ -544,20 +544,14 @@ functions `record` and `enum-constant`."
   (is-instance? [object class]
     (and (graph-class? class)
          (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    ((g/type-matcher obj spec) obj))
   Vertex
   (is-instance? [object class]
     (and (vertex-class? class)
          (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    ((g/type-matcher obj spec) obj))
   Edge
   (is-instance? [object class]
     (and (edge-class? class)
-         (.isInstanceOf object class)))
-  (has-type? [obj spec]
-    ((g/type-matcher obj spec) obj)))
+         (.isInstanceOf object class))))
 
 
 ;;## Containment

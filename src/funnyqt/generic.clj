@@ -48,12 +48,40 @@
 
 ;;# Instance Check
 
+;;## Type Matcher
+
+(defprotocol ITypeMatcher
+  (type-matcher [model type-spec]
+    "Returns a type-matcher function based on the metamodel of model.
+  A type-matcher function accepts one object and returns true if the object
+  matches the `type-spec`, or false otherwise.
+
+  A type-spec may be composed of:
+
+    - nil                     Every type is accepted
+    - a predicate p           Accepted if (p obj) is true
+    - a qname symbol
+      - Foo                   Accepts objects of type Foo and subtypes
+      - Foo!                  Accepts objects of exact type Foo
+      - !Foo                  Accepts objects not of type Foo or subtypes
+      - !Foo!                 Accepts objects not of exact type Foo
+    - a metamodel type        Accepts instances of that type
+    - a vector of the form    op is a logical operator (:or, :and, :nand, :nor, :xor),
+      [op ts1 ts2 ...]        and ts1, ts2, etc are type-specs.  Accepts objects
+                              whose type matches the individual type-specs ts1, ts2,
+                              etc with the respective semantics of the logical
+                              operator."))
+
+(defn has-type?
+  "Returns true if model element `el` matches the type specification `type-spec`.
+  See protocol funnyqt.generic/ITypeMatcher."
+  [el type-spec]
+  ((type-matcher el type-spec) el))
+
 (defprotocol IInstanceOf
   "A protocol for checking if an element is an instance of some meta-class."
   (is-instance? [object class]
-    "Returns true, iff `object` is an instance of `class`.")
-  (has-type? [object spec]
-    "Returns true, iff `object`s type matches `spec`."))
+    "Returns true, iff `object` is an instance of `class`."))
 
 ;;## type-case
 
@@ -139,30 +167,6 @@
   `attr-map` is a map from attribute names (as keywords) to values to be set.
   Clearly, this is unsupported by frameworks without explicit relationships with
   attributes."))
-
-;;# Type Matcher
-
-(defprotocol ITypeMatcher
-  (type-matcher [model type-spec]
-    "Returns a type-matcher function based on the metamodel of model.
-  A type-matcher function accepts one object and returns true if the object
-  matches the `type-spec`, or false otherwise.
-
-  A type-spec may be composed of:
-
-    - nil                     Every type is accepted
-    - a predicate p           Accepted if (p obj) is true
-    - a qname symbol
-      - Foo                   Accepts objects of type Foo and subtypes
-      - Foo!                  Accepts objects of exact type Foo
-      - !Foo                  Accepts objects not of type Foo or subtypes
-      - !Foo!                 Accepts objects not of exact type Foo
-    - a metamodel type        Accepts instances of that type
-    - a vector of the form    op is a logical operator (:or, :and, :nand, :nor, :xor),
-      [op ts1 ts2 ...]        and ts1, ts2, etc are type-specs.  Accepts objects
-                              whose type matches the individual type-specs ts1, ts2,
-                              etc with the respective semantics of the logical
-                              operator."))
 
 ;;# Direction Matcher
 
