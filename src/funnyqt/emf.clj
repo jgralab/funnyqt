@@ -363,8 +363,10 @@
 (extend-protocol g/IQualifiedName
   EClassifier
   (qname [this]
-    (symbol (str (g/qname (.getEPackage this))
-                 "." (.getName this))))
+    (if-let [pkg (.getEPackage this)]
+      (symbol (str (g/qname pkg)
+                   "." (.getName this)))
+      (symbol (.getName this))))
 
   EPackage
   (qname [this]
@@ -416,7 +418,7 @@
    (clojure.java.io/resource f)
    (URI/createURI (.toString (clojure.java.io/resource f)))
 
-   :else (u/errorf "Cannot load %s.")))
+   :else (u/errorf "Cannot load %s." f)))
 
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.

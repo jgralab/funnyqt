@@ -232,8 +232,11 @@
   (if (satisfies? protocol x)
     true
     (do
-      (println (format "%s doesn't satisfy protocol %s => %s"
-                       x (:name (meta (:var protocol))) msg))
+      (when msg
+        (println (format "%s doesn't satisfy protocol %s => %s"
+                         x (:name (meta (:var protocol))) msg)))
+      ;; We return nil here so that we can use it in place where a seq is
+      ;; expected.
       nil)))
 
 ;;# Misc

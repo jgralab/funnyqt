@@ -49,6 +49,8 @@ types is provided:
      (find-polyfn-impl polyfn-sym spec-map type type))
   ([polyfn-sym spec-map orig-type type]
      (or (spec-map (g/qname type))
+         (and (satisfies? g/IUniqueName type)
+              (spec-map (g/uname type)))
          (let [impls (into #{}
                            (comp (map (partial find-polyfn-impl polyfn-sym spec-map orig-type))
                                  (remove nil? ))
@@ -67,7 +69,8 @@ types is provided:
                                                                         spec-map c)]
                                          [c pfn]))
                                      (concat (g/mm-element-classes cls)
-                                             (g/mm-relationship-classes cls))))]
+                                             (when (satisfies? g/IMMRelationshipClasses cls)
+                                               (g/mm-relationship-classes cls)))))]
       (reset! dispatch-map-atom dm))))
 
 ;;# Polyfns
