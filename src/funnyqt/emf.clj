@@ -58,6 +58,23 @@
 
 ;;# Metamodel Access
 
+(def ^:dynamic ^EPackage$Registry *epackage-registry*
+  "The current EPackage Registry which is used for EClassifier registration and
+  lookup.  The default value is the global registry.  Use
+
+    (with-epackage-registry (.getPackageRegistry my-resource-set)
+      ...)
+
+  to use a ResourceSet's local registry instead."
+  EPackage$Registry/INSTANCE)
+
+(defmacro with-epackage-registry
+  "Evaluate `body` with the current value of *epackage-registry* set to
+  `registry`."
+  [registry & body]
+  `(binding [*epackage-registry* ~registry]
+     ~@body))
+
 (def ^:dynamic *ns-uris*
   "A set of namespace URIs to which the classifier lookup should be restricted.
   Also see `with-ns-uris'."
@@ -128,10 +145,10 @@
   []
   (with-system-class-loader
     (mapcat (fn [uri]
-              (if-let [p (.getEPackage EPackage$Registry/INSTANCE uri)]
+              (if-let [p (.getEPackage *epackage-registry* uri)]
                 (into [p] (eallsubpackages p))
                 (u/errorf "No such EPackage nsURI: %s" uri)))
-            (or *ns-uris* (keys EPackage$Registry/INSTANCE)))))
+            (or *ns-uris* (keys *epackage-registry*)))))
 
 (defn ^:private ns-uris-and-type-spec [name]
   (if (map? name)
@@ -175,8 +192,8 @@
     (not (.eIsSet this (.getEStructuralFeature (.eClass this) (name attr))))))
 
 (defn eclassifiers
-  "Returns the lazy seq of EClassifiers known by the global registry.
-  Also see: `with-ns-uris`"
+  "Returns the lazy seq of EClassifiers known by *epackage-registry*.
+  Also see: `with-ns-uris` and `with-epackage-registry`."
   []
   (mapcat (fn [^EPackage ep]
             (.getEClassifiers ep))
@@ -189,8 +206,8 @@
 
 (declare eallcontents)
 (defn eclasses
-  "Returns the lazy seq of EClasses known by the global registry.
-  Also see: `with-ns-uris`"
+  "Returns the lazy seq of EClasses known by *epackage-registry*.
+  Also see: `with-ns-uris` and `with-epackage-registry`"
   ([]
      (filter eclass? (eclassifiers)))
   ([ecore-resource]
@@ -203,7 +220,7 @@
   nsURI (and its subpackages).
   Throws an exception if no such classifier could be found, or if the given
   simple name is ambiguous.
-  Also see: `with-ns-uris`"
+  Also see: `with-ns-uris` and `with-epackage-registry`"
   [name]
   (let [[ns-uris nm] (ns-uris-and-type-spec name)
         cache-entry (make-cache-entry ns-uris nm)]
@@ -438,18 +455,19 @@
     (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
-          (when-not (.containsKey EPackage$Registry/INSTANCE uri)
-            (.put EPackage$Registry/INSTANCE uri p)))))))
+          (when-not (.containsKey *epackage-registry* uri)
+            (.put *epackage-registry* uri p)))))))
 
 (defn ^:private all-epackages-in-resource [^Resource r]
-  (let [ps (.getContents r)]
+  (let [ps (filter #(instance? EPackage %) (.getContents r))]
     (concat ps (mapcat eallsubpackages ps))))
 
 (defn load-ecore-resource
   "Loads an Ecore model from the ecore file `f`.
-  All EPackages are registered.  The Ecore model is returned as a
-  Resource.  `f` may be a file name given as string, a java.io.File, an
-  URI, or a java.net.URL."
+  All EPackages are registered at the *epackage-registry* which defaults to the
+  global registry.  The Ecore model is returned as a Resource.  `f` may be a
+  file name given as string, a java.io.File, an URI, or a java.net.URL.  Also
+  see `with-epackage-registry`."
   [f]
   ;; Reset the caches, since now the names might not be unique anymore.
   (reset-all-emf-caches)
@@ -541,6 +559,9 @@
   (type-matcher [m ts]
     (type-matcher-cached m ts))
   Resource
+  (type-matcher [m ts]
+    (type-matcher-cached m ts))
+  ResourceSet
   (type-matcher [m ts]
     (type-matcher-cached m ts)))
 
