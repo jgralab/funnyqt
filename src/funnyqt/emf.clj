@@ -409,7 +409,14 @@
    (instance? java.net.URL f)
    (URI/createURI (.toString ^java.net.URL f))
 
-   :else (URI/createURI f)))
+   (and (string? f)
+        (.exists (clojure.java.io/file f)))
+   (URI/createURI f)
+
+   (clojure.java.io/resource f)
+   (URI/createURI (.toString (clojure.java.io/resource f)))
+
+   :else (u/errorf "Cannot load %s.")))
 
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.

@@ -103,6 +103,24 @@ functions `record` and `enum-constant`."
   [g]
   (.setVisible (de.uni_koblenz.jgralab.utilities.tgtree.TGTree. g) true))
 
+(defn ^:private get-file-name [file]
+  (cond
+   (instance? java.io.File file)
+   (.getPath ^java.io.File file)
+
+   (instance? java.net.URL file)
+   (.toString ^java.net.URL file)
+
+   (and (string? file)
+        (.exists (clojure.java.io/file file)))
+   file
+
+   (and (string? file)
+        (clojure.java.io/resource file))
+   (.toString (clojure.java.io/resource file))
+
+   :else (u/errorf "Cannot handle file %s." file)))
+
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
   `impl` (default :generic, i.e., don't compile).  Supported impl types
@@ -110,10 +128,11 @@ functions `record` and `enum-constant`."
   ([file]
      (load-schema file ImplementationType/GENERIC))
   ([file impl]
-     (let [^Schema s (with-open [is (clojure.java.io/input-stream file)]
+     (let [file-name (get-file-name file)
+           ^Schema s (with-open [is (clojure.java.io/input-stream file-name)]
                        (GraphIO/loadSchemaFromStream
-                        (if (and (string? file)
-                                 (.endsWith ^String file ".gz"))
+                        (if (and (string? file-name)
+                                 (.endsWith ^String file-name ".gz"))
                           (java.util.zip.GZIPInputStream. is)
                           is)))
            it (impl-type impl)]
@@ -122,7 +141,7 @@ functions `record` and `enum-constant`."
          (do
            #_(println
               (format "Loading schema %s, and compiling for implementation type %s."
-                      file it))
+                      file-name it))
            (.compile s CodeGeneratorConfiguration/MINIMAL)
            (let [qn  (name (g/qname s))
                  scm (SchemaClassManager/instance qn)
@@ -145,9 +164,7 @@ functions `record` and `enum-constant`."
   ([file]
      (load-graph file ImplementationType/GENERIC))
   ([file impl]
-     (let [^String filename (if (instance? java.io.File file)
-                              (.getPath ^java.io.File file)
-                              file)
+     (let [^String filename (get-file-name file)
            ^ImplementationType impl (impl-type impl)
            ^ProgressFunction pg (ConsoleProgressFunction. "Loading")]
        (GraphIO/loadGraphFromFile filename impl pg))))
