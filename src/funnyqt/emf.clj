@@ -603,9 +603,10 @@
 
   ResourceSet
   (eallcontents-internal [this ts]
-    (filter (g/type-matcher this ts)
-            (iterator-seq
-             (EcoreUtil/getAllProperContents this true))))
+    (sequence (comp (filter eobject?)
+                    (filter (g/type-matcher this ts)))
+              (iterator-seq
+               (EcoreUtil/getAllProperContents this true))))
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
