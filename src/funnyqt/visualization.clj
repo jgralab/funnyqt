@@ -107,7 +107,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                 :let [n (.getName attr)]]
             (str n " = " (dot-escape (try (emf/eget eo (keyword n))
                                           (catch Exception _
-                                            (emf/eget-raw eo (keyword n)))))
+                                            (emf/eget eo (keyword n)))))
                  "\\l"))))
 
 (defn ^:private emf-dot-eobject [^EObject eo]

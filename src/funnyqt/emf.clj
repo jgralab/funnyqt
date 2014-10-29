@@ -830,13 +830,7 @@
   (emf2clj-internal [this] (into (om/ordered-map) (seq this)))
   EList
   (emf2clj-internal [this] (into (vector) this))
-  EObject
-  (emf2clj-internal [this] this)
-  Number
-  (emf2clj-internal [this] this)
-  String
-  (emf2clj-internal [this] this)
-  Boolean
+  Object
   (emf2clj-internal [this] this)
   nil
   (emf2clj-internal [_] nil))
