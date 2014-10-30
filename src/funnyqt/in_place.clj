@@ -139,15 +139,13 @@
 (defmacro rule
   "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way
   as `fn` stands to `defn`.  Also see `letrule`."
-  {:arglists '([name? [args] [pattern] & body]
-                 [name? ([args] [pattern] & body)+])}
+  {:arglists '([name? attr-map? [args] [pattern] & body]
+                 [name? attr-map? ([args] [pattern] & body)+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]
                       [nil more])
-        [name more] (if name
-                      (m/name-with-attributes name more)
-                      [name more])]
+        [name more] (m/name-with-attributes (or name (gensym "anon-rule")) more)]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                                  (:pattern-expansion-context (meta *ns*))
                                                  pm/*pattern-expansion-context*)]
