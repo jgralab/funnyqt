@@ -416,10 +416,8 @@
                                    (keyword? t)))))
                       (tg/iseq cur))))
 
-(defn ^:private validate-bf [bf done pg]
-  (when-let [missing (seq (remove done (concat (tg/vseq pg) (tg/eseq pg))))]
-    (u/errorf "Some pattern elements were not reached: %s" missing))
-  bf)
+(defn ^:private undone-vertices [pg done deps-fn]
+  (q/sort-topologically deps-fn (remove done (tg/vseq pg))))
 
 (defn ^:private do-anons [anon-vec-transformer-fn startsym av done]
   (let [target-node (last av)]
@@ -614,7 +612,16 @@
                   (recur (pop queue)
                          (conj-done done cur)
                          bf))))))
-        (validate-bf bf done pg)))))
+        ;; If there are still unreached vertices, enqueue one.  Else, we're
+        ;; done.  Since on TGraphs we can traverse edges in any direction, the
+        ;; deps-fn is not important.
+        (if-let [undone-vertices (seq (undone-vertices
+                                       pg done
+                                       (fn [v]
+                                         (when (g/has-type? v 'ConstraintOrBinding)
+                                           (q/p-apply v [qtg/<-- 'Precedes])))))]
+          (recur (conj queue (first undone-vertices)) done bf)
+          bf)))))
 
 ;;** Models with only references/roles
 
@@ -736,7 +743,16 @@
                   (recur (pop queue)
                          (conj-done done cur)
                          bf))))))
-        (validate-bf bf done pg)))))
+        ;; If there are still unreached vertices, enqueue the first one.  Else,
+        ;; we're done.
+        (if-let [undone-vertices (seq (undone-vertices
+                                       pg done
+                                       (fn deps [v]
+                                         (if (g/has-type? v 'ConstraintOrBinding)
+                                           (q/p-apply v [qtg/<-- 'Precedes])
+                                           (disj (q/p-apply v [q/p-+ :src]) v)))))]
+          (recur (conj queue (first undone-vertices)) done bf)
+          bf)))))
 
 ;;*** EMF
 
@@ -762,7 +778,7 @@
   (zipmap (map #(keyword (name %)) argvec)
           argvec))
 
-(defn bindings-to-arglist
+(defn bindings-to-argvec
   "Rips out the symbols declared in `bindings`.
   `bindings` is a binding vector with the syntax of `for`."
   [bindings]
@@ -806,7 +822,7 @@
        (u/errorf "Cannot handle %s" (first p))
        ;; That's a normal binding
        :default (recur (rest (rest p)) (conj l (first p))))
-      (vec l))))
+      (vec (distinct l)))))
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
@@ -908,7 +924,7 @@
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
   for `funnyqt.utils/for+`.  That vector contains metadata :distinct and :as.
 
-(Only for internal use.)"
+  (Only for internal use.)"
   [name pattern args]
   (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
         [pattern result]   (get-and-remove-key-from-vector pattern :as       true)
@@ -952,12 +968,12 @@
                                          (partition 2 bf))))
           result-form (or (when-let [result-form (:as (meta bf))]
                             (condp = result-form
-                              :vector (bindings-to-arglist bf)
+                              :vector (bindings-to-argvec bf)
                               :map (argvec-to-hash-map
-                                    (bindings-to-arglist bf))
+                                    (bindings-to-argvec bf))
                               result-form))
                           (argvec-to-hash-map
-                           (bindings-to-arglist bf)))]
+                           (bindings-to-argvec bf)))]
       `(~args
         ~(if (and (:eager (meta name))
                   (not (:sequential (meta name)))

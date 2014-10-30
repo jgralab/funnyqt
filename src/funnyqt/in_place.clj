@@ -84,7 +84,7 @@
       (let [pattern-vector (first more)
             bf          (@#'pm/transform-pattern-vector name pattern-vector args)
             custom-as   (:as (meta bf))
-            matchsyms   (pm/bindings-to-arglist bf)
+            matchsyms   (pm/bindings-to-argvec bf)
             pattern-vector (if custom-as
                              pattern-vector
                              (conj pattern-vector :as matchsyms))
