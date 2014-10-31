@@ -235,7 +235,49 @@
                 [npvar (build-nested-pattern np model-sym binding-var-set pattern-var-set)])
               (partition 2 nested-specs)))])
 
-(defn pattern-to-pattern-graph [pname argvec pattern]
+(defn ^:private get-name [elem]
+  (when-let [n (tg/value elem :name)]
+    (symbol n)))
+
+(defn ^:private anon? [elem]
+  (or (g/has-type? elem 'NegPatternEdge)
+      (not (get-name elem))))
+
+(defn ^:private get-type [elem]
+  (when (g/has-type? elem '[APatternVertex PatternEdge
+                            NegPatternEdge ArgumentEdge])
+    (when-let [^String t (tg/value elem :type)]
+      (if (.startsWith t ":")
+        (read-string t)
+        `'~(symbol t)))))
+
+(defn ^:private add-isomorphism-constraint [pg v-or-e]
+  (when-let [n (get-name v-or-e)]
+    (cond
+     (and (tg/vertex? v-or-e)
+          (g/has-type? v-or-e 'APatternVertex))
+     (let [others (remove (partial = v-or-e)
+                          (filter get-name (tg/vseq pg 'APatternVertex)))]
+       (when (pos? (count others))
+         (let [c (tg/create-vertex! pg 'Constraint)]
+           (tg/set-value! c :form (pr-str `[:when (not (contains? ~(set (map get-name others)) ~n))]))
+           (doseq [v (conj others v-or-e)]
+             (tg/create-edge! pg 'Precedes v c)))))
+     (and (tg/edge? v-or-e)
+          (g/has-type? v-or-e 'APatternEdge))
+     (let [others (remove (partial = v-or-e)
+                          (filter get-name (tg/eseq pg 'APatternEdge)))]
+       (when (pos? (count others))
+         (let [c (tg/create-vertex! pg 'Constraint)]
+           (tg/set-value! c :form (pr-str `[:when (not (contains? ~(set (map get-name others)) ~n))]))
+           (doseq [e (conj others v-or-e)
+                   :let [al (tg/alpha e)
+                         om (tg/omega e)]]
+             (tg/create-edge! pg 'Precedes al c)
+             (tg/create-edge! pg 'Precedes om c)))))
+     :else (u/errorf "Huh? How should I add a bij-constr for %s?!?" v-or-e))))
+
+(defn pattern-to-pattern-graph [pname argvec pattern isomorphic]
   (let [binding-var-vec (binding-bound-vars pattern)
         binding-var-set (into #{} binding-var-vec)
         pattern-var-vec (pattern-bound-vars pattern)
@@ -252,11 +294,15 @@
                                                (tg/eseq pg '[PatternEdge ArgumentEdge]))))))
         get-or-make-v (fn [n t]
                         (let [v (or (get-by-name n)
-                                    (tg/create-vertex! pg (cond
-                                                           (argset n)          'ArgumentVertex
-                                                           (binding-var-set n) 'BindingVarVertex
-                                                           :else               'PatternVertex)))]
-                          (when n (tg/set-value! v :name (str n)))
+                                    (let [v (tg/create-vertex! pg (cond
+                                                                   (argset n)          'ArgumentVertex
+                                                                   (binding-var-set n) 'BindingVarVertex
+                                                                   :else               'PatternVertex))]
+                                      (when n
+                                        (tg/set-value! v :name (str n))
+                                        (when (and isomorphic (g/has-type? v 'APatternVertex))
+                                          (add-isomorphism-constraint pg v)))
+                                      v))]
                           (when t (tg/set-value! v :type (str t)))
                           v))]
     (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
@@ -323,7 +369,9 @@
                                               [lv nv]
                                               [nv lv]))]
                                (when (and n (not (g/has-type? e 'NegPatternEdge)))
-                                 (tg/set-value! e :name (name n)))
+                                 (tg/set-value! e :name (name n))
+                                 (when isomorphic
+                                   (add-isomorphism-constraint pg e)))
                                (when t (tg/set-value! e :type (str t))))
                              (recur (nnext pattern) nv))
            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -369,22 +417,6 @@
                         (vector % (tg/inverse-edge %))
                         (vector %))
                      elems)))
-
-(defn ^:private get-name [elem]
-  (when-let [n (tg/value elem :name)]
-    (symbol n)))
-
-(defn ^:private anon? [elem]
-  (or (g/has-type? elem 'NegPatternEdge)
-      (not (get-name elem))))
-
-(defn ^:private get-type [elem]
-  (when (g/has-type? elem '[APatternVertex PatternEdge
-                            NegPatternEdge ArgumentEdge])
-    (when-let [^String t (tg/value elem :type)]
-      (if (.startsWith t ":")
-        (read-string t)
-        `'~(symbol t)))))
 
 (defn ^:private anon-vec [startv done]
   (loop [cur startv, done done, vec []]
@@ -926,11 +958,12 @@
 
   (Only for internal use.)"
   [name pattern args]
-  (let [[pattern distinct] (get-and-remove-key-from-vector pattern :distinct false)
-        [pattern result]   (get-and-remove-key-from-vector pattern :as       true)
+  (let [[pattern distinct]   (get-and-remove-key-from-vector pattern :distinct false)
+        [pattern result]     (get-and-remove-key-from-vector pattern :as       true)
+        [pattern isomorphic] (get-and-remove-key-from-vector pattern :isomorphic false)
         pattern (merge-extends pattern)
         ;; _ (println "PATTERN:" pattern)
-        pgraph (pattern-to-pattern-graph name args pattern)
+        pgraph (pattern-to-pattern-graph name args pattern isomorphic)
         ;; _ (do (require 'funnyqt.visualization)
         ;;       (future (funnyqt.visualization/print-model pgraph :gtk)))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
@@ -1137,6 +1170,23 @@
 
     [v -<:foo>-> w -!-> <>
      v -!<:bar>-> w]
+
+  Isomorphic Matching
+  ===================
+
+  By default, FunnyQT performs homomorphic matching, i.e., in a pattern
+
+    [v1<V> -<E>-> v2<V>]
+
+  it is possible that both v1 and v2 are matched to the same node in the host
+  graph in case an E-edge starts and ends at that node.  This behavior can be
+  changed to isomorphic matching using the :isomorphic keyword.
+
+    [v1<V> -<E>-> v2<V> :isomorphic]
+
+  Here, v1 and v2 are guaranteed to be matched to different nodes.  This
+  behavior applies to all non-anonymous nodes and edges in the pattern but not
+  to local bindings and comprehension bindings (which see below).
 
   Local Bindings
   ==============

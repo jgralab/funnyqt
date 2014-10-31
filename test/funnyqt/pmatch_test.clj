@@ -144,6 +144,14 @@
                                 {:c ['C 1], :a ['A 1]}
                                 {:c ['C 2], :a ['A 1]}
                                 {:c ['C 2], :a ['B 2]})))
+  (testing "Testing pattern [c<C> -<:t>-> a<A> :isomorphic]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> -<:t>-> a<A> :isomorphic])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> -<:t>-> a<A> :isomorphic])
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> -<:t>-> a<A> :isomorphic])
+                3
+                (pmt-matches-fn {:c ['C 1], :a ['A 1]}
+                                {:c ['C 2], :a ['A 1]}
+                                {:c ['C 2], :a ['B 2]})))
   (testing "Testing pattern [c<C> --> a<A>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>])
@@ -153,6 +161,16 @@
                                 {:c ['C 1], :a ['A 1]}
                                 {:c ['C 1], :a ['B 1]}
                                 {:c ['C 1], :a ['C 1]}
+                                {:c ['C 2], :a ['B 2]}
+                                {:c ['C 2], :a ['B 1]}
+                                {:c ['C 2], :a ['A 1]})))
+  (testing "Testing pattern [c<C> --> a<A> :isomorphic]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A> :isomorphic])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A> :isomorphic])
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A> :isomorphic])
+                5
+                (pmt-matches-fn {:c ['C 1], :a ['A 1]}
+                                {:c ['C 1], :a ['B 1]}
                                 {:c ['C 2], :a ['B 2]}
                                 {:c ['C 2], :a ['B 1]}
                                 {:c ['C 2], :a ['A 1]})))
@@ -529,21 +547,21 @@
   (testing "Testing patterns with arguments."
     (pmt-assert (fn [m]
                   ((pattern
-                     {:pattern-expansion-context :generic}
-                     [m cur]
-                     [cur<A> -<:t>-> next<A>])
+                    {:pattern-expansion-context :generic}
+                    [m cur]
+                    [cur<A> -<:t>-> next<A>])
                    m (pmt-el m 'B 1)))
                 (fn [m]
                   ((pattern
-                     {:pattern-expansion-context :emf}
-                     [m cur]
-                     [cur<A> -<:t>-> next<A>])
+                    {:pattern-expansion-context :emf}
+                    [m cur]
+                    [cur<A> -<:t>-> next<A>])
                    m (pmt-el m 'B 1)))
                 (fn [m]
                   ((pattern
-                     {:pattern-expansion-context :tg}
-                     [m cur]
-                     [cur<A> -<:t>-> next<A>])
+                    {:pattern-expansion-context :tg}
+                    [m cur]
+                    [cur<A> -<:t>-> next<A>])
                    m (pmt-el m 'B 1)))
                 2
                 (pmt-matches-fn {:cur ['B 1] :next ['C 1]}
@@ -578,8 +596,8 @@
                    '{:cur [B 1],
                      :next [C 1],
                      :nnexts ({:cur [C 1],
-                              :next [C 1],
-                              :nnexts ()}
+                               :next [C 1],
+                               :nnexts ()}
                               {:cur [C 1],
                                :next [A 1],
                                :nnexts ({:cur [A 1],
@@ -617,17 +635,17 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                           -<:s>-> c2<C> -<:s>-> b
+                                         -<:s>-> c2<C> -<:s>-> b
                                          :when (not= c1 c2)]])
                 (pattern {:pattern-expansion-context :emf}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                           -<:s>-> c2<C> -<:s>-> b
+                                         -<:s>-> c2<C> -<:s>-> b
                                          :when (not= c1 c2)]])
                 (pattern {:pattern-expansion-context :tg}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                           -<:s>-> c2<C> -<:s>-> b
+                                         -<:s>-> c2<C> -<:s>-> b
                                          :when (not= c1 c2)]])
                 1
                 (pmt-matches-fn {:b ['B 2]})))
@@ -868,14 +886,14 @@
 
 (deftest test-letpattern-tg
   (letpattern [(families-with-fathers-simple [g]
-                 [f<Family> -hf<HasFather>-> m<Member>])
+                                             [f<Family> -hf<HasFather>-> m<Member>])
                (families-with-fathers
-                 ([g]
-                    [f<Family> -hf<HasFather>-> m<Member>])
-                 ([g famconst]
-                    [f<Family> -hf<HasFather>-> m<Member>
-                     :when (famconst f)
-                     :as [f hf m]]))]
+                ([g]
+                   [f<Family> -hf<HasFather>-> m<Member>])
+                ([g famconst]
+                   [f<Family> -hf<HasFather>-> m<Member>
+                    :when (famconst f)
+                    :as [f hf m]]))]
     {:pattern-expansion-context :tg}
     (is (= 3 (count (families-with-fathers-simple fg))))
     (is (= 3 (count (families-with-fathers fg))))
@@ -899,7 +917,7 @@
 
 (deftest test-eager-pattern-tg
   (let [lazy-pattern1 (pattern {:pattern-expansion-context :tg} [g]
-                              [f<Family> -hf<HasFather>-> m<Member>])
+                               [f<Family> -hf<HasFather>-> m<Member>])
         eager-pattern1 (pattern {:pattern-expansion-context :tg, :eager true} [g]
                                 [f<Family> -hf<HasFather>-> m<Member>])
         lazy-pattern2 (pattern {:pattern-expansion-context :tg} [g]
