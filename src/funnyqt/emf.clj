@@ -652,7 +652,7 @@
   [^EObject eo]
   (.eResource eo))
 
-(defn eref-matcher
+(defn ^:private eref-matcher
   "Returns a reference matcher for the reference spec `rs`.
   A reference matcher is a function of arity one that gets an EReference and
   returns logical true if that ref should be accepted, false otherwise.
