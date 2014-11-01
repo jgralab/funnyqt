@@ -521,19 +521,19 @@
           (if (done cur)
             (recur (pop queue) done bf)
             (g/type-case cur
-              'Anchor
+              Anchor
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
-              'HasStartPatternVertex
+              HasStartPatternVertex
               (recur (conj (pop queue) (tg/that cur))
                      (conj-done done cur)
                      bf)
-              'PatternVertex
+              PatternVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (into bf `[~(get-name cur) (tg/vseq ~gsym ~(get-type cur))]))
-              'ArgumentVertex
+              ArgumentVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (done cur)
@@ -543,13 +543,13 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              'BindingVarVertex  ;; They're bound by ConstraintOrBinding/Preceedes
+              BindingVarVertex  ;; They're bound by ConstraintOrBinding/Preceedes
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
-              'PatternEdge
+              PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
                       target-node (last av)
@@ -581,7 +581,7 @@
                                         [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                         (when-let [t (get-type trg)]
                                           `[:when (g/has-type? ~(get-name trg) ~t)])))))))
-              'ArgumentEdge
+              ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
                 (println (g/describe cur) (inc-type cur) (get-type cur))
@@ -609,7 +609,7 @@
                                  `[:let [~(get-name trg) (tg/that ~(get-name cur))]]
                                  (when-let [t (get-type trg)]
                                    `[:when (g/has-type? ~(get-name trg) ~t)])))))))
-              'NegPatternEdge
+              NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
                     done (conj-done done cur)]
@@ -635,7 +635,7 @@
                                                   #(= ~(get-name trg) (tg/that %))
                                                   (tg/iseq ~(get-name src) ~(inc-type cur)
                                                            ~(inc-dir cur))))])))))
-              'Precedes
+              Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
                   (recur (enqueue-incs cob (pop queue) done)
@@ -698,19 +698,19 @@
           (if (done cur)
             (recur (pop queue) done bf)
             (g/type-case cur
-              'Anchor
+              Anchor
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
-              'HasStartPatternVertex
+              HasStartPatternVertex
               (recur (conj (pop queue) (tg/that cur))
                      (conj-done done cur)
                      bf)
-              'PatternVertex
+              PatternVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (into bf `[~(get-name cur) (~elements-fn ~gsym ~(get-type cur))]))
-              'ArgumentVertex
+              ArgumentVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (done cur)
@@ -720,13 +720,13 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              'BindingVarVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+              BindingVarVertex  ;; Actually bound by ConstraintOrBinding/Precedes
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
-              'PatternEdge
+              PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
                       target-node (last av)
@@ -736,7 +736,7 @@
                          (into bf (do-anons anon-vec-to-for
                                             (get-name (tg/this cur)) av done))))
                 (u/errorf "Edges cannot be match-bound with models with just refs: %s" (g/describe cur)))
-              'NegPatternEdge
+              NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
                     done (conj-done done cur)]
@@ -764,9 +764,9 @@
                                                             ~(if-let [t (get-edge-type cur)]
                                                                `(~role-fn ~(get-name src) ~t)
                                                                `(~neighbors-fn ~(get-name src)))))])))))
-              'ArgumentEdge
+              ArgumentEdge
               (u/errorf "There mustn't be argument edges for models with just refs: %s" (g/describe cur))
-              'Precedes
+              Precedes
               (let [cob (tg/omega cur)]
                 (if (deps-defined? done cob)
                   (recur (enqueue-incs cob (pop queue) done)

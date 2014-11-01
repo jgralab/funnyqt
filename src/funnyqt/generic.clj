@@ -103,12 +103,21 @@
   Example:
 
     (type-case obj
-      'TypeA (do-a-stuff obj)
-      'TypeB (do-b-stuff obj)
-      (do-default-stuff obj))"
+      TypeA (do-a-stuff obj)
+      TypeB (do-b-stuff obj)
+      (do-default-stuff obj))
+
+  Note that the type-specs must not be quoted."
   [elem & clauses]
-  `(condp (fn [t# e#] (has-type? e# t#)) ~elem
-     ~@clauses))
+  (let [normal-clauses (partition 2 clauses)
+        default-clause (when (odd? (count clauses))
+                         (last clauses))]
+    `(condp (fn [t# e#] (has-type? e# t#)) ~elem
+       ~@(mapcat (fn [[type exp]]
+                   `['~type ~exp])
+                 normal-clauses)
+       ~@(when default-clause
+           `[~default-clause]))))
 
 ;;# Generic Attribute Value Access
 
