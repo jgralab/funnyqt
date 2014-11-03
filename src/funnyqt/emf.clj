@@ -999,7 +999,7 @@
                   (src-rm oref)
                   ;; no oref, but if it was given, there must be one so this
                   ;; ref is not meant!
-                  (not src-rm))
+                  (not src-rs))
           trg (reffn src nthere-rm)
           :when (or (nil? trg-ts) (g/has-type? trg trg-ts))]
       (do
@@ -1013,7 +1013,7 @@
   specs plus type specs `src-ts` and `trg-ts`.  `r` may be a Resource or
   ResourceSet."
   ([r]
-     (epairs-internal r erefs identity identity nil nil))
+     (epairs-internal r erefs nil nil nil nil))
   ([r src-rs trg-rs]
      (epairs-internal r erefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
@@ -1025,7 +1025,7 @@
   of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
   `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r ecrossrefs identity identity nil nil))
+     (epairs-internal r ecrossrefs nil nil nil nil))
   ([r src-rs trg-rs]
      (epairs-internal r ecrossrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
@@ -1037,7 +1037,7 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r econtentrefs identity identity nil nil))
+     (epairs-internal r econtentrefs nil nil nil nil))
   ([r src-rs trg-rs]
      (epairs-internal r econtentrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]

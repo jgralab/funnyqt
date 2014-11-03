@@ -134,7 +134,7 @@
     :nano  (str in " ns")
     :micro (str (double (/ in 1000)) " µs")
     :milli (str (double (/ in 1000000)) " ms")
-    :sec   (str (double (/ in 1000000000)) " s")
+    :sec   (str (double (/ in 1000000000)) " sec")
     :auto (cond
            (> in (Math/pow 10 9)) (time-str in :sec)
            (> in (Math/pow 10 6)) (time-str in :milli)
