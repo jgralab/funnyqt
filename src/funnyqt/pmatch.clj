@@ -1079,10 +1079,16 @@
                       n# combine!#
                       (fn [coll# ~sym]
                         (combine!# coll#
+                                   ;; rbf cannot be empty due to the
+                                   ;; binding-count check above.
                                    (u/for+ ~rbf ~result-form))))
                      finalize#)))
            ;; Lazy Case
-           (let [code `(u/for+ ~bf ~result-form)
+           (let [code (if (seq bf)
+                        `(u/for+ ~bf ~result-form)
+                        ;; If the binding form is empty, the result is the
+                        ;; infinite seq of empty matches.
+                        `(repeat ~result-form))
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]

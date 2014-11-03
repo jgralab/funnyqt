@@ -307,4 +307,4 @@
       (if (seq seq-exprs)
         `(for ~seq-exprs
            ~body-expr)
-        [body-expr]))))
+        (errorf "for+ called with empty binding form.")))))
