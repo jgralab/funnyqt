@@ -667,6 +667,64 @@
                                          a1 -<:d>-> d1]])
                 0
                 (pmt-matches-fn)))
+  (testing "Testing :positive patterns. (2)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                                         -<:s>-> c2<C> -<:s>-> b
+                                         :isomorphic]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                                         -<:s>-> c2<C> -<:s>-> b
+                                         :isomorphic]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                                         -<:s>-> c2<C> -<:s>-> b
+                                         :isomorphic]])
+                1
+                (pmt-matches-fn {:b ['B 1]})))
+  (testing "Testing :positive patterns. (1)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :isomorphic]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :isomorphic]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [b<B>
+                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                                         b -<:t>-> c2<C> -<:t>-> a
+                                         :isomorphic]])
+                1
+                (pmt-matches-fn {:b ['B 1]})))
+  (testing "Testing :positive patterns. (3, global NAC)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [a<A>
+                              :positive [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [a<A>
+                              :positive [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [a<A>
+                              :positive [c1<C> -<:d>-> d1<D>
+                                         c1 -<:t>-> a1<A>
+                                         a1 -<:d>-> d1]])
+                5
+                (pmt-matches-fn {:a ['B 1]}
+                                {:a ['C 1]}
+                                {:a ['C 2]}
+                                {:a ['A 1]}
+                                {:a ['B 2]})))
   (testing "Testing :nested patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
