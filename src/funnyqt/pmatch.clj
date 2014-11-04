@@ -228,6 +228,10 @@
   ;; negative-spec is [...neg-pattern...]
   [:when `(empty? ~(build-nested-pattern negative-spec model-sym binding-var-set pattern-var-set))])
 
+(defn ^:private positive-spec-to-when-seq [positive-spec model-sym binding-var-set pattern-var-set]
+  ;; positive-spec is [...neg-pattern...]
+  [:when `(seq ~(build-nested-pattern positive-spec model-sym binding-var-set pattern-var-set))])
+
 (defn ^:private nested-specs-to-let [nested-specs model-sym binding-var-set pattern-var-set]
   ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
   [:let (vec (mapcat
@@ -251,31 +255,27 @@
         (read-string t)
         `'~(symbol t)))))
 
-(defn ^:private add-isomorphism-constraint [pg v-or-e]
-  (when-let [n (get-name v-or-e)]
-    (cond
-     (and (tg/vertex? v-or-e)
-          (g/has-type? v-or-e 'APatternVertex))
-     (let [others (remove (partial = v-or-e)
-                          (filter get-name (tg/vseq pg 'APatternVertex)))]
-       (when (pos? (count others))
-         (let [c (tg/create-vertex! pg 'Constraint)]
-           (tg/set-value! c :form (pr-str `[:when (not (contains? ~(set (map get-name others)) ~n))]))
-           (doseq [v (conj others v-or-e)]
-             (tg/create-edge! pg 'Precedes v c)))))
-     (and (tg/edge? v-or-e)
-          (g/has-type? v-or-e 'APatternEdge))
-     (let [others (remove (partial = v-or-e)
-                          (filter get-name (tg/eseq pg 'APatternEdge)))]
-       (when (pos? (count others))
-         (let [c (tg/create-vertex! pg 'Constraint)]
-           (tg/set-value! c :form (pr-str `[:when (not (contains? ~(set (map get-name others)) ~n))]))
-           (doseq [e (conj others v-or-e)
-                   :let [al (tg/alpha e)
-                         om (tg/omega e)]]
-             (tg/create-edge! pg 'Precedes al c)
-             (tg/create-edge! pg 'Precedes om c)))))
-     :else (u/errorf "Huh? How should I add a bij-constr for %s?!?" v-or-e))))
+(defn ^:private add-isomorphism-constraints [pg]
+  (doseq [pv1 (filter get-name (tg/vseq pg 'APatternVertex))
+          pv2 (filter get-name (tg/vseq pg 'APatternVertex))
+          :while (not= pv1 pv2)
+          :let [c (tg/create-vertex! pg 'Constraint)]]
+    (tg/set-value! c :form (pr-str `[:when (not (identical? ~(get-name pv1)
+                                                            ~(get-name pv2)))]))
+    (tg/create-edge! pg 'Precedes pv1 c)
+    (tg/create-edge! pg 'Precedes pv2 c))
+  (doseq [pe1 (filter get-name (tg/eseq pg 'APatternEdge))
+          pe2 (filter get-name (tg/eseq pg 'APatternEdge))
+          :while (not= pe1 pe2)
+          :let [c (tg/create-vertex! pg 'Constraint)]]
+    ;; We create no Precedes edges here, because with [a -e1-> b a -e2-> b
+    ;; :isomorphic] it's not even enough to create Precedes edges to a and b
+    ;; because that would insert the check immediately after b has been matched
+    ;; which is before e2 gets matched.  With no Precedes edge, it will be
+    ;; checked as the last thing.
+    (tg/set-value! c :form (pr-str `[:when (not (identical? ~(get-name pe1)
+                                                            ~(get-name pe2)))])))
+  pg)
 
 (defn pattern-to-pattern-graph [pname argvec pattern isomorphic]
   (let [binding-var-vec (binding-bound-vars pattern)
@@ -299,9 +299,7 @@
                                                                    (binding-var-set n) 'BindingVarVertex
                                                                    :else               'PatternVertex))]
                                       (when n
-                                        (tg/set-value! v :name (str n))
-                                        (when (and isomorphic (g/has-type? v 'APatternVertex))
-                                          (add-isomorphism-constraint pg v)))
+                                        (tg/set-value! v :name (str n)))
                                       v))]
                           (when t (tg/set-value! v :type (str t)))
                           v))]
@@ -346,6 +344,11 @@
            (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym binding-var-set pattern-var-set)
                                (nnext pattern)))
                   lv)
+           ;; Positive patterns: :positive [a --> b]
+           (= :positive cur)
+           (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym binding-var-set pattern-var-set)
+                               (nnext pattern)))
+                  lv)
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
            (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
@@ -369,9 +372,7 @@
                                               [lv nv]
                                               [nv lv]))]
                                (when (and n (not (g/has-type? e 'NegPatternEdge)))
-                                 (tg/set-value! e :name (name n))
-                                 (when isomorphic
-                                   (add-isomorphism-constraint pg e)))
+                                 (tg/set-value! e :name (name n)))
                                (when t (tg/set-value! e :type (str t))))
                              (recur (nnext pattern) nv))
            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -406,7 +407,9 @@
           (println
            (format "The pattern %s could perform better by anchoring it at an argument node."
                    (tg/value pg :patternName))))))
-    pg))
+    (if isomorphic
+      (add-isomorphism-constraints pg)
+      pg)))
 
 ;;# Patter graph to pattern comprehension
 
@@ -441,12 +444,16 @@
         (q/the (tg/vseq pg 'Anchor))))
 
 (defn ^:private enqueue-incs [cur queue done]
-  (into queue (remove (fn [i]
-                        (or (done i)
-                            (when-let [t (get-type i)]
-                              (and (not (tg/normal-edge? i))
-                                   (keyword? t)))))
-                      (tg/iseq cur))))
+  (let [incs (remove (fn [i]
+                       (or (done i)
+                           (when-let [t (get-type i)]
+                             (and (not (tg/normal-edge? i))
+                                  (keyword? t)))))
+                     (tg/iseq cur))
+        precedes (filter #(g/has-type? % 'Precedes) incs)
+        others   (remove #(g/has-type? % 'Precedes) incs)]
+    (into (clojure.lang.PersistentQueue/EMPTY)
+          (concat precedes queue others))))
 
 (defn ^:private undone-vertices [pg done deps-fn]
   (q/sort-topologically deps-fn (remove done (tg/vseq pg))))
@@ -549,6 +556,10 @@
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
+              Constraint
+              (recur (pop queue)
+                     (conj-done done cur)
+                     (into bf (read-string (tg/value cur :form))))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -584,14 +595,12 @@
               ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
-                (println (g/describe cur) (inc-type cur) (get-type cur))
                 (recur (enqueue-incs trg (pop queue) done)
                        (conj-done done cur trg)
                        (vec
                         (concat
                          bf
                          (when-let [t (inc-type cur)]
-                           (println "AE-type =" t)
                            (if (keyword? t)
                              (u/errorf "Argument edge type cannot be a keyword! %s" t)
                              `[:when (g/has-type? ~(get-name cur) ~t)]))
@@ -726,6 +735,10 @@
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
+              Constraint
+              (recur (pop queue)
+                     (conj-done done cur)
+                     (into bf (read-string (tg/value cur :form))))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -1266,13 +1279,46 @@
     [b<B>
      :negative [b -<:t>-> c1<C> -<:t>-> a<A>
                 b -<:t>-> c2<C> -<:t>-> a
-                :when (not= c1 c2)]]
+                :isomorphic]]
 
   This pattern matches all B-nodes b which are not connected to two different
   C-nodes c1 and c2 that both reference the same A-node a.
 
   If a negative pattern is not connected to the surrounding pattern, then it
-  acts as a global NAC.
+  acts as a global NAC.  Note that this is generally not a good idea since it
+  will be checked for every match of the surrounding pattern.  That is, every
+  check except the first one is needless effort unless the model is modified
+  from another thread so that the value of the NAC might change in between.
+
+  Positive Patterns
+  =================
+
+  A patter may include arbitrarily many positive patters which implement
+  positive application conditions (PACs).  In order for the pattern to match,
+  all included positive patterns must also match.  The main difference between
+  PACs and including the PAC in the surrounding pattern is that the nodes and
+  edges of the PACs are not part of the matches, and the number of the PACs
+  matches also don't contribute to the number of matches of the surrounding
+  pattern.
+
+  [b<B>
+     :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                b -<:t>-> c2<C> -<:t>-> a
+                :isomorphic]]
+
+  This pattern matches all B-nodes b which are connected to two different
+  C-nodes c1 and c2 that both reference the same A-node a.
+
+  If a positive pattern is not connected to the surrounding pattern, then it
+  acts as a global PAC.  Like with negative patterns, this is probably not a
+  good idea since the PACs are checked for every match of the surrounding
+  pattern so it is needless effort in case the value of the PAC cannot change
+  in the mean-time.
+
+  Also note that if two nodes of the outer pattern are only connected by
+  elements in a PAC, there is a serious performance penalty because first the
+  outer pattern is matched (with quadratic effort for two unconnected nodes),
+  and only if a match has been found, the PACs are checked in its context.
 
   Nested Patterns
   ===============

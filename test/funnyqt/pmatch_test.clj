@@ -618,17 +618,17 @@
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> a<A>
                                          b -<:t>-> c2<C> -<:t>-> a
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 (pattern {:pattern-expansion-context :emf}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> a<A>
                                          b -<:t>-> c2<C> -<:t>-> a
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 (pattern {:pattern-expansion-context :tg}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> a<A>
                                          b -<:t>-> c2<C> -<:t>-> a
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 1
                 (pmt-matches-fn {:b ['B 2]})))
   (testing "Testing :negative patterns. (2)"
@@ -636,17 +636,17 @@
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
                                          -<:s>-> c2<C> -<:s>-> b
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 (pattern {:pattern-expansion-context :emf}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
                                          -<:s>-> c2<C> -<:s>-> b
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 (pattern {:pattern-expansion-context :tg}
                          [m] [b<B>
                               :negative [b -<:t>-> c1<C> -<:t>-> <A>
                                          -<:s>-> c2<C> -<:s>-> b
-                                         :when (not= c1 c2)]])
+                                         :isomorphic]])
                 1
                 (pmt-matches-fn {:b ['B 2]})))
   (testing "Testing :negative patterns. (3, global NAC)"
