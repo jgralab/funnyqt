@@ -10,12 +10,12 @@
   excellent Marginalia tool."
   :dependencies [[org.clojure/clojure "1.7.0-alpha3"]
                  [org.clojure/core.cache "0.6.4"]
-                 [de.uni-koblenz.ist/jgralab "7.7.17"]
+                 [de.uni-koblenz.ist/jgralab "7.7.19"]
                  [org.clojure/core.logic "0.8.9"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
-                 [inflections "0.9.10"]]
+                 [inflections "0.9.11"]]
   :profiles {:dev
              {:dependencies
               [[criterium "0.4.3"]
