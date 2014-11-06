@@ -1,4 +1,4 @@
-(defproject funnyqt "0.32.3"
+(defproject funnyqt "0.32.4"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 

@@ -7,7 +7,7 @@
   (:require [funnyqt.query :as q])
   (:use clojure.test)
   (:import
-   [de.uni_koblenz.jgralab.schema Attribute AttributedElementClass]))
+   (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
 
 ;;* Tests
 
@@ -62,10 +62,32 @@
 ;;** Inheritance hierarchy
 
 (defn ^:private top-sibs-bottom [g]
+  (when (seq (.getVertexClasses (.getGraphClass (schema g))))
+    (throw (RuntimeException. "BANG")))
   (create-vertex-class! g {:qname 'Top} (fn [] [:t]))
   (create-vertex-class! g {:qname 'Sibling1} (fn [] [:s1]))
   (create-vertex-class! g {:qname 'Sibling2} (fn [] [:s2]))
   (create-vertex-class! g {:qname 'Bottom} (fn [] [:b])))
+
+(deftransformation multiple-inheritance-0
+  [g]
+  (top-sibs-bottom g)
+  (create-attribute! g {:qname 'Top.name :domain 'String}
+                     (fn [] {(resolve-element :t) "Top"}))
+  (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
+  (add-super-classes! g 'Bottom 'Sibling1 'Sibling2))
+
+(deftest test-multiple-inheritance-0
+  (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (multiple-inheritance-0 g)
+    (is (== 4 (vcount g)))
+    (is (== 4 (vcount g 'Top)))
+    (is (== 2 (vcount g 'Sibling1)))
+    (is (== 2 (vcount g 'Sibling1)))
+    (is (== 1 (vcount g 'Bottom)))
+    (q/forall? #(is (== 1 (vcount g %1)))
+               '[Top! Sibling1! Sibling2! Bottom!])))
+
 
 (deftransformation multiple-inheritance-1
   [g]
@@ -77,18 +99,14 @@
                      (fn [] {(resolve-element :b) "Bottom"}))
 
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
+  ;; This must error because Bottom already has a name attribute so it must not
+  ;; inherit another one.
   (add-super-classes! g 'Bottom 'Sibling1 'Sibling2))
 
 (deftest test-multiple-inheritance-1
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (multiple-inheritance-1 g)
-    (is (== 4 (vcount g)))
-    (is (== 4 (vcount g 'Top)))
-    (is (== 2 (vcount g 'Sibling1)))
-    (is (== 2 (vcount g 'Sibling1)))
-    (is (== 1 (vcount g 'Bottom)))
-    (q/forall? #(is (== 1 (vcount g %1)))
-               '[Top! Sibling1! Sibling2! Bottom!])))
+    (is (thrown-with-msg? Exception #"Bottom already has a name attribute so cannot inherit another one"
+                          (multiple-inheritance-1 g)))))
 
 (deftransformation multiple-inheritance-2
   [g]
@@ -105,8 +123,9 @@
 
 (deftest test-multiple-inheritance-2
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (is (thrown-with-msg? Exception #"Bottom tries to inherit different name attributes"
-          (multiple-inheritance-2 g)))))
+    (is (thrown-with-msg? Exception
+                          #"Bottom tries to inherit two different name attributes, one from Sibling1 and one from Sibling2"
+                          (multiple-inheritance-2 g)))))
 
 (deftransformation multiple-inheritance-3
   [g]
@@ -117,16 +136,27 @@
   (create-attribute! g {:qname 'Sibling1.name :domain 'Long}
                      (fn [] {(resolve-element :s1) 11}))
 
-  ;; This must fail, cause Sibling1 inherits name of domain String from Top,
-  ;; but defines name itself as Integer
+  ;; This must fail, cause Sibling1 inherits name from Top, but defines a name
+  ;; attribute itself
   (add-sub-classes! g 'Top 'Sibling1))
 
 (deftest test-multiple-inheritance-3
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (is (thrown-with-msg? Exception #"Sibling1 tries to inherit name with different domains"
+    (is (thrown-with-msg? Exception #"Sibling1 already has a name attribute so cannot inherit another one"
           (multiple-inheritance-3 g)))))
 
 ;;## Attribute renames
+
+(deftransformation attr-rename-0
+  [g]
+  ;; Must error, cause name is actually inherited by NamedElement and not
+  ;; declared for Locality itself
+  (rename-attribute! g 'Locality.name :inhabitants))
+
+(deftest test-attr-rename-0
+  (is (thrown-with-msg? Exception #"Cannot rename attribute name for class localities.Locality because it's owned by NamedElement"
+                        (attr-rename-0 (load-graph "test/input/greqltestgraph.tg")))))
+
 
 (deftransformation attr-rename-1
   [g]
@@ -134,8 +164,8 @@
   (rename-attribute! g 'NamedElement.name :inhabitants))
 
 (deftest test-attr-rename-1
-  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute."
-        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
+  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute"
+                        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-2
   [g]
@@ -143,8 +173,8 @@
   (rename-attribute! g 'localities.Locality.year :inhabitants))
 
 (deftest test-attr-rename-2
-  (is (thrown-with-msg? Exception #"localities.Locality already has a inhabitants attribute."
-        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
+  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute"
+                        (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-3
   [g]

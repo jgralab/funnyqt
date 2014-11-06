@@ -3,7 +3,7 @@
   (:require clojure.set
             clojure.pprint
             [clojure.tools.macro :as m]
-            [funnyqt.generic :as p]
+            [funnyqt.generic :as g]
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.query :as q]
@@ -20,9 +20,6 @@
    (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
                                         InternalAttributesArrayAccess$OnAttributesFunction)))
 
-;; TODO: When finishing a schema, we need to make sure to remove all previously
-;; cached type-matchers in funnyqt.tg/type-matcher-cache.
-
 ;;# Utility functions
 
 (defn ^:private on-attributes-fn
@@ -34,11 +31,12 @@
 
 (defn ^:private element-seq
   [g aec]
-  (cond
-   (tg/graph-class? aec)  [g]
-   (tg/vertex-class? aec) (tg/vseq g (funnyqt.generic/qname aec))
-   (tg/edge-class? aec)   (tg/eseq g (funnyqt.generic/qname aec))
-   :else (u/errorf "Cannot handle %s." aec)))
+  (let [ts (g/qname aec)]
+    (cond
+     (tg/graph-class? aec)  [g]
+     (tg/vertex-class? aec) (tg/vseq g ts)
+     (tg/edge-class? aec)   (tg/eseq g ts)
+     :else (u/errorf "Cannot handle %s" aec))))
 
 (defmacro with-open-schema [g & body]
   `(let [g# ~g
@@ -46,7 +44,8 @@
          was-opened# (.reopen s#)
          r# (do ~@body)]
      (when was-opened#
-       (.finish s#))
+       (.finish s#)
+       (tg/reset-all-tg-caches))
      r#))
 
 ;;# Schema functions
@@ -180,37 +179,50 @@
 ;;### Creating
 
 (defn ^:private fix-attr-array-after-add!
-  "Resizes the attributes array of all `elems` after adding the `new-attrs`."
-  [elems & new-attrs]
-  (when (seq new-attrs)
-    (let [oaf (on-attributes-fn
-               (fn [ae ^objects ary]
-                 (let [^AttributedElementClass aec (tg/attributed-element-class ae)
-                       new-attrs (set new-attrs)
-                       ^objects new-ary (make-array Object (.getAttributeCount aec))]
-                   (loop [atts (.getAttributeList aec), posinc 0]
-                     (if (seq atts)
-                       (let [^Attribute a (first atts)
-                             idx (.getAttributeIndex aec (.getName a))]
-                         (if (new-attrs a)
-                           (recur (rest atts) (inc posinc))
-                           (do
-                             (aset new-ary idx (aget ary (- idx posinc)))
-                             (recur (rest atts) posinc))))
-                       new-ary)))))]
-      (doseq [^InternalAttributesArrayAccess e elems]
-        (.invokeOnAttributesArray e oaf)
-        (doseq [^Attribute a new-attrs]
-          (.setDefaultValue a e))))))
+  "Resizes the attributes array of all `elems` after adding the `new-attrs` if
+  needed."
+  [g aec aec2new-attrs-map]
+  (let [elems (element-seq g aec)
+        oaf (on-attributes-fn
+             (fn [ae ^objects ary]
+               (let [^AttributedElementClass aec (tg/attributed-element-class ae)
+                     new-attrs (set (aec2new-attrs-map aec))
+                     ^objects new-ary (make-array Object (.getAttributeCount aec))]
+                 (when (not= (alength new-ary)
+                             (+ (count new-attrs) (if ary (alength ary) 0)))
+                   (u/errorf "Something's wrong!"))
+                 (loop [atts (.getAttributeList aec), posinc 0]
+                   (if (seq atts)
+                     (let [^Attribute a (first atts)
+                           idx (.getAttributeIndex aec (.getName a))]
+                       (if (new-attrs a)
+                         (recur (rest atts) (inc posinc))
+                         (do
+                           (aset new-ary idx (aget ary (- idx posinc)))
+                           (recur (rest atts) posinc))))
+                     new-ary)))))]
+    (doseq [^InternalAttributesArrayAccess e elems
+            :let [new-attrs (aec2new-attrs-map (tg/attributed-element-class e))]]
+      (.invokeOnAttributesArray e oaf)
+      (doseq [^Attribute a new-attrs]
+        (.setDefaultValue a e)))))
 
 (defn ^:private create-attr!
   [g {:keys [qname domain default]}]
-  (with-open-schema g
-    (let [[qn aname _] (u/split-qname qname)
-          aec          ^AttributedElementClass (tg/attributed-element-class g qn)
-          attr (.createAttribute aec aname (tg/domain g domain) default)]
-      (fix-attr-array-after-add! (element-seq g aec) attr)
-      attr)))
+  (let [[qn aname _] (u/split-qname qname)
+        aec          ^AttributedElementClass (tg/attributed-element-class g qn)
+        check (fn [^AttributedElementClass aec]
+                (when (.getAttribute aec aname)
+                  (u/errorf "%s already has a %s attribute" aec aname)))]
+    ;; Check that there's no such attribute yet
+    (if (tg/graph-class? aec)
+      (check aec)
+      (doseq [sub (cons aec (seq (.getAllSubClasses ^GraphElementClass aec)))]
+        (check sub)))
+    (with-open-schema g
+      (let [attr (.createAttribute aec aname (tg/domain g domain) default)]
+        (fix-attr-array-after-add! g aec {aec #{attr}})
+        attr))))
 
 (defn create-attribute!
   "Creates an Attribute and sets values.
@@ -247,13 +259,16 @@
   (let [[qn aname _] (u/split-qname oldname)
         aec ^AttributedElementClass (tg/attributed-element-class g qn)
         ^Attribute attribute (.getAttribute aec aname)]
+    (when-not (.getOwnAttribute aec aname)
+      (u/errorf "Cannot rename attribute %s for class %s because it's owned by %s"
+                aname aec (.getAttributedElementClass attribute)))
     ;; Check that no subclass (or even this class) contains attribute `newname`
     (when (.containsAttribute aec (name newname))
-      (u/errorf "%s already has a %s attribute." aec (name newname)))
+      (u/errorf "%s already has a %s attribute" aec (name newname)))
     (when (tg/graph-element-class? aec)
       (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
         (when (.containsAttribute sub (name newname))
-          (u/errorf "%s subclass %s already has a %s attribute."
+          (u/errorf "%s subclass %s already has a %s attribute"
                   aec sub (name newname)))))
     (let [old-idx-map (old-attr-idx-map aec aname)
           oaf (on-attributes-fn
@@ -302,58 +317,61 @@
                             [(.getName a) (.getDomain a)])
                           (.getAttributeList aec))))
 
-(defn ^:private handle-attribute-clashes
-  [^AttributedElementClass super ^AttributedElementClass sub]
-  (let [supmap (attr-name-dom-map super)
-        supkeys (set (keys supmap))
-        submap (attr-name-dom-map sub)
-        isect (clojure.set/intersection
-               supkeys (set (keys submap)))]
-    ;; For attribute clashes, we have to check if the domains match.  If so,
-    ;; then we can simply delete the attribute at the subclass.  Otherwise,
-    ;; that's an error.
-    (doseq [a isect]
-      (cond
-       ;; Inheriting the same attribute via multiple paths is ok
-       (= (.getAttribute super a) (.getAttribute sub a)) nil
-       ;; Inheriting an equivalent attribute (same name/domain) is ok, if the
-       ;; subclass itself declares it.  Then, it can simply be deleted in
-       ;; favour of the inherited one.
-       (= (supmap a) (submap a)) (if-let [^Attribute oa (.getOwnAttribute sub a)]
-                                   (.delete oa)
-                                   (u/errorf
-                                    (str "%s tries to inherit different %s attributes. "
-                                         "It already has one from %s and now gets another one from %s.")
-                                    sub a (.getAttributedElementClass (.getAttribute sub a)) super))
-       :else (u/errorf
-              "%s tries to inherit %s with different domains: %s from %s and %s from %s"
-              sub a
-              (supmap a) (.getAttributedElementClass (.getAttribute sub a))
-              (submap a) super)))
-    ;; Return the seq of attributes that are really new for the subclass.  For
-    ;; those, the attributes array has to be adjusted.
-    (map #(.getAttribute super %1)
-         (remove isect supkeys))))
+(defn ^:private determine-new-attributes
+  [^GraphElementClass super ^GraphElementClass sub]
+  (let [supermap (attr-name-dom-map super)
+        ;; We need to check for clashes also in sub's subclasses.
+        all-subs (conj (seq (.getAllSubClasses sub)) sub)
+        gec2new-attrs-map (atom {})]
+    (doseq [^GraphElementClass sub all-subs
+            :let [submap (attr-name-dom-map sub)
+                  isect  (clojure.set/intersection (set (keys supermap))
+                                                   (set (keys submap)))
+                  new-attrs (clojure.set/difference (set (keys supermap))
+                                                    (set (keys submap)))]]
+      (doseq [a isect]
+        (cond
+         ;; The same attribute is inherited (maybe via different paths).
+         ;; That's ok.
+         (identical? (.getAttribute super a) (.getAttribute sub a))
+         :this-is-ok
+         ;;---
+         (.getOwnAttribute sub a)
+         (u/errorf "%s already has a %s attribute so cannot inherit another one"
+                   sub a)
+         ;;---
+         :else (u/errorf
+                "%s tries to inherit two different %s attributes, one from %s and one from %s"
+                sub a
+                (.getAttributedElementClass (.getAttribute sub a))
+                (.getAttributedElementClass (.getAttribute super a)))))
+      ;; Ok, add the new attrs of sub to the map if there are new attrs.
+      (when (seq new-attrs)
+        (swap! gec2new-attrs-map assoc sub (map (fn [new-attr-name]
+                                                  (.getAttribute super new-attr-name))
+                                                new-attrs))))
+    @gec2new-attrs-map))
 
 (defn add-sub-classes!
   "Makes all `subs` sub-classes of `super`.
   Returns `super` again."
   [g super & subs]
-  (with-open-schema g
-    (let [^GraphElementClass superaec (get-aec g super)
-          subaecs (map #(get-aec g %1) subs)]
-      (doseq [^GraphElementClass subaec subaecs]
-        (let [new-atts (handle-attribute-clashes superaec subaec)]
-          (if (instance? VertexClass superaec)
-            (do
-              (.addSuperClass ^VertexClass subaec ^VertexClass superaec)
-              (apply fix-attr-array-after-add! (tg/vseq g subaec)
-                     new-atts))
-            (do
-              (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec)
-              (apply fix-attr-array-after-add! (tg/eseq g subaec)
-                     new-atts))))))
-    super))
+  (let [^GraphElementClass superaec (get-aec g super)
+        subaecs (map #(get-aec g %1) subs)]
+    (doseq [^GraphElementClass subaec subaecs]
+      (let [gec2new-attrs-map (determine-new-attributes superaec subaec)]
+        (if (instance? VertexClass superaec)
+          (do
+            (with-open-schema g
+              (.addSuperClass ^VertexClass subaec ^VertexClass superaec))
+            (when (seq gec2new-attrs-map)
+              (fix-attr-array-after-add! g subaec gec2new-attrs-map)))
+          (do
+            (with-open-schema g
+              (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec))
+            (when (seq gec2new-attrs-map)
+              (fix-attr-array-after-add! g subaec gec2new-attrs-map)))))))
+  super)
 
 (defn add-super-classes!
   "Makes all `supers` super-classes of `sub`.
