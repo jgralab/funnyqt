@@ -130,7 +130,7 @@
     "Sets the value of `el`s `attr` attribute to `val`.
   `attr` is the attribute name given as keyword."))
 
-;;# Generic Access to Vertices and EObjects and Edges and EObject pairs
+;;# Generic Access to Elements and Relationships
 
 (defprotocol IElements
   (elements [model] [model type-spec]
@@ -147,6 +147,14 @@
     "Returns the lazy seq of relationships incident to `elem`.
   May be restricted by the type specification `type-spec` and the direction
   specification `dir-spec` (:in, :out, or :inout)."))
+
+(defprotocol IRelationshipSource
+  (source [rel]
+    "Returns the element where this `rel` starts."))
+
+(defprotocol IRelationshipTarget
+  (target [rel]
+    "Returns the element where this `rel` ends."))
 
 ;;# Generic access to enumeration constants
 
