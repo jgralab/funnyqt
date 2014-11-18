@@ -54,7 +54,7 @@ functions `record` and `enum-constant`."
                            ImplementationType ProgressFunction)
    (de.uni_koblenz.jgralab.graphmarker SubGraphMarker)
    (de.uni_koblenz.jgralab.schema AggregationKind Schema Domain RecordDomain EnumDomain
-                                  ListDomain SetDomain MapDomain
+                                  ListDomain SetDomain MapDomain CollectionDomain
                                   AttributedElementClass NamedElement
                                   GraphClass VertexClass EdgeClass Attribute
                                   GraphElementClass IncidenceClass)
@@ -365,14 +365,17 @@ functions `record` and `enum-constant`."
     AttributedElementClass (.getSchema ^AttributedElementClass elem)
     Domain                 (.getSchema ^Domain elem)))
 
-(defn domain
-  "Returns the Domain with qualified name `qname` in the schema of
-  `elem`.  `elem` may be an AttributedElement, AttributedElementClass,
-  or a Schema."
-  ^de.uni_koblenz.jgralab.schema.Domain [elem qname]
-  (let [^Schema s (if (schema? elem) elem (schema elem))]
-    (.getDomain s ((named-element-simple-to-qname-map s)
-                   (domain-qname qname)))))
+(defn ^de.uni_koblenz.jgralab.schema.Domain domain
+  "Returns the attribute `attr`s domain.
+  In the arity 2 variant, returns the Domain with qualified name `qname` in the
+  schema of `elem`.  `elem` may be an AttributedElement,
+  AttributedElementClass, or a Schema."
+  ([^Attribute attr]
+     (.getDomain attr))
+  ([elem qname]
+     (let [^Schema s (if (schema? elem) elem (schema elem))]
+       (.getDomain s ((named-element-simple-to-qname-map s)
+                      (domain-qname qname))))))
 
 (defn schema-graph
   "Returns the SchemaGraph of schema `s`."
@@ -461,8 +464,9 @@ functions `record` and `enum-constant`."
   AttributedElementClass
   (mm-multi-valued-property? [cls prop]
     (if-let [attr (.getAttribute cls (name prop))]
-      false ;; TODO: Is that correct, or do we want List, Set, Map attrs to be
-            ;; multi-valued?
+      (let [dom (domain attr)]
+        (or (instance? CollectionDomain dom)
+            (instance? MapDomain dom)))
       (let [dec (.getDirectedEdgeClassForFarEndRole ^VertexClass cls (name prop))
             _   (when-not dec
                   (u/errorf "No role %s at VertexClass %s."
