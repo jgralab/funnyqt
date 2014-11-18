@@ -474,9 +474,9 @@ functions `record` and `enum-constant`."
                       (.getFrom ec)))
            1)))))
 
-(extend-protocol g/IMMContainmentRole
+(extend-protocol g/IMMContainmentReference
   VertexClass
-  (mm-containment-role? [this ref-kw]
+  (mm-containment-reference? [this ref-kw]
     (if-let [^DirectedSchemaEdgeClass
              dec (.getDirectedEdgeClassForFarEndRole this (name ref-kw))]
       (let [ec  (.getEdgeClass dec)

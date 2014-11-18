@@ -390,7 +390,7 @@
       ok)))
 
 (defn single-containers? [el type subst]
-  (ref-checker el type subst g/mm-containment-role?
+  (ref-checker el type subst g/mm-containment-reference?
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
                    (cond

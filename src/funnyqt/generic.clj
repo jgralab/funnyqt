@@ -376,7 +376,7 @@
 (defprotocol IMMReferences
   (mm-references [cls]
     "Returns the sequence of references declared for class `cls`.
-  Each attribute is represented as a keyword."))
+  Each reference is represented as a keyword."))
 
 (defprotocol IMMBooleanAttribute
   (mm-boolean-attribute? [cls attr]
@@ -388,9 +388,9 @@
     "Returns true iff `prop` (given as keyword) is a multi-valued property
   of `cls`."))
 
-(defprotocol IMMContainmentRole
-  (mm-containment-role? [class role]
-    "Returns true if `role` (given as keyword) is a containment role of `class`,
+(defprotocol IMMContainmentReference
+  (mm-containment-reference? [class role]
+    "Returns true if `role` (given as keyword) is a containment reference of `class`,
   i.e., the target objects are contained by `class`."))
 
 ;;# Metamodel-specific API generator
