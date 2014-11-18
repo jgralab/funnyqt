@@ -390,8 +390,8 @@
 
 (defprotocol IMMContainmentRole
   (mm-containment-role? [class role]
-    "Returns true if `role` (given as keyword) is a containment role,
-  i.e., the target objects are contained my `class`."))
+    "Returns true if `role` (given as keyword) is a containment role of `class`,
+  i.e., the target objects are contained by `class`."))
 
 ;;# Metamodel-specific API generator
 
