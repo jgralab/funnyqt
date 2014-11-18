@@ -1071,16 +1071,6 @@
     ([model cls prop-map]
        (ecreate! model cls prop-map))))
 
-(extend-protocol g/ICreateRelationship
-  Resource
-  (create-relationship! [this refkw from to]
-    (let [^EClass ec (eclass from)
-          ^EReference sf (.getEStructuralFeature ec (name refkw))]
-      (if (.isMany sf)
-        (eadd! from refkw to)
-        (eset! from refkw to))
-      [from to])))
-
 ;;## Generic setting of props
 
 (extend-protocol g/IModifyAdjacencies

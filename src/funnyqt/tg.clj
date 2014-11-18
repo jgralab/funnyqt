@@ -1137,12 +1137,9 @@ functions `record` and `enum-constant`."
     ([v ts ds]
        (iseq v ts ds))))
 
-(extend-protocol g/IRelationshipSource
+(extend-protocol g/IRelationshipSourceTarget
   Edge
-  (source [e] (alpha e)))
-
-(extend-protocol g/IRelationshipTarget
-  Edge
+  (source [e] (alpha e))
   (target [e] (omega e)))
 
 (extend-protocol g/IContainer

@@ -148,11 +148,9 @@
   May be restricted by the type specification `type-spec` and the direction
   specification `dir-spec` (:in, :out, or :inout)."))
 
-(defprotocol IRelationshipSource
+(defprotocol IRelationshipSourceTarget
   (source [rel]
-    "Returns the element where this `rel` starts."))
-
-(defprotocol IRelationshipTarget
+    "Returns the element where this `rel` starts.")
   (target [rel]
     "Returns the element where this `rel` ends."))
 
