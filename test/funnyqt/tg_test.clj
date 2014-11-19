@@ -152,6 +152,16 @@
   (is (= (enum-constant rg 'Month.JAN) (g/enum-constant rg 'Month.JAN)))
   (is (= (enum-constant rg 'Month.DEC) (g/enum-constant rg 'Month.DEC))))
 
+(deftest test-contents
+  (doseq [county (vseq rg 'County)]
+    (is (= (g/adjs county :localities)
+           (g/contents county)
+           (g/contents county 'Locality))))
+  (doseq [loc (vseq rg 'Locality)]
+    (is (= (g/adjs loc :crossroads)
+           (g/contents loc)
+           (g/contents loc 'Crossroad)))))
+
 ;;** Traversal Context
 
 (deftest test-vsubgraph-tc

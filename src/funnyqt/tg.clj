@@ -1155,6 +1155,21 @@ functions `record` and `enum-constant`."
           (that inc)
           (recur (next-inc inc)))))))
 
+(def ^:private contents-transducer
+  (comp (filter (fn [^Edge inc]
+                  (= AggregationKind/COMPOSITE (.getThatAggregationKind inc))))
+        (map that)))
+
+(extend-protocol g/IContents
+  Vertex
+  (contents
+    ([this]
+       (sequence contents-transducer (iseq this)))
+    ([this ts]
+       (sequence
+        (comp contents-transducer (filter (type-matcher-tg this ts)))
+        (iseq this)))))
+
 (extend-protocol g/IModelObject
   GraphElement
   (model-object? [this] true))

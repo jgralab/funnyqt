@@ -696,6 +696,14 @@
   (container [this]
     (econtainer this)))
 
+(extend-protocol g/IContents
+  EObject
+  (contents
+    ([this]
+       (econtents this))
+    ([this ts]
+       (econtents this ts))))
+
 (defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
 

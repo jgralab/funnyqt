@@ -71,13 +71,18 @@
       (is (= (q/the fmods) (econtainer x))))
     ;; In this concrete case, this is true
     (is (= (eallcontents family-model '!FamilyModel)
-           (econtents (econtents family-model))))
+           (econtents (econtents family-model))
+           (mapcat g/contents (econtents family-model))))
     (is (= (eallcontents family-model 'FamilyModel)
            (econtents family-model    'FamilyModel)))
     (is (= (eallcontents family-model 'Member)
-           (econtents (econtents family-model) 'Member)))
+           (econtents (econtents family-model)   'Member)
+           (mapcat #(g/contents % 'Member)
+                   (econtents family-model))))
     (is (= (eallcontents family-model 'Family)
-           (econtents (econtents family-model) 'Family)))))
+           (econtents (econtents family-model) 'Family)
+           (mapcat #(g/contents % 'Family)
+                   (econtents family-model))))))
 
 (deftest test-ecrossrefs
   (let [fsmith (first (eallcontents family-model 'Family))]

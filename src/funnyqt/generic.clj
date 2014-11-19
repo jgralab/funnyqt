@@ -289,8 +289,15 @@
 (defprotocol IContainer
   (container [this]
     "Returns the container of this element.
-  A container is an element that references this element by some link with
-  composition semantics."))
+  A container is an element that references `this` element by some link with
+  containment semantics."))
+
+;;# IContents
+
+(defprotocol IContents
+  (contents [this] [this ts]
+    "Returns the seq of `this` element's direct contents possibly restricted by
+    the type-spec `ts`."))
 
 ;;# (Meta-)Model Object predicates
 
