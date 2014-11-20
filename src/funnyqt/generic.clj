@@ -456,18 +456,21 @@
                (ns-unmap *ns* sym#))])
        ~@(concat
           (no-nils
-           (for [mm-cls (and (u/satisfies-protocol? metamodel IMMElementClasses
-                                                    "Generating no element class functions.")
+           (for [mm-cls (and (u/satisfies-protocol?
+                              metamodel IMMElementClasses
+                              "Generating no element class functions.")
                              (mm-element-classes metamodel))]
              (do
-               (doseq [a (and (u/satisfies-protocol? mm-cls IMMAttributes
-                                                     "Generating no attribute functions.")
+               (doseq [a (and (u/satisfies-protocol?
+                               mm-cls IMMAttributes
+                               "Generating no attribute functions.")
                               (mm-attributes mm-cls))]
                  (swap! atts
                         #(update-in %1 [%2] conj mm-cls)
                         a))
-               (doseq [r (and (u/satisfies-protocol? mm-cls IMMReferences
-                                                     "Generating no reference functions.")
+               (doseq [r (and (u/satisfies-protocol?
+                               mm-cls IMMReferences
+                               "Generating no reference functions.")
                               (mm-references mm-cls))]
                  (swap! refs
                         #(update-in %1 [%2] conj mm-cls)
@@ -475,13 +478,15 @@
              (when element-class-fn
                ((resolve element-class-fn) mm-cls prefix)))))
           (no-nils
-           (for [rel-cls (and (u/satisfies-protocol? metamodel IMMRelationshipClasses
-                                                     "Generating no relationship class functions.")
+           (for [rel-cls (and (u/satisfies-protocol?
+                               metamodel IMMRelationshipClasses
+                               "Generating no relationship class functions.")
                               (mm-relationship-classes metamodel))]
              (do
                ;; Collect attributes
-               (doseq [a (and (u/satisfies-protocol? rel-cls IMMAttributes
-                                                     "Generating to relationship attribute functions.")
+               (doseq [a (and (u/satisfies-protocol?
+                               rel-cls IMMAttributes
+                               "Generating to relationship attribute functions.")
                               (mm-attributes rel-cls))]
                  (swap! atts
                         #(update-in %1 [%2] conj rel-cls)

@@ -1303,86 +1303,6 @@
                          (Integer/toHexString (hash eo)))
                  ">"))))
 
-;;# Ecore-Model-specific API generator
-
-(defn ^:private no-nils [coll]
-  (doall (remove nil? coll)))
-
-(defmacro ecore-model-api-generator
-  "A helper macro to generate metamodel specific APIs in some namespace.
-
-  `ecore-file` is the ecore file containing the metamodel.
-
-  The `nssym` denotes the name of the namespace in which to generate the API.
-  If `nssym` is nil, generate it in the current namespace.
-
-  The new namespace (in case nssym was given) is required using the given
-  `alias` (if non-nil): (require '[nssym :as alias])
-
-  `prefix` is an optional prefix all generated functions should have given as
-  symbol or string.  (This is mainly useful if the functions are generated in
-  the current namespace in order not to clash with standard functions such as
-  clojure.core/name.)
-
-  `eclass-fn` is a function receiving an EClass and the `prefix`.  It should
-  return a valid definition-form, e.g., a (defn <prefix>do-eclass [...]  ...).
-
-  `eattr-fn` is a function receiving an EAttribute name as keyword, a set of
-  EClasses that have such an attribute, and the `prefix`.  It should return a
-  valid definition-form.
-
-  `eref-fn` is a function receiving an EReference name as keyword, a set of
-  EClasses that have such a reference, and the `prefix`.  It should return a
-  valid definition-form.
-
-  The functions are called with all classes/attributes/roles of the metamodel."
-  [ecore-file nssym alias prefix eclass-fn eattr-fn eref-fn]
-  (let [ecore-model (load-ecore-resource ecore-file)
-        atts (atom {}) ;; map from attribute kws to set of eclasses that have it
-        refs (atom {}) ;; map from reference kws to set of eclasses that have it
-        old-ns *ns*]
-    `(do
-       ~@(when nssym
-           `[(ns ~nssym
-               ;; Don't refer anything from clojure.core so that we don't get
-               ;; warnings about redefinitions.
-               (:refer-clojure :only []))
-             ;; Remove all java.lang imports so that clashes with generated
-             ;; vars cannot occur.
-             (doseq [[sym# cls#] (ns-imports *ns*)]
-               (ns-unmap *ns* sym#))])
-       (with-ns-uris ~(mapv #(.getNsURI ^EPackage %)
-                            (all-epackages-in-resource ecore-model))
-         ~@(with-ns-uris (mapv #(.getNsURI ^EPackage %)
-                               (all-epackages-in-resource ecore-model))
-             (concat
-              (no-nils
-               (for [^EClass ecl (eclasses ecore-model)]
-                 (do
-                   (doseq [a (map #(keyword (.getName ^EAttribute %))
-                                  (seq (.getEAttributes ecl)))]
-                     (swap! atts
-                            #(update-in %1 [%2] conj ecl)
-                            a))
-                   (doseq [r (map #(keyword (.getName ^EReference %))
-                                  (seq (.getEReferences ecl)))]
-                     (swap! refs
-                            #(update-in %1 [%2] conj ecl)
-                            r))
-                   (when eclass-fn
-                     ((resolve eclass-fn) ecl prefix)))))
-              (no-nils
-               (when eattr-fn
-                 (for [[a owners] @atts]
-                   ((resolve eattr-fn) a owners prefix))))
-              (no-nils
-               (when eref-fn
-                 (for [[r owners] @refs]
-                   ((resolve eref-fn) r owners prefix)))))))
-       (in-ns '~(ns-name old-ns))
-       ~@(when alias
-           [`(require '~(vector nssym :as alias))]))))
-
 ;;* Ecore Model specific functional API
 
 (defn ^:private create-eclass-fns [^EClass ec prefix]
@@ -1549,10 +1469,11 @@
   ([ecore-file nssym alias]
      `(generate-ecore-model-functions ~ecore-file ~nssym ~alias nil))
   ([ecore-file nssym alias prefix]
-     `(ecore-model-api-generator ~ecore-file
-                                ~nssym
-                                ~alias
-                                ~prefix
-                                create-eclass-fns
-                                create-eattribute-fns
-                                create-ereference-fns)))
+     `(g/metamodel-api-generator ~ecore-file
+                                 ~nssym
+                                 ~alias
+                                 ~prefix
+                                 create-eclass-fns
+                                 nil
+                                 create-eattribute-fns
+                                 create-ereference-fns)))

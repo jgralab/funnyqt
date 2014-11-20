@@ -305,7 +305,8 @@
   ([ecore-file nssym alias]
      `(generate-ecore-model-relations ~ecore-file ~nssym ~alias nil))
   ([ecore-file nssym alias prefix]
-     `(emf/ecore-model-api-generator ~ecore-file ~nssym ~alias ~prefix
-                                     create-eclass-relations
-                                     create-eattribute-relations
-                                     create-ereference-relations)))
+     `(g/metamodel-api-generator ~ecore-file ~nssym ~alias ~prefix
+                                 create-eclass-relations
+                                 nil
+                                 create-eattribute-relations
+                                 create-ereference-relations)))

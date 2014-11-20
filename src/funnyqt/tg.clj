@@ -1749,102 +1749,6 @@ functions `record` and `enum-constant`."
   (.write ^java.io.Writer out
           (str "#<GraphClass " (g/qname gc) ">")))
 
-;;# Schema-specific API generator macro
-
-(defn ^:private no-nils [coll]
-  (doall (remove nil? coll)))
-
-(defmacro schema-api-generator
-  "A helper macro for generating a schema-specific API in some namespace.
-  The namespace is named `nssym`.  If that's nil, then use the current
-  namespace.
-
-  The new namespace (in case nssym was given) is required using the given
-  `alias` (if non-nil): (require '[nssym :as alias])
-
-  `prefix` is an optional prefix all generated functions should have given as
-  symbol or string.  (This is mainly useful if the functions are generated in
-  the current namespace in order not to clash with standard functions such as
-  clojure.core/name.)
-
-  `vc-fn` has to be a function that receives a VertexClass and `prefix` and
-  returns a valid definition-form, e.g., a (defn <prefix>do-vertex-class [...]
-  ...).
-
-  `ec-fn` has to be a function that receives an EdgeClass and `prefix` and
-  returns a valid definition-form.
-
-  `attr-fn` is a function that receives an attribute name (as keyword), a set
-  of attributed element classes that have such an attribute, and `prefix`.  The
-  function should return a valid definition form.
-
-  `role-fn` is a function that receives a role name (as keyword), a set of
-  vertex classes that have such a role, and `prefix`.  Again, the function
-  should return a valid definition form."
-  [schema-file nssym alias prefix vc-fn ec-fn attr-fn role-fn]
-  (let [^Schema schema (load-schema
-                        (if (.exists (clojure.java.io/file schema-file))
-                          schema-file
-                          (clojure.java.io/resource schema-file)))
-        atts (atom {}) ;; map from attribute names given as keywords to set
-        ;; of attributed element classes that have it
-        refs (atom {}) ;; map from role names given as keywords to set of
-        ;; [edgeclass dir] tuples that have it
-        old-ns *ns*]
-    `(do
-       ~@(when nssym
-           `[(ns ~nssym
-               ;; Don't refer anything from clojure.core so that we don't get
-               ;; warnings about redefinitions.
-               (:refer-clojure :only []))
-             ;; Remove all java.lang imports so that clashes with generated
-             ;; vars cannot occur.
-             (doseq [[sym# cls#] (ns-imports *ns*)]
-               (ns-unmap *ns* sym#))])
-       ;; The schema specific ones
-       ~@(concat
-          (no-nils
-           (for [^VertexClass vc (seq (-> schema .getGraphClass .getVertexClasses))]
-             (do
-               (doseq [a (mapv #(keyword (.getName ^Attribute %))
-                               (seq (.getOwnAttributeList vc)))]
-                 (swap! atts
-                        #(update-in %1 [%2] conj vc)
-                        a))
-               (when vc-fn
-                 ((resolve vc-fn) vc prefix)))))
-          (no-nils
-           (for [^EdgeClass ec (seq (-> schema .getGraphClass .getEdgeClasses))]
-             (do
-               ;; Collect attributes
-               (doseq [a (mapv #(keyword (.getName ^Attribute %))
-                               (seq (.getOwnAttributeList ec)))]
-                 (swap! atts
-                        #(update-in %1 [%2] conj ec)
-                        a))
-               ;; Collect roles
-               (let [owner   (-> ec .getTo   .getVertexClass)
-                     from-rn (-> ec .getFrom .getRolename)]
-                 (when (seq from-rn)
-                   (swap! refs #(update-in %1 [(keyword from-rn)] conj owner))))
-               (let [owner (-> ec .getFrom .getVertexClass)
-                     to-rn (-> ec .getTo   .getRolename)]
-                 (when (seq to-rn)
-                   (swap! refs #(update-in %1 [(keyword to-rn)] conj owner))))
-               (when ec-fn
-                 ((resolve ec-fn) ec prefix)))))
-          (no-nils
-           (when attr-fn
-             (for [[a owners] @atts]
-               ((resolve attr-fn) a owners prefix))))
-          (no-nils
-           (when role-fn
-             (for [[role owners] @refs]
-               ((resolve role-fn) role owners prefix)))))
-       (in-ns '~(ns-name old-ns))
-       ~@(when alias
-           [`(require '~(vector nssym :as alias))]))))
-
 ;;# Schema-specific functional API
 
 (defn ^:private create-vc-fns [^VertexClass vc prefix]
@@ -2114,11 +2018,11 @@ functions `record` and `enum-constant`."
   ([schema-file nssym alias]
      `(generate-schema-functions ~schema-file ~nssym ~alias nil))
   ([schema-file nssym alias prefix]
-     `(schema-api-generator ~schema-file
-                           ~nssym
-                           ~alias
-                           ~prefix
-                           create-vc-fns
-                           create-ec-fns
-                           create-attr-fns
-                           create-role-fns)))
+     `(g/metamodel-api-generator ~schema-file
+                                 ~nssym
+                                 ~alias
+                                 ~prefix
+                                 create-vc-fns
+                                 create-ec-fns
+                                 create-attr-fns
+                                 create-role-fns)))
