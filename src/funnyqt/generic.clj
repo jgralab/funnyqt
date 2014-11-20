@@ -693,8 +693,9 @@
   generated.
 
   For any relationship class Bar in the metamodel, a (create-Bar! model start
-  end) function, an (all-Bars model) function, an (incident-Bars el) function,
-  and a (isa-Foo? el) type check predicate is generated.
+  end) function, an (all-Bars model) function, an (incident-Bars el dir)
+  function (dir is optional and may be :in, :out, or :inout [default]), and
+  a (isa-Foo?  el) type check predicate is generated.
 
   For any attribute name attr, the following functions are generated:
 
