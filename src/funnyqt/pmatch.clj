@@ -805,7 +805,11 @@
   "Only for internal use."
   [eo r]
   (when-let [x (emf/eget-raw eo r)]
-    (if (instance? java.util.Collection x) x [x])))
+    (if (instance? java.util.Collection x)
+      x
+      ;; Use set literal so that the resulting coll is unique according to
+      ;; utils/unique-coll?.
+      #{x})))
 
 (defn pattern-graph-to-for+-bindings-emf [argvec pg]
   (pattern-graph-to-for+-bindings-only-refs-base argvec pg `emf/eallcontents `eget-1 `emf/erefs))

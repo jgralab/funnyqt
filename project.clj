@@ -15,7 +15,7 @@
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
-                 [inflections "0.9.11" :exclusions [org.clojure/clojure]]]
+                 [inflections "0.9.13" :exclusions [org.clojure/clojure]]]
   :profiles {:dev
              {:dependencies
               [[criterium "0.4.3"]

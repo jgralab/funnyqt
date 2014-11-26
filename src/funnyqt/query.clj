@@ -28,20 +28,23 @@
 ;;# Sequence Functions
 
 (defn no-dups
-  "Returns a lazy sequence of the elements of coll with duplicates removed."
+  "Returns a lazy sequence of the elements of `coll` with duplicates removed.
+If `coll` is a unique collection (e.g., a Set), simply returns that again."
   [coll]
-  (let [step (^:once fn* step [xs ^java.util.Set seen]
-                     (lazy-seq
-                      ((^:once fn* [xs ^java.util.Set seen]
-                               (when-let [s (seq xs)]
-                                 (let [f (first s)]
-                                   (if (.contains seen f)
-                                     (recur (rest s) seen)
-                                     (do
-                                       (.add seen f)
-                                       (cons f (step (rest s) seen)))))))
-                       xs seen)))]
-    (step coll (java.util.HashSet.))))
+  (if (u/unique-coll? coll)
+    coll
+    (let [step (^:once fn* step [xs ^java.util.Set seen]
+                       (lazy-seq
+                        ((^:once fn* [xs ^java.util.Set seen]
+                                 (when-let [s (seq xs)]
+                                   (let [f (first s)]
+                                     (if (.contains seen f)
+                                       (recur (rest s) seen)
+                                       (do
+                                         (.add seen f)
+                                         (cons f (step (rest s) seen)))))))
+                         xs seen)))]
+      (step coll (java.util.HashSet.)))))
 
 (defn member?
   "Returns true iff `e` is a member of `coll`."
