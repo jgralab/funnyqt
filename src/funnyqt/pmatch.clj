@@ -468,11 +468,11 @@
          (g/has-type? target-node '[:or ArgumentVertex BindingVarVertex]))
      `[~(get-name target-node)
        (filter (partial = ~(get-name target-node))
-               ~(anon-vec-transformer-fn startsym av))]
+               (q/no-dups ~(anon-vec-transformer-fn startsym av)))]
      ;;---
      :normal-not-done-vertex
      [(get-name target-node)
-      (anon-vec-transformer-fn startsym av)])))
+      `(q/no-dups ~(anon-vec-transformer-fn startsym av))])))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."

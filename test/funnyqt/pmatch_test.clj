@@ -70,30 +70,17 @@
   (fn [model]
     (apply pmt-matches model matches)))
 
-(defn pmt-assert [p-gen p-emf p-tg & [match-count matches-fn]]
+(defn pmt-assert [p-gen p-emf p-tg match-count matches-fn]
   (let [r-gen-emf (p-gen pmt-model)
         r-gen-tg  (p-gen pmt-graph)
         r-emf     (p-emf pmt-model)
-        r-tg      (when p-tg (p-tg pmt-graph))
-        match-count (or match-count (count r-gen-emf))]
+        r-tg      (p-tg pmt-graph)]
     (is (= match-count (count r-gen-emf) (count r-gen-tg) (count r-emf)))
-    (when p-tg
-      (is (= match-count (count r-tg))))
-    (if matches-fn
-      (do
-        (is (= (set (matches-fn pmt-model)) (set r-emf) (set r-gen-emf)))
-        (is (= (set (matches-fn pmt-graph)) (set r-gen-tg)))
-        (when p-tg
-          (is (= (set (matches-fn pmt-graph)) (set r-tg)))))
-      (do
-        (is (= (set r-gen-emf) (set r-emf)))
-        (when p-tg
-          (is (= (set r-gen-tg) (set r-tg))))))))
-
-;; NOTE: We can't always test the :tg expansion here, because with :emf and
-;; :generic [a --> b] means "a references b somehow" whereas the meaning for
-;; :tg is "there is an edge starting at a and ending at b", i.e., there the
-;; edge direction is considered, thus there are fewer matches.
+    (is (= match-count (count r-tg)))
+    (do
+      (is (= (set (matches-fn pmt-model)) (set r-emf) (set r-gen-emf)))
+      (is (= (set (matches-fn pmt-graph)) (set r-gen-tg)))
+      (is (= (set (matches-fn pmt-graph)) (set r-tg))))))
 
 (deftest test-pmt
   (testing "Testing pattern [a<A>]"
@@ -156,11 +143,10 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A>])
                 (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A>])
-                7
+                6
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
                                 {:c ['C 1], :a ['B 1]}
-                                {:c ['C 1], :a ['C 1]}
                                 {:c ['C 2], :a ['B 2]}
                                 {:c ['C 2], :a ['B 1]}
                                 {:c ['C 2], :a ['A 1]})))
@@ -178,11 +164,10 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> -<>-> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [c<C> -<>-> a<A>])
                 (pattern {:pattern-expansion-context :tg}      [m] [c<C> -<>-> a<A>])
-                7
+                6
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
                                 {:c ['C 1], :a ['B 1]}
-                                {:c ['C 1], :a ['C 1]}
                                 {:c ['C 2], :a ['B 2]}
                                 {:c ['C 2], :a ['B 1]}
                                 {:c ['C 2], :a ['A 1]})))
@@ -289,8 +274,8 @@
                     [m a]
                     [a<A> --> a])
                    m (pmt-el m 'C 1)))
-                2
-                (pmt-matches-fn {:a ['C 1]} {:a ['C 1]})))
+                1
+                (pmt-matches-fn {:a ['C 1]})))
   (testing "Testing pattern with non-model-args (6)"
     (pmt-assert (fn [m]
                   ((pattern
@@ -337,10 +322,9 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
                 (pattern {:pattern-expansion-context :emf}     [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
                 (pattern {:pattern-expansion-context :tg}      [m] [b<B> -<:t>-> <C> -<:t>-> <> -<:t>-> a<A>])
-                4
+                3
                 (pmt-matches-fn {:b ['B 1], :a ['C 1]}
                                 {:b ['B 1], :a ['A 1]}
-                                {:b ['B 1], :a ['B 2]}
                                 {:b ['B 1], :a ['B 2]})))
   (testing "Testing pattern [a<A> -!<:d>-> <>]"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> -!<:d>-> <>])
@@ -365,9 +349,8 @@
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [a<A> --> a])
                 (pattern {:pattern-expansion-context :emf}     [m] [a<A> --> a])
                 (pattern {:pattern-expansion-context :tg}      [m] [a<A> --> a])
-                2
-                (pmt-matches-fn {:a ['C 1]}
-                                {:a ['C 1]})))
+                1
+                (pmt-matches-fn {:a ['C 1]})))
   (testing "Testing pattern [c<C> --> a<A>
                              :when (= 1 (g/aval a :i))
                              :when (= 1 (g/aval c :i))]"
@@ -380,11 +363,10 @@
                 (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A>
                                                                     :when (= 1 (g/aval a :i))
                                                                     :when (= 1 (g/aval c :i))])
-                4
+                3
                 (pmt-matches-fn {:c ['C 1], :a ['C 1]}
                                 {:c ['C 1], :a ['A 1]}
-                                {:c ['C 1], :a ['B 1]}
-                                {:c ['C 1], :a ['C 1]})))
+                                {:c ['C 1], :a ['B 1]})))
   (testing "Testing pattern [a<A> -<:t>-> c1<C>
                              a    -<:t>-> c2<C>
                              :when (not= c1 c2)
@@ -937,14 +919,13 @@
 (deftest test-long-anon-pattern-tg
   (let [fsmith (tg/vertex fg 12)
         r (long-anon-pattern-tg fg fsmith)]
-    (is (= 3 (count r)))
-    (is (= r [{:fam fsmith, :x (tg/vertex fg 1)}
-              {:fam fsmith, :x (tg/vertex fg 1)}
-              {:fam fsmith, :x (tg/vertex fg 1)}]))))
+    (is (= 1 (count r)))
+    (is (= r [{:fam fsmith, :x (tg/vertex fg 1)}]))))
 
 (deftest test-letpattern-tg
-  (letpattern [(families-with-fathers-simple [g]
-                                             [f<Family> -hf<HasFather>-> m<Member>])
+  (letpattern [(families-with-fathers-simple
+                [g]
+                [f<Family> -hf<HasFather>-> m<Member>])
                (families-with-fathers
                 ([g]
                    [f<Family> -hf<HasFather>-> m<Member>])
@@ -1065,8 +1046,8 @@
                                           (= "Smith Avenue 4" (emf/eget f :street))))
                              (emf/eallcontents fm 'Family)))
         r (long-anon-pattern-emf fm fsmith)]
-    (is (= 3 (count r)))
-    (is (= r [["Smith" "Smith Avenue 4"] ["Smith" "Smith Avenue 4"] ["Smith" "Smith Avenue 4"]]))))
+    (is (= 1 (count r)))
+    (is (= r [["Smith" "Smith Avenue 4"]]))))
 
 (deftest test-letpattern-emf
   (letpattern [(families-with-fathers-simple [g]
@@ -1194,8 +1175,8 @@
                                           (= "Smith Avenue 4" (emf/eget f :street))))
                              (emf/eallcontents fm 'Family)))
         r (long-anon-pattern-generic fm fsmith)]
-    (is (= 3 (count r)))
-    (is (= r [[fsmith ofsmith] [fsmith ofsmith] [fsmith ofsmith]]))))
+    (is (= 1 (count r)))
+    (is (= r [[fsmith ofsmith]]))))
 
 (deftest test-letpattern-generic
   (letpattern [(families-with-fathers-simple [g]
