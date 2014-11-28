@@ -229,8 +229,20 @@
   [:when `(empty? ~(build-nested-pattern negative-spec model-sym binding-var-set pattern-var-set))])
 
 (defn ^:private positive-spec-to-when-seq [positive-spec model-sym binding-var-set pattern-var-set]
-  ;; positive-spec is [...neg-pattern...]
+  ;; positive-spec is [...pos-pattern...]
   [:when `(seq ~(build-nested-pattern positive-spec model-sym binding-var-set pattern-var-set))])
+
+(defn ^:private logical-operator-spec-to-when-op-seq [operator pattern-specs model-sym binding-var-set pattern-var-set]
+  ;; pattern-specs is [[p1] [p2] [p3]]
+  (let [nested-patterns (map (fn [ps]
+                               `(seq ~(build-nested-pattern ps model-sym binding-var-set pattern-var-set)))
+                             pattern-specs)]
+    [:when (case operator
+             :and  `(and    ~@nested-patterns)
+             :or   `(or     ~@nested-patterns)
+             :xor  `(q/xor  ~@nested-patterns)
+             :nand `(q/nand ~@nested-patterns)
+             :nor  `(q/nor  ~@nested-patterns))]))
 
 (defn ^:private nested-specs-to-let [nested-specs model-sym binding-var-set pattern-var-set]
   ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
@@ -349,6 +361,12 @@
            (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym binding-var-set pattern-var-set)
                                (nnext pattern)))
                   lv)
+           ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
+           (contains? #{:and :or :xor :nand :nor} cur)
+           (recur (vec (concat (logical-operator-spec-to-when-op-seq
+                                cur (fnext pattern) model-sym binding-var-set pattern-var-set)
+                               (nnext pattern)))
+                  lv)
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
            (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
@@ -383,15 +401,6 @@
                                                   (q/the (tg/vseq pg 'Anchor)) v))
                                (recur (rest pattern) v))
            :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
-    ;; Move Precedes edges to the front of iseqs so that constraints are
-    ;; evaluated as soon as possible.  TODO: That's probably not a good idea.
-    ;; A constraint may be much more expensive to evaluate than to exclude a
-    ;; match by its structure.  So "as written by the user" seems to be better.
-    #_(doseq [v (tg/vseq pg)]
-        (doseq [p (vec (tg/iseq v 'Precedes :out))
-                :let [fi (tg/first-inc v #(g/has-type? % '!Precedes))]
-                :when (and fi (tg/before-inc? fi p))]
-          (tg/put-before-inc! p fi)))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
@@ -1130,7 +1139,7 @@
     v<V> -<:e>-> v  ; A node v of type V referencing itself with an e-reference
 
   V is a qualified name of a node type.  Edge types are either reference names
-  given as keywords or a qualified edge type name in case the model
+  given as keywords or qualified edge type names in case the model
   representation has first-class edges.  If it does, the edges can also be
   matched and added to the match results by adding an identifier.
 
@@ -1145,17 +1154,13 @@
   Both the identifiers and the types enclosed in angle brackets are optional.
   So this is a valid pattern, too.
 
-    [v --> <V> -<:e>-> <> --> x<X>] ; An arbitrary node v that is connected to
-                                    ; an X-node x via some arbitrary reference
-                                    ; leading to some V-node from which
-                                    ; an e-reference leads some arbitrary other
-                                    ; node from which another arbitrary reference
-                                    ; leads to x.
+    [v --> <V> -<:e>-> <> --> x<X>]
 
-  Such patterns with anonymous nodes and/or edges may result in many identical
-  matches when there are different paths leading from v to x that match the
-  anonymous node/edge sequence.  See the :distinct option below for suppressing
-  that.
+  This pattern matches an arbitrary node v that is connected to an X-node x via
+  some arbitrary reference leading to some V-node from which an e-reference
+  leads some arbitrary other node from which another arbitrary reference leads
+  to x.  There may be many such paths between v and x but anonymous nodes and
+  edges specify only the existence of a matching node, edge, or path.
 
   Argument Node and Edge Symbols
   ==============================

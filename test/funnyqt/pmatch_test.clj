@@ -707,6 +707,96 @@
                                 {:a ['C 2]}
                                 {:a ['A 1]}
                                 {:a ['B 2]})))
+  (testing "Testing :or patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :or [[c -<:t>-> c]
+                                   [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :or [[c -<:t>-> c]
+                                   [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :or [[c -<:t>-> c]
+                                   [c -<:t>-> b<B>]]])
+                2
+                (pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
+  (testing "Testing :xor patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :xor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :xor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :xor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                2
+                (pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
+  (testing "Testing :and patterns. (1)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                0
+                (pmt-matches-fn)))
+  (testing "Testing :and patterns. (2)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> a<A>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> a<A>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :and [[c -<:t>-> c]
+                                    [c -<:t>-> a<A>]]])
+                1
+                (pmt-matches-fn {:c ['C 1]})))
+  (testing "Testing :nand patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :nand [[c -<:t>-> c]
+                                     [c -<:t>-> a<A>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :nand [[c -<:t>-> c]
+                                     [c -<:t>-> a<A>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :nand [[c -<:t>-> c]
+                                     [c -<:t>-> a<A>]]])
+                1
+                (pmt-matches-fn {:c ['C 2]})))
+  (testing "Testing :nor patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :nor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :nor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :nor [[c -<:t>-> c]
+                                    [c -<:t>-> b<B>]]])
+                0
+                (pmt-matches-fn)))
   (testing "Testing :nested patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
