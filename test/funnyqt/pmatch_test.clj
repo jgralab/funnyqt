@@ -1061,6 +1061,21 @@
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fg)) (set (eager-pattern2 fg))))))
 
+(deftest test-with-anons-starting-with-a-vertex
+  (let [p1 (pattern {:pattern-expansion-context :tg} [g]
+                    [father<Member> <-hf<HasFather>- <Family> -<HasSon>-> <> <-<HasFather>- fam<Family>])
+        p2 (pattern {:pattern-expansion-context :tg} [g]
+                    [father<Member> <-hf1<HasFather>- <Family> -<HasSon>-> <> <-hf2<HasFather>- fam<Family>])]
+    (is (= [{:father (tg/vertex fg 2)
+             :hf (tg/reversed-edge (tg/edge fg 1))
+             :fam (tg/vertex fg 12)}]
+           (p1 fg)))
+    (is (= [{:father (tg/vertex fg 2)
+             :hf1 (tg/reversed-edge (tg/edge fg 1))
+             :hf2 (tg/reversed-edge (tg/edge fg 10))
+             :fam (tg/vertex fg 12)}]
+           (p2 fg)))))
+
 ;;# EMF
 
 (emf/load-ecore-resource "test/input/Families.ecore")

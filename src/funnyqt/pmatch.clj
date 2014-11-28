@@ -430,8 +430,8 @@
                         (vector %))
                      elems)))
 
-(defn ^:private anon-vec [startv done]
-  (loop [cur startv, done done, vec []]
+(defn ^:private anon-vec [start done]
+  (loop [cur start, done done, vec []]
     (if (and cur (anon? cur))
       (cond
        (tg/edge? cur)   (recur (tg/that cur)
@@ -528,7 +528,7 @@
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r)  ;; only one binding [G_NNNN exp]
-                              `(for ~r ~v))))]
+                              `(u/for+ ~r ~v))))]
     (loop [queue (init-queue pg)
            done #{}
            bf []]
@@ -573,23 +573,41 @@
               (if (anon? cur)
                 (let [av (anon-vec cur done)
                       target-node (last av)
-                      done (conj-done done cur)]
-                  ;;(println av)
+                      done (conj-done done cur)
+                      last-in-av (last av)]
                   (recur (enqueue-incs target-node (pop queue) done)
-                         (apply conj-done done cur av)
-                         (into bf (do-anons anon-vec-to-for (get-name (tg/this cur)) av done))))
+                         (let [done (apply conj-done done cur av)]
+                           (if (tg/edge? last-in-av)
+                             (conj-done done (tg/that last-in-av))
+                             done))
+                         (into bf (let [bindings (do-anons anon-vec-to-for (get-name (tg/this cur)) av done)]
+                                    (if (tg/edge? last-in-av)
+                                      (conj bindings :let
+                                            [(get-name (tg/that last-in-av))
+                                             `(tg/that ~(get-name last-in-av))])
+                                      bindings)))))
                 (let [trg (tg/that cur)
-                      done (conj-done done cur)]
+                      done (conj-done done cur)
+                      av (if (anon? trg) (anon-vec trg done) nil)
+                      last-in-av (last av)]
                   (recur (enqueue-incs trg (pop queue) done)
-                         (conj-done done cur trg)
+                         (let [done (apply conj-done done trg av)]
+                           (if (tg/edge? last-in-av)
+                             (conj-done done (tg/that last-in-av))
+                             done))
                          (apply conj bf `~(get-name cur)
                                 `(tg/iseq ~(get-name (tg/this cur)) ~(inc-type cur)
                                           ~(inc-dir cur))
                                 (cond
                                  (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                 (anon? trg) (do-anons anon-vec-to-for
-                                                       `(tg/that ~(get-name cur))
-                                                       (anon-vec trg done) done)
+                                 (anon? trg) (let [bindings (do-anons anon-vec-to-for
+                                                                      (get-name cur)
+                                                                      av done)]
+                                               (if (tg/edge? last-in-av)
+                                                 (conj bindings :let
+                                                       [(get-name (tg/that last-in-av))
+                                                        `(tg/that ~(get-name last-in-av))])
+                                                 bindings))
                                  ;;---
                                  (g/has-type? trg 'ArgumentVertex)
                                  `[:when-let [~(get-name trg) ~(get-name trg)]
@@ -703,7 +721,7 @@
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r) ;; only one binding [G_NNNN exp]
-                              `(for ~r ~v))))]
+                              `(u/for+ ~r ~v))))]
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named with models with only refs: %s"
