@@ -472,9 +472,10 @@
                                  (if (= 1 (count specs))
                                    (first specs)
                                    (vec specs)))
-                               (remove nil? (vals (args-types-map (:from rule-map))))))
-        type-spec (vec (cons :or (distinct (remove nil? (mapcat collect-type-specs
-                                                                (vals top-rules))))))
+                               ;; `the` is ok cause top-level rules have just one arg.
+                               (q/the (remove nil? (vals (args-types-map (:from rule-map)))))))
+        type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs
+                                                             (vals top-rules))))))
         rule-specs (map (partial convert-rule outs) (vals rules))
         elem-var (gensym "elem")]
     (when-not (or main-fn (seq top-rules))
