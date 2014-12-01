@@ -1,4 +1,4 @@
-(defproject funnyqt "0.33.1"
+(defproject funnyqt "0.33.2"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -31,7 +31,7 @@
   ;; Stuff specific to generating API docs
   :html5-docs-name "FunnyQT"
   ;; :html5-docs-page-title nil ;; => "FunnyQT API Documentation"
-  ;;:html5-docs-source-path "src/"
+  ;; :html5-docs-source-path "src/"
   :html5-docs-ns-includes #"^funnyqt\..*"
   :html5-docs-ns-excludes #".*\.test\..*"
   ;; :html5-docs-docs-dir nil ;; => "docs"

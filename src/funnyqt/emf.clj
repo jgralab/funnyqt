@@ -11,6 +11,7 @@
             [flatland.ordered.map  :as om]
             inflections.core)
   (:import
+   (org.eclipse.emf.ecore.xmi XMLResource)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
    (org.eclipse.emf.ecore.util EcoreUtil)
    (org.eclipse.emf.common.util URI EList UniqueEList EMap)
@@ -440,11 +441,16 @@
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.
   `f` may be a file name given as string, a java.io.File, an URI, or a
-  java.net.URL.  Also see `load-ecore-resource`."
-  [f]
+  java.net.URL.  `additional-opts` may be additional many option-value pairs
+  that are added to the default load options.
+  Also see `load-ecore-resource`."
+  [f & additional-opts]
   (let [uri (create-uri f)
-        res (XMIResourceImpl. uri)]
-    (.load res (.getDefaultLoadOptions res))
+        res (XMIResourceImpl. uri)
+        opts (.getDefaultLoadOptions res)]
+    (doseq [[opt val] (apply hash-map additional-opts)]
+      (.put opts opt val))
+    (.load res opts)
     res))
 
 (defn ^:private register-epackages
