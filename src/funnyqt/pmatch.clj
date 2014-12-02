@@ -244,6 +244,28 @@
              :nand `(q/nand ~@nested-patterns)
              :nor  `(q/nor  ~@nested-patterns))]))
 
+(defn ^:private alternative-spec-to-for [alternative-specs model-sym binding-var-set pattern-var-set]
+  ;; alternative-specs is [[p1] [p2]...]
+  (let [new-bindings (fn [p]
+                       (let [new-bindings (set (into (binding-bound-vars p)
+                                                     (pattern-bound-vars p)))]
+                         (clojure.set/difference new-bindings binding-var-set pattern-var-set)))
+        all-syms (vec (sort (set (mapcat new-bindings alternative-specs))))
+        interpose-nils-for-undefined (fn [bindings all-syms]
+                                       (vec (for [sym all-syms]
+                                              (if (q/member? sym bindings)
+                                                sym
+                                                nil))))
+        alternative-specs (for [aspec alternative-specs]
+                            (do
+                              (when (second (get-and-remove-key-from-vector aspec :as true))
+                                (u/errorf "Alternative patterns mustn't have an :as clause! %s" aspec))
+                              (conj aspec :as (interpose-nils-for-undefined (new-bindings aspec)
+                                                                            all-syms))))
+        patterns (map #(build-nested-pattern % model-sym binding-var-set pattern-var-set)
+                      alternative-specs)]
+    `[:for [~all-syms (q/no-dups (concat ~@patterns))]]))
+
 (defn ^:private nested-specs-to-let [nested-specs model-sym binding-var-set pattern-var-set]
   ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
   [:let (vec (mapcat
@@ -365,6 +387,11 @@
            (contains? #{:and :or :xor :nand :nor} cur)
            (recur (vec (concat (logical-operator-spec-to-when-op-seq
                                 cur (fnext pattern) model-sym binding-var-set pattern-var-set)
+                               (nnext pattern)))
+                  lv)
+           ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
+           (= :alternative cur)
+           (recur (vec (concat (alternative-spec-to-for (fnext pattern) model-sym binding-var-set pattern-var-set)
                                (nnext pattern)))
                   lv)
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
@@ -1142,8 +1169,8 @@
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
-  an `args` vector, and a `pattern` vector.  The first argument in `args` must
-  denote the model which the pattern is applied to.
+  an `args` vector, and a `pattern-spec` vector.  The first argument in `args`
+  must denote the model which the pattern is applied to.
 
   When applied to a model, it returns the sequence of all matches.  By default,
   this seq is a lazy seq.
@@ -1151,7 +1178,8 @@
   Node and Edge Symbols
   =====================
 
-  `pattern` is a vector of symbols for nodes and edges.
+  In the simplest case, `pattern-spec` contains only symbols for nodes and
+  edges.
 
     v<V>            ; A node of type V identified as v
     v<V> -<:e>-> v  ; A node v of type V referencing itself with an e-reference
@@ -1328,7 +1356,7 @@
   matches also don't contribute to the number of matches of the surrounding
   pattern.
 
-  [b<B>
+    [b<B>
      :negative [b -<:t>-> c1<C> -<:t>-> a<A>
                 b -<:t>-> c2<C> -<:t>-> a
                 :isomorphic]]
@@ -1346,6 +1374,80 @@
   elements in a PAC, there is a serious performance penalty because first the
   outer pattern is matched (with quadratic effort for two unconnected nodes),
   and only if a match has been found, the PACs are checked in its context.
+
+  Logically Combined Patterns
+  ===========================
+
+  Logically combined patterns extend NACs/PACs with logical combinators.  The
+  general syntax is :operator [[ps1] [ps2] ...] where :operator is one
+  of :and, :or, :xor, :nor, or :nand, and psI are normal pattern
+  specifications.  In order for the outer pattern to match, the logically
+  combined pattern must match according to the given operator.
+
+  For example, the pattern
+
+    [c<C>
+     :xor [[c -<:t>-> c]
+           [c -<:t>-> <B>]]]
+
+  matches all C-nodes c which either reference themselves or some B-node with
+  their c-reference (but not both!).
+
+  Like negative and positive patterns, logically combined pattern are mere
+  constraints, i.e., the symbols contained in the pattern specs ps1, ps2 etc
+  are not part of the surrounding outer pattern's matches.
+
+  As said, logically combined patterns are just extensions to NACs/PACs.  These
+  equivalences hold:
+
+    [...
+     :and [[ps1] [ps2]]]
+
+  is equivalent to
+
+    [...
+     :positive [ps1]
+     :positive [ps2]]
+
+  and
+
+    [...
+     :nor [[ps1] [ps2]]]
+
+  is equivalent to
+
+    [...
+     :negative [ps1]
+     :negative [ps2]]
+
+  Alternative Patterns
+  ====================
+
+  Alternative patterns allow to specify variable parts in a pattern.  In
+  contrast to negative/positive and logically combined patterns, they are not
+  only constraints but the elements matched by the alternative patterns are
+  part of the outer pattern's matches.
+
+  Take this example pattern spec:
+
+    [c<C>
+     :alternative [[c -<:t>-> a<A!>]
+                   [c -<:t>-> x<A> -<:s>-> a<A!>]]]
+
+  The pattern matches C-nodes c which reference a strict A-node a with their
+  t-reference (first alternative), or which reference an A-node x with their
+  t-reference which in turn references a strict A-node a with its
+  s-reference (second alternative).
+
+  The matches of this pattern have the form {:c #<C>, :a #<A>, :x #<A>}, i.e.,
+  they have an entry for every identifier contained in the outer pattern spec,
+  and every identifier in any of the alternative pattern specs.  In case a
+  match is produced by the first alternative, the value of the :x key is nil.
+
+  Note that also with alternative pattern, the outer pattern is matched first.
+  Thus, if two nodes are connected only via edges specified in alternative
+  patterns, the effort is quadratic.  In that case, it is better to specify two
+  separate patterns and combine their results.
 
   Nested Patterns
   ===============

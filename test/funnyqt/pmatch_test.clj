@@ -797,6 +797,24 @@
                                     [c -<:t>-> b<B>]]])
                 0
                 (pmt-matches-fn)))
+  (testing "Testing :alternative patterns."
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+                3
+                (pmt-matches-fn
+                 {:c ['C 1] :a ['A 1] :x nil}
+                 {:c ['C 2] :a ['A 1] :x nil}
+                 {:c ['C 2] :a ['A 1] :x ['B 2]})))
   (testing "Testing :nested patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
@@ -856,26 +874,15 @@
                 2
                 (pmt-matches-fn (list ['C 1] ['D 1] 1 1)
                                 (list ['C 2] ['D 2] 2 2))))
-  (testing "Testing :distinct clause"
-    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> a<A> :distinct])
-                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> a<A> :distinct])
-                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> a<A> :distinct])
-                6
-                (pmt-matches-fn {:c ['C 1], :a ['C 1]}
-                                {:c ['C 1], :a ['A 1]}
-                                {:c ['C 1], :a ['B 1]}
-                                {:c ['C 2], :a ['B 2]}
-                                {:c ['C 2], :a ['B 1]}
-                                {:c ['C 2], :a ['A 1]})))
   (testing "Testing :distinct with :as"
     (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [n1 --> n2
-                                                                    :when (not= n1 n2)
+                                                                    :isomorphic
                                                                     :as #{n1 n2} :distinct])
                 (pattern {:pattern-expansion-context :emf}     [m] [n1 --> n2
-                                                                    :when (not= n1 n2)
+                                                                    :isomorphic
                                                                     :as #{n1 n2} :distinct])
                 (pattern {:pattern-expansion-context :tg}      [m] [n1 --> n2
-                                                                    :when (not= n1 n2)
+                                                                    :isomorphic
                                                                     :as #{n1 n2} :distinct])
                 9
                 (pmt-matches-fn #{['B 1] ['C 1]}
