@@ -11,7 +11,6 @@
             [flatland.ordered.map  :as om]
             inflections.core)
   (:import
-   (org.eclipse.emf.ecore.xmi XMLResource)
    (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
    (org.eclipse.emf.ecore.util EcoreUtil)
    (org.eclipse.emf.common.util URI EList UniqueEList EMap)
