@@ -1,4 +1,5 @@
-[![License GPL 3][https://img.shields.io/badge/license-GPL_3-green.svg]](http://www.gnu.org/licenses/gpl-3.0.txt)
+[![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
+[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
 
