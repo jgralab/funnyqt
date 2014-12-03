@@ -1,3 +1,7 @@
+[![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
+[![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
+[![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
+
 <object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
   <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
@@ -7,9 +11,6 @@
 FunnyQT is a model querying and transformation library.  It currently supports
 the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 [Eclipse Modeling Framework](http://www.eclipse.org/modeling/emf/).
-
-Current build status:
-[![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 
 # Table of Contents
 
