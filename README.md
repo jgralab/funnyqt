@@ -1,5 +1,4 @@
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
-[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
 
@@ -291,6 +290,8 @@ the following additional grant:
     combination shall include the source code for the parts of JGraLab used as
     well as that of the covered work.
 
+[![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
+[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
 
 <!-- Local Variables:        -->
 <!-- mode: markdown          -->
