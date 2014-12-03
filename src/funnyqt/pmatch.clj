@@ -61,32 +61,6 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn ^:private pattern-bound-vars
-  "Returns the symbols bound by node and edge symbols in pattern `p`.  Does not
-  recurse into :nested clauses.  The symbols are returned as a vector of
-  distinct elements in declaration order."
-  [p]
-  (loop [p p, r []]
-    (if (seq p)
-      (let [cur (first p)]
-        (cond
-         (vertex-sym? cur)
-         (let [[_ id] (vertex-sym? cur)]
-           (recur (next p) (if (seq id)
-                             (conj r (symbol id))
-                             r)))
-         ;;---
-         (edge-sym? cur)
-         (let [[_ _ id] (edge-sym? cur)]
-           (recur (next p) (if (seq id)
-                             (conj r (symbol id))
-                             r)))
-         (#{:nested :when :when-let :for :let} cur)
-         (recur (nnext p) r)
-         ;;---
-         :else (recur (next p) r)))
-      (vec (distinct r)))))
-
 (defn ^:private binding-bound-vars
   "Returns the symbols bound by a :for, :let, :nested, or :when-let in pattern
   `p`.  Does not recurse into the expressions of the binding forms.  The
@@ -118,6 +92,35 @@
                                            syms))))
           (recur (next p) r)))
       (vec (distinct r)))))
+
+(defn ^:private pattern-bound-vars
+  "Returns the symbols bound by node and edge symbols in pattern `p`.  Does not
+  recurse into :nested or :alternative clauses.  Substracts the symbols that
+  are bound by a binding form cause those take precedence.  The symbols are
+  returned as a vector of distinct elements in declaration order."
+  [p]
+  (loop [p p, r []]
+    (if (seq p)
+      (let [cur (first p)]
+        (cond
+         (vertex-sym? cur)
+         (let [[_ id] (vertex-sym? cur)]
+           (recur (next p) (if (seq id)
+                             (conj r (symbol id))
+                             r)))
+         ;;---
+         (edge-sym? cur)
+         (let [[_ _ id] (edge-sym? cur)]
+           (recur (next p) (if (seq id)
+                             (conj r (symbol id))
+                             r)))
+         (#{:nested :when :when-let :for :let} cur)
+         (recur (nnext p) r)
+         ;;---
+         :else (recur (next p) r)))
+      ;; binding-bound-vars take precedence, so substract them.
+      (let [bbv (into #{} (binding-bound-vars p))]
+        (vec (remove bbv (distinct r)))))))
 
 (defn ^:private used-vars
   "Returns the set of local variables (symbols) that are used in `form`.
@@ -312,14 +315,13 @@
   pg)
 
 (defn pattern-to-pattern-graph [pname argvec pattern isomorphic]
-  (let [binding-var-vec (binding-bound-vars pattern)
-        binding-var-set (into #{} binding-var-vec)
-        pattern-var-vec (pattern-bound-vars pattern)
-        pattern-var-set (into #{} pattern-var-vec)
+  (let [pname-str (if pname (name pname) "--anonymous--")
+        binding-var-set (volatile! #{})
+        pattern-var-set (volatile! #{})
         argset (into #{} argvec)
         model-sym (first argvec)
-        pg (let [g (tg/new-graph pattern-schema)]
-             (tg/set-value! g :patternName (if pname (name pname) "--anonymous--"))
+        pg (let [g (tg/new-graph pattern-schema pname-str)]
+             (tg/set-value! g :patternName pname-str)
              g)
         get-by-name (fn [n]
                       (when n
@@ -329,15 +331,15 @@
         get-or-make-v (fn [n t]
                         (let [v (or (get-by-name n)
                                     (let [v (tg/create-vertex! pg (cond
-                                                                   (argset n)          'ArgumentVertex
-                                                                   (binding-var-set n) 'BindingVarVertex
-                                                                   :else               'PatternVertex))]
+                                                                   (argset n)           'ArgumentVertex
+                                                                   (@binding-var-set n) 'BindingVarVertex
+                                                                   :else                'PatternVertex))]
                                       (when n
                                         (tg/set-value! v :name (str n)))
                                       v))]
                           (when t (tg/set-value! v :type (str t)))
                           v))]
-    (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
+    (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor), done #{}]
       (when (seq pattern)
         (let [cur (first pattern)]
           (cond
@@ -347,58 +349,47 @@
                                            :when     'Constraint
                                            :when-let 'ConstraintAndBinding
                                            'Binding))]
+             (vswap! binding-var-set into (binding-bound-vars [cur (fnext pattern)]))
              (binding [*print-meta* true]
                (tg/set-value! v :form
                               (if (= :for cur)
                                 (str (pr-str (fnext pattern)) "]")
                                 (str "[" (str (pr-str cur)  " ")
                                      (pr-str (fnext pattern)) "]"))))
-             ;; Create Precedes edges only for the pattern vertices that declare
-             ;; the variables used in the constraint.
-             (doseq [ex-v (remove
-                           #(or (= v %)
-                                (and (g/has-type? % 'Binding)
-                                     (let [lvs (vars-used-in-constr-or-binding
-                                                [cur (second pattern)])
-                                           decls (binding-bound-vars
-                                                  (read-string (tg/value % :form)))]
-                                       (empty? (clojure.set/intersection lvs (set decls)))))
-                                (and (g/has-type? % 'APatternVertex)
-                                     (let [name (tg/value % :name)]
-                                       (and name
-                                            (not (contains?
-                                                  (vars-used-in-constr-or-binding
-                                                   [cur (second pattern)])
-                                                  (symbol name)))))))
-                           (tg/vseq pg '!Constraint))]
-               (tg/create-edge! pg 'Precedes ex-v v))
-             (recur (nnext pattern) v))
+             (when-not (done lv)
+               (tg/create-edge! pg 'Precedes lv v))
+             (recur (nnext pattern) v (conj done lv)))
            ;; Negative patterns: :negative [a --> b]
            (= :negative cur)
-           (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym binding-var-set pattern-var-set)
+           (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv)
+                  lv
+                  done)
            ;; Positive patterns: :positive [a --> b]
            (= :positive cur)
-           (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym binding-var-set pattern-var-set)
+           (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv)
+                  lv
+                  done)
            ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
            (contains? #{:and :or :xor :nand :nor} cur)
            (recur (vec (concat (logical-operator-spec-to-when-op-seq
-                                cur (fnext pattern) model-sym binding-var-set pattern-var-set)
+                                cur (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv)
+                  lv
+                  done)
            ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
            (= :alternative cur)
-           (recur (vec (concat (alternative-spec-to-for (fnext pattern) model-sym binding-var-set pattern-var-set)
-                               (nnext pattern)))
-                  lv)
+           (let [translation (alternative-spec-to-for (fnext pattern) model-sym @binding-var-set @pattern-var-set)]
+             (recur (vec (concat translation (nnext pattern)))
+                    lv
+                    done))
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
-           (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
+           (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv)
+                  lv
+                  done)
            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? cur) (let [[n t] (name-and-type cur)
                                  nsym (second pattern)
@@ -417,32 +408,34 @@
                                               [lv nv]
                                               [nv lv]))]
                                (when (and n (not (g/has-type? e 'NegPatternEdge)))
-                                 (tg/set-value! e :name (name n)))
+                                 (tg/set-value! e :name (name n))
+                                 (vswap! pattern-var-set conj n))
+                               (when nvn
+                                 (vswap! pattern-var-set conj nvn))
                                (when t (tg/set-value! e :type (str t))))
-                             (recur (nnext pattern) nv))
+                             (recur (nnext pattern) nv (conj done lv)))
            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (vertex-sym? cur) (let [[n t] (name-and-type cur)
                                    v (get-or-make-v n t)]
-                               (when (zero? (tg/ecount pg 'HasStartPatternVertex))
-                                 (tg/create-edge! pg 'HasStartPatternVertex
-                                                  (q/the (tg/vseq pg 'Anchor)) v))
-                               (recur (rest pattern) v))
+                               (when-not (done lv)
+                                 (tg/create-edge! pg 'Precedes lv v))
+                               (when n
+                                 (vswap! pattern-var-set conj n))
+                               (recur (rest pattern) v (conj done lv)))
            :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
           a (q/the (tg/vseq pg 'Anchor))
           reachables #(q/p-* % qtg/<->)]
-      (loop [disc (filter #(g/has-type? % 'PatternVertex)
-                          (clojure.set/difference vset (reachables a)))]
-        (when (seq disc)
-          (tg/create-edge! pg 'HasStartPatternVertex a (first disc))
-          (recur (clojure.set/difference vset (reachables a))))))
-    (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
-      (let [hfpv (q/the (tg/eseq pg 'HasStartPatternVertex))]
-        (when (g/has-type? (tg/omega hfpv) '!ArgumentVertex)
-          (println
-           (format "The pattern %s could perform better by anchoring it at an argument node."
-                   (tg/value pg :patternName))))))
+      (when-let [disc (seq (clojure.set/difference vset (reachables a)))]
+        (u/errorf "Disconnected nodes: %s" disc))
+      ;; Suggest anchoring at argument nodes.
+      (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
+        (let [hfpv (q/the (tg/iseq a 'Precedes))]
+          (when (g/has-type? (tg/omega hfpv) '!ArgumentVertex)
+            (println
+             (format "The pattern %s could perform better by anchoring it at an argument node."
+                     (tg/value pg :patternName)))))))
     (if isomorphic
       (add-isomorphism-constraints pg)
       pg)))
@@ -479,20 +472,27 @@
   (conj clojure.lang.PersistentQueue/EMPTY
         (q/the (tg/vseq pg 'Anchor))))
 
+(defn ^:private prepend-to-queue [q & els]
+  (into (into clojure.lang.PersistentQueue/EMPTY
+              els)
+        q))
+
+(defn ^:private push-back-first [q]
+  (when (< (count q) 2)
+    (u/errorf "Can't push back first in a queue of size %s." (count q)))
+  (let [x (peek q)
+        q (pop q)
+        y (peek q)]
+    (prepend-to-queue (pop q) y x)))
+
 (defn ^:private enqueue-incs [cur queue done]
   (let [incs (remove (fn [i]
                        (or (done i)
                            (when-let [t (get-type i)]
                              (and (not (tg/normal-edge? i))
                                   (keyword? t)))))
-                     (tg/iseq cur))
-        precedes (filter #(g/has-type? % 'Precedes) incs)
-        others   (remove #(g/has-type? % 'Precedes) incs)]
-    (into (clojure.lang.PersistentQueue/EMPTY)
-          (concat precedes queue others))))
-
-(defn ^:private undone-vertices [pg done deps-fn]
-  (q/sort-topologically deps-fn (remove done (tg/vseq pg))))
+                     (tg/iseq cur))]
+    (into queue incs)))
 
 (defn ^:private do-anons [anon-vec-transformer-fn startsym av done]
   (let [target-node (last av)]
@@ -514,6 +514,10 @@
   "Returns true if all nodes defined before the COB cob have been processed."
   [done cob]
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
+
+(defn ^:private check-undone [pg done]
+  (when-let [undone-vertices (seq (remove done (tg/vseq pg)))]
+    (u/errorf "Some vertices were't reached: %s" undone-vertices)))
 
 ;;** Models with first-class edges
 
@@ -568,10 +572,6 @@
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
-              HasStartPatternVertex
-              (recur (conj (pop queue) (tg/that cur))
-                     (conj-done done cur)
-                     bf)
               PatternVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
@@ -586,16 +586,18 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              BindingVarVertex  ;; They're bound by ConstraintOrBinding/Preceedes
+              BindingVarVertex  ;; They're bound by ConstraintOrBinding
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
-              Constraint
-              (recur (pop queue)
-                     (conj-done done cur)
-                     (into bf (read-string (tg/value cur :form))))
+              ConstraintOrBinding
+              (if (deps-defined? done cur)
+                (recur (enqueue-incs cur (pop queue) done)
+                       (apply conj-done done cur (tg/iseq cur 'Precedes :in))
+                       (into bf (read-string (tg/value cur :form))))
+                (recur (push-back-first queue) done bf))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -699,23 +701,9 @@
                                                   (tg/iseq ~(get-name src) ~(inc-type cur)
                                                            ~(inc-dir cur))))])))))
               Precedes
-              (let [cob (tg/omega cur)]
-                (if (deps-defined? done cob)
-                  (recur (enqueue-incs cob (pop queue) done)
-                         (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
-                         (into bf (read-string (tg/value cob :form))))
-                  (recur (pop queue)
-                         (conj-done done cur)
-                         bf))))))
-        ;; If there are still unreached vertices, enqueue one.  Else, we're
-        ;; done.  Since on TGraphs we can traverse edges in any direction, the
-        ;; deps-fn is not important.
-        (if-let [undone-vertices (seq (undone-vertices
-                                       pg done
-                                       (fn [v]
-                                         (when (g/has-type? v 'ConstraintOrBinding)
-                                           (q/p-apply v [qtg/<-- 'Precedes])))))]
-          (recur (conj queue (first undone-vertices)) done bf)
+              (recur (prepend-to-queue (pop queue) (tg/that cur)) (conj-done done cur) bf))))
+        (do
+          (check-undone pg done)
           bf)))))
 
 ;;** Models with only references/roles
@@ -765,10 +753,6 @@
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      bf)
-              HasStartPatternVertex
-              (recur (conj (pop queue) (tg/that cur))
-                     (conj-done done cur)
-                     bf)
               PatternVertex
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
@@ -783,16 +767,18 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              BindingVarVertex  ;; Actually bound by ConstraintOrBinding/Precedes
+              BindingVarVertex  ;; Actually bound by ConstraintOrBinding
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
                        (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                        bf))
-              Constraint
-              (recur (pop queue)
-                     (conj-done done cur)
-                     (into bf (read-string (tg/value cur :form))))
+              ConstraintOrBinding
+              (if (deps-defined? done cur)
+                (recur (enqueue-incs cur (pop queue) done)
+                       (apply conj-done done cur (tg/iseq cur 'Precedes :in))
+                       (into bf (read-string (tg/value cur :form))))
+                (recur (push-back-first queue) done bf))
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
@@ -834,23 +820,9 @@
               ArgumentEdge
               (u/errorf "There mustn't be argument edges for models with just refs: %s" (g/describe cur))
               Precedes
-              (let [cob (tg/omega cur)]
-                (if (deps-defined? done cob)
-                  (recur (enqueue-incs cob (pop queue) done)
-                         (apply conj-done done cur cob (tg/iseq cob 'Precedes :in))
-                         (into bf (read-string (tg/value cob :form))))
-                  (recur (pop queue)
-                         (conj-done done cur)
-                         bf))))))
-        ;; If there are still unreached vertices, enqueue the first one.  Else,
-        ;; we're done.
-        (if-let [undone-vertices (seq (undone-vertices
-                                       pg done
-                                       (fn deps [v]
-                                         (if (g/has-type? v 'ConstraintOrBinding)
-                                           (q/p-apply v [qtg/<-- 'Precedes])
-                                           (disj (q/p-apply v [q/p-+ :src]) v)))))]
-          (recur (conj queue (first undone-vertices)) done bf)
+              (recur (prepend-to-queue (pop queue) (tg/that cur)) (conj-done done cur) bf))))
+        (do
+          (check-undone pg done)
           bf)))))
 
 ;;*** EMF
@@ -1033,10 +1005,7 @@
         [pattern result]     (get-and-remove-key-from-vector pattern :as       true)
         [pattern isomorphic] (get-and-remove-key-from-vector pattern :isomorphic false)
         pattern (merge-extends pattern)
-        ;; _ (println "PATTERN:" pattern)
         pgraph (pattern-to-pattern-graph name args pattern isomorphic)
-        ;; _ (do (require 'funnyqt.visualization)
-        ;;       (future (funnyqt.visualization/print-model pgraph :gtk)))
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
       (binding [*conversion-opts* (assoc (meta name)
