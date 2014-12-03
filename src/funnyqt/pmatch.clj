@@ -1413,11 +1413,6 @@
   and every identifier in any of the alternative pattern specs.  In case a
   match is produced by the first alternative, the value of the :x key is nil.
 
-  Note that also with alternative pattern, the outer pattern is matched first.
-  Thus, if two nodes are connected only via edges specified in alternative
-  patterns, the effort is quadratic.  In that case, it is better to specify two
-  separate patterns and combine their results.
-
   Nested Patterns
   ===============
 
