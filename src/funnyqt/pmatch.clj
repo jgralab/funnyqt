@@ -34,18 +34,18 @@
 
 (defn ^:private name-and-type
   ([sym]
-     (name-and-type sym nil))
+   (name-and-type sym nil))
   ([sym cur-edge]
-     (when (and cur-edge (edge-sym? sym))
-       (u/errorf "Dangling edge in pattern: %s" cur-edge))
-     (if (or (vertex-sym? sym) (edge-sym? sym))
-       (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
-                                         (name sym))]
-         [(and (seq s) (symbol s))
-          (and (seq t) (if (.startsWith t ":")
-                         (keyword (subs t 1))
-                         (symbol t)))])
-       (u/errorf "No valid pattern symbol: %s" sym))))
+   (when (and cur-edge (edge-sym? sym))
+     (u/errorf "Dangling edge in pattern: %s" cur-edge))
+   (if (or (vertex-sym? sym) (edge-sym? sym))
+     (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
+                                       (name sym))]
+       [(and (seq s) (symbol s))
+        (and (seq t) (if (.startsWith t ":")
+                       (keyword (subs t 1))
+                       (symbol t)))])
+     (u/errorf "No valid pattern symbol: %s" sym))))
 
 (defn ^:private neg-edge-sym? [sym]
   (and (edge-sym? sym)
@@ -431,8 +431,11 @@
         (u/errorf "Disconnected nodes: %s" disc))
       ;; Suggest anchoring at argument nodes.
       (when-let [argv (seq (tg/vseq pg 'ArgumentVertex))]
-        (let [hfpv (q/the (tg/iseq a 'Precedes))]
-          (when (g/has-type? (tg/omega hfpv) '!ArgumentVertex)
+        (let [find-first-pv (fn ffpv [a]
+                              (if (g/has-type? a 'APatternVertex)
+                                a
+                                (first (map ffpv (map tg/that (tg/iseq a 'Precedes :out))))))]
+          (when-not (g/has-type? (find-first-pv a) 'ArgumentVertex)
             (println
              (format "The pattern %s could perform better by anchoring it at an argument node."
                      (tg/value pg :patternName)))))))
@@ -907,9 +910,9 @@
 
 (defn ^:private replace-id
   ([new-id name old-id type]
-     (symbol (str new-id type)))
+   (symbol (str new-id type)))
   ([new-id name head old-id type tail]
-     (symbol (str head new-id type tail))))
+   (symbol (str head new-id type tail))))
 
 (defn ^:private replace-ids-in-bindings [bindings rmap]
   (vec (mapcat (fn [[sym exp]]
@@ -1401,17 +1404,31 @@
 
     [c<C>
      :alternative [[c -<:t>-> a<A!>]
-                   [c -<:t>-> x<A> -<:s>-> a<A!>]]]
+                   [c -<:t>-> x<A> -<:s>-> a<A!>]]
+     a -<:t>-> b<B>]
 
-  The pattern matches C-nodes c which reference a strict A-node a with their
-  t-reference (first alternative), or which reference an A-node x with their
-  t-reference which in turn references a strict A-node a with its
-  s-reference (second alternative).
+  The pattern matches C-nodes c, A-nodes a, and B-nodes b where c references a
+  with its t-reference (first alternative), or where c references an A-node x
+  with its t-reference which in turn references a with its s-reference (second
+  alternative).  Additionally, a references b with its t-reference.
 
   The matches of this pattern have the form {:c #<C>, :a #<A>, :x #<A>}, i.e.,
   they have an entry for every identifier contained in the outer pattern spec,
   and every identifier in any of the alternative pattern specs.  In case a
   match is produced by the first alternative, the value of the :x key is nil.
+
+  Note that due to the implementation it is important that no node symbols that
+  are ought to be matched by the alternative patterns occur before those.
+  E.g., if the above pattern was written
+
+    [c<C>
+     a -<:t>-> b<B>
+     :alternative [[c -<:t>-> a<A!>]
+                   [c -<:t>-> x<A> -<:s>-> a<A!>]]]
+
+  the alternatives would be tested for every combination of a C-node c and an
+  arbitrary node a and all its B-nodes referenced by its t-reference.  Clearly,
+  this is not performant.
 
   Nested Patterns
   ===============

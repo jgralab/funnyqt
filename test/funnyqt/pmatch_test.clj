@@ -278,43 +278,43 @@
                 (pmt-matches-fn {:a ['C 1]})))
   (testing "Testing pattern with non-model-args (6)"
     (pmt-assert (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :generic}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-1
+                            {:pattern-expansion-context :generic}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'A 1)))
                 (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :emf}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-2
+                            {:pattern-expansion-context :emf}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'A 1)))
                 (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :tg}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-3
+                            {:pattern-expansion-context :tg}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'A 1)))
                 1
                 (pmt-matches-fn {:b ['B 2], :a ['A 1]})))
   (testing "Testing pattern with non-model-args (7)"
     (pmt-assert (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :generic}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-4
+                            {:pattern-expansion-context :generic}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'B 1)))
                 (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :emf}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-5
+                            {:pattern-expansion-context :emf}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'B 1)))
                 (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :tg}
-                    [m a]
-                    [b<B> -<:s>-> a<A!>])
+                  ((pattern could-perform-better-6
+                            {:pattern-expansion-context :tg}
+                            [m a]
+                            [b<B> -<:s>-> a<A!>])
                    m (pmt-el m 'B 1)))
                 0
                 (pmt-matches-fn)))
@@ -401,25 +401,40 @@
                 2
                 (pmt-matches-fn {:c ['C 1] :d ['D 1] :i 1 :j 1}
                                 {:c ['C 2] :d ['D 2] :i 2 :j 2})))
+  (testing "Testing pattern [c<C> --> d<D>
+                             :when-let [i (g/aval c :i)]
+                             :when-let [j (g/aval d :j)]]"
+    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [c<C> --> d<D>
+                                                                    :when-let [i (g/aval c :i)]
+                                                                    :when-let [j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :emf}     [m] [c<C> --> d<D>
+                                                                    :when-let [i (g/aval c :i)]
+                                                                    :when-let [j (g/aval d :j)]])
+                (pattern {:pattern-expansion-context :tg}      [m] [c<C> --> d<D>
+                                                                    :when-let [i (g/aval c :i)]
+                                                                    :when-let [j (g/aval d :j)]])
+                2
+                (pmt-matches-fn {:c ['C 1] :d ['D 1] :i 1 :j 1}
+                                {:c ['C 2] :d ['D 2] :i 2 :j 2})))
   (testing "Testing iterated bindings with :for (1)"
     (letpattern [(a-having-d-generic
                   {:pattern-expansion-context :generic}
                   ([m]
-                     [a<A> -<:d>-> d<D>])
+                   [a<A> -<:d>-> d<D>])
                   ([m a d]
-                     [a<A> -<:d>-> d<D>]))
+                   [a<A> -<:d>-> d<D>]))
                  (a-having-d-emf
                   {:pattern-expansion-context :emf}
                   ([m]
-                     [a<A> -<:d>-> d<D>])
+                   [a<A> -<:d>-> d<D>])
                   ([m a d]
-                     [a<A> -<:d>-> d<D>]))
+                   [a<A> -<:d>-> d<D>]))
                  (a-having-d-tg
                   {:pattern-expansion-context :tg}
                   ([m]
-                     [a<A> -<:d>-> d<D>])
+                   [a<A> -<:d>-> d<D>])
                   ([m a d]
-                     [a<A> -<:d>-> d<D>]))
+                   [a<A> -<:d>-> d<D>]))
                  (a-with-a-having-d-generic
                   {:pattern-expansion-context :generic}
                   [m]
@@ -474,29 +489,29 @@
                   ;; list (symbol num), a list (symbol & renames), or a list
                   ;; (symbol num & renames).
                   ([m]
-                     [:extends [(a-A 0)]
-                      a -<:d>-> d<D>])
+                   [:extends [(a-A 0)]
+                    a -<:d>-> d<D>])
                   ([m a d]
-                     [:extends [a-A]
-                      a -<:d>-> d<D>]))
+                   [:extends [a-A]
+                    a -<:d>-> d<D>]))
                  (a-having-d-emf
                   {:pattern-expansion-context :emf}
                   ([m]
-                     [:extends [a-A]
-                      a -<:d>-> d<D>])
+                   [:extends [a-A]
+                    a -<:d>-> d<D>])
                   ([m a d]
-                     [:extends [(a-A)]
-                      a -<:d>-> d<D>]))
+                   [:extends [(a-A)]
+                    a -<:d>-> d<D>]))
                  ;; Use edge types for TG since this will navigate pattern
                  ;; edges backwards.  This ensures a larger test coverage.
                  (a-having-d-tg
                   {:pattern-expansion-context :tg}
                   ([m]
-                     [:extends [a-A]
-                      a -<:d>-> d<D>])
+                   [:extends [a-A]
+                    a -<:d>-> d<D>])
                   ([m a d]
-                     [:extends [(a-A)]
-                      a -<:d>-> d<D>]))
+                   [:extends [(a-A)]
+                    a -<:d>-> d<D>]))
                  (a-with-a-having-d-generic
                   {:pattern-expansion-context :generic}
                   [m]
@@ -797,7 +812,7 @@
                                     [c -<:t>-> b<B>]]])
                 0
                 (pmt-matches-fn)))
-  (testing "Testing :alternative patterns."
+  (testing "Testing :alternative patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
                               :alternative [[c -<:t>-> a<A!>]
@@ -815,6 +830,27 @@
                  {:c ['C 1] :a ['A 1] :x nil}
                  {:c ['C 2] :a ['A 1] :x nil}
                  {:c ['C 2] :a ['A 1] :x ['B 2]})))
+  (testing "Testing :alternative patterns. (2)"
+    (pmt-assert (pattern {:pattern-expansion-context :generic}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
+                              a -<:d>-> d<D>])
+                (pattern {:pattern-expansion-context :emf}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
+                              a -<:d>-> d<D>])
+                (pattern {:pattern-expansion-context :tg}
+                         [m] [c<C>
+                              :alternative [[c -<:t>-> a<A!>]
+                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
+                              a -<:d>-> d<D>])
+                3
+                (pmt-matches-fn
+                 {:c ['C 1] :a ['A 1] :x nil    :d ['D 1]}
+                 {:c ['C 2] :a ['A 1] :x nil    :d ['D 1]}
+                 {:c ['C 2] :a ['A 1] :x ['B 2] :d ['D 1]})))
   (testing "Testing :nested patterns. (1)"
     (pmt-assert (pattern {:pattern-expansion-context :generic}
                          [m] [c<C>
@@ -944,29 +980,29 @@
 (defpattern families-with-fathers-tg
   {:pattern-expansion-context :tg}
   ([g]
-     [f<Family> -hf<HasFather>-> m<Member>])
+   [f<Family> -hf<HasFather>-> m<Member>])
   ([g famconst]
-     [f<Family> -hf<HasFather>-> m<Member>
-      :when (famconst f)]))
+   [f<Family> -hf<HasFather>-> m<Member>
+    :when (famconst f)]))
 
 (defpattern families-with-fathers-forall-tg
   {:pattern-expansion-context :tg
    :forall true}
   ([g]
-     [f<Family> -hf<HasFather>-> m<Member>])
+   [f<Family> -hf<HasFather>-> m<Member>])
   ([g famconst]
-     [f<Family> -hf<HasFather>-> m<Member>
-      :when (famconst f)]))
+   [f<Family> -hf<HasFather>-> m<Member>
+    :when (famconst f)]))
 
 (defpattern families-with-fathers-forall-distinct-tg
   {:pattern-expansion-context :tg
    :forall true
    :distinct true}
   ([g]
-     [f<Family> -hf<HasFather>-> m<Member>])
+   [f<Family> -hf<HasFather>-> m<Member>])
   ([g famconst]
-     [f<Family> -hf<HasFather>-> m<Member>
-      :when (famconst f)]))
+   [f<Family> -hf<HasFather>-> m<Member>
+    :when (famconst f)]))
 
 (deftest test-families-with-fathers-tg
   (is (= 3 (count (families-with-fathers-tg fg))))
@@ -1025,11 +1061,11 @@
                 [f<Family> -hf<HasFather>-> m<Member>])
                (families-with-fathers
                 ([g]
-                   [f<Family> -hf<HasFather>-> m<Member>])
+                 [f<Family> -hf<HasFather>-> m<Member>])
                 ([g famconst]
-                   [f<Family> -hf<HasFather>-> m<Member>
-                    :when (famconst f)
-                    :as [f hf m]]))]
+                 [f<Family> -hf<HasFather>-> m<Member>
+                  :when (famconst f)
+                  :as [f hf m]]))]
     {:pattern-expansion-context :tg}
     (is (= 3 (count (families-with-fathers-simple fg))))
     (is (= 3 (count (families-with-fathers fg))))
@@ -1041,11 +1077,11 @@
                                               [f<Family> -hf<HasFather>-> m<Member>])
         families-with-fathers (pattern {:pattern-expansion-context :tg}
                                        ([g]
-                                          [f<Family> -hf<HasFather>-> m<Member>])
+                                        [f<Family> -hf<HasFather>-> m<Member>])
                                        ([g famconst]
-                                          [f<Family> -hf<HasFather>-> m<Member>
-                                           :when (famconst f)
-                                           :as [f hf m]]))]
+                                        [f<Family> -hf<HasFather>-> m<Member>
+                                         :when (famconst f)
+                                         :as [f hf m]]))]
     (is (= 3 (count (families-with-fathers-simple fg))))
     (is (= 3 (count (families-with-fathers fg))))
     (is (= 3 (count (families-with-fathers fg (constantly true)))))
