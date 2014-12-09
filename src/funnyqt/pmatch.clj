@@ -330,17 +330,17 @@
                                        (concat (tg/vseq pg 'APatternVertex)
                                                (tg/eseq pg '[PatternEdge ArgumentEdge]))))))
         get-or-make-v (fn [n t]
-                        (let [v (or (get-by-name n)
-                                    (let [v (tg/create-vertex! pg (cond
-                                                                   (argset n)           'ArgumentVertex
-                                                                   (@binding-var-set n) 'BindingVarVertex
-                                                                   :else                'PatternVertex))]
-                                      (when n
-                                        (tg/set-value! v :name (str n)))
-                                      v))]
+                        (let [[v new] (or (when-let [v (get-by-name n)]
+                                            [v false])
+                                          [(tg/create-vertex! pg (cond
+                                                                  (argset n)           'ArgumentVertex
+                                                                  (@binding-var-set n) 'BindingVarVertex
+                                                                  :else                'PatternVertex)
+                                                              {:name (when n (str n))})
+                                           true])]
                           (when t (tg/set-value! v :type (str t)))
-                          v))]
-    (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor), done #{}]
+                          [v new]))]
+    (loop [pattern pattern, lv (tg/create-vertex! pg 'Anchor)]
       (when (seq pattern)
         (let [cur (first pattern)]
           (cond
@@ -357,45 +357,39 @@
                                 (str (pr-str (fnext pattern)) "]")
                                 (str "[" (str (pr-str cur)  " ")
                                      (pr-str (fnext pattern)) "]"))))
-             (when-not (done lv)
-               (tg/create-edge! pg 'Precedes lv v))
-             (recur (nnext pattern) v (conj done lv)))
+             (tg/create-edge! pg 'Precedes lv v)
+             (recur (nnext pattern) v))
            ;; Negative patterns: :negative [a --> b]
            (= :negative cur)
            (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv
-                  done)
+                  lv)
            ;; Positive patterns: :positive [a --> b]
            (= :positive cur)
            (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv
-                  done)
+                  lv)
            ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
            (contains? #{:and :or :xor :nand :nor} cur)
            (recur (vec (concat (logical-operator-spec-to-when-op-seq
                                 cur (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv
-                  done)
+                  lv)
            ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
            (= :alternative cur)
            (let [translation (alternative-spec-to-for (fnext pattern) model-sym @binding-var-set @pattern-var-set)]
              (recur (vec (concat translation (nnext pattern)))
-                    lv
-                    done))
+                    lv))
            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
            (= :nested cur)
            (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym @binding-var-set @pattern-var-set)
                                (nnext pattern)))
-                  lv
-                  done)
+                  lv)
            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (edge-sym? cur) (let [[n t] (name-and-type cur)
                                  nsym (second pattern)
                                  [nvn nvt] (name-and-type nsym cur)
-                                 nv (get-or-make-v nvn nvt)]
+                                 [nv _] (get-or-make-v nvn nvt)]
                              (when (and (or (nil? t) (keyword? t)) (= :in (edge-dir cur)))
                                (u/errorf
                                 "References may only specified in forward direction but got %s"
@@ -414,15 +408,15 @@
                                (when nvn
                                  (vswap! pattern-var-set conj nvn))
                                (when t (tg/set-value! e :type (str t))))
-                             (recur (nnext pattern) nv (conj done lv)))
+                             (recur (nnext pattern) nv))
            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
            (vertex-sym? cur) (let [[n t] (name-and-type cur)
-                                   v (get-or-make-v n t)]
-                               (when-not (done lv)
+                                   [v new] (get-or-make-v n t)]
+                               (when new
                                  (tg/create-edge! pg 'Precedes lv v))
                                (when n
                                  (vswap! pattern-var-set conj n))
-                               (recur (rest pattern) v (conj done lv)))
+                               (recur (rest pattern) v))
            :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
     ;; Anchor disconnected components at the anchor.
     (let [vset (u/oset (tg/vseq pg))
@@ -1117,12 +1111,12 @@
                                  `(fn
                                     ([] ~chm)
                                     ([l# r#]
-                                       (if (identical? l# r#)
-                                         l#
-                                         (clojure.core.reducers/reduce
-                                          (fn [~chm o#]
-                                            (doto ~chm (.putIfAbsent o# Boolean/TRUE)))
-                                          l# r#))))
+                                     (if (identical? l# r#)
+                                       l#
+                                       (clojure.core.reducers/reduce
+                                        (fn [~chm o#]
+                                          (doto ~chm (.putIfAbsent o# Boolean/TRUE)))
+                                        l# r#))))
                                  `clojure.core.reducers/cat)
                     finalize# ~(if (:distinct (meta bf))
                                  `(fn [~chm] (sequence (.keySet ~chm)))
@@ -1570,7 +1564,7 @@
   Note that this binding has to be available at compile-time."
 
   {:arglists '([name doc-string? attr-map? [args] [pattern]]
-                 [name doc-string? attr-map? ([args] [pattern])+])}
+               [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
         name (vary-meta name assoc ::pattern-specs `'~(if (vector? (first more))
@@ -1644,7 +1638,7 @@
   `defpattern`)."
 
   {:arglists '([name? attr-map? [args] [pattern]]
-                 [name? attr-map? ([args] [pattern])+])}
+               [name? attr-map? ([args] [pattern])+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]
