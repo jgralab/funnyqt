@@ -192,7 +192,8 @@
   :generic)
 
 (defn ^:private get-and-remove-key-from-vector
-  "Returns [new-pattern key-or-val]."
+  "Removes `key` from `v` and also the element after `key` if `get-val` is true.
+  Returns [new-pattern key-or-val]."
   [v key get-val]
   (loop [nv [], ov v]
     (if (seq ov)
@@ -972,6 +973,15 @@
          :else (recur (next p) (conj r cur))))
       r)))
 
+(defn ^:private remove-isomorphic-distinct-and-as-specs [pattern-spec]
+  (-> pattern-spec
+      (get-and-remove-key-from-vector :isomorphic false)
+      first
+      (get-and-remove-key-from-vector :distinct false)
+      first
+      (get-and-remove-key-from-vector :as true)
+      first))
+
 (def ^:dynamic ^:private *letpattern-pattern-specs*
   "A map from letpattern-defined patterns (symbols) to their vector of pattern
   specifications.  Bound during compilation to expand :extends clauses."
@@ -984,8 +994,8 @@
       (if-let [pattern-specs (if (var? pattern-specs-or-var)
                                (::pattern-specs (meta pattern-specs-or-var))
                                pattern-specs-or-var)]
-        (if-let [pattern (get pattern-specs num)]
-          (rename-extended pattern replace-map)
+        (if-let [pattern-spec (get pattern-specs num)]
+          (rename-extended (remove-isomorphic-distinct-and-as-specs pattern-spec) replace-map)
           (u/errorf "No %. pattern spec for extended pattern %s." num name))
         (u/errorf "No pattern specs for extended pattern %s." name))
       (u/errorf "Cannot resolve extended pattern %s." name))))
