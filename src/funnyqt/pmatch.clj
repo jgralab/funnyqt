@@ -1304,7 +1304,11 @@
   In case an extended pattern is overloaded on arity, the :extends clause may
   specify which pattern to take using [:extends [(some-pattern 1)]] where the 1
   denotes the pattern of the second version.  0, i.e., the first version, is
-  the default.
+  the default.  After this index, the renamings follow.
+
+  The modifier keywords :isomorphic and :distinct as well as :as-clauses are
+  not propagated from extended to extending patterns, thus it is up to the
+  extending pattern to specify those if needed.
 
   Negative Patterns
   =================
@@ -1439,6 +1443,10 @@
   the alternatives would be tested for every combination of a C-node c and an
   arbitrary node a and all its B-nodes referenced by its t-reference.  Clearly,
   this is not performant.
+
+  Also note that for implementation reasons, pattern inheritance is not
+  available for alternative patterns, i.e., the alternative pattern specs must
+  not contain an :extends clause.
 
   Nested Patterns
   ===============
