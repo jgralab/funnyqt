@@ -1132,11 +1132,7 @@
                                    (u/for+ ~rbf ~result-form))))
                      finalize#)))
            ;; Lazy Case
-           (let [code (if (seq bf)
-                        `(u/for+ ~bf ~result-form)
-                        ;; If the binding form is empty, the result is the
-                        ;; infinite seq of empty matches.
-                        `(repeat ~result-form))
+           (let [code `(u/for+ ~bf ~result-form)
                  code (if (:distinct (meta bf))
                         `(q/no-dups ~code)
                         code)]

@@ -292,7 +292,9 @@
 
   - :let [var exp,...]    may occur as first element
   - :when exp             may occur as first element
-  - :when-let [var expr]  bindings"
+  - :when-let [var expr]  bindings
+
+  As a special case, (for+ [] :x) returns [:x] instead of erroring."
   [seq-exprs body-expr]
   (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
         [bind exp] seq-exprs]
@@ -307,4 +309,4 @@
       (if (seq seq-exprs)
         `(for ~seq-exprs
            ~body-expr)
-        (errorf "for+ called with empty binding form.")))))
+        [body-expr]))))
