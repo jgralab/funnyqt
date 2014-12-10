@@ -276,15 +276,18 @@
             (partition 2 lv))))
 
 (defn ^:private shortcut-when-let-bindings
-  "Converts :when-let [x (foo), y (bar)] to :let [x (foo)] :when x :let [y (bar)] :when y."
+  "Converts :when-let [y (foo x)] to :let [y (foo x)] :when y."
   [bindings]
   (loop [p bindings, nb []]
     (if (seq p)
       (if (= :when-let (first p))
-        (recur (rest (rest p))
-               (vec (concat nb (shortcut-when-let-vector (fnext p)))))
-        (recur (rest (rest p)) (conj (conj nb (first p)) (second p))))
-      (vec nb))))
+        (recur (nnext p)
+               (let [[var exp & too-many :as clause] (fnext p)]
+                 (when too-many
+                   (errorf "Unsupported :when-let binding: :when-let %s" clause))
+                 (into nb [:let [var exp] :when var])))
+        (recur (nnext p) (conj nb (first p) (second p))))
+      nb)))
 
 (defmacro for+
   "An enhanced version of clojure.core/for with the following additional

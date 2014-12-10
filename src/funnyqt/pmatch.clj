@@ -501,9 +501,11 @@
       ;;---
       (or (done target-node)
           (g/has-type? target-node '[:or ArgumentVertex BindingVarVertex]))
-      `[~(get-name target-node)
-        (filter (partial = ~(get-name target-node))
-                (q/no-dups ~(anon-vec-transformer-fn startsym av)))]
+      `[:when-let [~(get-name target-node)
+                   (and ~(get-name target-node)
+                        (q/member? ~(get-name target-node)
+                                   (q/no-dups ~(anon-vec-transformer-fn startsym av)))
+                        ~(get-name target-node))]]
       ;;---
       :normal-not-done-vertex
       [(get-name target-node)
@@ -874,7 +876,7 @@
                                           (conj bs v))))
                                bs)))))
        ;; Ignore :when (exp ...)
-       (keyword? (first p)) (recur (nnext p) l)
+       (= :when (first p)) (recur (nnext p) l)
        ;; A vector destructuring form
        (vector? (first p)) (recur (nnext p) (vec (concat l (remove #(= % '&) (first p)))))
        ;; A map destructuring form: {a :a, b :b} or {:keys [a b c] :or {:a 1} :as m}
@@ -891,11 +893,10 @@
                                                  syms))
                                              ;;---
                                              :else (u/errorf "Cannot handle %s" (first p))))))
-       ;; Ups, what's that?!?
-       (coll? (first p))
-       (u/errorf "Cannot handle %s" (first p))
        ;; That's a normal binding
-       :default (recur (rest (rest p)) (conj l (first p))))
+       (symbol? (first p)) (recur (rest (rest p)) (conj l (first p)))
+       ;; Ups, what's that???
+       :else (u/errorf "Cannot handle %s" (first p)))
       (vec (distinct l)))))
 
 (def pattern-graph-transform-function-map
@@ -1040,10 +1041,10 @@
 (defn ^:private convert-spec [name args-and-pattern]
   (when (> (count args-and-pattern) 2)
     (u/errorf "Pattern %s has too many components (should have only args and pattern vector)." name))
-  (let [[args pattern] args-and-pattern]
-    (when-not (and (vector? args) (vector? pattern))
+  (let [[args pattern-spec] args-and-pattern]
+    (when-not (and (vector? args) (vector? pattern-spec))
       (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
-    (let [bf (transform-pattern-vector name pattern args)
+    (let [bf (transform-pattern-vector name pattern-spec args)
           binding-count (fn [bf]
                           (count (filter (fn [[var expr]] (symbol? var))
                                          (partition 2 bf))))
@@ -1126,10 +1127,7 @@
                      (clojure.core.reducers/fold
                       n# combine!#
                       (fn [coll# ~sym]
-                        (combine!# coll#
-                                   ;; rbf cannot be empty due to the
-                                   ;; binding-count check above.
-                                   (u/for+ ~rbf ~result-form))))
+                        (combine!# coll# (u/for+ ~rbf ~result-form))))
                      finalize#)))
            ;; Lazy Case
            (let [code `(u/for+ ~bf ~result-form)
