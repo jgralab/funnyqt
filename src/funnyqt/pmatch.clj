@@ -74,22 +74,22 @@
           (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
                              (into r
                                    (mapcat #(cond
-                                             (symbol? %)
-                                             [%]
-                                             ;; Vector destructuring [a b]
-                                             (vector? %)
-                                             %
-                                             ;; Map destructuring {a :a, b :b}
-                                             (and (map? %) (symbol? (first (keys %))))
-                                             (keys %)
-                                             ;; Map destructuring {:keys [a b] :as m}
-                                             (and (map? %) (keyword? (first (keys %))))
-                                             (let [syms (:keys cur)]
-                                               (if-let [as (:as cur)]
-                                                 (conj syms as)
-                                                 syms))
-                                             ;;---
-                                             :else (u/errorf "Cannot handle %s" %))
+                                              (symbol? %)
+                                              [%]
+                                              ;; Vector destructuring [a b]
+                                              (vector? %)
+                                              %
+                                              ;; Map destructuring {a :a, b :b}
+                                              (and (map? %) (symbol? (first (keys %))))
+                                              (keys %)
+                                              ;; Map destructuring {:keys [a b] :as m}
+                                              (and (map? %) (keyword? (first (keys %))))
+                                              (let [syms (:keys cur)]
+                                                (if-let [as (:as cur)]
+                                                  (conj syms as)
+                                                  syms))
+                                              ;;---
+                                              :else (u/errorf "Cannot handle %s" %))
                                            syms))))
           (recur (next p) r)))
       (vec (distinct r)))))
@@ -104,21 +104,21 @@
     (if (seq p)
       (let [cur (first p)]
         (cond
-         (vertex-sym? cur)
-         (let [[_ id] (vertex-sym? cur)]
-           (recur (next p) (if (seq id)
-                             (conj r (symbol id))
-                             r)))
-         ;;---
-         (edge-sym? cur)
-         (let [[_ _ id] (edge-sym? cur)]
-           (recur (next p) (if (seq id)
-                             (conj r (symbol id))
-                             r)))
-         (#{:nested :when :when-let :for :let} cur)
-         (recur (nnext p) r)
-         ;;---
-         :else (recur (next p) r)))
+          (vertex-sym? cur)
+          (let [[_ id] (vertex-sym? cur)]
+            (recur (next p) (if (seq id)
+                              (conj r (symbol id))
+                              r)))
+          ;;---
+          (edge-sym? cur)
+          (let [[_ _ id] (edge-sym? cur)]
+            (recur (next p) (if (seq id)
+                              (conj r (symbol id))
+                              r)))
+          (#{:nested :when :when-let :for :let} cur)
+          (recur (nnext p) r)
+          ;;---
+          :else (recur (next p) r)))
       ;; binding-bound-vars take precedence, so substract them.
       (let [bbv (into #{} (binding-bound-vars p))]
         (vec (remove bbv (distinct r)))))))
@@ -128,24 +128,24 @@
   E.g., those are the dependencies the form needs to evaluate."
   [form]
   (cond
-   ;; let & when-let & if-let & loop
-   (and (seq? form)
-        (or (= (first form) `let)
-            (= (first form) `loop)
-            (= (first form) `when-let)
-            (= (first form) `if-let)))
-   (set (concat (mapcat used-vars (map second (partition 2 (second form))))
-                (mapcat used-vars (nnext form))))
-   ;; vectors & sets
-   (or (vector? form)
-       (set? form))
-   (set (mapcat used-vars form))
-   ;; funcalls
-   (seq? form)
-   (set (mapcat used-vars (rest form)))
-   ;; symbols
-   (and (symbol? form)
-        (not (namespace form))) #{form}))
+    ;; let & when-let & if-let & loop
+    (and (seq? form)
+         (or (= (first form) `let)
+             (= (first form) `loop)
+             (= (first form) `when-let)
+             (= (first form) `if-let)))
+    (set (concat (mapcat used-vars (map second (partition 2 (second form))))
+                 (mapcat used-vars (nnext form))))
+    ;; vectors & sets
+    (or (vector? form)
+        (set? form))
+    (set (mapcat used-vars form))
+    ;; funcalls
+    (seq? form)
+    (set (mapcat used-vars (rest form)))
+    ;; symbols
+    (and (symbol? form)
+         (not (namespace form))) #{form}))
 
 (defn ^:private vars-used-in-constr-or-binding
   "Returns the set of vars (symbols) that are used (not declared!) in the
@@ -334,95 +334,95 @@
       (when (seq pattern)
         (let [cur (first pattern)]
           (cond
-           ;; Constraints and non-pattern binding forms
-           (#{:when :let :when-let :for} cur)
-           (let [v (tg/create-vertex! pg (condp = cur
-                                           :when     'Constraint
-                                           :when-let 'ConstraintAndBinding
-                                           'Binding))]
-             (binding [*print-meta* true]
-               (tg/set-value! v :form
-                              (if (= :for cur)
-                                (str (pr-str (fnext pattern)) "]")
-                                (str "[" (str (pr-str cur)  " ")
-                                     (pr-str (fnext pattern)) "]"))))
-             (tg/create-edge! pg 'Precedes lv v)
-             (recur (nnext pattern)
-                    v
-                    (into binding-var-set (binding-bound-vars [cur (fnext pattern)]))
-                    pattern-var-set))
-           ;; Negative patterns: :negative [a --> b]
-           (= :negative cur)
-           (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym binding-var-set pattern-var-set)
-                               (nnext pattern)))
-                  lv binding-var-set pattern-var-set)
-           ;; Positive patterns: :positive [a --> b]
-           (= :positive cur)
-           (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym binding-var-set pattern-var-set)
-                               (nnext pattern)))
-                  lv binding-var-set pattern-var-set)
-           ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
-           (contains? #{:and :or :xor :nand :nor} cur)
-           (recur (vec (concat (logical-operator-spec-to-when-op-seq
-                                cur (fnext pattern) model-sym binding-var-set pattern-var-set)
-                               (nnext pattern)))
-                  lv binding-var-set pattern-var-set)
-           ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
-           (= :alternative cur)
-           (let [translation (alternative-spec-to-for (fnext pattern) model-sym binding-var-set pattern-var-set)]
-             (recur (vec (concat translation (nnext pattern)))
-                    lv binding-var-set pattern-var-set))
-           ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
-           (= :nested cur)
-           (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
-                               (nnext pattern)))
-                  lv binding-var-set pattern-var-set)
-           ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-           (edge-sym? cur) (let [[n t] (name-and-type cur)
-                                 nsym (second pattern)
-                                 [nvn nvt] (name-and-type nsym cur)
-                                 [nv new-fn] (get-or-make-v nvn nvt binding-var-set)]
-                             (when (and (or (nil? t) (keyword? t)) (= :in (edge-dir cur)))
-                               (u/errorf
-                                "References may only specified in forward direction but got %s"
-                                cur))
-                             (let [e (apply tg/create-edge!
-                                            pg (cond
-                                                (= '! n)   'NegPatternEdge
-                                                (argset n) 'ArgumentEdge
-                                                :else      'PatternEdge)
-                                            (if (= :out (edge-dir cur))
-                                              [lv nv]
-                                              [nv lv]))]
-                               (when (and n (not (g/has-type? e 'NegPatternEdge)))
-                                 (tg/set-value! e :name (name n))
-                                 (when isomorphic
-                                   (doseq [other (tg/eseq pg '[:and APatternEdge !NegPatternEdge])
-                                           :when (not= e other)
-                                           :when (get-name other)
-                                           :let [constr (tg/create-vertex!
-                                                         pg 'Constraint
-                                                         {:form (pr-str `[:when (not (identical?
-                                                                                      ~n
-                                                                                      ~(get-name other)))])})]]
-                                     (tg/create-edge! pg 'Precedes nv constr))))
-                               (when t (tg/set-value! e :type (str t))))
-                             (when new-fn (new-fn))
-                             (recur (nnext pattern) nv binding-var-set
-                                    (let [pvs pattern-var-set
-                                          pvs (if n (conj pvs n) pvs)]
-                                      (if nvn (conj pvs nvn) pvs))))
-           ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-           (vertex-sym? cur) (let [[n t] (name-and-type cur)
-                                   [v new-fn] (get-or-make-v n t binding-var-set)]
-                               (when new-fn
-                                 (tg/create-edge! pg 'Precedes lv v)
-                                 (new-fn))
-                               (recur (rest pattern) v binding-var-set
-                                      (if n
-                                        (conj pattern-var-set n)
-                                        pattern-var-set)))
-           :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
+            ;; Constraints and non-pattern binding forms
+            (#{:when :let :when-let :for} cur)
+            (let [v (tg/create-vertex! pg (condp = cur
+                                            :when     'Constraint
+                                            :when-let 'ConstraintAndBinding
+                                            'Binding))]
+              (binding [*print-meta* true]
+                (tg/set-value! v :form
+                               (if (= :for cur)
+                                 (str (pr-str (fnext pattern)) "]")
+                                 (str "[" (str (pr-str cur)  " ")
+                                      (pr-str (fnext pattern)) "]"))))
+              (tg/create-edge! pg 'Precedes lv v)
+              (recur (nnext pattern)
+                     v
+                     (into binding-var-set (binding-bound-vars [cur (fnext pattern)]))
+                     pattern-var-set))
+            ;; Negative patterns: :negative [a --> b]
+            (= :negative cur)
+            (recur (vec (concat (negative-spec-to-when-empty (fnext pattern) model-sym binding-var-set pattern-var-set)
+                                (nnext pattern)))
+                   lv binding-var-set pattern-var-set)
+            ;; Positive patterns: :positive [a --> b]
+            (= :positive cur)
+            (recur (vec (concat (positive-spec-to-when-seq (fnext pattern) model-sym binding-var-set pattern-var-set)
+                                (nnext pattern)))
+                   lv binding-var-set pattern-var-set)
+            ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
+            (contains? #{:and :or :xor :nand :nor} cur)
+            (recur (vec (concat (logical-operator-spec-to-when-op-seq
+                                 cur (fnext pattern) model-sym binding-var-set pattern-var-set)
+                                (nnext pattern)))
+                   lv binding-var-set pattern-var-set)
+            ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
+            (= :alternative cur)
+            (let [translation (alternative-spec-to-for (fnext pattern) model-sym binding-var-set pattern-var-set)]
+              (recur (vec (concat translation (nnext pattern)))
+                     lv binding-var-set pattern-var-set))
+            ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
+            (= :nested cur)
+            (recur (vec (concat (nested-specs-to-let (fnext pattern) model-sym binding-var-set pattern-var-set)
+                                (nnext pattern)))
+                   lv binding-var-set pattern-var-set)
+            ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+            (edge-sym? cur) (let [[n t] (name-and-type cur)
+                                  nsym (second pattern)
+                                  [nvn nvt] (name-and-type nsym cur)
+                                  [nv new-fn] (get-or-make-v nvn nvt binding-var-set)]
+                              (when (and (or (nil? t) (keyword? t)) (= :in (edge-dir cur)))
+                                (u/errorf
+                                 "References may only specified in forward direction but got %s"
+                                 cur))
+                              (let [e (apply tg/create-edge!
+                                             pg (cond
+                                                  (= '! n)   'NegPatternEdge
+                                                  (argset n) 'ArgumentEdge
+                                                  :else      'PatternEdge)
+                                             (if (= :out (edge-dir cur))
+                                               [lv nv]
+                                               [nv lv]))]
+                                (when (and n (not (g/has-type? e 'NegPatternEdge)))
+                                  (tg/set-value! e :name (name n))
+                                  (when isomorphic
+                                    (doseq [other (tg/eseq pg '[:and APatternEdge !NegPatternEdge])
+                                            :when (not= e other)
+                                            :when (get-name other)
+                                            :let [constr (tg/create-vertex!
+                                                          pg 'Constraint
+                                                          {:form (pr-str `[:when (not (identical?
+                                                                                       ~n
+                                                                                       ~(get-name other)))])})]]
+                                      (tg/create-edge! pg 'Precedes nv constr))))
+                                (when t (tg/set-value! e :type (str t))))
+                              (when new-fn (new-fn))
+                              (recur (nnext pattern) nv binding-var-set
+                                     (let [pvs pattern-var-set
+                                           pvs (if n (conj pvs n) pvs)]
+                                       (if nvn (conj pvs nvn) pvs))))
+            ;; Vertex symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+            (vertex-sym? cur) (let [[n t] (name-and-type cur)
+                                    [v new-fn] (get-or-make-v n t binding-var-set)]
+                                (when new-fn
+                                  (tg/create-edge! pg 'Precedes lv v)
+                                  (new-fn))
+                                (recur (rest pattern) v binding-var-set
+                                       (if n
+                                         (conj pattern-var-set n)
+                                         pattern-var-set)))
+            :else (u/errorf "Don't know how to handle pattern part: %s" cur)))))
     ;; Remove Precedes edges which are parallel to APatternEdges.  Those are
     ;; the result of specs like [a<A> b<B> a --> b]
     (doseq [pv (tg/vseq pg 'APatternVertex)
@@ -467,16 +467,16 @@
   (loop [cur start, done done, vec []]
     (if (and cur (anon? cur))
       (cond
-       (tg/edge? cur)   (recur (tg/that cur)
-                               (conj-done done cur)
-                               (conj vec cur))
-       (tg/vertex? cur) (recur (let [ns (remove done (tg/iseq cur 'PatternEdge))]
-                                 (if (> (count ns) 1)
-                                   (u/errorf "Must not happen!")
-                                   (first ns)))
-                               (conj-done done cur)
-                               (conj vec cur))
-       :else (u/errorf "Unexpected %s." cur))
+        (tg/edge? cur)   (recur (tg/that cur)
+                                (conj-done done cur)
+                                (conj vec cur))
+        (tg/vertex? cur) (recur (let [ns (remove done (tg/iseq cur 'PatternEdge))]
+                                  (if (> (count ns) 1)
+                                    (u/errorf "Must not happen!")
+                                    (first ns)))
+                                (conj-done done cur)
+                                (conj vec cur))
+        :else (u/errorf "Unexpected %s." cur))
       (if cur
         (conj vec cur)
         vec))))
@@ -499,17 +499,22 @@
       (anon? target-node)
       [:when `(seq ~(anon-vec-transformer-fn startsym av))]
       ;;---
-      (or (done target-node)
-          (g/has-type? target-node '[:or ArgumentVertex BindingVarVertex]))
+      (done target-node)
+      `[:when (q/member? ~(get-name target-node)
+                         (q/no-dups ~(anon-vec-transformer-fn startsym av)))]
+      ;;---
+      (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
                    (and ~(get-name target-node)
                         (q/member? ~(get-name target-node)
                                    (q/no-dups ~(anon-vec-transformer-fn startsym av)))
                         ~(get-name target-node))]]
       ;;---
-      :normal-not-done-vertex
+      (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(q/no-dups ~(anon-vec-transformer-fn startsym av))])))
+       `(q/no-dups ~(anon-vec-transformer-fn startsym av))]
+      ;;---
+      :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
 (defn ^:private deps-defined?
   "Returns true if all nodes defined before the COB cob have been processed."
