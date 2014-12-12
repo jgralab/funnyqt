@@ -498,22 +498,22 @@
   (let [target-node (last av)]
     (cond
       (anon? target-node)
-      [:when `(seq ~(anon-vec-transformer-fn startsym av))]
+      [:when `(seq ~(anon-vec-transformer-fn startsym av done))]
       ;;---
       (done target-node)
       `[:when (q/member? ~(get-name target-node)
-                         (q/no-dups ~(anon-vec-transformer-fn startsym av)))]
+                         (q/no-dups ~(anon-vec-transformer-fn startsym av done)))]
       ;;---
       (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
                    (and ~(get-name target-node)
                         (q/member? ~(get-name target-node)
-                                   (q/no-dups ~(anon-vec-transformer-fn startsym av)))
+                                   (q/no-dups ~(anon-vec-transformer-fn startsym av done)))
                         ~(get-name target-node))]]
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(q/no-dups ~(anon-vec-transformer-fn startsym av))]
+       `(q/no-dups ~(anon-vec-transformer-fn startsym av done))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -549,7 +549,7 @@
                      (if (= ec ''_)
                        nil
                        ec)))
-        anon-vec-to-for (fn [start-sym av]
+        anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
                                   (if (seq av)
@@ -559,7 +559,12 @@
                                              (rest av)
                                              (if (tg/vertex? el)
                                                (into r `[:let [~ncs (tg/that ~cs)]
-                                                         ~@(when-let [t (get-type el)]
+                                                         ;; When el is already
+                                                         ;; done, its type is
+                                                         ;; already checked,
+                                                         ;; too.
+                                                         ~@(when-let [t (and (not (done el))
+                                                                             (get-type el))]
                                                              [:when `(g/has-type? ~ncs ~t)])])
                                                (into r `[~ncs (tg/iseq ~cs ~(inc-type el)
                                                                        ~(inc-dir el))]))))
@@ -726,7 +731,7 @@
                           (if (keyword? t)
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
-        anon-vec-to-for (fn [start-sym av]
+        anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
                                   (if (seq av)
@@ -735,7 +740,10 @@
                                       (recur ncs
                                              (rest av)
                                              (if (tg/vertex? el)
-                                               (into r (when-let [t (get-type el)]
+                                               ;; When el is already done, its
+                                               ;; type is already checked, too.
+                                               (into r (when-let [t (and (not (done el))
+                                                                         (get-type el))]
                                                          `[:when (g/has-type? ~ncs ~t)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(~role-fn ~cs ~t)
@@ -774,7 +782,7 @@
                                     (into bf-addon
                                           `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
                                     bf-addon)))))
-              BindingVarVertex  ;; Actually bound by ConstraintOrBinding
+              BindingVarVertex ;; Actually bound by ConstraintOrBinding
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)

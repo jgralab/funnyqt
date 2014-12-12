@@ -296,10 +296,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
               *excluded* (set (:exclude (meta opts)))
               *marked*   (if-let [mark (:mark (meta opts))]
                            (cond
-                            (fn? mark)   mark
-                            (coll? mark) (set mark)
-                            :else (u/errorf ":mark must be a function or collection but was a %s: %s."
-                                            (class mark) mark))
+                             (fn? mark)   mark
+                             (coll? mark) (set mark)
+                             :else (u/errorf ":mark must be a function or collection but was a %s: %s."
+                                             (class mark) mark))
                            (constantly false))
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
@@ -356,13 +356,13 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (let [ds (dot-model m opts)
         dot (fn
               ([fmt]
-                 (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) :in ds)]
-                   (or (zero? (:exit r))
-                       (u/errorf "Dotting failed: %s" (:err r)))))
+               (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) :in ds)]
+                 (or (zero? (:exit r))
+                     (u/errorf "Dotting failed: %s" (:err r)))))
               ([fmt f]
-                 (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) "-o" f :in ds)]
-                   (or (zero? (:exit r))
-                       (u/errorf "Dotting failed: %s" (:err r))))))
+               (let [r (clojure.java.shell/sh "dot" (str "-T" fmt) "-o" f :in ds)]
+                 (or (zero? (:exit r))
+                     (u/errorf "Dotting failed: %s" (:err r))))))
         exts #{"dot" "xdot" "ps" "svg" "svgz" "png" "gif" "pdf" "eps"}
         fmt (if (string? f)
               (get exts (second (re-matches #".*\.([^.]+)$" f)))
