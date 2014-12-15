@@ -1106,9 +1106,7 @@
                                                                        "but was %s")
                                                                   (:eager (meta name))))
                  rbf (vec rbf)
-                 _ (println "1:" rbf sym)
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
-                 _ (println "2:" rbf constraints)
                  vectorvar (gensym "vector")
                  chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
              `(let [~vectorvar (into [] ~(if (seq constraints)
