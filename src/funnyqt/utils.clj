@@ -289,6 +289,20 @@
         (recur (nnext p) (conj nb (first p) (second p))))
       nb)))
 
+(defn for+-doseq+-helper [what seq-exprs & body]
+  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
+        [bind exp] seq-exprs]
+    (condp = bind
+      :let `(let ~exp
+              ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body))
+      :when `(when ~exp
+               ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body))
+      ;; default
+      (if (seq seq-exprs)
+        `(~what ~seq-exprs ~@body)
+        (when (= what `for)
+          [(first body)])))))
+
 (defmacro for+
   "An enhanced version of clojure.core/for with the following additional
   features.
@@ -297,19 +311,16 @@
   - :when exp             may occur as first element
   - :when-let [var expr]  bindings
 
-  As a special case, (for+ [] :x) returns [:x] instead of erroring."
+  As a special case, (for+ [] x) returns [x]."
   [seq-exprs body-expr]
-  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
-        [bind exp] seq-exprs]
-    (condp = bind
-      :let `(let ~exp
-              (for+ ~(vec (rest (rest seq-exprs)))
-                           ~body-expr))
-      :when `(when ~exp
-               (for+ ~(vec (rest (rest seq-exprs)))
-                            ~body-expr))
-      ;; default
-      (if (seq seq-exprs)
-        `(for ~seq-exprs
-           ~body-expr)
-        [body-expr]))))
+  (for+-doseq+-helper `for seq-exprs body-expr))
+
+(defmacro doseq+
+  "An enhanced version of clojure.core/doseq with the following additional
+  features.
+
+  - :let [var exp,...]    may occur as first element
+  - :when exp             may occur as first element
+  - :when-let [var expr]  bindings"
+  [seq-exprs & body]
+  (apply for+-doseq+-helper `doseq seq-exprs body))

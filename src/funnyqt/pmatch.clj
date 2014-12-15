@@ -1127,24 +1127,19 @@
                                 (* ~(binding-count rbf) (count ~vectorvar))
                                 0.75 (.availableProcessors (Runtime/getRuntime)))])
                     combine!# ~(if (:distinct (meta bf))
-                                 `(fn
-                                    ([] ~chm)
-                                    ([l# r#]
-                                     (if (identical? l# r#)
-                                       l#
-                                       (clojure.core.reducers/reduce
-                                        (fn [~chm o#]
-                                          (doto ~chm (.putIfAbsent o# Boolean/TRUE)))
-                                        l# r#))))
+                                 `(constantly ~chm)
                                  `clojure.core.reducers/cat)
+                    reduce!# ~(if (:distinct (meta bf))
+                                `(fn [_# ~sym]
+                                   (u/doseq+ ~rbf (.putIfAbsent ~chm ~result-form Boolean/TRUE))
+                                   ~chm)
+                                `(fn [coll# ~sym]
+                                   (clojure.core.reducers/cat coll# (u/for+ ~rbf ~result-form))))
                     finalize# ~(if (:distinct (meta bf))
                                  `(fn [~chm] (sequence (.keySet ~chm)))
                                  `sequence)]
                 (->> ~vectorvar
-                  (clojure.core.reducers/fold
-                   n# combine!#
-                   (fn [coll# ~sym]
-                     (combine!# coll# (u/for+ ~rbf ~result-form))))
+                  (clojure.core.reducers/fold n# combine!# reduce!#)
                   finalize#)))
            ;; Lazy Case
            (let [code `(u/for+ ~bf ~result-form)
