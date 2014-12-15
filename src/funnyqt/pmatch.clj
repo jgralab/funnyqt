@@ -136,6 +136,10 @@
              (= (first form) `if-let)))
     (set (concat (mapcat used-vars (map second (partition 2 (second form))))
                  (mapcat used-vars (nnext form))))
+    ;; exclude quoted symbols
+    (and (seq? form)
+         (= (first form) 'quote))
+    #{}
     ;; vectors & sets
     (or (vector? form)
         (set? form))
@@ -1102,7 +1106,9 @@
                                                                        "but was %s")
                                                                   (:eager (meta name))))
                  rbf (vec rbf)
+                 _ (println "1:" rbf sym)
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
+                 _ (println "2:" rbf constraints)
                  vectorvar (gensym "vector")
                  chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
              `(let [~vectorvar (into [] ~(if (seq constraints)
