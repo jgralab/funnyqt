@@ -1106,10 +1106,10 @@
                  [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
                  vectorvar (gensym "vector")
                  chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
-             `(let [~vectorvar (into [] ~(if (seq constraints)
-                                           `(filter (fn [~sym] (and ~@constraints))
-                                                    ~expr)
-                                           expr))
+             `(let [~vectorvar (into []
+                                     ~@(when (seq constraints)
+                                         [`(filter (fn [~sym] (and ~@constraints)))])
+                                     ~expr)
                     ;; We want to have about 20 packages of work per CPU, e.g.,
                     ;; we want to have 20 * #CPUs partitions.  This means the
                     ;; vector has to be partitioned into partitions of size
