@@ -322,15 +322,12 @@
                                                       {:name (when n (str n))})]
                                                [v (fn []
                                                     (when (and n isomorphic)
-                                                      (doseq [other (tg/vseq pg 'APatternVertex)
-                                                              :when (not= other v)
-                                                              :let [constr (tg/create-vertex!
-                                                                            pg 'Constraint
-                                                                            {:form (pr-str
-                                                                                    `[:when (not (identical?
-                                                                                                  ~n
-                                                                                                  ~(get-name other)))])})]]
-                                                        (tg/create-edge! pg 'Precedes v constr))))]))]
+                                                      (when-let [constrs (seq (for [other (tg/vseq pg 'APatternVertex)
+                                                                                    :when (not= other v)]
+                                                                                `(not (identical? ~n ~(get-name other)))))]
+                                                        (let [constr (tg/create-vertex! pg 'Constraint)]
+                                                          (tg/set-value! constr :form (pr-str `[:when (and ~@constrs)]))
+                                                          (tg/create-edge! pg 'Precedes v constr)))))]))]
                           (when t (tg/set-value! v :type (str t)))
                           [v iso-fn]))]
     (loop [pattern-spec pattern-spec
