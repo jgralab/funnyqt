@@ -115,7 +115,7 @@
             (recur (next p) (if (seq id)
                               (conj r (symbol id))
                               r)))
-          (#{:nested :when :when-let :for :let} cur)
+          (#{:nested :when :while :when-let :for :let} cur)
           (recur (nnext p) r)
           ;;---
           :else (recur (next p) r)))
@@ -154,11 +154,12 @@
   (loop [p p, r #{}]
     (if (seq p)
       (let [cur (first p)]
-        (if (#{:let :for :when :when-let} cur)
+        (if (#{:let :for :when :while :when-let} cur)
           (let [[kw expr] p]
             (condp = kw
               ;; the constraint expression
-              :when (recur (nnext p) (into r (used-vars expr)))
+              :when  (recur (nnext p) (into r (used-vars expr)))
+              :while (recur (nnext p) (into r (used-vars expr)))
               ;; the exp in :when-let [var exp]
               :when-let (recur (nnext p) (into r (used-vars (second expr))))
               ;; the exps is :let/for [a exp1, b exp2, ...]
@@ -336,9 +337,10 @@
         (let [cur (first pattern-spec)]
           (cond
             ;; Constraints and non-pattern binding forms
-            (#{:when :let :when-let :for} cur)
+            (#{:when :while :let :when-let :for} cur)
             (let [v (tg/create-vertex! pg (condp = cur
                                             :when     'Constraint
+                                            :while    'Constraint
                                             :when-let 'ConstraintAndBinding
                                             'Binding))]
               (binding [*print-meta* true]
@@ -889,8 +891,8 @@
                                            (into bs v)
                                            (conj bs v))))
                                 bs)))))
-        ;; Ignore :when (exp ...)
-        (= :when (first p)) (recur (nnext p) l)
+        ;; Ignore :when (exp ...) and :while (exp ...)
+        (#{:when :while} (first p)) (recur (nnext p) l)
         ;; A vector destructuring form
         (vector? (first p)) (recur (nnext p) (vec (concat l (remove #(= % '&) (first p)))))
         ;; A map destructuring form: {a :a, b :b} or {:keys [a b c] :or {:a 1} :as m}
