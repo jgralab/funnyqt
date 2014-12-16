@@ -71,26 +71,33 @@
     (if (seq p)
       (let [cur (first p)]
         (if (#{:for :let :when-let :nested} cur)
-          (recur (nnext p) (let [syms (map first (partition 2 (fnext p)))]
+          (recur (nnext p) (let [sym-exprs (partition 2 (fnext p))]
                              (into r
-                                   (mapcat #(cond
-                                              (symbol? %)
-                                              [%]
-                                              ;; Vector destructuring [a b]
-                                              (vector? %)
-                                              %
-                                              ;; Map destructuring {a :a, b :b}
-                                              (and (map? %) (symbol? (first (keys %))))
-                                              (keys %)
-                                              ;; Map destructuring {:keys [a b] :as m}
-                                              (and (map? %) (keyword? (first (keys %))))
-                                              (let [syms (:keys cur)]
-                                                (if-let [as (:as cur)]
-                                                  (conj syms as)
-                                                  syms))
-                                              ;;---
-                                              :else (u/errorf "Cannot handle %s" %))
-                                           syms))))
+                                   (mapcat (fn [[sym expr]]
+                                             (cond
+                                               (symbol? sym)
+                                               [sym]
+                                               ;; Constraints
+                                               (= :when sym)
+                                               nil
+                                               ;; Bindings with :let
+                                               (#{:when-let :let} sym)
+                                               (map first (partition 2 expr))
+                                               ;; Vector destructuring [a b]
+                                               (vector? sym)
+                                               sym
+                                               ;; Map destructuring {a :a, b :b}
+                                               (and (map? sym) (symbol? (first (keys sym))))
+                                               (keys sym)
+                                               ;; Map destructuring {:keys [a b] :as m}
+                                               (and (map? sym) (keyword? (first (keys sym))))
+                                               (let [syms (:keys cur)]
+                                                 (if-let [as (:as cur)]
+                                                   (conj syms as)
+                                                   syms))
+                                               ;;---
+                                               :else (u/errorf "Cannot handle %s %s" sym expr)))
+                                           sym-exprs))))
           (recur (next p) r)))
       (vec (distinct r)))))
 
