@@ -304,7 +304,7 @@
     (when-let [^String t (tg/value elem :type)]
       (if (.startsWith t ":")
         (read-string t)
-        `'~(symbol t)))))
+        (symbol t)))))
 
 (defn pattern-spec-to-pattern-graph [pname argvec pattern-spec isomorphic]
   (let [pname-str (if pname (name pname) "--anonymous--")
@@ -556,7 +556,7 @@
                    ;; class" name is given (the underscore), also the direction
                    ;; is considered.
                    (when-let [ec (get-type e)]
-                     (if (= ec ''_)
+                     (if (= ec '_)
                        nil
                        ec)))
         anon-vec-to-for (fn [start-sym av done]
@@ -575,12 +575,16 @@
                                                          ;; too.
                                                          ~@(when-let [t (and (not (done el))
                                                                              (get-type el))]
-                                                             [:when `(g/has-type? ~ncs ~t)])])
+                                                             ;; We assume
+                                                             ;; there's already
+                                                             ;; a type-matcher
+                                                             ;; named t
+                                                             [:when `(~t ~ncs)])])
                                                (into r `[~ncs (tg/iseq ~cs ~(inc-type el)
                                                                        ~(inc-dir el))]))))
                                     [cs r]))]
                             (if (== 2 (count r))
-                              (second r)  ;; only one binding [G_NNNN exp]
+                              (second r) ;; only one binding [G_NNNN exp]
                               `(u/for+ ~r ~v))))]
     (loop [queue (init-queue pg)
            done #{}
@@ -606,13 +610,17 @@
                        (into bf (let [bf-addon `[:when-let [~(get-name cur) ~(get-name cur)]]]
                                   (if (get-type cur)
                                     (into bf-addon
-                                          `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                                          ;; We assume there's already a
+                                          ;; type-matcher named like the type.
+                                          `[:when (~(get-type cur) ~(get-name cur))])
                                     bf-addon)))))
-              BindingVarVertex  ;; They're bound by ConstraintOrBinding
+              BindingVarVertex ;; They're bound by ConstraintOrBinding
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
-                       (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                       ;; We assume there's already a type-matcher named like
+                       ;; the type.
+                       (into bf `[:when (~(get-type cur) ~(get-name cur))])
                        bf))
               ConstraintOrBinding
               (if (deps-defined? cur done)
@@ -663,13 +671,17 @@
                                   (g/has-type? trg 'ArgumentVertex)
                                   `[:when-let [~(get-name trg) ~(get-name trg)]
                                     ~@(when (get-type trg)
-                                        `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
+                                        ;; We assume there's already a
+                                        ;; type-matcher named like the type.
+                                        `[:when (~(get-type trg) ~(get-name trg))])
                                     :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                   ;;---
                                   :else (concat
                                          [:let `[~(get-name trg) (tg/that ~(get-name cur))]]
                                          (when-let [t (get-type trg)]
-                                           `[:when (g/has-type? ~(get-name trg) ~t)])))))))
+                                           ;; We assume there's already a
+                                           ;; type-matcher named like the type.
+                                           `[:when (~t ~(get-name trg))])))))))
               ArgumentEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)]
@@ -681,7 +693,9 @@
                          (when-let [t (inc-type cur)]
                            (if (keyword? t)
                              (u/errorf "Argument edge type cannot be a keyword! %s" t)
-                             `[:when (g/has-type? ~(get-name cur) ~t)]))
+                             ;; We assume there's already a type-matcher named
+                             ;; like the type.
+                             `[:when (~t ~(get-name cur))]))
                          `[:when (= ~(get-name src) (tg/this ~(get-name cur)))]
                          (cond
                            (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
@@ -689,13 +703,17 @@
                            (g/has-type? trg 'ArgumentVertex)
                            `[:when-let [~(get-name trg) ~(get-name trg)]
                              ~@(when (get-type trg)
-                                 `[:when (g/has-type? ~(get-name trg) ~(get-type trg))])
+                                 ;; We assume there's already a type-matcher
+                                 ;; named like the type.
+                                 `[:when (~(get-type trg) ~(get-name trg))])
                              :when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                            ;;---
                            :else (concat
                                   `[:let [~(get-name trg) (tg/that ~(get-name cur))]]
                                   (when-let [t (get-type trg)]
-                                    `[:when (g/has-type? ~(get-name trg) ~t)])))))))
+                                    ;; We assume there's already a type-matcher
+                                    ;; named like the type.
+                                    `[:when (~t ~(get-name trg))])))))))
               NegPatternEdge
               (let [src (tg/this cur)
                     trg (tg/that cur)
@@ -712,7 +730,11 @@
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
                                       `[:when (empty? (filter
-                                                       #(g/has-type? (tg/that %) ~tt)
+                                                       ;; We assume there's
+                                                       ;; already a
+                                                       ;; type-matcher named
+                                                       ;; like the type.
+                                                       #(~tt (tg/that %))
                                                        (tg/iseq ~(get-name src) ~(inc-type cur)
                                                                 ~(inc-dir cur))))]
                                       `[:when (empty? (tg/iseq ~(get-name src) ~(inc-type cur)
@@ -754,7 +776,11 @@
                                                ;; type is already checked, too.
                                                (into r (when-let [t (and (not (done el))
                                                                          (get-type el))]
-                                                         `[:when (g/has-type? ~ncs ~t)]))
+                                                         ;; We assume there's
+                                                         ;; already a
+                                                         ;; type-matcher named
+                                                         ;; like the type.
+                                                         `[:when (~t ~ncs)]))
                                                (into r `[~ncs ~(if-let [t (get-edge-type el)]
                                                                  `(~role-fn ~cs ~t)
                                                                  `(~neighbors-fn ~cs))]))))
@@ -790,13 +816,17 @@
                        (into bf (let [bf-addon `[:when-let [~(get-name cur) ~(get-name cur)]]]
                                   (if (get-type cur)
                                     (into bf-addon
-                                          `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                                          ;; We assume there's already a
+                                          ;; type-matcher named like the type.
+                                          `[:when (~(get-type cur) ~(get-name cur))])
                                     bf-addon)))))
               BindingVarVertex ;; Actually bound by ConstraintOrBinding
               (recur (enqueue-incs cur (pop queue) done)
                      (conj-done done cur)
                      (if (get-type cur)
-                       (into bf `[:when (g/has-type? ~(get-name cur) ~(get-type cur))])
+                       ;; We assume there's already a type-matcher named like
+                       ;; the type.
+                       (into bf `[:when (~(get-type cur) ~(get-name cur))])
                        bf))
               ConstraintOrBinding
               (if (deps-defined? cur done)
@@ -830,7 +860,11 @@
                          (into bf (if (anon? trg)
                                     (if-let [tt (get-type trg)]
                                       `[:when (empty? (filter
-                                                       #(g/has-type? % ~tt)
+                                                       ;; We assume there's
+                                                       ;; already a
+                                                       ;; type-matcher named
+                                                       ;; like the type.
+                                                       #(~tt %)
                                                        ~(if-let [t (get-edge-type cur)]
                                                           `(~role-fn ~(get-name src) ~t)
                                                           `(~neighbors-fn ~(get-name src)))))]
@@ -1028,24 +1062,26 @@
         (recur (next p) (conj r (first p))))
       r)))
 
-(defn ^:private transform-pattern-vector
+(defn ^:private transform-pattern-spec
   "Transforms patterns like [a<X> -<role>-> b<Y>] to a binding vector suitable
-  for `funnyqt.utils/for+`.  That vector contains metadata :distinct and :as.
+  for `funnyqt.utils/for+`.  That vector contains metadata :distinct, :as, and
+  also the pattern graph as :pattern-graph.
 
   (Only for internal use.)"
-  [name pattern args]
-  (let [[pattern distinct]   (get-and-remove-key-from-vector pattern :distinct false)
-        [pattern result]     (get-and-remove-key-from-vector pattern :as       true)
-        [pattern isomorphic] (get-and-remove-key-from-vector pattern :isomorphic false)
-        pattern (merge-extends pattern)
-        pgraph (pattern-spec-to-pattern-graph name args pattern isomorphic)
+  [name pattern-spec args]
+  (let [[pattern-spec distinct]   (get-and-remove-key-from-vector pattern-spec :distinct false)
+        [pattern-spec result]     (get-and-remove-key-from-vector pattern-spec :as       true)
+        [pattern-spec isomorphic] (get-and-remove-key-from-vector pattern-spec :isomorphic false)
+        pattern-spec (merge-extends pattern-spec)
+        pgraph (pattern-spec-to-pattern-graph name args pattern-spec isomorphic)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
       (binding [*conversion-opts* (assoc (meta name)
                                          :distinct distinct)]
         (with-meta (transform-fn args pgraph)
-          {:distinct distinct
-           :as       result}))
+          {:distinct      distinct
+           :as            result
+           :pattern-graph pgraph}))
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
@@ -1062,13 +1098,24 @@
         (recur r (conj nv x y) cs))
       [nv cs])))
 
+(defn ^:private create-type-matchers [model-var pgraph]
+  (into []
+        (mapcat (fn [t]
+                  (when (and (symbol? t)
+                             (not= t '_))
+                    `[~t (g/type-matcher ~model-var '~t)])))
+        (distinct
+         (map get-type
+              (concat (tg/vseq pgraph 'APatternVertex)
+                      (tg/eseq pgraph 'APatternEdge))))))
+
 (defn ^:private convert-spec [name args-and-pattern]
   (when (> (count args-and-pattern) 2)
     (u/errorf "Pattern %s has too many components (should have only args and pattern vector)." name))
   (let [[args pattern-spec] args-and-pattern]
     (when-not (and (vector? args) (vector? pattern-spec))
       (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
-    (let [bf (transform-pattern-vector name pattern-spec args)
+    (let [bf (transform-pattern-spec name pattern-spec args)
           result-form (or (when-let [result-form (:as (meta bf))]
                             (condp = result-form
                               :vector (bindings-to-argvec bf)
@@ -1078,81 +1125,82 @@
                           (argvec-to-hash-map
                            (bindings-to-argvec bf)))]
       `(~args
-        ~(if (and (:eager (meta name))
-                  (not (:sequential (meta name)))
-                  (<= 2 (.availableProcessors (Runtime/getRuntime)))
-                  ;; The first binding is :when-let [p p] if the pattern starts
-                  ;; with an argument vertex p.  In that case, we can't
-                  ;; parallelize.
-                  (not (keyword? (first bf)))
-                  (>= (count (bindings-to-argvec bf)) 2))
-           ;; Eager, Parallel Case
-           (let [[sym expr & rbf] bf
-                 default-min-partition-size 16
-                 default-partitions-per-cpu 32
-                 [MIN-PARTITION-SIZE PARTITIONS-PER-CPU] (cond
-                                                           (vector? (:eager (meta name)))
-                                                           (let [[mps ppc] (:eager (meta name))]
-                                                             [(or mps default-min-partition-size)
-                                                              (or ppc default-partitions-per-cpu)])
-                                                           ;;---
-                                                           (true? (:eager (meta name)))
-                                                           [default-min-partition-size
-                                                            default-partitions-per-cpu]
-                                                           ;;---
-                                                           :else (u/errorf
-                                                                  (str ":eager option must be true or "
-                                                                       "a vector of the form "
-                                                                       "[MIN-PARTITION-SIZE PARTITIONS-PER-CPU] "
-                                                                       "but was %s")
-                                                                  (:eager (meta name))))
-                 rbf (vec rbf)
-                 [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
-                 vectorvar (gensym "vector")
-                 chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
-             `(let [~vectorvar (into []
-                                     ~@(when (seq constraints)
-                                         [`(filter (fn [~sym] (and ~@constraints)))])
-                                     ~expr)
-                    ;; We want to have about 20 packages of work per CPU, e.g.,
-                    ;; we want to have 20 * #CPUs partitions.  This means the
-                    ;; vector has to be partitioned into partitions of size
-                    ;; #vector / (20 * #CPUs).  That allows to keep all cores
-                    ;; busy if some partitions are much more expensive than
-                    ;; others.  However, partitions mustn't be too small, too.
-                    ;; Else the parallelization suffers from the coordination
-                    ;; overhead.
-                    n# (max ~MIN-PARTITION-SIZE
-                            (long (/ (count ~vectorvar)
-                                     (* ~PARTITIONS-PER-CPU
-                                        (.availableProcessors (Runtime/getRuntime))))))
-                    ~@(when (:distinct (meta bf))
-                        `[~chm (java.util.concurrent.ConcurrentHashMap.
-                                (* ~(count (bindings-to-argvec rbf)) (count ~vectorvar))
-                                0.75 (.availableProcessors (Runtime/getRuntime)))])
-                    combine!# ~(if (:distinct (meta bf))
-                                 `(constantly ~chm)
-                                 `clojure.core.reducers/cat)
-                    reduce!# ~(if (:distinct (meta bf))
-                                `(fn [_# ~sym]
-                                   (u/doseq+ ~rbf (.putIfAbsent ~chm ~result-form Boolean/TRUE))
-                                   ~chm)
-                                `(fn [coll# ~sym]
-                                   (clojure.core.reducers/cat coll# (u/for+ ~rbf ~result-form))))
-                    finalize# ~(if (:distinct (meta bf))
-                                 `(fn [~chm] (sequence (.keySet ~chm)))
-                                 `sequence)]
-                (->> ~vectorvar
-                  (clojure.core.reducers/fold n# combine!# reduce!#)
-                  finalize#)))
-           ;; Lazy Case
-           (let [code `(u/for+ ~bf ~result-form)
-                 code (if (:distinct (meta bf))
-                        `(q/no-dups ~code)
-                        code)]
-             (if (:eager (meta name))
-               `(doall ~code)
-               `(sequence ~code))))))))
+        (let [~@(create-type-matchers (first args) (:pattern-graph (meta bf)))]
+          ~(if (and (:eager (meta name))
+                    (not (:sequential (meta name)))
+                    (<= 2 (.availableProcessors (Runtime/getRuntime)))
+                    ;; The first binding is :when-let [p p] if the pattern starts
+                    ;; with an argument vertex p.  In that case, we can't
+                    ;; parallelize.
+                    (not (keyword? (first bf)))
+                    (>= (count (bindings-to-argvec bf)) 2))
+             ;; Eager, Parallel Case
+             (let [[sym expr & rbf] bf
+                   default-min-partition-size 16
+                   default-partitions-per-cpu 32
+                   [MIN-PARTITION-SIZE PARTITIONS-PER-CPU] (cond
+                                                             (vector? (:eager (meta name)))
+                                                             (let [[mps ppc] (:eager (meta name))]
+                                                               [(or mps default-min-partition-size)
+                                                                (or ppc default-partitions-per-cpu)])
+                                                             ;;---
+                                                             (true? (:eager (meta name)))
+                                                             [default-min-partition-size
+                                                              default-partitions-per-cpu]
+                                                             ;;---
+                                                             :else (u/errorf
+                                                                    (str ":eager option must be true or "
+                                                                         "a vector of the form "
+                                                                         "[MIN-PARTITION-SIZE PARTITIONS-PER-CPU] "
+                                                                         "but was %s")
+                                                                    (:eager (meta name))))
+                   rbf (vec rbf)
+                   [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
+                   vectorvar (gensym "vector")
+                   chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
+               `(let [~vectorvar (into []
+                                       ~@(when (seq constraints)
+                                           [`(filter (fn [~sym] (and ~@constraints)))])
+                                       ~expr)
+                      ;; We want to have about 20 packages of work per CPU, e.g.,
+                      ;; we want to have 20 * #CPUs partitions.  This means the
+                      ;; vector has to be partitioned into partitions of size
+                      ;; #vector / (20 * #CPUs).  That allows to keep all cores
+                      ;; busy if some partitions are much more expensive than
+                      ;; others.  However, partitions mustn't be too small, too.
+                      ;; Else the parallelization suffers from the coordination
+                      ;; overhead.
+                      n# (max ~MIN-PARTITION-SIZE
+                              (long (/ (count ~vectorvar)
+                                       (* ~PARTITIONS-PER-CPU
+                                          (.availableProcessors (Runtime/getRuntime))))))
+                      ~@(when (:distinct (meta bf))
+                          `[~chm (java.util.concurrent.ConcurrentHashMap.
+                                  (* ~(count (bindings-to-argvec rbf)) (count ~vectorvar))
+                                  0.75 (.availableProcessors (Runtime/getRuntime)))])
+                      combine!# ~(if (:distinct (meta bf))
+                                   `(constantly ~chm)
+                                   `clojure.core.reducers/cat)
+                      reduce!# ~(if (:distinct (meta bf))
+                                  `(fn [_# ~sym]
+                                     (u/doseq+ ~rbf (.putIfAbsent ~chm ~result-form Boolean/TRUE))
+                                     ~chm)
+                                  `(fn [coll# ~sym]
+                                     (clojure.core.reducers/cat coll# (u/for+ ~rbf ~result-form))))
+                      finalize# ~(if (:distinct (meta bf))
+                                   `(fn [~chm] (sequence (.keySet ~chm)))
+                                   `sequence)]
+                  (->> ~vectorvar
+                    (clojure.core.reducers/fold n# combine!# reduce!#)
+                    finalize#)))
+             ;; Lazy Case
+             (let [code `(u/for+ ~bf ~result-form)
+                   code (if (:distinct (meta bf))
+                          `(q/no-dups ~code)
+                          code)]
+               (if (:eager (meta name))
+                 `(doall ~code)
+                 `(sequence ~code)))))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,

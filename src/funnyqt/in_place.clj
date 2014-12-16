@@ -82,7 +82,7 @@
     (if (vector? (first more))
       ;; pattern vector given
       (let [pattern-vector (first more)
-            bf          (@#'pm/transform-pattern-vector name pattern-vector args)
+            bf          (@#'pm/transform-pattern-spec name pattern-vector args)
             custom-as   (:as (meta bf))
             matchsyms   (pm/bindings-to-argvec bf)
             pattern-vector (if custom-as
