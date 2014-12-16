@@ -1069,9 +1069,6 @@
     (when-not (and (vector? args) (vector? pattern-spec))
       (u/errorf "Pattern %s is missing the args or pattern vector. Got %s." name args-and-pattern))
     (let [bf (transform-pattern-vector name pattern-spec args)
-          binding-count (fn [bf]
-                          (count (filter (fn [[var expr]] (symbol? var))
-                                         (partition 2 bf))))
           result-form (or (when-let [result-form (:as (meta bf))]
                             (condp = result-form
                               :vector (bindings-to-argvec bf)
@@ -1088,7 +1085,7 @@
                   ;; with an argument vertex p.  In that case, we can't
                   ;; parallelize.
                   (not (keyword? (first bf)))
-                  (>= (binding-count bf) 2))
+                  (>= (count (bindings-to-argvec bf)) 2))
            ;; Eager, Parallel Case
            (let [[sym expr & rbf] bf
                  default-min-partition-size 16
@@ -1131,7 +1128,7 @@
                                         (.availableProcessors (Runtime/getRuntime))))))
                     ~@(when (:distinct (meta bf))
                         `[~chm (java.util.concurrent.ConcurrentHashMap.
-                                (* ~(binding-count rbf) (count ~vectorvar))
+                                (* ~(count (bindings-to-argvec rbf)) (count ~vectorvar))
                                 0.75 (.availableProcessors (Runtime/getRuntime)))])
                     combine!# ~(if (:distinct (meta bf))
                                  `(constantly ~chm)
