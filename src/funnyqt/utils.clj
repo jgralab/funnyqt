@@ -289,7 +289,7 @@
         (recur (nnext p) (conj nb (first p) (second p))))
       nb)))
 
-(defn for+-doseq+-helper [what seq-exprs & body]
+(defn ^:private for+-doseq+-helper [what seq-exprs & body]
   (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
         [bind exp] seq-exprs]
     (condp = bind
@@ -300,8 +300,9 @@
       ;; default
       (if (seq seq-exprs)
         `(~what ~seq-exprs ~@body)
-        (when (= what `for)
-          [(first body)])))))
+        (if (= what `for)
+          (vec body)
+          `(do ~@body))))))
 
 (defmacro for+
   "An enhanced version of clojure.core/for with the following additional
@@ -321,6 +322,7 @@
 
   - :let [var exp,...]    may occur as first element
   - :when exp             may occur as first element
-  - :when-let [var expr]  bindings"
+  - :when-let [var expr]  bindings
+  As a special case, (doseq+ [] x) executes x once."
   [seq-exprs & body]
   (apply for+-doseq+-helper `doseq seq-exprs body))
