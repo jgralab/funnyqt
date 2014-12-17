@@ -1157,6 +1157,7 @@
                    rbf (vec rbf)
                    [rbf constraints] (get-and-remove-constraint-from-vector rbf #{sym})
                    vectorvar (gensym "vector")
+                   combinevar (gensym "combine!")
                    chm (with-meta (gensym "chm") {:tag 'java.util.concurrent.ConcurrentHashMap})]
                `(let [~vectorvar (into []
                                        ~@(when (seq constraints)
@@ -1178,20 +1179,20 @@
                           `[~chm (java.util.concurrent.ConcurrentHashMap.
                                   (* ~(count (bindings-to-argvec rbf)) (count ~vectorvar))
                                   0.75 (.availableProcessors (Runtime/getRuntime)))])
-                      combine!# ~(if (:distinct (meta bf))
-                                   `(constantly ~chm)
-                                   `clojure.core.reducers/cat)
+                      ~combinevar ~(if (:distinct (meta bf))
+                                     `(constantly ~chm)
+                                     `clojure.core.reducers/cat)
                       reduce!# ~(if (:distinct (meta bf))
                                   `(fn [_# ~sym]
                                      (u/doseq+ ~rbf (.putIfAbsent ~chm ~result-form Boolean/TRUE))
                                      ~chm)
                                   `(fn [coll# ~sym]
-                                     (clojure.core.reducers/cat coll# (u/for+ ~rbf ~result-form))))
+                                     (~combinevar coll# (u/for+ ~rbf ~result-form))))
                       finalize# ~(if (:distinct (meta bf))
                                    `(fn [~chm] (sequence (.keySet ~chm)))
                                    `sequence)]
                   (->> ~vectorvar
-                    (clojure.core.reducers/fold n# combine!# reduce!#)
+                    (clojure.core.reducers/fold n# ~combinevar reduce!#)
                     finalize#)))
              ;; Lazy Case
              (let [code `(u/for+ ~bf ~result-form)
