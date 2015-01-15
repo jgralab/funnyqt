@@ -1191,9 +1191,8 @@
                       finalize# ~(if (:distinct (meta bf))
                                    `(fn [~chm] (sequence (.keySet ~chm)))
                                    `sequence)]
-                  (->> ~vectorvar
-                    (clojure.core.reducers/fold n# ~combinevar reduce!#)
-                    finalize#)))
+                  (finalize#
+                   (clojure.core.reducers/fold n# ~combinevar reduce!# ~vectorvar))))
              ;; Lazy Case
              (let [code `(u/for+ ~bf ~result-form)
                    code (if (:distinct (meta bf))
