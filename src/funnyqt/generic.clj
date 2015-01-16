@@ -93,7 +93,7 @@
 
   The type-specs are tested one after the other, and if a type-spec matches the
   type of `elem`, the return value of type-case is the result-expr paired with
-  the succeeding type-spec.
+  the succeeding type-spec.  Note that the type-specs must not be quoted!
 
   A single default-expr may follow the pairs.  If no type-spec matches, the
   return value of type-case is the value of that default expression.  If there
