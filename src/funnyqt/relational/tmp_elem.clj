@@ -99,7 +99,7 @@
     (when manifested (u/errorf "Already manifested: %s" this))
     (let [cur-class (g/mm-class wrapped-element)
           super-or-eq-to-cur? #(or (= % cur-class)
-                                   (g/mm-super-class? % cur-class))]
+                                   (g/mm-superclass? % cur-class))]
       (if (vector? t)
         (q/exists? super-or-eq-to-cur? (map (partial g/mm-class model) t))
         (super-or-eq-to-cur? (g/mm-class model t)))))
@@ -148,16 +148,16 @@
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set alpha of non-relationship %s." wrapped-element))
     (cond
-     (tmp-element? a)     false
-     :else                true))
+      (tmp-element? a)     false
+      :else                true))
   (set-omega [this o]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; o is either fresh or a wrapper or tmp element
     (when-not (instance-of-any? relationship-types wrapped-element)
       (u/errorf "Can't set omega of non-relationship %s." wrapped-element))
     (cond
-     (tmp-element? o)     false
-     :else                true))
+      (tmp-element? o)     false
+      :else                true))
   (finalize-alpha-and-omega [this subst]
     true)
   IManifestation
@@ -223,9 +223,9 @@
         (when-not (#{:element :relationship} k)
           (u/errorf "Unknown kind %s." k))
         (cond
-         (nil? kind) (do (set! kind k) true)
-         (= kind k) true
-         :else (u/errorf "Cannot reset kind from %s to %s." kind k)))))
+          (nil? kind) (do (set! kind k) true)
+          (= kind k) true
+          :else (u/errorf "Cannot reset kind from %s to %s." kind k)))))
   IType
   (set-type [this t]
     (if (vector? t)
@@ -236,15 +236,15 @@
       ;; equal to one of the given classes in the future.
       (let [mm-class (g/mm-class model (second (u/type-with-modifiers (name t))))]
         (cond
-         ;; No type set already.
-         (nil? type) (do (set! type mm-class) true)
-         ;; The given type is a superclass of or identical to the currently set
-         ;; type, so ccl/succeed without changing anything.
-         (or (= mm-class type)
-             (g/mm-super-class? mm-class type)) true
-         ;; The current type is a superclass of mm-class, so set to the more
-         ;; specific.
-         (g/mm-super-class? type mm-class) (do (set! type mm-class) true)
+          ;; No type set already.
+          (nil? type) (do (set! type mm-class) true)
+          ;; The given type is a superclass of or identical to the currently set
+          ;; type, so ccl/succeed without changing anything.
+          (or (= mm-class type)
+              (g/mm-superclass? mm-class type)) true
+              ;; The current type is a superclass of mm-class, so set to the more
+              ;; specific.
+              (g/mm-superclass? type mm-class) (do (set! type mm-class) true)
          :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
   (add-attr [this attr val _] ;; The may-override param is ignored for new elements.

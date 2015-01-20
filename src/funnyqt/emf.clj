@@ -276,7 +276,7 @@
                     (print-str enum-cls) elit))
       (u/errorf "No such EEnum %s." eenum))))
 
-(extend-protocol g/IMMAllSubClasses
+(extend-protocol g/IMMAllSubclasses
   EClass
   (mm-all-subclasses [this]
     (eallsubclasses this)))
@@ -336,14 +336,14 @@
     ([this qn]
      (eclassifier qn))))
 
-(extend-protocol g/IMMDirectSuperClasses
+(extend-protocol g/IMMDirectSuperclasses
   EClass
-  (mm-direct-super-classes [this]
+  (mm-direct-superclasses [this]
     (seq (.getESuperTypes this))))
 
-(extend-protocol g/IMMSuperClassOf
+(extend-protocol g/IMMSuperclass
   EClass
-  (mm-super-class? [this sub]
+  (mm-superclass? [this sub]
     (and (not (identical? this sub))
          (.isSuperTypeOf this sub))))
 

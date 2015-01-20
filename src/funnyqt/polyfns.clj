@@ -54,7 +54,7 @@ types is provided:
          (let [impls (into #{}
                            (comp (map (partial find-polyfn-impl polyfn-sym spec-map orig-type))
                                  (remove nil? ))
-                           (g/mm-direct-super-classes type))]
+                           (g/mm-direct-superclasses type))]
            (if (fnext impls)
              (u/errorf "Multiple %s polyfn impls for type %s."
                        polyfn-sym (g/qname orig-type))

@@ -426,19 +426,19 @@ functions `record` and `enum-constant`."
          cls
          (u/errorf "No such AttributedElementClass: %s." qn)))))
 
-(extend-protocol g/IMMDirectSuperClasses
+(extend-protocol g/IMMDirectSuperclasses
   GraphElementClass
-  (mm-direct-super-classes [this]
+  (mm-direct-superclasses [this]
     (seq (.getDirectSuperClasses this))))
 
-(extend-protocol g/IMMAllSubClasses
+(extend-protocol g/IMMAllSubclasses
   GraphElementClass
   (mm-all-subclasses [this]
     (seq (.getAllSubClasses this))))
 
-(extend-protocol g/IMMSuperClassOf
+(extend-protocol g/IMMSuperclass
   GraphElementClass
-  (mm-super-class? [this sub]
+  (mm-superclass? [this sub]
     (.isSuperClassOf this sub)))
 
 (extend-protocol g/IMMAttributes

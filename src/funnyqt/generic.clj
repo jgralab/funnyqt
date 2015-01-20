@@ -197,13 +197,13 @@
   java.util.Collection
   (delete!
     ([this]
-       (doseq [x this]
-         (delete! x))
-       this)
+     (doseq [x this]
+       (delete! x))
+     this)
     ([this recursive]
-       (doseq [x this]
-         (delete! x recursive))
-       this)))
+     (doseq [x this]
+       (delete! x recursive))
+     this)))
 
 ;;# Adacencies
 
@@ -366,16 +366,16 @@
     "Returns the given model-element's metamodel class,
   or the metamodel class named mm-class-sym (a symbol)."))
 
-(defprotocol IMMDirectSuperClasses
-  (mm-direct-super-classes [metamodel-type]
+(defprotocol IMMDirectSuperclasses
+  (mm-direct-superclasses [metamodel-type]
     "Returns the direct superclasses of metamodel-type."))
 
-(defprotocol IMMSuperClassOf
-  (mm-super-class? [super sub]
+(defprotocol IMMSuperclass
+  (mm-superclass? [super sub]
     "Return true iff super is a direct or indirect super class of sub.
-  (mm-super-class? c c) is false."))
+  (mm-superclass? c c) is false."))
 
-(defprotocol IMMAllSubClasses
+(defprotocol IMMAllSubclasses
   (mm-all-subclasses [cls]
     "Returns the sequence of all subclasses of `cls`.  Those are direct and
     indirect subclasses."))
