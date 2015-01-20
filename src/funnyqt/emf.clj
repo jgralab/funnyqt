@@ -276,6 +276,11 @@
                     (print-str enum-cls) elit))
       (u/errorf "No such EEnum %s." eenum))))
 
+(extend-protocol g/IMMAllSubClasses
+  EClass
+  (mm-all-subclasses [this]
+    (eallsubclasses this)))
+
 (extend-protocol g/IEnumConstant
   EObject
   (enum-constant [el const]
@@ -306,8 +311,8 @@
             uris (into [] (comp (map #(.getNsURI ^EPackage %))
                                 (remove nil?))
                        (cons top-pkg subs))]
-         (with-ns-uris uris
-           (eclasses)))))
+        (with-ns-uris uris
+          (eclasses)))))
   Resource
   (mm-element-classes [res]
     (eclasses res))
@@ -319,17 +324,17 @@
   EObject
   (mm-class
     ([this]
-       (.eClass this))
+     (.eClass this))
     ([this qn]
-       (eclassifier qn)))
+     (eclassifier qn)))
   ResourceSet
   (mm-class
     ([this qn]
-       (eclassifier qn)))
+     (eclassifier qn)))
   Resource
   (mm-class
     ([this qn]
-       (eclassifier qn))))
+     (eclassifier qn))))
 
 (extend-protocol g/IMMDirectSuperClasses
   EClass
@@ -421,23 +426,23 @@
 
 (defn ^:private create-uri [f]
   (cond
-   (instance? URI f)
-   f
+    (instance? URI f)
+    f
 
-   (instance? java.io.File f)
-   (URI/createURI (.getPath ^java.io.File f))
+    (instance? java.io.File f)
+    (URI/createURI (.getPath ^java.io.File f))
 
-   (instance? java.net.URL f)
-   (URI/createURI (.toString ^java.net.URL f))
+    (instance? java.net.URL f)
+    (URI/createURI (.toString ^java.net.URL f))
 
-   (and (string? f)
-        (.exists (clojure.java.io/file f)))
-   (URI/createURI f)
+    (and (string? f)
+         (.exists (clojure.java.io/file f)))
+    (URI/createURI f)
 
-   (clojure.java.io/resource f)
-   (URI/createURI (.toString (clojure.java.io/resource f)))
+    (clojure.java.io/resource f)
+    (URI/createURI (.toString (clojure.java.io/resource f)))
 
-   :else (u/errorf "Cannot load %s." f)))
+    :else (u/errorf "Cannot load %s." f)))
 
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.
@@ -490,23 +495,23 @@
   `f` may be a file name given as string, a java.io.File, an URI, or a
   java.net.URL."
   ([^Resource resource]
-     (if-let [uri (.getURI resource)]
-       ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
-       ;; http://www.eclipse.org/forums/index.php/m/405881/
-       (let [l (.getContents resource)
-             ^java.util.ListIterator li (.listIterator l)]
-         (while (.hasNext li)
-           (let [^EObject o (.next li)]
-             (when (.eContainer o)
-               (.remove li))))
-         (println "Saving resource to" (.toFileString uri))
-         (.save resource nil))
-       (u/error (str "You tried to call save-resource on a Resource not associated "
-                     "with a file!\n"))))
+   (if-let [uri (.getURI resource)]
+     ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
+     ;; http://www.eclipse.org/forums/index.php/m/405881/
+     (let [l (.getContents resource)
+           ^java.util.ListIterator li (.listIterator l)]
+       (while (.hasNext li)
+         (let [^EObject o (.next li)]
+           (when (.eContainer o)
+             (.remove li))))
+       (println "Saving resource to" (.toFileString uri))
+       (.save resource nil))
+     (u/error (str "You tried to call save-resource on a Resource not associated "
+                   "with a file!\n"))))
   ([^Resource resource f]
-     (let [uri (create-uri f)]
-       (.setURI resource uri)
-       (save-resource resource))))
+   (let [uri (create-uri f)]
+     (.setURI resource uri)
+     (save-resource resource))))
 
 ;;## Type Checks
 
@@ -529,28 +534,28 @@
 (defn ^:private type-matcher-emf
   [ts]
   (cond
-   (nil? ts)     identity
-   (u/qname? ts) (type-matcher-emf-1 ts)
-   (vector? ts)  (if (seq ts)
-                   (let [f (first ts)
-                         [op r] (case f
-                                  :and  [q/and-fn  (next ts)]
-                                  :nand [q/nand-fn (next ts)]
-                                  :or   [q/or-fn   (next ts)]
-                                  :nor  [q/nor-fn  (next ts)]
-                                  :xor  [q/xor-fn  (next ts)]
-                                  [q/or-fn ts])
-                         t-matchers (map #(type-matcher-emf %) r)]
-                     (apply op t-matchers))
-                   ;; Empty collection given: (), [], that's also ok
-                   identity)
-   (fn? ts)      ts
-   ;; {"http://my.nsuri/1.0" ts}
-   (map? ts)     (let [[ns-uris ts] (first ts)]
-                   (binding [*ns-uris* (if ns-uris [ns-uris] *ns-uris*)]
-                     (type-matcher-emf ts)))
-   (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
-   :else (u/errorf "Don't know how to create an EMF type-matcher for %s" ts)))
+    (nil? ts)     identity
+    (u/qname? ts) (type-matcher-emf-1 ts)
+    (vector? ts)  (if (seq ts)
+                    (let [f (first ts)
+                          [op r] (case f
+                                   :and  [q/and-fn  (next ts)]
+                                   :nand [q/nand-fn (next ts)]
+                                   :or   [q/or-fn   (next ts)]
+                                   :nor  [q/nor-fn  (next ts)]
+                                   :xor  [q/xor-fn  (next ts)]
+                                   [q/or-fn ts])
+                          t-matchers (map #(type-matcher-emf %) r)]
+                      (apply op t-matchers))
+                    ;; Empty collection given: (), [], that's also ok
+                    identity)
+    (fn? ts)      ts
+    ;; {"http://my.nsuri/1.0" ts}
+    (map? ts)     (let [[ns-uris ts] (first ts)]
+                    (binding [*ns-uris* (if ns-uris [ns-uris] *ns-uris*)]
+                      (type-matcher-emf ts)))
+    (eclass? ts)  (fn [e] (.isInstance ^EClass ts e))
+    :else (u/errorf "Don't know how to create an EMF type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-cached [_ ts]
   (let [[ns-uris ts-1] (ns-uris-and-type-spec ts)
@@ -581,12 +586,12 @@
 ;;## Traversal Stuff
 
 (defprotocol ^:private IEContents
-  "A protocol for getting the contents of Resources, ResourceSets and EObjects."
-  (^:private eallcontents-internal [this tm]
-    "Returns a seq of all directly and indirectly contained EObjects whose type
+             "A protocol for getting the contents of Resources, ResourceSets and EObjects."
+             (^:private eallcontents-internal [this tm]
+               "Returns a seq of all directly and indirectly contained EObjects whose type
   matches the type spec `ts` (see `funnyqt.generic/type-matcher`).")
-  (^:private econtents-internal [this tm]
-    "Returns a seq of all directly contained EObjects whose type matches the
+             (^:private econtents-internal [this tm]
+               "Returns a seq of all directly contained EObjects whose type matches the
   type spec `ts` (see `funnyqt.generic/type-matcher`)."))
 
 (extend-protocol IEContents
@@ -626,33 +631,33 @@
   matching the type spec `ts`.  `container` may be an EObject, a
   Collection, a Resource, or a ResourceSet."
   ([container]
-     (eallcontents-internal container identity))
+   (eallcontents-internal container identity))
   ([container ts]
-     (eallcontents-internal container ts)))
+   (eallcontents-internal container ts)))
 
 (defn econtents
   "Returns a lazy seq of `containers`s direct contents matching the type spec `ts`.
   `container` may be an EObject, a Collection, a Resource, or a
   ResourceSet."
   ([container]
-     (econtents-internal container identity))
+   (econtents-internal container identity))
   ([container ts]
-     (econtents-internal container ts)))
+   (econtents-internal container ts)))
 
 (extend-protocol g/IElements
   Resource
   (elements
     ([this]
-       (eallcontents this))
+     (eallcontents this))
     ([this ts]
-       (eallcontents this ts)))
+     (eallcontents this ts)))
 
   ResourceSet
   (elements
     ([this]
-       (eallcontents this))
+     (eallcontents this))
     ([this ts]
-       (eallcontents this ts))))
+     (eallcontents this ts))))
 
 (defn eresource
   "Returns the Resource containing `eo` directly or indirectly (if any)."
@@ -673,30 +678,30 @@
     (fn [r] ...)  => simply use that"
   [rs]
   (cond
-   (nil? rs)        identity
-   (fn? rs)         rs
-   (u/prop-name? rs)  (let [n (name rs)]
-                        (fn [^EReference ref]
-                          (= n (.getName ref))))
-   (ereference? rs) (fn [r] (= rs r))
-   (coll? rs)       (if (seq rs)
-                      (apply some-fn (map eref-matcher rs))
-                      ;; Empty collection given: (), [], that's also ok
-                      identity)
-   :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
+    (nil? rs)        identity
+    (fn? rs)         rs
+    (u/prop-name? rs)  (let [n (name rs)]
+                         (fn [^EReference ref]
+                           (= n (.getName ref))))
+    (ereference? rs) (fn [r] (= rs r))
+    (coll? rs)       (if (seq rs)
+                       (apply some-fn (map eref-matcher rs))
+                       ;; Empty collection given: (), [], that's also ok
+                       identity)
+    :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
 
 (defn econtainer
   "Returns the EObject containing `eo` (if any).
   If a reference spec `rs` is given, return only `eo`s container if it's
   referenced by a containment reference matching `rs`."
   ([^EObject eo]
-     (.eContainer eo))
+   (.eContainer eo))
   ([^EObject eo rs]
-     (let [rm (eref-matcher rs)]
-       (q/the (mapcat (fn [^EReference r] (.eGet eo r))
-                      (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                            :when (and (.isContainer ref) (rm ref))]
-                        ref))))))
+   (let [rm (eref-matcher rs)]
+     (q/the (mapcat (fn [^EReference r] (.eGet eo r))
+                    (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                          :when (and (.isContainer ref) (rm ref))]
+                      ref))))))
 
 (extend-protocol g/IContainer
   EObject
@@ -707,9 +712,9 @@
   EObject
   (contents
     ([this]
-       (econtents this))
+     (econtents this))
     ([this ts]
-       (econtents this ts))))
+     (econtents this ts))))
 
 (defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
@@ -744,48 +749,48 @@
   `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
   containment refs."
   ([eo]
-     (erefs eo nil))
+   (erefs eo nil))
   ([^EObject eo rs]
-     (let [rm (eref-matcher rs)]
-       (mapcat (fn [^EReference r]
-                 (when-let [x (.eGet eo r)]
-                   (if (.isMany r) x [x])))
-               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                     :when (rm ref)]
-                 ref)))))
+   (let [rm (eref-matcher rs)]
+     (mapcat (fn [^EReference r]
+               (when-let [x (.eGet eo r)]
+                 (if (.isMany r) x [x])))
+             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                   :when (rm ref)]
+               ref)))))
 
 (defn ecrossrefs
   "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
   restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
   see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
   ([eo]
-     (ecrossrefs eo nil))
+   (ecrossrefs eo nil))
   ([^EObject eo rs]
-     (let [rm (eref-matcher rs)]
-       (mapcat (fn [^EReference r]
-                 (when-let [x (.eGet eo r)]
-                   (if (.isMany r) x [x])))
-               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                     :when (and (not (.isContainment ref))
-                                (not (.isContainer ref))
-                                (rm ref))]
-                 ref)))))
+   (let [rm (eref-matcher rs)]
+     (mapcat (fn [^EReference r]
+               (when-let [x (.eGet eo r)]
+                 (if (.isMany r) x [x])))
+             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                   :when (and (not (.isContainment ref))
+                              (not (.isContainer ref))
+                              (rm ref))]
+               ref)))))
 
 (defn econtentrefs
   "Returns a seq of EObjects contained by EObject`eo`, possibly
   restricted by the reference spec `rs`.  For the syntax and semantics
   of `rs`, see `eref-matcher`."
   ([eo]
-     (econtentrefs eo nil))
+   (econtentrefs eo nil))
   ([^EObject eo rs]
-     (let [rm (eref-matcher rs)]
-       (mapcat (fn [^EReference r]
-                 (when-let [x (.eGet eo r)]
-                   (if (.isMany r) x [x])))
-               (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                     :when (and (.isContainment ref)
-                                (rm ref))]
-                 ref)))))
+   (let [rm (eref-matcher rs)]
+     (mapcat (fn [^EReference r]
+               (when-let [x (.eGet eo r)]
+                 (if (.isMany r) x [x])))
+             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
+                   :when (and (.isContainment ref)
+                              (rm ref))]
+               ref)))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference EObject `eo` with an EReference
@@ -795,16 +800,16 @@
   a ResourceSet, or a collection of EObjects.  For the former three, direct and
   indirect contents are checked, for collections only direct contents."
   ([eo]
-     (inv-erefs eo nil nil))
+   (inv-erefs eo nil nil))
   ([eo rs]
-     (inv-erefs eo rs nil))
+   (inv-erefs eo rs nil))
   ([eo rs container]
-     (let [rm (eref-matcher rs)]
-       (if container
-         (search-ereferencers eo erefs rm container)
-         (if-let [opposites (eopposite-refs eo rm)]
-           (erefs eo (eref-matcher opposites))
-           (u/error "No opposite EReferences found."))))))
+   (let [rm (eref-matcher rs)]
+     (if container
+       (search-ereferencers eo erefs rm container)
+       (if-let [opposites (eopposite-refs eo rm)]
+         (erefs eo (eref-matcher opposites))
+         (u/error "No opposite EReferences found."))))))
 
 (defn inv-ecrossrefs
   "Returns the seq of EOjects that cross-reference EObject `eo` with an
@@ -815,20 +820,20 @@
   former three, direct and indirect contents are checked, for collections only
   direct contents."
   ([eo]
-     (inv-ecrossrefs eo nil nil))
+   (inv-ecrossrefs eo nil nil))
   ([eo rs]
-     (inv-ecrossrefs eo rs nil))
+   (inv-ecrossrefs eo rs nil))
   ([eo rs container]
-     (let [rm (eref-matcher rs)]
-       (if container
-         (search-ereferencers eo ecrossrefs rm container)
-         (if-let [opposites (eopposite-refs eo rm)]
-           (ecrossrefs eo (eref-matcher opposites))
-           (u/error "No opposite EReferences found."))))))
+   (let [rm (eref-matcher rs)]
+     (if container
+       (search-ereferencers eo ecrossrefs rm container)
+       (if-let [opposites (eopposite-refs eo rm)]
+         (ecrossrefs eo (eref-matcher opposites))
+         (u/error "No opposite EReferences found."))))))
 
 (defprotocol ^:private IEMFValues2ClojureValues
-  (^:private emf2clj-internal [this]
-    "Converts an EMF thingy to a clojure thingy.
+             (^:private emf2clj-internal [this]
+               "Converts an EMF thingy to a clojure thingy.
 
   EMF Type     | Clojure Type
   -------------+-------------
@@ -889,17 +894,17 @@
         eo)
       (do
         (cond
-         (and (instance? Long value)
-              (-> sfeat
-                  .getEType
-                  .getName
-                  (= "EInt")))
-         (.eSet eo sfeat (int value))
+          (and (instance? Long value)
+               (-> sfeat
+                   .getEType
+                   .getName
+                   (= "EInt")))
+          (.eSet eo sfeat (int value))
 
-         (ratio? value)
-         (.eSet eo sfeat (double value))
+          (ratio? value)
+          (.eSet eo sfeat (double value))
 
-         :else (.eSet eo sfeat value))
+          :else (.eSet eo sfeat value))
         eo))
     (u/errorf "No such structural feature %s for %s." sf (print-str eo))))
 
@@ -921,26 +926,26 @@
 
   In the arity-2 version, adds `obj` to `resource` and returns `resource`."
   ([eo sf value & more]
-     (let [^EList l (eget-raw eo sf)]
-       (.add l value)
-       (when (seq more)
-         (.addAll l more))
-       eo))
+   (let [^EList l (eget-raw eo sf)]
+     (.add l value)
+     (when (seq more)
+       (.addAll l more))
+     eo))
   ([^Resource resource obj]
-     (.add (.getContents resource) obj)
-     resource))
+   (.add (.getContents resource) obj)
+   resource))
 
 (defn eaddall!
   "Adds all values in `coll` to `eo`s `sf` structural feature.
   In the arity 2 variant, adds all EObjects in `coll` to `resource` and
   returns `resource`."
   ([eo sf coll]
-     (let [^EList l (eget-raw eo sf)]
-       (.addAll l coll)
-       eo))
+   (let [^EList l (eget-raw eo sf)]
+     (.addAll l coll)
+     eo))
   ([^Resource resource coll]
-     (.addAll (.getContents resource) coll)
-     resource))
+   (.addAll (.getContents resource) coll)
+   resource))
 
 (defn eremove!
   "Removes `value` and `more` values from `eo`s list of attribute/reference
@@ -950,14 +955,14 @@
   In the arity-2 version, removes `obj` from `resource` and returns `resource`.
   Note that it won't delete `obj` or remove references to it."
   ([eo sf value & more]
-     (let [^EList l (eget-raw eo sf)]
-       (.remove l value)
-       (when (seq more)
-         (.removeAll l more))
-       eo))
+   (let [^EList l (eget-raw eo sf)]
+     (.remove l value)
+     (when (seq more)
+       (.removeAll l more))
+     eo))
   ([^Resource resource eo]
-     (.remove (.getContents resource) eo)
-     resource))
+   (.remove (.getContents resource) eo)
+   resource))
 
 (defn eremoveall!
   "Removes all objects in `coll` from `eo`s list of attribute/reference values
@@ -968,12 +973,12 @@
   and returns `resource`.  Note that it won't delete the objects or
   remove references to it."
   ([eo sf coll]
-     (let [^EList l (eget-raw eo sf)]
-       (.removeAll l coll)
-       eo))
+   (let [^EList l (eget-raw eo sf)]
+     (.removeAll l coll)
+     eo))
   ([^Resource resource coll]
-     (.removeAll (.getContents resource) coll)
-     resource))
+   (.removeAll (.getContents resource) coll)
+   resource))
 
 ;;### Generic attribute access
 
@@ -989,13 +994,13 @@
   (set-aval! [this attr val]
     (let [^EStructuralFeature sf (.getEStructuralFeature (.eClass this) (name attr))]
       (cond
-       (nil? sf)
-       (u/errorf "No such attribute %s at object %s." attr this)
+        (nil? sf)
+        (u/errorf "No such attribute %s at object %s." attr this)
 
-       (ereference? sf)
-       (u/errorf "%s is no attribute of object %s but a reference." sf this)
+        (ereference? sf)
+        (u/errorf "%s is no attribute of object %s but a reference." sf this)
 
-       :else (eset! this attr val)))))
+        :else (eset! this attr val)))))
 
 
 ;;## Edges, i.e., src/trg tuples
@@ -1028,11 +1033,11 @@
   specs plus type specs `src-ts` and `trg-ts`.  `r` may be a Resource or
   ResourceSet."
   ([r]
-     (epairs-internal r erefs nil nil nil nil))
+   (epairs-internal r erefs nil nil nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r erefs src-rs trg-rs nil nil))
+   (epairs-internal r erefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r erefs src-rs trg-rs src-ts trg-ts)))
+   (epairs-internal r erefs src-rs trg-rs src-ts trg-ts)))
 
 (defn ecrosspairs
   "Returns the lazy seq of all cross-reference edges in `r` in terms of [src trg] pairs.
@@ -1040,11 +1045,11 @@
   of reference specs `src-rs` and `trg-rs`, and reference specs plus type specs
   `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r ecrossrefs nil nil nil nil))
+   (epairs-internal r ecrossrefs nil nil nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r ecrossrefs src-rs trg-rs nil nil))
+   (epairs-internal r ecrossrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r ecrossrefs src-rs trg-rs src-ts trg-ts)))
+   (epairs-internal r ecrossrefs src-rs trg-rs src-ts trg-ts)))
 
 (defn econtentpairs
   "Returns the lazy seq of all containment edges in `r` in terms of [src trg] pairs.
@@ -1052,11 +1057,11 @@
   Restrictions may be defined in terms of reference specs `src-rs` and
   `trg-rs`, and reference specs plus type specs `src-ts` and `trg-ts`."
   ([r]
-     (epairs-internal r econtentrefs nil nil nil nil))
+   (epairs-internal r econtentrefs nil nil nil nil))
   ([r src-rs trg-rs]
-     (epairs-internal r econtentrefs src-rs trg-rs nil nil))
+   (epairs-internal r econtentrefs src-rs trg-rs nil nil))
   ([r src-rs trg-rs src-ts trg-ts]
-     (epairs-internal r econtentrefs src-rs trg-rs src-ts trg-ts)))
+   (epairs-internal r econtentrefs src-rs trg-rs src-ts trg-ts)))
 
 
 ;;## EObject Creation
@@ -1068,23 +1073,23 @@
   to be set.  Since props are set using `eset!`, the value of a multi-valued
   reference must be a collection of EObjects."
   ([resource ec]
-     (let [eo (EcoreUtil/create (if (eclass? ec) ec (eclassifier ec)))]
-       (when resource
-         (eadd! resource eo))
-       eo))
+   (let [eo (EcoreUtil/create (if (eclass? ec) ec (eclassifier ec)))]
+     (when resource
+       (eadd! resource eo))
+     eo))
   ([resource ec prop-map]
-     (let [eo (ecreate! resource ec)]
-       (doseq [[prop val] prop-map]
-         (eset! eo prop val))
-       eo)))
+   (let [eo (ecreate! resource ec)]
+     (doseq [[prop val] prop-map]
+       (eset! eo prop val))
+     eo)))
 
 (extend-protocol g/ICreateElement
   Resource
   (create-element!
     ([model cls]
-       (ecreate! model cls))
+     (ecreate! model cls))
     ([model cls prop-map]
-       (ecreate! model cls prop-map))))
+     (ecreate! model cls prop-map))))
 
 ;;## Generic setting of props
 
@@ -1109,31 +1114,31 @@
   pointing to `eo` from other objects contained in the same root object,
   resource, or resource set as `eo`."
   ([^EObject eo]
-     (edelete! eo true))
+   (edelete! eo true))
   ([^EObject eo recursively]
-     (when recursively
-       (doseq [ceo (.eContents eo)]
-         (edelete! ceo)))
-     (when-let [^EReference cf (.eContainmentFeature eo)]
-       (eremove! (.eContainer eo) cf eo))
-     (doseq [ref (.getEAllReferences (.eClass eo))]
-       (eunset! eo ref))
-     (when-let [^Resource res (.eResource eo)]
-       (.remove (.getContents res) eo))
-     eo)
+   (when recursively
+     (doseq [ceo (.eContents eo)]
+       (edelete! ceo)))
+   (when-let [^EReference cf (.eContainmentFeature eo)]
+     (eremove! (.eContainer eo) cf eo))
+   (doseq [ref (.getEAllReferences (.eClass eo))]
+     (eunset! eo ref))
+   (when-let [^Resource res (.eResource eo)]
+     (.remove (.getContents res) eo))
+   eo)
   ([^EObject eo recursively unset-uni-crossrefs]
-     (if unset-uni-crossrefs
-       (EcoreUtil/delete eo (boolean recursively))
-       (edelete! eo recursively))
-     eo))
+   (if unset-uni-crossrefs
+     (EcoreUtil/delete eo (boolean recursively))
+     (edelete! eo recursively))
+   eo))
 
 (extend-protocol g/IDelete
   EObject
   (delete!
     ([this]
-       (edelete! this true true))
+     (edelete! this true true))
     ([this recursive]
-       (edelete! this recursive true))))
+     (edelete! this recursive true))))
 
 ;;# Adjancencies
 
@@ -1233,14 +1238,14 @@
   "Returns a description of enabled features `fs`.
   fs => [test-val desc-str]*"
   ([fs]
-     (feature-str [] fs))
+   (feature-str [] fs))
   ([s fs]
-     (if (seq fs)
-       (let [[f n] (first fs)]
-         (recur (if f (conj s n) s)
-                (rest fs)))
-       (when-let [r (seq s)]
-         (str " " r)))))
+   (if (seq fs)
+     (let [[f n] (first fs)]
+       (recur (if f (conj s n) s)
+              (rest fs)))
+     (when-let [r (seq s)]
+       (str " " r)))))
 
 (defmethod print-method EClass
   [^EClass ec ^java.io.Writer out]
@@ -1323,9 +1328,9 @@
                     (g/qname ec)
                     (g/qname ec))
            ([~'r]
-              (ecreate! ~'r '~(g/qname ec)))
+            (ecreate! ~'r '~(g/qname ec)))
            ([~'r ~'prop-map]
-              (ecreate! ~'r '~(g/qname ec) ~'prop-map))))
+            (ecreate! ~'r '~(g/qname ec) ~'prop-map))))
 
      (defn ~(symbol (let [n (g/escaped-uname-str ec)]
                       (str prefix "eall-" (inflections.core/plural n))))
@@ -1386,11 +1391,11 @@
          ~(format "Returns the %s in `eo`s %s reference.
   Possible types for `eo`: %s"
                   (cond
-                   ;; This ref is always multi-valued
-                   (and (multi? true) (not (multi? false))) "objects"
-                   ;; This ref is always single-valued
-                   (and (not (multi? true)) (multi? false)) "object"
-                   :else "object[s]")
+                    ;; This ref is always multi-valued
+                    (and (multi? true) (not (multi? false))) "objects"
+                    ;; This ref is always single-valued
+                    (and (not (multi? true)) (multi? false)) "object"
+                    :else "object[s]")
                   (name ref)
                   owner-string)
          [~'eo]
@@ -1403,11 +1408,11 @@
   Possible types for `eo`: %s"
                   (name ref)
                   (cond
-                   ;; This ref is always multi-valued
-                   (and (multi? true) (not (multi? false))) "collection of objects"
-                   ;; This ref is always single-valued
-                   (and (not (multi? true)) (multi? false)) "single object"
-                   :else "single object or coll of objects, depending on `eo`s type")
+                    ;; This ref is always multi-valued
+                    (and (multi? true) (not (multi? false))) "collection of objects"
+                    ;; This ref is always single-valued
+                    (and (not (multi? true)) (multi? false)) "single object"
+                    :else "single object or coll of objects, depending on `eo`s type")
                   owner-string)
          [~'eo ~'refed]
          (eset! ~'eo ~ref ~'refed))
@@ -1470,17 +1475,17 @@
  reference.  If eo's ref-reference is multi-valued, then the setter wants a
  collection of eobjects, else a single eobject."
   ([ecore-file]
-     `(generate-ecore-model-functions ~ecore-file nil nil nil))
+   `(generate-ecore-model-functions ~ecore-file nil nil nil))
   ([ecore-file nssym]
-     `(generate-ecore-model-functions ~ecore-file ~nssym nil nil))
+   `(generate-ecore-model-functions ~ecore-file ~nssym nil nil))
   ([ecore-file nssym alias]
-     `(generate-ecore-model-functions ~ecore-file ~nssym ~alias nil))
+   `(generate-ecore-model-functions ~ecore-file ~nssym ~alias nil))
   ([ecore-file nssym alias prefix]
-     `(g/metamodel-api-generator ~ecore-file
-                                 ~nssym
-                                 ~alias
-                                 ~prefix
-                                 create-eclass-fns
-                                 nil
-                                 create-eattribute-fns
-                                 create-ereference-fns)))
+   `(g/metamodel-api-generator ~ecore-file
+                               ~nssym
+                               ~alias
+                               ~prefix
+                               create-eclass-fns
+                               nil
+                               create-eattribute-fns
+                               create-ereference-fns)))

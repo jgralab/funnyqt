@@ -375,6 +375,11 @@
     "Return true iff super is a direct or indirect super class of sub.
   (mm-super-class? c c) is false."))
 
+(defprotocol IMMAllSubClasses
+  (mm-all-subclasses [cls]
+    "Returns the sequence of all subclasses of `cls`.  Those are direct and
+    indirect subclasses."))
+
 (defprotocol IMMAttributes
   (mm-attributes [cls]
     "Returns the sequence of attributes declared for class `cls`.
@@ -475,8 +480,8 @@
                  (swap! refs
                         #(update-in %1 [%2] conj mm-cls)
                         r))
-             (when element-class-fn
-               ((resolve element-class-fn) mm-cls prefix)))))
+               (when element-class-fn
+                 ((resolve element-class-fn) mm-cls prefix)))))
           (no-nils
            (for [rel-cls (and (u/satisfies-protocol?
                                metamodel IMMRelationshipClasses
@@ -493,14 +498,14 @@
                         a))
                (when relationship-class-fn
                  ((resolve relationship-class-fn) rel-cls prefix)))))
-        (no-nils
-         (when attr-fn
-           (for [[a owners] @atts]
-             ((resolve attr-fn) a owners prefix))))
-        (no-nils
-         (when ref-fn
-           (for [[r owners] @refs]
-             ((resolve ref-fn) r owners prefix)))))
+          (no-nils
+           (when attr-fn
+             (for [[a owners] @atts]
+               ((resolve attr-fn) a owners prefix))))
+          (no-nils
+           (when ref-fn
+             (for [[r owners] @refs]
+               ((resolve ref-fn) r owners prefix)))))
        (in-ns '~(ns-name old-ns))
        ~@(when alias
            [`(require '~(vector nssym :as alias))]))))
@@ -517,9 +522,9 @@
                     (qname cls)
                     (qname cls))
            ([~'m]
-              (create-element! ~'m '~(qname cls)))
+            (create-element! ~'m '~(qname cls)))
            ([~'m ~'prop-map]
-              (create-element! ~'m '~(qname cls) ~'prop-map))))
+            (create-element! ~'m '~(qname cls) ~'prop-map))))
 
      (defn ~(symbol (str prefix "all-" (inflections.core/plural
                                         (escaped-uname-str cls))))
@@ -548,9 +553,9 @@
                     (qname rel-cls)
                     (qname rel-cls))
            ([~'model ~'alpha ~'omega]
-              (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega))
+            (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega))
            ([~'model ~'alpha ~'omega ~'attr-map]
-              (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega ~'attr-map))))
+            (create-relationship! ~'model '~(qname rel-cls) ~'alpha ~'omega ~'attr-map))))
 
      ;; SEQ FN
      (defn ~(symbol (str prefix "all-" (inflections.core/plural
@@ -567,9 +572,9 @@
   specification `ds` (:in, :out, or :inout (default))."
                 (qname rel-cls))
        ([~'el]
-          (incident-relationships ~'el '~(qname rel-cls) :inout))
+        (incident-relationships ~'el '~(qname rel-cls) :inout))
        ([~'el ~'ds]
-          (incident-relationships ~'el '~(qname rel-cls) ~'ds)))
+        (incident-relationships ~'el '~(qname rel-cls) ~'ds)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (escaped-uname-str rel-cls) "?"))
@@ -619,11 +624,11 @@
          ~(format "Returns the %s in `el`s %s reference.
   Possible types for `el`: %s"
                   (cond
-                   ;; This ref is always multi-valued
-                   (and (multi? true) (not (multi? false))) "objects"
-                   ;; This ref is always single-valued
-                   (and (not (multi? true)) (multi? false)) "object"
-                   :else "object[s]")
+                    ;; This ref is always multi-valued
+                    (and (multi? true) (not (multi? false))) "objects"
+                    ;; This ref is always single-valued
+                    (and (not (multi? true)) (multi? false)) "object"
+                    :else "object[s]")
                   (name ref)
                   owner-string)
          [~'el]
@@ -638,11 +643,11 @@
   Possible types for `el`: %s"
                   (name ref)
                   (cond
-                   ;; This ref is always multi-valued
-                   (and (multi? true) (not (multi? false))) "collection of objects"
-                   ;; This ref is always single-valued
-                   (and (not (multi? true)) (multi? false)) "single object"
-                   :else "single object or coll of objects, depending on `el`s type")
+                    ;; This ref is always multi-valued
+                    (and (multi? true) (not (multi? false))) "collection of objects"
+                    ;; This ref is always single-valued
+                    (and (not (multi? true)) (multi? false)) "single object"
+                    :else "single object or coll of objects, depending on `el`s type")
                   owner-string)
          [~'el ~'refed]
          (if (mm-multi-valued-property? (mm-class ~'el) ~ref)
@@ -715,17 +720,17 @@
   reference.  If el's ref-reference is multi-valued, then the setter wants a
   collection of elements, else a single element."
   ([mm-file]
-     `(generate-metamodel-functions ~mm-file nil nil nil))
+   `(generate-metamodel-functions ~mm-file nil nil nil))
   ([mm-file nssym]
-     `(generate-metamodel-functions ~mm-file ~nssym nil nil))
+   `(generate-metamodel-functions ~mm-file ~nssym nil nil))
   ([mm-file nssym alias]
-     `(generate-metamodel-functions ~mm-file ~nssym ~alias nil))
+   `(generate-metamodel-functions ~mm-file ~nssym ~alias nil))
   ([mm-file nssym alias prefix]
-     `(metamodel-api-generator ~mm-file
-                              ~nssym
-                              ~alias
-                              ~prefix
-                              create-element-class-fns
-                              create-relationship-class-fns
-                              create-attribute-fns
-                              create-reference-fns)))
+   `(metamodel-api-generator ~mm-file
+                             ~nssym
+                             ~alias
+                             ~prefix
+                             create-element-class-fns
+                             create-relationship-class-fns
+                             create-attribute-fns
+                             create-reference-fns)))

@@ -1,6 +1,8 @@
 (ns funnyqt.extensional
   "Specify models extensionally."
   (:require clojure.set
+            [funnyqt.utils       :as u]
+            [funnyqt.generic     :as g]
             [clojure.tools.macro :as m]))
 
 ;;# Dynamic vars
@@ -12,6 +14,35 @@
 (def ^{:dynamic true
        :doc "A map of the form {TargetMetaClass {TargetInstance Archetype}}."}
   *arch*)
+
+;;# Img/Arch accessors
+
+(defn image
+  "Returns the image of `arch` for element or relationship class `cls`.
+  Can only be called inside a `deftransformation`."
+  [cls arch]
+  (let [m (@*img* cls)]
+    (or (and m (m arch))
+        (loop [subs (g/mm-all-subclasses cls)]
+          (when (seq subs)
+            (or (get (@*img* (first subs)) arch)
+                (recur (rest subs)))))
+        (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
+                  arch cls @*img*))))
+
+(defn archetype
+  "Returns the archetype of `img` for element or relationship class `cls`.
+  Can only be called inside a `deftransformation`."
+  [cls img]
+  (let [m (@*arch* cls)]
+    (or (and m (m img))
+        (loop [subs (g/mm-all-subclasses cls)]
+          (when (seq subs)
+            (or (get (@*arch* (first subs)) img)
+                (recur (rest subs)))))
+        (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
+                  img cls @*arch*))))
+
 
 ;;# Utilities
 

@@ -31,30 +31,6 @@
   only bound inside `set-values!` and `add-values!`."}
   resolve-all-targets)
 
-;;# Img/Arch Functions
-
-(defn ^:private img-internal
-  [^EClass ec arch]
-  (let [m (@e/*img* ec)]
-    (or (and m (m arch))
-        (loop [subs (emf/eallsubclasses ec)]
-          (when (seq subs)
-            (or (get (@e/*img* (first subs)) arch)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                  (print-str arch) (print-str ec) @e/*img*))))
-
-(defn ^:private arch-internal
-  [^EClass ec img]
-  (let [m (@e/*arch* ec)]
-    (or (and m (m img))
-        (loop [subs (emf/eallsubclasses ec)]
-          (when (seq subs)
-            (or (get (@e/*arch* (first subs)) img)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                  (print-str img) (print-str ec) @e/*arch*))))
-
 ;;# Creating Elements
 
 ;;## Creating EObjects
@@ -87,7 +63,7 @@
   (let [^EClass ec (emf/eclassifier ecls)]
     (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String (name feature))]
       (let [resolve-target-fn (if (emf/ereference? sf)
-                                (partial img-internal (.getEReferenceType ^EReference sf))
+                                (partial e/image (.getEReferenceType ^EReference sf))
                                 #(u/errorf "Can't call `resolve-target` for EAttribute %s!"
                                            ecls feature))
             resolve-all-targets-fn (if (emf/ereference? sf)
@@ -96,7 +72,7 @@
                                        "Can't call `resolve-all-targets` for EAttribute %s!"
                                        ecls feature))]
         (doseq [[elem val]
-                (binding [resolve-eobject     (partial img-internal ec)
+                (binding [resolve-eobject     (partial e/image ec)
                           resolve-target      resolve-target-fn
                           resolve-all-targets resolve-all-targets-fn]
                   (doall (valfn)))]

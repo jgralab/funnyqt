@@ -31,34 +31,6 @@
   function is only bound in `set-values!`."}
   resolve-element)
 
-;;# Utility Functions
-
-(defn ^:private img-internal
-  "Returns the image of `arch` for GraphElementClass `gec`.
-  Can only be called inside a `deftransformation`."
-  [^GraphElementClass gec arch]
-  (let [m (@e/*img* gec)]
-    (or (and m (m arch))
-        (loop [subs (.getAllSubClasses gec)]
-          (when (seq subs)
-            (or (get (@e/*img* (first subs)) arch)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                  arch gec @e/*img*))))
-
-(defn ^:private arch-internal
-  "Returns the archetype of `img` for GraphElementClass `gec`.
-  Can only be called inside a `deftransformation`."
-  [^GraphElementClass gec img]
-  (let [m (@e/*arch* gec)]
-    (or (and m (m img))
-        (loop [subs (.getAllSubClasses gec)]
-          (when (seq subs)
-            (or (get (@e/*arch* (first subs)) img)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                  img gec @e/*arch*))))
-
 ;;# Creating Elements
 
 ;;## Creating Vertices
@@ -107,8 +79,8 @@
   (let [^EdgeClass ec (tg/attributed-element-class g cls)
         saec (-> ec (.getFrom) (.getVertexClass))
         eaec (-> ec (.getTo)   (.getVertexClass))]
-    (loop [as (binding [resolve-alpha #(img-internal saec %)
-                        resolve-omega #(img-internal eaec %)]
+    (loop [as (binding [resolve-alpha (partial e/image saec)
+                        resolve-omega (partial e/image eaec)]
                 (set (archfn)))
            im (transient {})
            am (transient {})]
@@ -137,6 +109,6 @@
   archetype."
   [g aec attr valfn]
   (let [aec (tg/attributed-element-class g aec)]
-    (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
+    (doseq [[elem val] (binding [resolve-element (fn [arch] (e/image aec arch))]
                          (doall (valfn)))]
       (tg/set-value! elem attr val))))

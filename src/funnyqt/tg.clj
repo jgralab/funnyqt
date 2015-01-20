@@ -105,50 +105,50 @@ functions `record` and `enum-constant`."
 
 (defn ^:private get-file-name [file]
   (cond
-   (instance? java.io.File file)
-   (.getPath ^java.io.File file)
+    (instance? java.io.File file)
+    (.getPath ^java.io.File file)
 
-   (instance? java.net.URL file)
-   (.toString ^java.net.URL file)
+    (instance? java.net.URL file)
+    (.toString ^java.net.URL file)
 
-   (and (string? file)
-        (.exists (clojure.java.io/file file)))
-   file
+    (and (string? file)
+         (.exists (clojure.java.io/file file)))
+    file
 
-   (and (string? file)
-        (clojure.java.io/resource file))
-   (.toString (clojure.java.io/resource file))
+    (and (string? file)
+         (clojure.java.io/resource file))
+    (.toString (clojure.java.io/resource file))
 
-   :else (u/errorf "Cannot handle file %s." file)))
+    :else (u/errorf "Cannot handle file %s." file)))
 
 (defn load-schema
   "Loads a schema from `file`, and possibly compile it for implementation type
   `impl` (default :generic, i.e., don't compile).  Supported impl types
   are :generic and :standard."
   ([file]
-     (load-schema file ImplementationType/GENERIC))
+   (load-schema file ImplementationType/GENERIC))
   ([file impl]
-     (let [file-name (get-file-name file)
-           ^Schema s (with-open [is (clojure.java.io/input-stream file-name)]
-                       (GraphIO/loadSchemaFromStream
-                        (if (and (string? file-name)
-                                 (.endsWith ^String file-name ".gz"))
-                          (java.util.zip.GZIPInputStream. is)
-                          is)))
-           it (impl-type impl)]
-       (.finish s)
-       (if (and it (not= it ImplementationType/GENERIC))
-         (do
-           #_(println
-              (format "Loading schema %s, and compiling for implementation type %s."
-                      file-name it))
-           (.compile s CodeGeneratorConfiguration/MINIMAL)
-           (let [qn  (name (g/qname s))
-                 scm (SchemaClassManager/instance qn)
-                 sc  (Class/forName qn true scm)
-                 im  (.getMethod sc "instance" (into-array Class []))]
-             (.invoke im nil (to-array []))))
-         s))))
+   (let [file-name (get-file-name file)
+         ^Schema s (with-open [is (clojure.java.io/input-stream file-name)]
+                     (GraphIO/loadSchemaFromStream
+                      (if (and (string? file-name)
+                               (.endsWith ^String file-name ".gz"))
+                        (java.util.zip.GZIPInputStream. is)
+                        is)))
+         it (impl-type impl)]
+     (.finish s)
+     (if (and it (not= it ImplementationType/GENERIC))
+       (do
+         #_(println
+            (format "Loading schema %s, and compiling for implementation type %s."
+                    file-name it))
+         (.compile s CodeGeneratorConfiguration/MINIMAL)
+         (let [qn  (name (g/qname s))
+               scm (SchemaClassManager/instance qn)
+               sc  (Class/forName qn true scm)
+               im  (.getMethod sc "instance" (into-array Class []))]
+           (.invoke im nil (to-array []))))
+       s))))
 
 (alter-var-root #'g/mm-load-handlers assoc #".*\.tg(z|\.gz)?$" load-schema)
 
@@ -162,12 +162,12 @@ functions `record` and `enum-constant`."
   defauling to :generic.  The schema will be compiled automagically if needed.
   Supported impl types are :generic and :standard."
   ([file]
-     (load-graph file ImplementationType/GENERIC))
+   (load-graph file ImplementationType/GENERIC))
   ([file impl]
-     (let [^String filename (get-file-name file)
-           ^ImplementationType impl (impl-type impl)
-           ^ProgressFunction pg (ConsoleProgressFunction. "Loading")]
-       (GraphIO/loadGraphFromFile filename impl pg))))
+   (let [^String filename (get-file-name file)
+         ^ImplementationType impl (impl-type impl)
+         ^ProgressFunction pg (ConsoleProgressFunction. "Loading")]
+     (GraphIO/loadGraphFromFile filename impl pg))))
 
 (defn save-graph
   "Saves graph `g` to `file`."
@@ -371,11 +371,11 @@ functions `record` and `enum-constant`."
   schema of `elem`.  `elem` may be an AttributedElement,
   AttributedElementClass, or a Schema."
   ([^Attribute attr]
-     (.getDomain attr))
+   (.getDomain attr))
   ([elem qname]
-     (let [^Schema s (if (schema? elem) elem (schema elem))]
-       (.getDomain s ((named-element-simple-to-qname-map s)
-                      (domain-qname qname))))))
+   (let [^Schema s (if (schema? elem) elem (schema elem))]
+     (.getDomain s ((named-element-simple-to-qname-map s)
+                    (domain-qname qname))))))
 
 (defn schema-graph
   "Returns the SchemaGraph of schema `s`."
@@ -430,6 +430,11 @@ functions `record` and `enum-constant`."
   GraphElementClass
   (mm-direct-super-classes [this]
     (seq (.getDirectSuperClasses this))))
+
+(extend-protocol g/IMMAllSubClasses
+  GraphElementClass
+  (mm-all-subclasses [this]
+    (seq (.getAllSubClasses this))))
 
 (extend-protocol g/IMMSuperClassOf
   GraphElementClass
@@ -520,26 +525,26 @@ functions `record` and `enum-constant`."
 (defn ^:private type-matcher-tg-1
   [g ts]
   (cond
-   (nil? ts)    identity
-   (fn? ts)     ts
-   (u/qname? ts) (type-matcher-tg-2 g ts)
-   (vector? ts) (if (seq ts)
-                  (let [f (first ts)
-                        [op r] (case f
-                                 :and  [q/and-fn  (next ts)]
-                                 :nand [q/nand-fn (next ts)]
-                                 :or   [q/or-fn   (next ts)]
-                                 :nor  [q/nor-fn  (next ts)]
-                                 :xor  [q/xor-fn  (next ts)]
-                                 [q/or-fn ts])
-                        t-matchers (map #(type-matcher-tg-1 g %) r)]
-                    (apply op t-matchers))
-                  ;; Empty vector given, that's also ok
-                  identity)
-   (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
-   ;; {"http://my.nsuri/1.0" ts}, we can ignore the uri for tg, that's EMF specific
-   (map? ts)    (type-matcher-tg-1 g (val (first ts)))
-   :else (u/errorf "Don't know how to create a TG funnyqt.generic/type-matcher for %s" ts)))
+    (nil? ts)    identity
+    (fn? ts)     ts
+    (u/qname? ts) (type-matcher-tg-2 g ts)
+    (vector? ts) (if (seq ts)
+                   (let [f (first ts)
+                         [op r] (case f
+                                  :and  [q/and-fn  (next ts)]
+                                  :nand [q/nand-fn (next ts)]
+                                  :or   [q/or-fn   (next ts)]
+                                  :nor  [q/nor-fn  (next ts)]
+                                  :xor  [q/xor-fn  (next ts)]
+                                  [q/or-fn ts])
+                         t-matchers (map #(type-matcher-tg-1 g %) r)]
+                     (apply op t-matchers))
+                   ;; Empty vector given, that's also ok
+                   identity)
+    (attributed-element-class? ts) (fn [e] (.isInstanceOf ^AttributedElement e ts))
+    ;; {"http://my.nsuri/1.0" ts}, we can ignore the uri for tg, that's EMF specific
+    (map? ts)    (type-matcher-tg-1 g (val (first ts)))
+    :else (u/errorf "Don't know how to create a TG funnyqt.generic/type-matcher for %s" ts)))
 
 (defn ^:private type-matcher-tg [^Graph g ts]
   (let [^Schema s (schema g)
@@ -657,89 +662,89 @@ functions `record` and `enum-constant`."
   "Returns the first vertex of graph `g`.
   May be restricted to the first vertex for which `pred` returns true."
   ([^Graph g]
-     (.getFirstVertex g))
+   (.getFirstVertex g))
   ([^Graph g pred]
-     (loop [v (.getFirstVertex g)]
-       (if (or (nil? v) (pred v))
-         v
-         (recur (.getNextVertex v))))))
+   (loop [v (.getFirstVertex g)]
+     (if (or (nil? v) (pred v))
+       v
+       (recur (.getNextVertex v))))))
 
 (defn last-vertex
   "Returns the last vertex of graph `g`.
   May be restricted to the last vertex for which `pred` returns true."
   ([^Graph g]
-     (.getLastVertex g))
+   (.getLastVertex g))
   ([^Graph g pred]
-     (loop [v (.getLastVertex g)]
-       (if (or (nil? v) (pred v))
-         v
-         (recur (.getPrevVertex v))))))
+   (loop [v (.getLastVertex g)]
+     (if (or (nil? v) (pred v))
+       v
+       (recur (.getPrevVertex v))))))
 
 (defn next-vertex
   "Returns the vertex following `v` in vseq.
   May be restricted to the next vertex for which `pred` returns true."
   ([^Vertex v]
-     (.getNextVertex v))
+   (.getNextVertex v))
   ([^Vertex v pred]
-     (loop [n (.getNextVertex v)]
-       (if (or (nil? n) (pred n))
-         n
-         (recur (.getNextVertex n))))))
+   (loop [n (.getNextVertex v)]
+     (if (or (nil? n) (pred n))
+       n
+       (recur (.getNextVertex n))))))
 
 (defn prev-vertex
   "Returns the vertex preceding `v` in vseq.
   May be restricted to the previous vertex for which `pred` returns true."
   ([^Vertex v]
-     (.getPrevVertex v))
+   (.getPrevVertex v))
   ([^Vertex v pred]
-     (loop [n (.getPrevVertex v)]
-       (if (or (nil? n) (pred n))
-         n
-         (recur (.getPrevVertex n))))))
+   (loop [n (.getPrevVertex v)]
+     (if (or (nil? n) (pred n))
+       n
+       (recur (.getPrevVertex n))))))
 
 (defn first-edge
   "Returns the first edge of graph `g`.
   May be restricted to the first edge for which `pred` returns true."
   ([^Graph g]
-     (.getFirstEdge g))
+   (.getFirstEdge g))
   ([^Graph g pred]
-     (loop [e (.getFirstEdge g)]
-       (if (or (nil? e) (pred e))
-         e
-         (recur (.getNextEdge e))))))
+   (loop [e (.getFirstEdge g)]
+     (if (or (nil? e) (pred e))
+       e
+       (recur (.getNextEdge e))))))
 
 (defn last-edge
   "Returns the last edge of graph `g`.
   May be restricted to the last edge for which `pred` returns true."
   ([^Graph g]
-     (.getLastEdge g))
+   (.getLastEdge g))
   ([^Graph g pred]
-     (loop [e (.getLastEdge g)]
-       (if (or (nil? e) (pred e))
-         e
-         (recur (.getPrevEdge e))))))
+   (loop [e (.getLastEdge g)]
+     (if (or (nil? e) (pred e))
+       e
+       (recur (.getPrevEdge e))))))
 
 (defn next-edge
   "Returns the edge following `e` in eseq.
   May be restricted to the next edge for which `pred` returns true."
   ([^Edge e]
-     (.getNextEdge e))
+   (.getNextEdge e))
   ([^Edge e pred]
-     (loop [n (.getNextEdge e)]
-       (if (or (nil? n) (pred n))
-         n
-         (recur (.getNextEdge n))))))
+   (loop [n (.getNextEdge e)]
+     (if (or (nil? n) (pred n))
+       n
+       (recur (.getNextEdge n))))))
 
 (defn prev-edge
   "Returns the edge preceding `e` in eseq.
   May be restricted to the previous edge for which `pred` returns true."
   ([^Edge e]
-     (.getPrevEdge e))
+   (.getPrevEdge e))
   ([^Edge e pred]
-     (loop [n (.getPrevEdge e)]
-       (if (or (nil? n) (pred n))
-         n
-         (recur (.getPrevEdge n))))))
+   (loop [n (.getPrevEdge e)]
+     (if (or (nil? n) (pred n))
+       n
+       (recur (.getPrevEdge n))))))
 
 (defn ^:private direction-matcher [ds]
   ;; case does a constant time dispatch, so only use cond if the ds was not
@@ -750,54 +755,54 @@ functions `record` and `enum-constant`."
     (:inout nil)   identity
     ;; too bad, not nil and not keyword...
     (cond
-     (= ds EdgeDirection/OUT)   normal-edge?
-     (= ds EdgeDirection/IN)    (complement normal-edge?)
-     (= ds EdgeDirection/INOUT) identity
-     :default (u/errorf "Unknown direction %s" ds))))
+      (= ds EdgeDirection/OUT)   normal-edge?
+      (= ds EdgeDirection/IN)    (complement normal-edge?)
+      (= ds EdgeDirection/INOUT) identity
+      :default (u/errorf "Unknown direction %s" ds))))
 
 (defn first-inc
   "Returns the first incidence in iseq of `v`.
   May be restricted to the first incidence for which `pred` returns true."
   ([^Vertex v]
-     (first-inc v identity))
+   (first-inc v identity))
   ([^Vertex v pred]
-     (loop [i (.getFirstIncidence v)]
-       (if (or (nil? i) (pred i))
-         i
-         (recur (.getNextIncidence i))))))
+   (loop [i (.getFirstIncidence v)]
+     (if (or (nil? i) (pred i))
+       i
+       (recur (.getNextIncidence i))))))
 
 (defn last-inc
   "Returns the last incidence in iseq of `v`.
   May be restricted to the last incidence for which `pred` returns true."
   ([^Vertex v]
-     (last-inc v identity))
+   (last-inc v identity))
   ([^Vertex v pred]
-     (loop [i (.getLastIncidence v)]
-       (if (or (nil? i) (pred i))
-         i
-         (recur (.getPrevIncidence i))))))
+   (loop [i (.getLastIncidence v)]
+     (if (or (nil? i) (pred i))
+       i
+       (recur (.getPrevIncidence i))))))
 
 (defn next-inc
   "Returns the incidence following `e` in the current vertex's iseq.
   May be restricted to the next incidence for which `pred` returns true."
   ([^Edge e]
-     (next-inc e identity))
+   (next-inc e identity))
   ([^Edge e pred]
-     (loop [i (.getNextIncidence e)]
-       (if (or (nil? i) (pred i))
-         i
-         (recur (.getNextIncidence i))))))
+   (loop [i (.getNextIncidence e)]
+     (if (or (nil? i) (pred i))
+       i
+       (recur (.getNextIncidence i))))))
 
 (defn prev-inc
   "Returns the incidence preceding `e` in the current vertex's iseq.
   May be restricted to the previous incidence for which `pred` returns true."
   ([^Edge e]
-     (prev-inc e identity))
+   (prev-inc e identity))
   ([^Edge e pred]
-     (loop [i (.getPrevIncidence e)]
-       (if (or (nil? i) (pred i))
-         i
-         (recur (.getPrevIncidence i))))))
+   (loop [i (.getPrevIncidence e)]
+     (if (or (nil? i) (pred i))
+       i
+       (recur (.getPrevIncidence i))))))
 
 ;;## Value access (including attribute setting)
 
@@ -993,18 +998,18 @@ functions `record` and `enum-constant`."
   `g` may be a graph or a vertex.  In the latter case, returns all vertices
   following `g` in the vertex sequence."
   ([g]
-     (vseq-internal g identity))
+   (vseq-internal g identity))
   ([g ts]
-     (vseq-internal g (g/type-matcher g ts))))
+   (vseq-internal g (g/type-matcher g ts))))
 
 (defn rvseq
   "Returns the lazy reversed seq of vertices of `g` restricted by the type spec `ts`.
   `g` may be a graph or a vertex.  In the latter case, returns all vertices
   preceding `g` in the vertex sequence."
   ([g]
-     (rvseq-internal g identity))
+   (rvseq-internal g identity))
   ([g ts]
-     (rvseq-internal g (g/type-matcher g ts))))
+   (rvseq-internal g (g/type-matcher g ts))))
 
 (defn ^:private eseq-internal-1 [e pred]
   (lazy-seq
@@ -1035,18 +1040,18 @@ functions `record` and `enum-constant`."
   `g` may be a graph or an edge.  In the latter case, returns all edges
   following `g` in the edge sequence."
   ([g]
-     (eseq-internal g identity))
+   (eseq-internal g identity))
   ([g ts]
-     (eseq-internal g (g/type-matcher g ts))))
+   (eseq-internal g (g/type-matcher g ts))))
 
 (defn reseq
   "Returns the lazy reversed seq of edges of `e` restricted by `ts`.
   `g` may be a graph or an edge.  In the latter case, returns all edges
   preceding `g` in the edge sequence."
   ([g]
-     (reseq-internal g identity))
+   (reseq-internal g identity))
   ([g ts]
-     (reseq-internal g (g/type-matcher g ts))))
+   (reseq-internal g (g/type-matcher g ts))))
 
 (defn ^:private iseq-internal-1 [e pred]
   (lazy-seq
@@ -1093,11 +1098,11 @@ functions `record` and `enum-constant`."
   In fact, `ts` may also be a keyword naming a far-end role name, but this
   feature is only an implementation detail."
   ([v]
-     (iseq-internal v identity))
+   (iseq-internal v identity))
   ([v ts]
-     (iseq-internal v (type-matcher-from-ts-or-role v ts)))
+   (iseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (iseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
+   (iseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
 
 (defn riseq
   "Returns the lazy reversed seq of incidences of `v` restricted by `ts` and `ds`.
@@ -1109,37 +1114,37 @@ functions `record` and `enum-constant`."
   In fact, `ts` may also be a keyword naming a far-end role name, but this
   feature is only an implementation detail."
   ([v]
-     (riseq-internal v identity))
+   (riseq-internal v identity))
   ([v ts]
-     (riseq-internal v (type-matcher-from-ts-or-role v ts)))
+   (riseq-internal v (type-matcher-from-ts-or-role v ts)))
   ([v ts ds]
-     (riseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
+   (riseq-internal v (every-pred (direction-matcher ds) (type-matcher-from-ts-or-role v ts)))))
 
 (extend-protocol g/IElements
   Graph
   (elements
     ([this]
-       (vseq this))
+     (vseq this))
     ([this ts]
-       (vseq this ts))))
+     (vseq this ts))))
 
 (extend-protocol g/IRelationships
   Graph
   (relationships
     ([this]
-       (eseq this))
+     (eseq this))
     ([this ts]
-       (eseq this ts))))
+     (eseq this ts))))
 
 (extend-protocol g/IIncidentRelationships
   Vertex
   (incident-relationships
     ([v]
-       (iseq v nil nil))
+     (iseq v nil nil))
     ([v ts]
-       (iseq v ts nil))
+     (iseq v ts nil))
     ([v ts ds]
-       (iseq v ts ds))))
+     (iseq v ts ds))))
 
 (extend-protocol g/IRelationshipSourceTarget
   Edge
@@ -1164,11 +1169,11 @@ functions `record` and `enum-constant`."
   Vertex
   (contents
     ([this]
-       (sequence contents-transducer (iseq this)))
+     (sequence contents-transducer (iseq this)))
     ([this ts]
-       (sequence
-        (comp contents-transducer (filter (type-matcher-tg this ts)))
-        (iseq this)))))
+     (sequence
+      (comp contents-transducer (filter (type-matcher-tg this ts)))
+      (iseq this)))))
 
 (extend-protocol g/IModelObject
   GraphElement
@@ -1202,39 +1207,39 @@ functions `record` and `enum-constant`."
   Supported impl types are :generic and :standard.  The graph id defaults to a
   creation timestamp, and the impl type to GENERIC."
   ([schema]
-     (new-graph schema (format "Created: %s" (str (java.util.Date.)))))
+   (new-graph schema (format "Created: %s" (str (java.util.Date.)))))
   ([schema gid]
-     (new-graph schema gid ImplementationType/GENERIC))
+   (new-graph schema gid ImplementationType/GENERIC))
   ([^Schema schema ^String gid impl]
-     (.createGraph schema (impl-type impl) gid
-                   (Integer/valueOf 500)
-                   (Integer/valueOf 500))))
+   (.createGraph schema (impl-type impl) gid
+                 (Integer/valueOf 500)
+                 (Integer/valueOf 500))))
 
 (defn create-vertex!
   "Creates a new vertex of type `cls` in `g`.
   `cls` is a VertexClass or a qualified name given as symbol.  `prop-map` is an
   optional map from property names given as keyword to values to be set."
   ([^Graph g cls]
-     (.createVertex g (if (vertex-class? cls)
-                        cls
-                        (attributed-element-class g cls))))
+   (.createVertex g (if (vertex-class? cls)
+                      cls
+                      (attributed-element-class g cls))))
   ([^Graph g cls prop-map]
-     (let [v (create-vertex! g cls)]
-       (doseq [[prop val] prop-map]
-         (if (.getAttribute (attributed-element-class v) (name prop))
-           (set-value! v prop val)
-           (g/set-adjs! v prop (if (or (nil? val) (coll? val))
-                                 val
-                                 [val]))))
-       v)))
+   (let [v (create-vertex! g cls)]
+     (doseq [[prop val] prop-map]
+       (if (.getAttribute (attributed-element-class v) (name prop))
+         (set-value! v prop val)
+         (g/set-adjs! v prop (if (or (nil? val) (coll? val))
+                               val
+                               [val]))))
+     v)))
 
 (extend-protocol g/ICreateElement
   Graph
   (create-element!
     ([g cls]
-       (create-vertex! g cls))
+     (create-vertex! g cls))
     ([g cls prop-map]
-       (create-vertex! g cls prop-map))))
+     (create-vertex! g cls prop-map))))
 
 (defn create-edge!
   "Creates a new edge of type `cls` in `g` starting at `from` and ending at `to`.
@@ -1242,23 +1247,23 @@ functions `record` and `enum-constant`."
   is an optional map from attribute name given as keyword to value to be
   set for that attribute."
   ([^Graph g cls ^Vertex from ^Vertex to]
-     (.createEdge g (if (edge-class? cls)
-                      cls
-                      (attributed-element-class g cls))
-                  from to))
+   (.createEdge g (if (edge-class? cls)
+                    cls
+                    (attributed-element-class g cls))
+                from to))
   ([^Graph g cls ^Vertex from ^Vertex to attr-map]
-     (let [e (create-edge! g cls from to)]
-       (doseq [[attr val] attr-map]
-         (set-value! e attr val))
-       e)))
+   (let [e (create-edge! g cls from to)]
+     (doseq [[attr val] attr-map]
+       (set-value! e attr val))
+     e)))
 
 (extend-protocol g/ICreateRelationship
   Graph
   (create-relationship!
     ([this cls from to]
-       (create-edge! this cls from to))
+     (create-edge! this cls from to))
     ([this cls from to attr-map]
-       (create-edge! this cls from to attr-map))))
+     (create-edge! this cls from to attr-map))))
 
 (defn set-alpha!
   "Sets the start vertex of `e` to `v` and returns `e`."
@@ -1284,13 +1289,13 @@ functions `record` and `enum-constant`."
   "Unlinks the given vertex, i.e., deletes all incident edges matching `ts` and
   `ds`."
   ([^Vertex v]
-     (unlink! v identity nil))
+   (unlink! v identity nil))
   ([^Vertex v ts]
-     (unlink! v ts nil))
+   (unlink! v ts nil))
   ([^Vertex v ts ds]
-     (let [pred (every-pred (direction-matcher ds) (g/type-matcher v ts))]
-       (while (when-let [e (first-inc v pred)]
-                (g/delete! e))))))
+   (let [pred (every-pred (direction-matcher ds) (g/type-matcher v ts))]
+     (while (when-let [e (first-inc v pred)]
+              (g/delete! e))))))
 
 (extend-protocol g/IModifyAdjacencies
   Vertex
@@ -1326,10 +1331,10 @@ functions `record` and `enum-constant`."
   (delete!
     ([v] (.delete v) v)
     ([v recursive]
-       ;; Not recursive, so delete all incidences first.
-       (when-not recursive
-         (unlink! v))
-       (g/delete! v)))
+     ;; Not recursive, so delete all incidences first.
+     (when-not recursive
+       (unlink! v))
+     (g/delete! v)))
   Edge
   (delete!
     ([e]   (.delete e) e)
@@ -1342,16 +1347,16 @@ functions `record` and `enum-constant`."
   The incidences can be restricted by type spec `ts` and `ds` (see
   `funnyqt.generic/type-matcher` and `funnyqt.generic/direction-matcher`)."
   ([from to]
-     (relink! from to identity identity))
+   (relink! from to identity identity))
   ([from to ts]
-     (relink! from to ts identity))
+   (relink! from to ts identity))
   ([from to ts ds]
-     (let [pred (every-pred (direction-matcher ds) (g/type-matcher from ts))]
-       (loop [inc (first-inc from pred)]
-         (when inc
-           (set-this! inc to)
-           (recur (first-inc from pred)))))
-     from))
+   (let [pred (every-pred (direction-matcher ds) (g/type-matcher from ts))]
+     (loop [inc (first-inc from pred)]
+       (when inc
+         (set-this! inc to)
+         (recur (first-inc from pred)))))
+   from))
 
 ;;# Adjancencies
 
@@ -1417,15 +1422,15 @@ functions `record` and `enum-constant`."
   `on-subgraph-union'.)"
   [^TraversalContext tc1 ^TraversalContext tc2 combine-fn]
   (cond
-   (nil? tc1) tc2
-   (nil? tc2) tc1
-   :else (reify TraversalContext
-           (containsVertex [_ v]
-             (combine-fn (.containsVertex tc1 v)
-                         (.containsVertex tc2 v)))
-           (containsEdge [_ e]
-             (combine-fn (.containsEdge tc1 e)
-                         (.containsEdge tc2 e))))))
+    (nil? tc1) tc2
+    (nil? tc2) tc1
+    :else (reify TraversalContext
+            (containsVertex [_ v]
+              (combine-fn (.containsVertex tc1 v)
+                          (.containsVertex tc2 v)))
+            (containsEdge [_ e]
+              (combine-fn (.containsEdge tc1 e)
+                          (.containsEdge tc2 e))))))
 
 (defmacro on-subgraph-intersection
   "Sets the TraversalContext of `g` to a new TraversalContext that accepts only
@@ -1496,13 +1501,13 @@ functions `record` and `enum-constant`."
 
   Also see `esubgraph` and `on-subgraph`."
   ([g pred]
-     (vsubgraph g pred true))
+   (vsubgraph g pred true))
   ([g pred precalc]
-     (cond
-      (fn? pred)          (vsubgraph-tc g pred precalc)
-      (u/type-spec? pred) (vsubgraph-tc g (g/type-matcher g pred) precalc)
-      (coll? pred)        (vsubgraph-tc g #(q/member? % pred) precalc)
-      :default            (u/error (str "Don't know how to handle predicate " pred)))))
+   (cond
+     (fn? pred)          (vsubgraph-tc g pred precalc)
+     (u/type-spec? pred) (vsubgraph-tc g (g/type-matcher g pred) precalc)
+     (coll? pred)        (vsubgraph-tc g #(q/member? % pred) precalc)
+     :default            (u/error (str "Don't know how to handle predicate " pred)))))
 
 (defn ^:private esubgraph-tc
   "Returns a TraversalContext of an edge induced subgraph restricted by `pred`
@@ -1535,13 +1540,13 @@ functions `record` and `enum-constant`."
 
   Also see `vsubgraph` and `on-subgraph`."
   ([g pred]
-     (esubgraph g pred true))
+   (esubgraph g pred true))
   ([g pred precalc]
-     (cond
-      (fn? pred)          (esubgraph-tc g pred precalc)
-      (u/type-spec? pred) (esubgraph-tc g (g/type-matcher g pred) precalc)
-      (coll? pred)        (esubgraph-tc g #(q/member? % pred) precalc)
-      :default            (u/error (str "Don't know how to handle predicate " pred)))))
+   (cond
+     (fn? pred)          (esubgraph-tc g pred precalc)
+     (u/type-spec? pred) (esubgraph-tc g (g/type-matcher g pred) precalc)
+     (coll? pred)        (esubgraph-tc g #(q/member? % pred) precalc)
+     :default            (u/error (str "Don't know how to handle predicate " pred)))))
 
 ;;# Generic Regular Path Expressions
 
@@ -1762,9 +1767,9 @@ functions `record` and `enum-constant`."
                     (.getQualifiedName vc)
                     (.getQualifiedName vc))
            ([~'g]
-              (create-vertex! ~'g '~(g/qname vc)))
+            (create-vertex! ~'g '~(g/qname vc)))
            ([~'g ~'prop-map]
-              (create-vertex! ~'g '~(g/qname vc) ~'prop-map))))
+            (create-vertex! ~'g '~(g/qname vc) ~'prop-map))))
 
      ;; VSEQ FN
      (defn ~(symbol (str prefix "vseq-" (g/escaped-uname-str vc)))
@@ -1796,9 +1801,9 @@ functions `record` and `enum-constant`."
                     (g/qname ec)
                     (g/qname (.getVertexClass (.getTo ec))))
            ([~'g ~'alpha ~'omega]
-              (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega))
+            (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega))
            ([~'g ~'alpha ~'omega ~'attr-map]
-              (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attr-map))))
+            (create-edge! ~'g '~(g/qname ec) ~'alpha ~'omega ~'attr-map))))
 
      ;; ESEQ FN
      (defn ~(symbol (str prefix "eseq-" (g/escaped-uname-str ec)))
@@ -1827,9 +1832,9 @@ functions `record` and `enum-constant`."
                 (g/qname ec)
                 (g/qname (.getVertexClass (.getTo ec))))
        ([~'v]
-          (iseq ~'v '~(g/qname ec) :inout))
+        (iseq ~'v '~(g/qname ec) :inout))
        ([~'v ~'ds]
-          (iseq ~'v '~(g/qname ec) ~'ds)))
+        (iseq ~'v '~(g/qname ec) ~'ds)))
 
      ;; TYPE PRED
      (defn ~(symbol (str prefix "isa-" (g/escaped-uname-str ec) "?"))
@@ -1878,79 +1883,79 @@ functions `record` and `enum-constant`."
     `(do
        ;; GETTER
        ~(cond
-         ;; This role is always multi-valued
-         (and (multi? true) (not (multi? false)))
-         `(defn ~(symbol (str prefix "->" (name role)))
-            ~(format "Returns the vertices in `v`s %s role.
+          ;; This role is always multi-valued
+          (and (multi? true) (not (multi? false)))
+          `(defn ~(symbol (str prefix "->" (name role)))
+             ~(format "Returns the vertices in `v`s %s role.
   Possible types of `v`: %s"
-                     (name role)
-                     owner-string)
-            [~v]
-            (.adjacences ~v ~(name role)))
+                      (name role)
+                      owner-string)
+             [~v]
+             (.adjacences ~v ~(name role)))
 
-         ;; This role is always single-valued
-         (and (multi? false) (not (multi? true)))
-         `(defn ~(symbol (str prefix "->" (name role)))
-            ~(format "Returns the vertex in `v`s %s role.
+          ;; This role is always single-valued
+          (and (multi? false) (not (multi? true)))
+          `(defn ~(symbol (str prefix "->" (name role)))
+             ~(format "Returns the vertex in `v`s %s role.
   Possible types of `v`: %s"
-                     (name role)
-                     owner-string)
-            [~v]
-            (let [x# (.adjacences ~v ~(name role))]
-              (if (next x#)
-                (u/errorf "Multiple vertices found in the single-valued role %s of %s."
-                          ~(name role) ~v)
-                (first x#))))
+                      (name role)
+                      owner-string)
+             [~v]
+             (let [x# (.adjacences ~v ~(name role))]
+               (if (next x#)
+                 (u/errorf "Multiple vertices found in the single-valued role %s of %s."
+                           ~(name role) ~v)
+                 (first x#))))
 
-         :else `(defn ~(symbol (str prefix "->" (name role)))
-                  ~(format "Returns the vertex/vertices in `v`s %s role.
+          :else `(defn ~(symbol (str prefix "->" (name role)))
+                   ~(format "Returns the vertex/vertices in `v`s %s role.
   Possible types of `v`: %s"
-                           (name role)
-                           owner-string)
-                  [~v]
-                  (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
-                    (.adjacences ~v ~(name role))
-                    (let [x# (.adjacences ~v ~(name role))]
-                      (if (next x#)
-                        (u/errorf "Multiple vertices found in the single-valued role %s of %s."
-                                  ~(name role) ~v)
-                        (first x#))))))
+                            (name role)
+                            owner-string)
+                   [~v]
+                   (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                     (.adjacences ~v ~(name role))
+                     (let [x# (.adjacences ~v ~(name role))]
+                       (if (next x#)
+                         (u/errorf "Multiple vertices found in the single-valued role %s of %s."
+                                   ~(name role) ~v)
+                         (first x#))))))
 
        ;; SETTER
        ~(cond
-         ;; This role is always multi-valued
-         (and (multi? true) (not (multi? false)))
-         `(defn ~(symbol (str prefix "->set-" (name role) "!"))
-            ~(format "Sets the %s role of `v` to `ovs`.
+          ;; This role is always multi-valued
+          (and (multi? true) (not (multi? false)))
+          `(defn ~(symbol (str prefix "->set-" (name role) "!"))
+             ~(format "Sets the %s role of `v` to `ovs`.
   `ovs` must be a collection of vertices.
   Possible types of `v`: %s"
-                     (name role)
-                     owner-string)
-            [~v ~'ovs]
-            (g/set-adjs! ~v ~role ~'ovs))
+                      (name role)
+                      owner-string)
+             [~v ~'ovs]
+             (g/set-adjs! ~v ~role ~'ovs))
 
-         ;; This role is always single-valued
-         (and (multi? false) (not (multi? true)))
-         `(defn ~(symbol (str prefix "->set-" (name role) "!"))
-            ~(format "Sets the %s role of `v` to `ov`.
+          ;; This role is always single-valued
+          (and (multi? false) (not (multi? true)))
+          `(defn ~(symbol (str prefix "->set-" (name role) "!"))
+             ~(format "Sets the %s role of `v` to `ov`.
   `ov` must be a single vertex.
   Possible types of `v`: %s"
-                     (name role)
-                     owner-string)
-            [~v ~'ov]
-            (g/set-adj! ~v ~role ~'ov))
+                      (name role)
+                      owner-string)
+             [~v ~'ov]
+             (g/set-adj! ~v ~role ~'ov))
 
-         :else `(defn ~(symbol (str prefix "->set-" (name role) "!"))
-                  ~(format "Sets the %s role of `v` to `ov`.
+          :else `(defn ~(symbol (str prefix "->set-" (name role) "!"))
+                   ~(format "Sets the %s role of `v` to `ov`.
   If `ov` must be a single vertex or a collection of vertices depends on the
   type of `v`.
   Possible types of `v`: %s"
-                           (name role)
-                           owner-string)
-                  [~v ~'ov]
-                  (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
-                    (g/set-adjs! ~v ~role ~'ov)
-                    (g/set-adj! ~v ~role ~'ov))))
+                            (name role)
+                            owner-string)
+                   [~v ~'ov]
+                   (if (g/mm-multi-valued-property? (attributed-element-class ~v) ~role)
+                     (g/set-adjs! ~v ~role ~'ov)
+                     (g/set-adj! ~v ~role ~'ov))))
 
        ;; ADDER
        ~@(when (multi? true)
