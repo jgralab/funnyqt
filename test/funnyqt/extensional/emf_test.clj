@@ -1,9 +1,9 @@
 (ns funnyqt.extensional.emf-test
   (:use funnyqt.emf)
-  (:require [funnyqt.query :as q])
-  (:use funnyqt.extensional)
-  (:use funnyqt.extensional.emf)
-  (:use funnyqt.generic)
+  (:require [funnyqt.query :as q]
+            [funnyqt.extensional :as e]
+            [funnyqt.extensional.emf :as eemf]
+            [funnyqt.generic :as g])
   (:use clojure.test))
 
 ;; The Family2Genealogy transformation from EMF to EMF
@@ -11,14 +11,14 @@
 (defn family
   "Returns the main family of member m."
   [m]
-  (or (adj m :familyFather) (adj m :familyMother)
-      (adj m :familySon)    (adj m :familyDaughter)))
+  (or (g/adj m :familyFather) (g/adj m :familyMother)
+      (g/adj m :familySon)    (g/adj m :familyDaughter)))
 
 (defn male?
   "Returns true, iff member m is male."
   [m]
-  (or (adj m :familyFather)
-      (adj m :familySon)))
+  (or (g/adj m :familyFather)
+      (g/adj m :familySon)))
 
 (defn parents-of
   "Returns the set of parent members of m."
@@ -30,33 +30,33 @@
 (defn wife
   "Returns the wife member of member m."
   [m]
-  (adj m :familyFather :mother))
+  (g/adj m :familyFather :mother))
 
-(deftransformation families2genealogy [m tm]
-  (create-eobjects! tm 'Male
+(e/deftransformation families2genealogy [m tm]
+  (eemf/create-eobjects! tm 'Male
+                         (fn []
+                           (filter male?
+                                   (eallcontents m 'Member))))
+  (eemf/create-eobjects! tm 'Female
+                         (fn []
+                           (filter (complement male?)
+                                   (eallcontents m 'Member))))
+  (eemf/set-values! tm 'Person :fullName
                     (fn []
-                      (filter male?
-                              (eallcontents m 'Member))))
-  (create-eobjects! tm 'Female
+                      (for [mem (eallcontents m 'Member)]
+                        [(eemf/resolve-eobject mem)
+                         (str (eget mem :firstName) " "
+                              (eget (family mem) :lastName))])))
+  (eemf/set-values! tm 'Male :wife
                     (fn []
-                      (filter (complement male?)
-                              (eallcontents m 'Member))))
-  (set-values! tm 'Person :fullName
-               (fn []
-                 (for [mem (eallcontents m 'Member)]
-                   [(resolve-eobject mem)
-                    (str (eget mem :firstName) " "
-                         (eget (family mem) :lastName))])))
-  (set-values! tm 'Male :wife
-               (fn []
-                 (for [mem (filter wife (eallcontents m 'Member))]
-                   [(resolve-eobject mem) (resolve-target (wife mem))])))
-  (add-values! tm 'Person :parents
-               (fn []
-                 (for [child (eallcontents m 'Member)
-                       :let [parents (parents-of child)]
-                       :when parents]
-                   [(resolve-eobject child) (resolve-all-targets parents)]))))
+                      (for [mem (filter wife (eallcontents m 'Member))]
+                        [(eemf/resolve-eobject mem) (eemf/resolve-target (wife mem))])))
+  (eemf/add-values! tm 'Person :parents
+                    (fn []
+                      (for [child (eallcontents m 'Member)
+                            :let [parents (parents-of child)]
+                            :when parents]
+                        [(eemf/resolve-eobject child) (eemf/resolve-all-targets parents)]))))
 
 (load-ecore-resource "test/input/Genealogy.ecore")
 (load-ecore-resource "test/input/Families.ecore")

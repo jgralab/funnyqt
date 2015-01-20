@@ -361,6 +361,12 @@
     "Returns all relationship classes in the metamodel `mm-or-cls` or in the
     metamodel containing class `mm-or-cls`."))
 
+(defprotocol IMMRelationshipClassSourceTarget
+  (mm-relationship-class-source [rel-cls]
+    "Returns the source element class of the relationship class `rel-cls`.")
+  (mm-relationship-class-target [rel-cls]
+    "Returns the target element class of the relationship class `rel-cls`."))
+
 (defprotocol IMMClass
   (mm-class [model-element] [model mm-class-sym]
     "Returns the given model-element's metamodel class,
@@ -389,6 +395,10 @@
   (mm-references [cls]
     "Returns the sequence of references declared for class `cls`.
   Each reference is represented as a keyword."))
+
+(defprotocol IMMReferencedElementClass
+  (mm-referenced-element-class [cls ref]
+    "Returns the element class referenced by `cls`s `ref` reference."))
 
 (defprotocol IMMBooleanAttribute
   (mm-boolean-attribute? [cls attr]

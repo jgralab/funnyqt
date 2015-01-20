@@ -410,21 +410,28 @@ functions `record` and `enum-constant`."
     (let [^GraphClass gc (.getGraphClass schema)]
       (.getEdgeClasses gc))))
 
+(extend-protocol g/IMMRelationshipClassSourceTarget
+  EdgeClass
+  (mm-relationship-class-source [this]
+    (-> this .getFrom .getVertexClass))
+  (mm-relationship-class-source [this]
+    (-> this .getTo .getVertexClass)))
+
 (extend-protocol g/IMMClass
   AttributedElement
   (mm-class
     ([this]
-       (.getAttributedElementClass this))
+     (.getAttributedElementClass this))
     ([this qn]
-       (if-let [cls (.getAttributedElementClass (.getSchema this) (name qn))]
-         cls
-         (u/errorf "No such AttributedElementClass: %s." qn))))
+     (if-let [cls (.getAttributedElementClass (.getSchema this) (name qn))]
+       cls
+       (u/errorf "No such AttributedElementClass: %s." qn))))
   Schema
   (mm-class
     ([this qn]
-       (if-let [cls (.getAttributedElementClass this (name qn))]
-         cls
-         (u/errorf "No such AttributedElementClass: %s." qn)))))
+     (if-let [cls (.getAttributedElementClass this (name qn))]
+       cls
+       (u/errorf "No such AttributedElementClass: %s." qn)))))
 
 (extend-protocol g/IMMDirectSuperclasses
   GraphElementClass
@@ -457,6 +464,18 @@ functions `record` and `enum-constant`."
                   [(keyword role)])))
             (concat (.getValidToFarIncidenceClasses vc)
                     (.getValidFromFarIncidenceClasses vc)))))
+
+(extend-protocol g/IMMReferencedElementClass
+  VertexClass
+  (mm-referenced-element-class [this ref]
+    (if-let [dec (.getDirectedEdgeClassForFarEndRole this (name ref))]
+      (let [ec (.getEdgeClass dec)
+            dir (.getDirection dec)]
+        (if (= dir EdgeDirection/OUT)
+          (-> ec .getTo   .getVertexClass)
+          (-> ec .getFrom .getVertexClass)))
+      (u/errorf "No such role %s at VertexClass %s." ref this))))
+
 
 (extend-protocol g/IMMBooleanAttribute
   AttributedElementClass
@@ -2017,17 +2036,17 @@ functions `record` and `enum-constant`."
   for some VertexClass.  If role is a multi-valued role of el, then the setter
   must be given a collection of vertices, else a single vertex."
   ([schema-file]
-     `(generate-schema-functions ~schema-file nil nil nil))
+   `(generate-schema-functions ~schema-file nil nil nil))
   ([schema-file nssym]
-     `(generate-schema-functions ~schema-file ~nssym nil nil))
+   `(generate-schema-functions ~schema-file ~nssym nil nil))
   ([schema-file nssym alias]
-     `(generate-schema-functions ~schema-file ~nssym ~alias nil))
+   `(generate-schema-functions ~schema-file ~nssym ~alias nil))
   ([schema-file nssym alias prefix]
-     `(g/metamodel-api-generator ~schema-file
-                                 ~nssym
-                                 ~alias
-                                 ~prefix
-                                 create-vc-fns
-                                 create-ec-fns
-                                 create-attr-fns
-                                 create-role-fns)))
+   `(g/metamodel-api-generator ~schema-file
+                               ~nssym
+                               ~alias
+                               ~prefix
+                               create-vc-fns
+                               create-ec-fns
+                               create-attr-fns
+                               create-role-fns)))

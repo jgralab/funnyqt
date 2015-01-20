@@ -209,9 +209,9 @@
   "Returns the lazy seq of EClasses known by *epackage-registry*.
   Also see: `with-ns-uris` and `with-epackage-registry`"
   ([]
-     (filter eclass? (eclassifiers)))
+   (filter eclass? (eclassifiers)))
   ([ecore-resource]
-     (filter eclass? (eallcontents ecore-resource))))
+   (filter eclass? (eallcontents ecore-resource))))
 
 (defn eclassifier
   "Returns the eclassifier with the given `name`.
@@ -237,14 +237,14 @@
                                         (= (.getName ec) n))
                                       (eclassifiers))]
               (cond
-               (empty? classifiers) (u/errorf "No such EClassifier %s." n)
-               (next classifiers)   (u/errorf "EClassifier %s is ambiguous: %s\n%s%s"
-                                              n (print-str classifiers)
-                                              "Restrict the search space using `with-ns-uris` "
-                                              "or by using {\"http://ns/uri\" qname}.")
-               :else (let [ec (first classifiers)]
-                       (cache/miss +eclassifier-cache+ cache-entry ec)
-                       ec)))))))))
+                (empty? classifiers) (u/errorf "No such EClassifier %s." n)
+                (next classifiers)   (u/errorf "EClassifier %s is ambiguous: %s\n%s%s"
+                                               n (print-str classifiers)
+                                               "Restrict the search space using `with-ns-uris` "
+                                               "or by using {\"http://ns/uri\" qname}.")
+                :else (let [ec (first classifiers)]
+                        (cache/miss +eclassifier-cache+ cache-entry ec)
+                        ec)))))))))
 
 (defn esuperclasses
   "Returns the direct super classes of the given EClass `ec`."
@@ -360,6 +360,15 @@
     (map (fn [^EReference ref]
            (keyword (.getName ref)))
          (.getEReferences cls))))
+
+(extend-protocol g/IMMReferencedElementClass
+  EClass
+  (mm-referenced-element-class [this ref]
+    (if-let [^EStructuralFeature sf (.getEStructuralFeature this (name ref))]
+      (if (instance? EReference sf)
+        (.getEReferenceType ^EReference sf)
+        (u/errorf "%s is no EReference." sf))
+      (u/errorf "No such structural feature %s at EClass %s." ref this))))
 
 (extend-protocol g/IMMBooleanAttribute
   EClass

@@ -36,25 +36,23 @@
 ;;## Creating EObjects
 
 (defn create-eobjects!
-  [m cls archfn]
-  (let [^EClass vc (emf/eclassifier cls)]
+  "In resource `r` create one element of EClass `cls` for every archetype
+  returned by `archfn`.  `archfn` must return a collection of arbitrary
+  objects.  It's value is taken as a set.  Traceability mappings are
+  established implicitly.  Returns the sequence of new EObjects."
+  [r cls archfn]
+  (let [^EClass ec (emf/eclassifier cls)]
     (loop [as (set (archfn))
-           im (transient {})
-           am (transient {})]
+           im (transient {})]
       (if (seq as)
-        (let [v (emf/ecreate! m cls)
+        (let [eo (emf/ecreate! r cls)
               a (first as)]
-          ;;(println "Created" v "for" a)
+          ;;(println "Created" eo "for" a)
           (recur (rest as)
-                 (assoc! im a v)
-                 (assoc! am v a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (when e/*img*
-            (swap! e/*img* e/into-trace-map vc img))
-          (when e/*arch*
-            (swap! e/*arch* e/into-trace-map vc arch))
-          (keys arch))))))
+                 (assoc! im a eo)))
+        (let [img (persistent! im)]
+          (e/add-trace-mappings! ec img)
+          (vals img))))))
 
 ;;## Setting Features Values
 

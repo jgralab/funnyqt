@@ -2,27 +2,27 @@
   (:use funnyqt.tg)
   (:require [funnyqt.emf       :as emf]
             [funnyqt.generic   :as g]
-            [funnyqt.query     :as q])
-  (:use funnyqt.extensional)
-  (:use funnyqt.extensional.tg)
+            [funnyqt.query     :as q]
+            [funnyqt.extensional :as e]
+            [funnyqt.extensional.tg :as etg])
   (:use [funnyqt.tg-test :only [rg]])
   (:use clojure.test))
 
-(deftransformation transformation-1-instance-only
+(e/deftransformation transformation-1-instance-only
   "Creates a graph with 4 vertices and 3 edges."
   [g]
-  (create-vertices! g 'localities.City (fn [] [1 2]))
-  (set-values! g 'NamedElement :name
-               (fn []
-                 {(resolve-element 1) "Köln"
-                  (resolve-element 2) "Frankfurt"}))
-  (create-vertices! g 'junctions.Crossroad (fn [] ["a" "b"]))
-  (create-edges! g 'localities.ContainsCrossroad
-                 (fn []
-                   [[1 (resolve-alpha 1) (resolve-omega "a")]
-                    [2 (resolve-alpha 2) (resolve-omega "b")]]))
-  (create-edges! g 'connections.Street (fn []
-                                         [[1 (resolve-alpha "a") (resolve-omega "b")]]))
+  (etg/create-vertices! g 'localities.City (fn [] [1 2]))
+  (etg/set-values! g 'NamedElement :name
+                   (fn []
+                     {(etg/resolve-element 1) "Köln"
+                      (etg/resolve-element 2) "Frankfurt"}))
+  (etg/create-vertices! g 'junctions.Crossroad (fn [] ["a" "b"]))
+  (etg/create-edges! g 'localities.ContainsCrossroad
+                     (fn []
+                       [[1 (etg/resolve-alpha 1) (etg/resolve-omega "a")]
+                        [2 (etg/resolve-alpha 2) (etg/resolve-omega "b")]]))
+  (etg/create-edges! g 'connections.Street (fn []
+                                             [[1 (etg/resolve-alpha "a") (etg/resolve-omega "b")]]))
   g)
 
 (deftest test-transformation-1-instance-only
@@ -58,32 +58,32 @@
   [m]
   (g/adj m :familyFather :mother))
 
-(deftransformation families2genealogy [m g]
-  (create-vertices! g 'Male
-                    (fn []
-                      (filter male?
-                              (emf/eallcontents m 'Member))))
-  (create-vertices! g 'Female
-                    (fn []
-                      (filter (complement male?)
-                              (emf/eallcontents m 'Member))))
-  (set-values! g 'Person :fullName
-               (fn []
-                 (for [mem (emf/eallcontents m 'Member)]
-                   [(resolve-element mem)
-                    (str (emf/eget mem :firstName) " "
-                         (emf/eget (family mem) :lastName))])))
-  (create-edges! g 'HasSpouse
-                 (fn []
-                   (for [mem (filter wife (emf/eallcontents m 'Member))
-                         :let [w (wife mem)]]
-                     [(family mem) (resolve-alpha mem) (resolve-omega w)])))
-  (create-edges! g 'HasChild
-                 (fn []
-                   (for [child (emf/eallcontents m 'Member)
-                         parent (parents-of child)]
-                     [[child parent] (resolve-alpha parent) (resolve-omega child)])))
-  @*img*)
+(e/deftransformation families2genealogy [m g]
+  (etg/create-vertices! g 'Male
+                        (fn []
+                          (filter male?
+                                  (emf/eallcontents m 'Member))))
+  (etg/create-vertices! g 'Female
+                        (fn []
+                          (filter (complement male?)
+                                  (emf/eallcontents m 'Member))))
+  (etg/set-values! g 'Person :fullName
+                   (fn []
+                     (for [mem (emf/eallcontents m 'Member)]
+                       [(etg/resolve-element mem)
+                        (str (emf/eget mem :firstName) " "
+                             (emf/eget (family mem) :lastName))])))
+  (etg/create-edges! g 'HasSpouse
+                     (fn []
+                       (for [mem (filter wife (emf/eallcontents m 'Member))
+                             :let [w (wife mem)]]
+                         [(family mem) (etg/resolve-alpha mem) (etg/resolve-omega w)])))
+  (etg/create-edges! g 'HasChild
+                     (fn []
+                       (for [child (emf/eallcontents m 'Member)
+                             parent (parents-of child)]
+                         [[child parent] (etg/resolve-alpha parent) (etg/resolve-omega child)])))
+  @e/*img*)
 
 (emf/load-ecore-resource "test/input/Families.ecore")
 

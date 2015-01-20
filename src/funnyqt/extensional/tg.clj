@@ -39,26 +39,20 @@
   "In graph `g` create one vertex of VertexClass `cls` for every archetype
   returned by `archfn`.  `archfn` must return a collection of arbitrary
   objects.  It's value is taken as a set.  Traceability mappings are
-  established implicitly."
+  established implicitly.  Returns the sequence of new vertices."
   [g cls archfn]
   (let [^VertexClass vc (tg/attributed-element-class g cls)]
     (loop [as (set (archfn))
-           im (transient {})
-           am (transient {})]
+           im (transient {})]
       (if (seq as)
         (let [v (tg/create-vertex! g cls)
               a (first as)]
           ;;(println "Created" v "for" a)
           (recur (rest as)
-                 (assoc! im a v)
-                 (assoc! am v a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (when e/*img*
-            (swap! e/*img*  e/into-trace-map vc img))
-          (when e/*arch*
-            (swap! e/*arch* e/into-trace-map vc arch))
-          (keys arch))))))
+                 (assoc! im a v)))
+        (let [img  (persistent! im)]
+          (e/add-trace-mappings! vc img)
+          (vals img))))))
 
 ;;## Creating Edges
 
@@ -74,7 +68,9 @@
 
   In `archfn`, `resolve-alpha` and `resolve-omega` are bound to functions that
   return the image of the given archetype in the image-mapping of the new
-  edge's source/target vertex class."
+  edge's source/target vertex class.
+
+  Returns the sequence of new edges."
   [g cls archfn]
   (let [^EdgeClass ec (tg/attributed-element-class g cls)
         saec (-> ec (.getFrom) (.getVertexClass))
@@ -82,19 +78,15 @@
     (loop [as (binding [resolve-alpha (partial e/image saec)
                         resolve-omega (partial e/image eaec)]
                 (set (archfn)))
-           im (transient {})
-           am (transient {})]
+           im (transient {})]
       (if (seq as)
         (let [[a al om] (first as)
               e (tg/create-edge! g cls al om)]
-          (recur (rest as) (assoc! im a e) (assoc! am e a)))
-        (let [img  (persistent! im)
-              arch (persistent! am)]
-          (when e/*img*
-            (swap! e/*img*  e/into-trace-map ec img))
-          (when e/*arch*
-            (swap! e/*arch* e/into-trace-map ec arch))
-          (keys arch))))))
+          (recur (rest as)
+                 (assoc! im a e)))
+        (let [img  (persistent! im)]
+          (e/add-trace-mappings! ec img)
+          (vals img))))))
 
 ;;## Setting Attribute Values
 
