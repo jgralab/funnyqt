@@ -12,7 +12,7 @@
   "Creates a graph with 4 vertices and 3 edges."
   [g]
   (create-vertices! g 'localities.City (fn [] [1 2]))
-  (set-values! g 'NamedElement.name
+  (set-values! g 'NamedElement :name
                (fn []
                  {(resolve-element 1) "Köln"
                   (resolve-element 2) "Frankfurt"}))
@@ -67,7 +67,7 @@
                     (fn []
                       (filter (complement male?)
                               (emf/eallcontents m 'Member))))
-  (set-values! g 'Person.fullName
+  (set-values! g 'Person :fullName
                (fn []
                  (for [mem (emf/eallcontents m 'Member)]
                    [(resolve-element mem)

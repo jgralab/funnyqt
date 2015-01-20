@@ -15,33 +15,28 @@
 (deftransformation transformation-2
   "Creates 1 VC and one EC."
   [g]
-  (create-vertex-class!
-   g {:qname 'Person}
-   (fn [] [1 2 3 4 5]))
-
-  (create-attribute! g {:qname 'Person.name :domain 'String :default "\"Fritz\""}
+  (create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
+  (create-attribute! g 'Person :name 'String "\"Fritz\""
                      (fn [] {(resolve-element 1) "Hugo"
                              (resolve-element 2) "Peter"
                              (resolve-element 3) "August"}))
-  (create-attribute! g {:qname 'Person.birthday :domain 'String}
+  (create-attribute! g 'Person :birthday 'String
                      (fn [] {(resolve-element 3) "1980-11-01"
                              (resolve-element 4) "1970-06-22"
                              (resolve-element 5) "1975-01-01"}))
 
-  (create-vertex-class! g {:qname 'SpecialPerson}
-                        (fn [] [:a :b]))
-  (create-attribute! g {:qname 'SpecialPerson.lastName :domain 'String}
+  (create-vertex-class! g 'SpecialPerson (fn [] [:a :b]))
+  (create-attribute! g 'SpecialPerson :lastName 'String
                      (fn [] {(resolve-element :a) "Müller"
                              (resolve-element :b) "Meier"}))
 
   (add-sub-classes! g 'Person 'SpecialPerson)
 
-  (create-edge-class!
-   g {:qname 'Knows :from 'Person :to 'Person}
-   (fn [] (map (fn [[arch a o]]
-                 [arch (resolve-alpha a) (resolve-omega o)])
-               [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
-                [6 1 :a] [7 2 :b]]))))
+  (create-edge-class! g 'Knows 'Person 'Person
+                      (fn [] (map (fn [[arch a o]]
+                                    [arch (resolve-alpha a) (resolve-omega o)])
+                                  [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
+                                   [6 1 :a] [7 2 :b]]))))
 
 (deftest test-transformation-2
   (let [g (empty-graph 'test.transformation2.T2Schema 'T2Graph)]
@@ -64,15 +59,15 @@
 (defn ^:private top-sibs-bottom [g]
   (when (seq (.getVertexClasses (.getGraphClass (schema g))))
     (throw (RuntimeException. "BANG")))
-  (create-vertex-class! g {:qname 'Top} (fn [] [:t]))
-  (create-vertex-class! g {:qname 'Sibling1} (fn [] [:s1]))
-  (create-vertex-class! g {:qname 'Sibling2} (fn [] [:s2]))
-  (create-vertex-class! g {:qname 'Bottom} (fn [] [:b])))
+  (create-vertex-class! g 'Top (fn [] [:t]))
+  (create-vertex-class! g 'Sibling1 (fn [] [:s1]))
+  (create-vertex-class! g 'Sibling2 (fn [] [:s2]))
+  (create-vertex-class! g 'Bottom (fn [] [:b])))
 
 (deftransformation multiple-inheritance-0
   [g]
   (top-sibs-bottom g)
-  (create-attribute! g {:qname 'Top.name :domain 'String}
+  (create-attribute! g 'Top :name 'String
                      (fn [] {(resolve-element :t) "Top"}))
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   (add-super-classes! g 'Bottom 'Sibling1 'Sibling2))
@@ -92,10 +87,10 @@
 (deftransformation multiple-inheritance-1
   [g]
   (top-sibs-bottom g)
-  (create-attribute! g {:qname 'Top.name :domain 'String}
+  (create-attribute! g 'Top :name 'String
                      (fn [] {(resolve-element :t) "Top"}))
 
-  (create-attribute! g {:qname 'Bottom.name :domain 'String}
+  (create-attribute! g 'Bottom :name 'String
                      (fn [] {(resolve-element :b) "Bottom"}))
 
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
@@ -105,16 +100,16 @@
 
 (deftest test-multiple-inheritance-1
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (is (thrown-with-msg? Exception #"Bottom already has a name attribute so cannot inherit another one"
+    (is (thrown-with-msg? Exception #"Bottom already has a :name attribute so cannot inherit another one"
                           (multiple-inheritance-1 g)))))
 
 (deftransformation multiple-inheritance-2
   [g]
   (top-sibs-bottom g)
-  (create-attribute! g {:qname 'Sibling1.name :domain 'String}
+  (create-attribute! g 'Sibling1 :name 'String
                      (fn [] {(resolve-element :s1) "Sib1"}))
 
-  (create-attribute! g {:qname 'Sibling2.name :domain 'String}
+  (create-attribute! g 'Sibling2 :name 'String
                      (fn [] {(resolve-element :s2) "Sib2"}))
   (add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   ;; This must fail, cause Bottom inherits name from both Sibling1 and
@@ -124,26 +119,26 @@
 (deftest test-multiple-inheritance-2
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? Exception
-                          #"Bottom tries to inherit two different name attributes, one from Sibling1 and one from Sibling2"
+                          #"Bottom tries to inherit two different :name attributes, one from Sibling1 and one from Sibling2"
                           (multiple-inheritance-2 g)))))
 
 (deftransformation multiple-inheritance-3
   [g]
   (top-sibs-bottom g)
-  (create-attribute! g {:qname 'Top.name :domain 'String}
+  (create-attribute! g 'Top :name 'String
                      (fn [] {(resolve-element :t) "Top"}))
 
-  (create-attribute! g {:qname 'Sibling1.name :domain 'Long}
+  (create-attribute! g 'Sibling1 :name 'Long
                      (fn [] {(resolve-element :s1) 11}))
 
   ;; This must fail, cause Sibling1 inherits name from Top, but defines a name
-  ;; attribute itself
+  ;; attribute itself.
   (add-sub-classes! g 'Top 'Sibling1))
 
 (deftest test-multiple-inheritance-3
   (let [g (empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (is (thrown-with-msg? Exception #"Sibling1 already has a name attribute so cannot inherit another one"
-          (multiple-inheritance-3 g)))))
+    (is (thrown-with-msg? Exception #"Sibling1 already has a :name attribute so cannot inherit another one"
+                          (multiple-inheritance-3 g)))))
 
 ;;## Attribute renames
 
@@ -151,35 +146,35 @@
   [g]
   ;; Must error, cause name is actually inherited by NamedElement and not
   ;; declared for Locality itself
-  (rename-attribute! g 'Locality.name :inhabitants))
+  (rename-attribute! g 'Locality :name :inhabitants))
 
 (deftest test-attr-rename-0
-  (is (thrown-with-msg? Exception #"Cannot rename attribute name for class localities.Locality because it's owned by NamedElement"
+  (is (thrown-with-msg? Exception #"Cannot rename attribute :name for class localities.Locality because it's owned by NamedElement"
                         (attr-rename-0 (load-graph "test/input/greqltestgraph.tg")))))
 
 
 (deftransformation attr-rename-1
   [g]
   ;; Must error, cause subclass Locality already declares inhabitants
-  (rename-attribute! g 'NamedElement.name :inhabitants))
+  (rename-attribute! g 'NamedElement :name :inhabitants))
 
 (deftest test-attr-rename-1
-  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute"
+  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a :inhabitants attribute"
                         (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-2
   [g]
   ;; Must error, cause Locality already declares inhabitants
-  (rename-attribute! g 'localities.Locality.year :inhabitants))
+  (rename-attribute! g 'localities.Locality :year :inhabitants))
 
 (deftest test-attr-rename-2
-  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a inhabitants attribute"
+  (is (thrown-with-msg? Exception #"NamedElement subclass localities.Locality already has a :inhabitants attribute"
                         (attr-rename-1 (load-graph "test/input/greqltestgraph.tg")))))
 
 (deftransformation attr-rename-3
   [g]
   ;; Should work
-  (rename-attribute! g 'NamedElement.name :id))
+  (rename-attribute! g 'NamedElement :name :id))
 
 (deftest test-attr-rename-3
   (let [g (load-graph "test/input/greqltestgraph.tg")
@@ -189,7 +184,9 @@
                                            (vseq g 'NamedElement))))
         name-map (attr-map :name)]
     (attr-rename-3 g)
-    (is (not (.containsAttribute ^AttributedElementClass (attributed-element-class g 'NamedElement) "name")))
+    (is (not (.containsAttribute
+              ^AttributedElementClass (attributed-element-class g 'NamedElement)
+              "name")))
     (is (= name-map (attr-map :id)))))
 
 ;;** Attribute deletions
@@ -202,16 +199,16 @@
 (deftransformation delete-attr-1-setup
   [g]
   (let [abc [:a :b :c :d :e :f :g :h :i :j :k :l :m :n :o :p :q :r :s :t :u :v :w :x :y :z]]
-    (create-vertex-class! g {:qname 'Node} (fn [] abc))
+    (create-vertex-class! g 'Node (fn [] abc))
     (doseq [a abc]
-      (create-attribute! g {:qname (str 'Node "." (name a)) :domain 'String}
+      (create-attribute! g 'Node a 'String
                          (fn [] (zipmap (map resolve-element abc)
-                                       (repeat (name a))))))))
+                                        (repeat (name a))))))))
 
 (deftransformation delete-attr-1
   "Deletes a random Node attribute."
   [g]
-  (delete-attribute! g (str 'Node "." (name (rand-nth (attr-seq (first-vertex g)))))))
+  (delete-attribute! g 'Node (rand-nth (attr-seq (first-vertex g)))))
 
 (deftest test-delete-attr-1
   (let [g (empty-graph 'foo.bar.BazSchema 'BazGraph)

@@ -41,17 +41,17 @@
                     (fn []
                       (filter (complement male?)
                               (eallcontents m 'Member))))
-  (set-values! tm 'Person.fullName
+  (set-values! tm 'Person :fullName
                (fn []
                  (for [mem (eallcontents m 'Member)]
                    [(resolve-eobject mem)
                     (str (eget mem :firstName) " "
                          (eget (family mem) :lastName))])))
-  (set-values! tm 'Male.wife
+  (set-values! tm 'Male :wife
                (fn []
                  (for [mem (filter wife (eallcontents m 'Member))]
                    [(resolve-eobject mem) (resolve-target (wife mem))])))
-  (add-values! tm 'Person.parents
+  (add-values! tm 'Person :parents
                (fn []
                  (for [child (eallcontents m 'Member)
                        :let [parents (parents-of child)]

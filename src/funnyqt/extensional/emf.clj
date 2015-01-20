@@ -12,26 +12,26 @@
 
 (def ^{:dynamic true
        :arglists '([archetype])
-       :doc "Resolves the image of the given archetype in the img function
-  corresponding to the EClass of the current attribute.  This function is only
-  bound inside `set-values!` and `add-values!`."}
+       :doc "Resolves the image of the given `archetype` in the img function
+  corresponding to the EClass of the current structural feature.  This function
+  is only bound inside `set-values!` and `add-values!`."}
   resolve-eobject)
 
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Returns the image of the given `archetype` in the image function
-  of the current EReference.  This function is only bound inside
+  of the current EReference's target class.  This function is only bound inside
   `set-values!` and `add-values!`."}
   resolve-target)
 
 (def ^{:dynamic true
        :arglists '([archetypes])
        :doc "Returns the images of the given collection of `archetypes` in the
-  image function of the current EReference.  This function is only bound inside
-  `set-values!` and `add-values!`.."}
+  image function of the current EReference's target class.  This function is
+  only bound inside `set-values!` and `add-values!`."}
   resolve-all-targets)
 
-;;# Utility Functions
+;;# Img/Arch Functions
 
 (defn ^:private img-internal
   [^EClass ec arch]
@@ -75,7 +75,7 @@
         (let [img  (persistent! im)
               arch (persistent! am)]
           (when e/*img*
-            (swap! e/*img*  e/into-trace-map vc img))
+            (swap! e/*img* e/into-trace-map vc img))
           (when e/*arch*
             (swap! e/*arch* e/into-trace-map vc arch))
           (keys arch))))))
@@ -83,31 +83,32 @@
 ;;## Setting Features Values
 
 (defn ^:private internal-modify-feature-fn
-  [m featureqn valfn action]
-  (let [[ecname attrname _] (u/split-qname featureqn)
-        ^EClass ec (emf/eclassifier ecname)]
-    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String attrname)]
+  [m ecls feature valfn action]
+  (let [^EClass ec (emf/eclassifier ecls)]
+    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String (name feature))]
       (let [resolve-target-fn (if (emf/ereference? sf)
                                 (partial img-internal (.getEReferenceType ^EReference sf))
                                 #(u/errorf "Can't call `resolve-target` for EAttribute %s!"
-                                           featureqn))
+                                           ecls feature))
             resolve-all-targets-fn (if (emf/ereference? sf)
                                      (partial map resolve-target-fn)
                                      #(u/errorf
                                        "Can't call `resolve-all-targets` for EAttribute %s!"
-                                       featureqn))]
+                                       ecls feature))]
         (doseq [[elem val]
                 (binding [resolve-eobject     (partial img-internal ec)
                           resolve-target      resolve-target-fn
                           resolve-all-targets resolve-all-targets-fn]
                   (doall (valfn)))]
-          (action elem attrname val)))
-      (u/errorf "%s has no EStructuralFeature %s." (print-str ec) attrname))))
+          (action elem feature val)))
+      (u/errorf "%s has no EStructuralFeature %s." (print-str ec) feature))))
 
 (defn set-values!
-  [m featureqn valfn]
-  (internal-modify-feature-fn m featureqn valfn emf/eset!))
+  "TODO: Document me!"
+  [m ecls feature valfn]
+  (internal-modify-feature-fn m ecls feature valfn emf/eset!))
 
 (defn add-values!
-  [m featureqn valfn]
-  (internal-modify-feature-fn m featureqn valfn emf/eaddall!))
+  "TODO: Document me!"
+  [m ecls feature valfn]
+  (internal-modify-feature-fn m ecls feature valfn emf/eaddall!))

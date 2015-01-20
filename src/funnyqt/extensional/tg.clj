@@ -127,18 +127,16 @@
 ;;## Setting Attribute Values
 
 (defn set-values!
-  "In graph `g` set the attribute `attrqn` for all element-value pairs returned
-  by `valfn`, i.e., `valfn` has to return a map {attr-elem attrqn-value} or a
-  collection of pairs.  `attrqn` is a qualified attribute name,
-  e.g. Person.firstName.
+  "In graph `g` set the `attr` values for all `aec` elements according to
+  `valfn`, i.e., `valfn` has to return a map {attr-elem attr-value} or a
+  collection of pairs.
 
   In `valfn`, `resolve-element` is bound to a function that given an archetype
-  for the class defining the attribute returns the image, that is, the instance
+  of the class defining the attribute returns its image, that is, the instance
   of the defining class (or subclass) that has been created for the given
   archetype."
-  [g attrqn valfn]
-  (let [[aecname attrname _] (u/split-qname attrqn)
-        aec (tg/attributed-element-class g aecname)]
+  [g aec attr valfn]
+  (let [aec (tg/attributed-element-class g aec)]
     (doseq [[elem val] (binding [resolve-element (fn [arch] (img-internal aec arch))]
                          (doall (valfn)))]
-      (tg/set-value! elem attrname val))))
+      (tg/set-value! elem attr val))))
