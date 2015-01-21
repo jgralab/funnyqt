@@ -414,7 +414,7 @@ functions `record` and `enum-constant`."
   EdgeClass
   (mm-relationship-class-source [this]
     (-> this .getFrom .getVertexClass))
-  (mm-relationship-class-source [this]
+  (mm-relationship-class-target [this]
     (-> this .getTo .getVertexClass)))
 
 (extend-protocol g/IMMClass
@@ -1328,18 +1328,24 @@ functions `record` and `enum-constant`."
           ed (.getDirection dec)]
       (unlink! v #(g/is-instance? % ec) ed))
     (doseq [av vs]
-      (.addAdjacence v (name role) av)))
+      (.addAdjacence v (name role) av))
+    v)
   (set-adj! [v1 role v2]
-    (g/set-adjs! v1 role [v2]))
+    (g/set-adjs! v1 role [v2])
+    v1)
   (add-adjs! [v role vs]
     (if (g/mm-multi-valued-property? (attributed-element-class v) role)
-      (doseq [av vs]
-        (.addAdjacence v (name role) av))
+      (do
+        (doseq [av vs]
+          (.addAdjacence v (name role) av))
+        v)
       (u/errorf "Can't add to the single-value role %s of %s."
                 (name role) v)))
   (add-adj! [v1 role v2]
     (if (g/mm-multi-valued-property? (attributed-element-class v1) role)
-      (.addAdjacence v1 (name role) v2)
+      (do
+        (.addAdjacence v1 (name role) v2)
+        v1)
       (u/errorf "Can't add to the single-value role %s of %s."
                 (name role) v1))))
 
@@ -1377,7 +1383,7 @@ functions `record` and `enum-constant`."
          (recur (first-inc from pred)))))
    from))
 
-;;# Adjancencies
+;;# Adjacencies
 
 (extend-protocol i/IAdjacenciesInternal
   Vertex

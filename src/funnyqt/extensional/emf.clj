@@ -8,81 +8,39 @@
    (org.eclipse.emf.ecore EObject EClass EStructuralFeature EReference)))
 
 
-;;# Dynamic vars
-
-(def ^{:dynamic true
-       :arglists '([archetype])
-       :doc "Resolves the image of the given `archetype` in the img function
-  corresponding to the EClass of the current structural feature.  This function
-  is only bound inside `set-values!` and `add-values!`."}
-  resolve-eobject)
-
-(def ^{:dynamic true
-       :arglists '([archetype])
-       :doc "Returns the image of the given `archetype` in the image function
-  of the current EReference's target class.  This function is only bound inside
-  `set-values!` and `add-values!`."}
-  resolve-target)
-
-(def ^{:dynamic true
-       :arglists '([archetypes])
-       :doc "Returns the images of the given collection of `archetypes` in the
-  image function of the current EReference's target class.  This function is
-  only bound inside `set-values!` and `add-values!`."}
-  resolve-all-targets)
-
 ;;# Creating Elements
 
 ;;## Creating EObjects
 
-(defn create-eobjects!
-  "In resource `r` create one element of EClass `cls` for every archetype
-  returned by `archfn`.  `archfn` must return a collection of arbitrary
-  objects.  It's value is taken as a set.  Traceability mappings are
-  established implicitly.  Returns the sequence of new EObjects."
-  [r cls archfn]
-  (let [^EClass ec (emf/eclassifier cls)]
-    (loop [as (set (archfn))
-           im (transient {})]
-      (if (seq as)
-        (let [eo (emf/ecreate! r cls)
-              a (first as)]
-          ;;(println "Created" eo "for" a)
-          (recur (rest as)
-                 (assoc! im a eo)))
-        (let [img (persistent! im)]
-          (e/add-trace-mappings! ec img)
-          (vals img))))))
+(def ^{:arglists (:arglists (meta #'e/create-elements!))
+       :doc (-> (:doc (meta #'e/create-elements!))
+                (u/replace-word #"\bmodel\b" "resource")
+                (u/replace-word #"\belements\b" "eobjects")
+                (u/replace-word #"\belement\b" "eobject")
+                (u/replace-word #"\bmetamodel\sclass\b" "EClass"))}
+  create-eobjects! e/create-elements!)
 
 ;;## Setting Features Values
 
-(defn ^:private internal-modify-feature-fn
-  [m ecls feature valfn action]
-  (let [^EClass ec (emf/eclassifier ecls)]
-    (if-let [^EStructuralFeature sf (.getEStructuralFeature ec ^String (name feature))]
-      (let [resolve-target-fn (if (emf/ereference? sf)
-                                (partial e/image (.getEReferenceType ^EReference sf))
-                                #(u/errorf "Can't call `resolve-target` for EAttribute %s!"
-                                           ecls feature))
-            resolve-all-targets-fn (if (emf/ereference? sf)
-                                     (partial map resolve-target-fn)
-                                     #(u/errorf
-                                       "Can't call `resolve-all-targets` for EAttribute %s!"
-                                       ecls feature))]
-        (doseq [[elem val]
-                (binding [resolve-eobject     (partial e/image ec)
-                          resolve-target      resolve-target-fn
-                          resolve-all-targets resolve-all-targets-fn]
-                  (doall (valfn)))]
-          (action elem feature val)))
-      (u/errorf "%s has no EStructuralFeature %s." (print-str ec) feature))))
+(def ^{:arglists (:arglists (meta #'e/set-avals!))
+       :doc (-> (:doc (meta #'e/set-avals!))
+                (u/replace-word #"\bmodel\b" "resource"))}
+  set-values! e/set-avals!)
 
-(defn set-values!
-  "TODO: Document me!"
-  [m ecls feature valfn]
-  (internal-modify-feature-fn m ecls feature valfn emf/eset!))
+(def ^{:arglists (:arglists (meta #'e/set-adjs!))
+       :doc (-> (:doc (meta #'e/set-adjs!))
+                (u/replace-word #"\bmodel\b" "resource")
+                (u/replace-word #"\breference\b" "EReference")
+                (u/replace-word #"\belements\b" "eobjects")
+                (u/replace-word #"\belement\b" "eobject")
+                (u/replace-word #"\bmetamodel\sclass\b" "EClass"))}
+  set-erefs! e/set-adjs!)
 
-(defn add-values!
-  "TODO: Document me!"
-  [m ecls feature valfn]
-  (internal-modify-feature-fn m ecls feature valfn emf/eaddall!))
+(def ^{:arglists (:arglists (meta #'e/set-adjs!))
+       :doc (-> (:doc (meta #'e/set-adjs!))
+                (u/replace-word #"\bmodel\b" "resource")
+                (u/replace-word #"\breference\b" "EReference")
+                (u/replace-word #"\belements\b" "eobjects")
+                (u/replace-word #"\belement\b" "eobject")
+                (u/replace-word #"\bmetamodel\sclass\b" "EClass"))}
+  add-erefs! e/add-adjs!)

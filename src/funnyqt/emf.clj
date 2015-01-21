@@ -1149,7 +1149,7 @@
     ([this recursive]
      (edelete! this recursive true))))
 
-;;# Adjancencies
+;;# Adjacencies
 
 (defn ^:private ensure-coll [x]
   (if (or (nil? x)

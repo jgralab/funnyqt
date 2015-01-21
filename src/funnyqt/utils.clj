@@ -96,14 +96,24 @@
             pn (subs qstr 0 liod)]
         [pn sn qstr]))))
 
+(defn replace-word [s old new]
+  "In string `s` replace all occurences of `old` with `new`.
+  The difference to (str/replace s \"\bold\b\" \"new\") is that \"foo\" won't
+  be replaced in \"foo-bar\", i.e., in contrast to normal regexps, - is treated
+  as a word character."
+  (str/replace s (re-pattern (str "(\\A|[^-\\w])"
+                                  old
+                                  "(\\Z|[^-\\w])"))
+               (str "$1" new "$2")))
+
 ;;# Throwing exceptions
 
 (defmacro error
   "Throws an exception with the given message and cause."
   ([msg]
-     `(error ~msg nil))
+   `(error ~msg nil))
   ([msg cause]
-     `(throw (java.lang.Exception. ~msg ~cause))))
+   `(throw (java.lang.Exception. ~msg ~cause))))
 
 (defmacro errorf
   "Throws an exception with the given `msg` and `objs` passed to `format`.
@@ -117,11 +127,11 @@
   "Returns and pretty prints the given argument `x` (preceeded by an optional
   `title`."
   ([x]
-     (clojure.pprint/pprint x)
-     x)
+   (clojure.pprint/pprint x)
+   x)
   ([title x]
-     (print title)
-     (pr-identity x)))
+   (print title)
+   (pr-identity x)))
 
 ;;# Timing
 
@@ -136,26 +146,26 @@
     :milli (str (double (/ in 1000000)) " ms")
     :sec   (str (double (/ in 1000000000)) " sec")
     :auto (cond
-           (> in (Math/pow 10 9)) (time-str in :sec)
-           (> in (Math/pow 10 6)) (time-str in :milli)
-           (> in (Math/pow 10 3)) (time-str in :micro)
-           :else (time-str in :nano))))
+            (> in (Math/pow 10 9)) (time-str in :sec)
+            (> in (Math/pow 10 6)) (time-str in :milli)
+            (> in (Math/pow 10 3)) (time-str in :micro)
+            :else (time-str in :nano))))
 
 (defmacro timing
   "Times the execution of `form` and returns its result.
   Additionally, prints (format fmt args), where two new formatters are
   available:
 
-    %T: the timing information with an appropriate unit
-    %T(nano|micro|milli|sec): forces the given unit
-    %R: the result of evaluating `expr`
-    %F: the input form that is timed
+  %T: the timing information with an appropriate unit
+  %T(nano|micro|milli|sec): forces the given unit
+  %R: the result of evaluating `expr`
+  %F: the input form that is timed
 
   Example:
 
-    user> (timing \"%s It took %T to eval %F to %R.\" (take 10 (iterate inc 0)) \";\")
-    ; It took 311.945 µs to eval (take 10 (iterate inc 0)) to (0 1 2 3 4 5 6 7 8 9).
-    (0 1 2 3 4 5 6 7 8 9)"
+  user> (timing \"%s It took %T to eval %F to %R.\" (take 10 (iterate inc 0)) \";\")
+  ; It took 311.945 µs to eval (take 10 (iterate inc 0)) to (0 1 2 3 4 5 6 7 8 9).
+  (0 1 2 3 4 5 6 7 8 9)"
   [fmt form & args]
   (let [unit (second (re-matches #"(?s).*%T(nano|micro|milli|sec)?.*" fmt))]
     `(let [st# (System/nanoTime)
@@ -178,8 +188,8 @@
   `then`.  Else expand to `else`.
 
   (compile-if (Class/forName \"java.util.concurrent.ForkJoinTask\")
-    (do-cool-stuff-with-fork-join)
-    (fall-back-to-executor-services))"
+  (do-cool-stuff-with-fork-join)
+  (fall-back-to-executor-services))"
   [exp then else]
   (if (try (eval exp)
            (catch Throwable _ false))
@@ -191,10 +201,10 @@
   `then`.  Else expand to `else`.
 
   (compile-when (and (< (:minor *clojure-version*) 4)
-                     (= (:major *clojure-version*) 1))
-    ;; Can't live without mapv and filterv!
-    (defn mapv [...] ...)
-    (defn filterv [...] ...))"
+  (= (:major *clojure-version*) 1))
+  ;; Can't live without mapv and filterv!
+  (defn mapv [...] ...)
+  (defn filterv [...] ...))"
   [exp & then]
   (if (try (eval exp)
            (catch Throwable _ false))
@@ -205,8 +215,8 @@
 
 (defn ^:private tree-count [form]
   (cond
-   (coll? form) (reduce + 1 (map tree-count form))
-   :else 1))
+    (coll? form) (reduce + 1 (map tree-count form))
+    :else 1))
 
 (defn prewalk
   "Do a pre-order traversal of `form` calling `skip-fn` and `edit-fn` on subforms.
@@ -218,12 +228,12 @@
   (let [a (atom 0)]
     (clojure.walk/prewalk (fn [el]
                             (cond
-                             (skip-fn el)  (do (reset! a (dec (tree-count el))) el)
-                             (pos? @a)     (do (swap! a dec) el)
-                             :else         (let [x (edit-fn el)]
-                                             (when (not= x el)
-                                               (reset! a (dec (tree-count x))))
-                                             x)))
+                              (skip-fn el)  (do (reset! a (dec (tree-count el))) el)
+                              (pos? @a)     (do (swap! a dec) el)
+                              :else         (let [x (edit-fn el)]
+                                              (when (not= x el)
+                                                (reset! a (dec (tree-count x))))
+                                              x)))
                           form)))
 
 ;;# Protocol Checks

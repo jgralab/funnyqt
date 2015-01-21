@@ -2,6 +2,7 @@
   "Specify models extensionally."
   (:require clojure.set
             [funnyqt.utils       :as u]
+            [funnyqt.query       :as q]
             [funnyqt.generic     :as g]
             [clojure.tools.macro :as m]))
 
@@ -52,10 +53,15 @@
   [trace-map cls new]
   (update-in trace-map [cls] merge new))
 
-(defn add-trace-mappings! [cls img]
+(defn ^:private add-trace-mappings! [cls img]
   (when *img*
+    (when-let [dups (seq (filter (or (@*img* cls) {}) (keys img)))]
+      (u/errorf
+       "Bijectivity violation: the keys %s are already contained in *img* for class %s."
+       dups cls))
     (swap! *img* into-trace-map cls img))
   (when *arch*
+    ;; *arch* cannot have duplicate keys, of course.
     (swap! *arch* into-trace-map cls (clojure.set/map-invert img))))
 
 ;;# User fns and macros
@@ -82,39 +88,67 @@
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
   corresponding to the source element class of the current relationship class.
-  This function is only bound in `create-relationships!`."}
+
+  This function is bound in
+
+    - `funnyqt.extensional/create-relationships!`
+    - `funnyqt.extensional.tg/create-edges!`"}
   resolve-source)
 
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
   corresponding to the target element class of the current relationship class
-  or reference.  This function is only bound in `create-relationships!` and
-  `set-adjs!`."}
+  or reference.
+
+  This function is bound in:
+
+    - `funnyqt.extensional/create-relationships!`
+    - `funnyqt.extensional/set-adjs!`
+    - `funnyqt.extensional/add-adjs!`
+    - `funnyqt.extensional.tg/create-edges!`
+    - `funnyqt.extensional.tg/set-adjs!`
+    - `funnyqt.extensional.tg/add-adjs!`"}
   resolve-target)
 
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Returns the images of the given collection of `archetypes` in the
-  image function of the current reference's target class.  This function is
-  only bound inside `set-adjs!`."}
+  image function of the current reference's target class.
+
+  This function is bound in
+
+    - `funnyqt.extensional/set-adjs!`
+    - `funnyqt.extensional/add-adjs!`
+    - `funnyqt.extensional.tg/set-adjs!`
+    - `funnyqt.extensional.tg/add-adjs!`"}
   resolve-all-targets)
 
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
-  corresponding to the metamodel class for which the current attribute is
-  declared.  This function is only bound in `set-avals!`."}
+  corresponding to the metamodel class for which the current attribute or
+  reference is declared.
+
+  This function is bound in
+
+    - `funnyqt.extensional/set-avals!`
+    - `funnyqt.extensional/set-adjs!`
+    - `funnyqt.extensional/add-adjs!`
+    - `funnyqt.extensional.tg/set-values!`
+    - `funnyqt.extensional.tg/set-adjs!`
+    - `funnyqt.extensional.tg/add-adjs!`"}
   resolve-element)
 
 
 ;;# Creating Elements/Rels & setting Attrs
 
 (defn create-elements!
-  "In model `m` create one element of metamodel class `cls` for every archetype
-  returned by `archfn`.  `archfn` must return a collection of arbitrary
-  objects.  It's value is taken as a set.  Traceability mappings are
-  established implicitly.  Returns the sequence of new elements."
+  "In model `m` creates one element of metamodel class `cls` for every
+  archetype returned by `archfn`.  `archfn` must return a collection of
+  arbitrary objects.  It's value is taken as a set.  Traceability mappings are
+  established implicitly in `funnyqt.extensional/*img*` and
+  `funnyqt.extensional/*arch*`.  Returns the sequence of new elements."
   [m cls archfn]
   (let [mm-cls (g/mm-class m cls)]
     (loop [as (set (archfn))
@@ -130,20 +164,22 @@
           (vals img))))))
 
 (defn create-relationships!
-  "In model `m` create one relationship of class `cls` for every archetype
-  returned by `archfn`.  `cls` is a symbol denoting the qualified name of the
-  relationship class.
+  "In model `m` creates one relationship of metamodel class `cls` for every
+  archetype returned by `archfn`.  `cls` is a symbol denoting the qualified
+  name of the relationship class.
 
   `archfn` must return a collection of triples [arch src trg].  arch is an
   arbitrary object taken as archetype for the new relationship, and src and trg
   are the new relationship's source and target element.  Traceability mappings
-  are established implicitly.
+  are established implicitly in `funnyqt.extensional/*img*` and
+  `funnyqt.extensional/*arch*`.
 
-  In `archfn`, `resolve-source` and `resolve-target` are bound to functions
-  that return the image of the given archetype in the image-mapping of the new
-  edge's source/target element class.
+  In `archfn`, `funnyqt.extensional/resolve-source` and
+  `funnyqt.extensional/resolve-target` are bound to functions that return the
+  image of the given archetype in the image-mapping of the new edge's
+  source/target element class.
 
-  Returns the sequence of new relationship."
+  Returns the sequence of new relationships."
   [m cls archfn]
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
@@ -162,14 +198,14 @@
           (vals img))))))
 
 (defn set-avals!
-  "In model `m` set the `attr` values for all `cls` elements according to
-  `valfn`, i.e., `valfn` has to return a map {attr-elem attr-value} or a
+  "In model `m` sets the `attr` values for all `cls` elements according to
+  `valfn`, i.e., `valfn` has to return a map {attr-elem attr-value...} or a
   collection of pairs.
 
-  In `valfn`, `resolve-element` is bound to a function that given an archetype
-  of the class defining the attribute returns its image, that is, the instance
-  of the defining class (or subclass) that has been created for the given
-  archetype."
+  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  given an archetype of the class defining `attr` (i.e., `cls`) returns its
+  image, that is, the instance of the defining class (or subclass) that has
+  been created for the given archetype."
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
     (doseq [[elem val] (binding [resolve-element (fn [arch] (image mm-cls arch))]
@@ -177,29 +213,61 @@
       (g/set-aval! elem attr val))))
 
 (defn set-adjs!
+  "In model `m` sets the `ref` reference for `cls` elements according to
+  `valfn`, i.e., `valfn` has to return a map {elem refed...} or a seq of
+  tuples ([elem refed]...) where refed is one element if `ref` is single-valued
+  or a seq of elements if `ref` is multi-valued.
+
+  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
+  returns its image, that is, the instance of the defining class (or subclass)
+  that has been created for the given archetype.  Likewise,
+  `funnyqt.extensional/resolve-target` is bound to a resolving function for
+  `ref`s target metamodel class, and `funnyqt.extensional/resolve-all-targets`
+  is bound to a function that resolves all archetypes in a collection according
+  to `ref`s target metamodel class.
+
+  In certain modeling environments, setting adjacencies implies the creation of
+  explicit relationships (e.g., in JGraLab).  When using this function, no
+  trace mappings are created for those."
   [m cls ref reffn]
   (let [mm-cls (g/mm-class m cls)
         resolve-target-fn (partial image (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val]
-            (binding [resolve-element     (partial image mm-cls)
-                      resolve-target      resolve-target-fn
-                      resolve-all-targets resolve-all-targets-fn]
-              (doall (reffn)))]
+    (doseq [[elem val] (binding [resolve-element     (partial image mm-cls)
+                                 resolve-target      resolve-target-fn
+                                 resolve-all-targets resolve-all-targets-fn]
+                         (doall (reffn)))]
       ((if multi-valued? g/set-adjs! g/set-adj!) elem ref val))))
 
 (defn add-adjs!
+  "In model `m` adds to the `ref` reference for `cls` elements according to
+  `valfn`, i.e., `valfn` has to return a map {elem refed...} or a seq of
+  tuples ([elem refed]...) where refed is a seq of elements.  `ref` must be
+  multi-valued.
+
+  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
+  returns its image, that is, the instance of the defining class (or subclass)
+  that has been created for the given archetype.  Likewise,
+  `funnyqt.extensional/resolve-target` is bound to a resolving function for
+  `ref`s target metamodel class, and `funnyqt.extensional/resolve-all-targets`
+  is bound to a function that resolves all archetypes in a collection according
+  to `ref`s target metamodel class.
+
+  In certain modeling environments, setting adjacencies implies the creation of
+  explicit relationships (e.g., in JGraLab).  When using this function, no
+  trace mappings are created for those."
   [m cls ref reffn]
   (let [mm-cls (g/mm-class m cls)
         resolve-target-fn (partial image (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val]
-            (binding [resolve-element     (partial image mm-cls)
-                      resolve-target      resolve-target-fn
-                      resolve-all-targets resolve-all-targets-fn]
-              (doall (reffn)))]
+    (doseq [[elem val] (binding [resolve-element     (partial image mm-cls)
+                                 resolve-target      resolve-target-fn
+                                 resolve-all-targets resolve-all-targets-fn]
+                         (doall (reffn)))]
       (g/add-adjs! elem ref val))))
 
 ;;# The transformation macro itself

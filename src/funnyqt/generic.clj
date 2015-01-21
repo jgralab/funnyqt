@@ -275,14 +275,15 @@
 
 (defprotocol IModifyAdjacencies
   (set-adj!  [obj role robj]
-    "Sets the single-valued `role` of `obj` to `robj`.")
+    "Sets the single-valued `role` of `obj` to `robj`.
+  Returns `obj` again.")
   (set-adjs! [obj role robjs]
     "Sets the multi-valued `role` of `obj` to `robjs` (a collection of model
-  elements).")
+  elements).  Returns `obj` again.")
   (add-adj!  [obj role robj]
-    "Adds `robj` to `obj`s `role`.")
+    "Adds `robj` to `obj`s `role`.  Returns `obj` again.")
   (add-adjs! [obj role robjs]
-    "Adds all `robjs` to `obj`s `role`."))
+    "Adds all `robjs` to `obj`s `role`.  Returns `obj` again."))
 
 ;;# IContainer
 

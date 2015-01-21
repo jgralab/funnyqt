@@ -3,8 +3,7 @@
   (:require [funnyqt.query :as q]
             [funnyqt.tg :as tg]
             [funnyqt.metatransform.tg :as mtg]
-            [funnyqt.extensional :as e]
-            [funnyqt.extensional.tg :as etg])
+            [funnyqt.extensional :as e])
   (:use [clojure.test :only [deftest is]])
   (:import
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
@@ -17,24 +16,24 @@
   [g]
   (mtg/create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
   (mtg/create-attribute! g 'Person :name 'String "\"Fritz\""
-                         (fn [] {(etg/resolve-element 1) "Hugo"
-                                 (etg/resolve-element 2) "Peter"
-                                 (etg/resolve-element 3) "August"}))
+                         (fn [] {(e/resolve-element 1) "Hugo"
+                                 (e/resolve-element 2) "Peter"
+                                 (e/resolve-element 3) "August"}))
   (mtg/create-attribute! g 'Person :birthday 'String
-                         (fn [] {(etg/resolve-element 3) "1980-11-01"
-                                 (etg/resolve-element 4) "1970-06-22"
-                                 (etg/resolve-element 5) "1975-01-01"}))
+                         (fn [] {(e/resolve-element 3) "1980-11-01"
+                                 (e/resolve-element 4) "1970-06-22"
+                                 (e/resolve-element 5) "1975-01-01"}))
 
   (mtg/create-vertex-class! g 'SpecialPerson (fn [] [:a :b]))
   (mtg/create-attribute! g 'SpecialPerson :lastName 'String
-                         (fn [] {(etg/resolve-element :a) "Müller"
-                                 (etg/resolve-element :b) "Meier"}))
+                         (fn [] {(e/resolve-element :a) "Müller"
+                                 (e/resolve-element :b) "Meier"}))
 
   (mtg/add-sub-classes! g 'Person 'SpecialPerson)
 
   (mtg/create-edge-class! g 'Knows 'Person 'Person
                           (fn [] (map (fn [[arch a o]]
-                                        [arch (etg/resolve-alpha a) (etg/resolve-omega o)])
+                                        [arch (e/resolve-source a) (e/resolve-target o)])
                                       [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
                                        [6 1 :a] [7 2 :b]]))))
 
@@ -68,7 +67,7 @@
   [g]
   (top-sibs-bottom g)
   (mtg/create-attribute! g 'Top :name 'String
-                         (fn [] {(etg/resolve-element :t) "Top"}))
+                         (fn [] {(e/resolve-element :t) "Top"}))
   (mtg/add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   (mtg/add-super-classes! g 'Bottom 'Sibling1 'Sibling2))
 
@@ -88,10 +87,10 @@
   [g]
   (top-sibs-bottom g)
   (mtg/create-attribute! g 'Top :name 'String
-                         (fn [] {(etg/resolve-element :t) "Top"}))
+                         (fn [] {(e/resolve-element :t) "Top"}))
 
   (mtg/create-attribute! g 'Bottom :name 'String
-                         (fn [] {(etg/resolve-element :b) "Bottom"}))
+                         (fn [] {(e/resolve-element :b) "Bottom"}))
 
   (mtg/add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   ;; This must error because Bottom already has a name attribute so it must not
@@ -107,10 +106,10 @@
   [g]
   (top-sibs-bottom g)
   (mtg/create-attribute! g 'Sibling1 :name 'String
-                         (fn [] {(etg/resolve-element :s1) "Sib1"}))
+                         (fn [] {(e/resolve-element :s1) "Sib1"}))
 
   (mtg/create-attribute! g 'Sibling2 :name 'String
-                         (fn [] {(etg/resolve-element :s2) "Sib2"}))
+                         (fn [] {(e/resolve-element :s2) "Sib2"}))
   (mtg/add-sub-classes! g 'Top 'Sibling1 'Sibling2)
   ;; This must fail, cause Bottom inherits name from both Sibling1 and
   ;; Sibling2.
@@ -126,10 +125,10 @@
   [g]
   (top-sibs-bottom g)
   (mtg/create-attribute! g 'Top :name 'String
-                         (fn [] {(etg/resolve-element :t) "Top"}))
+                         (fn [] {(e/resolve-element :t) "Top"}))
 
   (mtg/create-attribute! g 'Sibling1 :name 'Long
-                         (fn [] {(etg/resolve-element :s1) 11}))
+                         (fn [] {(e/resolve-element :s1) 11}))
 
   ;; This must fail, cause Sibling1 inherits name from Top, but defines a name
   ;; attribute itself.
@@ -202,7 +201,7 @@
     (mtg/create-vertex-class! g 'Node (fn [] abc))
     (doseq [a abc]
       (mtg/create-attribute! g 'Node a 'String
-                             (fn [] (zipmap (map etg/resolve-element abc)
+                             (fn [] (zipmap (map e/resolve-element abc)
                                             (repeat (name a))))))))
 
 (e/deftransformation delete-attr-1
