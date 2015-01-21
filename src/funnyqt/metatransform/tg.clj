@@ -7,6 +7,7 @@
             [funnyqt.utils :as u]
             [funnyqt.tg :as tg]
             [funnyqt.query :as q]
+            [funnyqt.extensional :as e]
             [funnyqt.extensional.tg :as etg])
   (:import
    (java.util Arrays)
@@ -160,12 +161,12 @@
   Returns the newly created EdgeClass.  `props` is a map with additional
   properties for the edge class.  If omitted, the default is:
 
-    {:from-multis [0, Integer/MAX_VALUE]
-     :from-role \"\"
-     :from-kind AggregationKind/NONE
-     :to-multis [0, Integer/MAX_VALUE]
-     :to-role \"\"
-     :to-kind AggregationKind/NONE}
+  {:from-multis [0, Integer/MAX_VALUE]
+  :from-role \"\"
+  :from-kind AggregationKind/NONE
+  :to-multis [0, Integer/MAX_VALUE]
+  :to-role \"\"
+  :to-kind AggregationKind/NONE}
 
   If an `archfn` is supplied, also creates edges in `g`.  For the details of
   `archfn`, see function `funnyqt.extensional.tg/create-edges!`."
@@ -190,12 +191,12 @@
   Returns the newly created EdgeClass.  `props` is a map with additional
   properties for the edge class.  If omitted, the default is:
 
-    {:from-multis [0, Integer/MAX_VALUE]
-     :from-role \"\"
-     :from-kind AggregationKind/NONE
-     :to-multis [0, Integer/MAX_VALUE]
-     :to-role \"\"
-     :to-kind AggregationKind/NONE}"
+  {:from-multis [0, Integer/MAX_VALUE]
+  :from-role \"\"
+  :from-kind AggregationKind/NONE
+  :to-multis [0, Integer/MAX_VALUE]
+  :to-role \"\"
+  :to-kind AggregationKind/NONE}"
   [g qname from to {:keys [from-multis from-role from-kind
                            to-multis   to-role   to-kind]
                     :or {from-multis [0, Integer/MAX_VALUE]
@@ -215,9 +216,9 @@
   "Resizes the attributes array of all `aec` instances after adding new
   attributes.  `aec2new-attrs-map` is a map of the form
 
-    {aec [new-attr1 ...]
-     sub-aec [new-attr1 ...]
-     ...}"
+  {aec [new-attr1 ...]
+  sub-aec [new-attr1 ...]
+  ...}"
   [g aec aec2new-attrs-map]
   (let [elems (element-seq g aec)
         oaf (on-attributes-fn
@@ -396,32 +397,54 @@
                                                 new-attrs))))
     @gec2new-attrs-map))
 
-(defn add-sub-classes!
-  "Makes all `subs` sub-classes of `super`.
+(defn add-subclass!
+  "Makes `sub` a sub-class of `super`.
   Returns `super` again."
-  [g super & subs]
-  (let [^GraphElementClass superaec (get-aec g super)
-        subaecs (map #(get-aec g %1) subs)]
-    (doseq [^GraphElementClass subaec subaecs]
-      (let [gec2new-attrs-map (determine-new-attributes-after-adding-specializations superaec subaec)]
-        (if (instance? VertexClass superaec)
-          (do
-            (with-open-schema g
-              (.addSuperClass ^VertexClass subaec ^VertexClass superaec))
-            (when (seq gec2new-attrs-map)
-              (fix-attr-array-after-add! g subaec gec2new-attrs-map)))
-          (do
-            (with-open-schema g
-              (.addSuperClass ^EdgeClass subaec ^EdgeClass superaec))
-            (when (seq gec2new-attrs-map)
-              (fix-attr-array-after-add! g subaec gec2new-attrs-map)))))))
+  [g super sub]
+  (let [^GraphElementClass super-gec (get-aec g super)
+        ^GraphElementClass sub-gec (get-aec g sub)]
+    (let [gec2new-attrs-map (determine-new-attributes-after-adding-specializations
+                             super-gec sub-gec)]
+      (when-let [dups (seq (clojure.set/intersection
+                            (set (map (partial e/archetype super-gec)
+                                      (element-seq g super-gec)))
+                            (set (map (partial e/archetype sub-gec)
+                                      (element-seq g sub-gec)))))]
+        (u/errorf "Bijectivity violation: can't make %s subclass of %s because their sets of archetypes are not disjoint. Common archetypes: %s"
+                  sub super dups))
+      (if (instance? VertexClass super-gec)
+        (do
+          (with-open-schema g
+            (.addSuperClass ^VertexClass sub-gec ^VertexClass super-gec))
+          (when (seq gec2new-attrs-map)
+            (fix-attr-array-after-add! g sub-gec gec2new-attrs-map)))
+        (do
+          ;; With edge classes, sub may only become a subclass of super if its
+          ;; source/target vertex classes are also subclasses of super's
+          ;; source/target vertex classes.
+          (let [super-start  (g/mm-relationship-class-source super-gec)
+                super-target (g/mm-relationship-class-target super-gec)
+                sub-start  (g/mm-relationship-class-source sub-gec)
+                sub-target (g/mm-relationship-class-target sub-gec)]
+            (when-not (or (g/mm-superclass? super-start sub-start)
+                          (= super-start sub-start))
+              (u/errorf
+               "Can't make %s subclass of %s because %s's source element class %s is no subclass of or equal to %s's source element class %s."
+               sub super sub (g/qname sub-start) super (g/qname super-start)))
+            (when-not (or (g/mm-superclass? super-target sub-target)
+                          (= super-target sub-target))
+              (u/errorf
+               "Can't make %s subclass of %s because %s's target element class %s is no subclass of or equal to %s's target element class %s."
+               sub super sub (g/qname sub-target) super (g/qname super-target))))
+          (with-open-schema g
+            (.addSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec))
+          (when (seq gec2new-attrs-map)
+            (fix-attr-array-after-add! g sub-gec gec2new-attrs-map))))))
   super)
 
-(defn add-super-classes!
-  "Makes all `supers` super-classes of `sub`.
+(defn add-superclass!
+  "Makes `super` super-classes of `sub`.
   Returns `sub` again."
-  [g sub & supers]
-  (doseq [super supers]
-    (add-sub-classes! g super sub)
-    sub))
-
+  [g sub super]
+  (add-subclass! g super sub)
+  sub)

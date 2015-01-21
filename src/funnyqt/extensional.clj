@@ -27,9 +27,7 @@
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve image of %s in img fn of %s: %s"
-                  arch cls @*img*))))
+                (recur (rest subs))))))))
 
 (defn archetype
   "Returns the archetype of `img` for element or relationship class `cls`.
@@ -40,9 +38,7 @@
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
-                (recur (rest subs)))))
-        (u/errorf "Couldn't resolve archetype of %s in arch fn of %s: %s"
-                  img cls @*arch*))))
+                (recur (rest subs))))))))
 
 
 ;;# Utilities
@@ -53,16 +49,17 @@
   [trace-map cls new]
   (update-in trace-map [cls] merge new))
 
-(defn ^:private add-trace-mappings! [cls img]
+(defn ^:private check-trace-mappings [mm-cls new-archs]
+  (when-let [dups (seq (filter (partial image mm-cls) new-archs))]
+    (u/errorf
+     "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a subclass thereof."
+     dups (g/qname mm-cls))))
+
+(defn ^:private add-trace-mappings! [mm-cls img]
   (when *img*
-    (when-let [dups (seq (filter (or (@*img* cls) {}) (keys img)))]
-      (u/errorf
-       "Bijectivity violation: the keys %s are already contained in *img* for class %s."
-       dups cls))
-    (swap! *img* into-trace-map cls img))
+    (swap! *img* into-trace-map mm-cls img))
   (when *arch*
-    ;; *arch* cannot have duplicate keys, of course.
-    (swap! *arch* into-trace-map cls (clojure.set/map-invert img))))
+    (swap! *arch* into-trace-map mm-cls (clojure.set/map-invert img))))
 
 ;;# User fns and macros
 
@@ -150,8 +147,10 @@
   established implicitly in `funnyqt.extensional/*img*` and
   `funnyqt.extensional/*arch*`.  Returns the sequence of new elements."
   [m cls archfn]
-  (let [mm-cls (g/mm-class m cls)]
-    (loop [as (set (archfn))
+  (let [mm-cls (g/mm-class m cls)
+        archs (set (archfn))]
+    (check-trace-mappings mm-cls archs)
+    (loop [as archs
            im (transient {})]
       (if (seq as)
         (let [elem (g/create-element! m cls)
@@ -183,10 +182,12 @@
   [m cls archfn]
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
-        trg-elem-cls (g/mm-relationship-class-target rel-cls)]
-    (loop [as (binding [resolve-source (partial image src-elem-cls)
+        trg-elem-cls (g/mm-relationship-class-target rel-cls)
+        archs (binding [resolve-source (partial image src-elem-cls)
                         resolve-target (partial image trg-elem-cls)]
-                (set (archfn)))
+                (set (archfn)))]
+    (check-trace-mappings rel-cls archs)
+    (loop [as archs
            im (transient {})]
       (if (seq as)
         (let [[a s t] (first as)
