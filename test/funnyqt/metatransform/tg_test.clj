@@ -1,5 +1,5 @@
 (ns funnyqt.metatransform.tg-test
-;  (:use funnyqt.tg-test)
+                                        ;  (:use funnyqt.tg-test)
   (:require [funnyqt.query :as q]
             [funnyqt.tg :as tg]
             [funnyqt.metatransform.tg :as mtg]
@@ -189,6 +189,28 @@
     (is (thrown-with-msg? Exception #"Bijectivity violation: can't make SubEdge subclass of SuperEdge because their sets of archetypes are not disjoint. Common archetypes: \(1\)"
                           (ec-inheritance-2 g)))))
 
+;;## GC/VC/EC renames
+
+(e/deftransformation aec-renames-0 [g]
+  (top-sibs-bottom g)
+  (mtg/create-edge-class! g 'Top2Bottom 'Top 'Bottom
+                          (fn []
+                            [[1 (e/resolve-source :t) (e/resolve-target :b)]]))
+  (mtg/rename-attributed-element-class! g 'Top 'vcs.T)
+  (mtg/rename-attributed-element-class! g 'Bottom 'vcs.B)
+  (mtg/rename-attributed-element-class! g 'Top2Bottom 'ecs.T2B))
+
+(deftest test-aec-renames-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (aec-renames-0 g)
+    (is (= 4 (tg/vcount g)))
+    (is (= 1 (tg/ecount g)))
+    (is (= 1
+           (tg/vcount g 'vcs.T)
+           (tg/vcount g 'vcs.B)
+           (tg/vcount g 'Sibling1)
+           (tg/vcount g 'Sibling2)))
+    (is (= 1 (tg/ecount g 'ecs.T2B)))))
 
 ;;## Attribute renames
 

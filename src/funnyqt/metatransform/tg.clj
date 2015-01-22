@@ -88,6 +88,18 @@
                                 ^java.util.List  (mapv name literals))])))
 
 
+;;## AttributedElementClasses
+
+(defn rename-attributed-element-class!
+  "Renames the AttributedElementClass denoted by `old-qname` in the schema of
+  `g` to `new-qname`.  Both `old-qname` and `new-qname` are qualified names
+  given as symbols thus renaming a class foo.Bar to quux.Bar is essentially a
+  package move."
+  [g old-qname new-qname]
+  (let [aec (tg/attributed-element-class g old-qname)]
+    (with-open-schema g
+      (.setQualifiedName aec (name new-qname)))))
+
 ;;## VertexClasses
 
 ;;### Creating
@@ -332,6 +344,8 @@
         (.setName attribute (name newname)))
       (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
         (.invokeOnAttributesArray ae oaf)))))
+
+;;### Deleting
 
 (defn delete-attribute!
   "Deletes AttributedElementClass `aec`s `attr` Attribute."
