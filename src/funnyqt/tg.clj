@@ -423,15 +423,11 @@ functions `record` and `enum-constant`."
     ([this]
      (.getAttributedElementClass this))
     ([this qn]
-     (if-let [cls (.getAttributedElementClass (.getSchema this) (name qn))]
-       cls
-       (u/errorf "No such AttributedElementClass: %s." qn))))
+     (attributed-element-class this qn)))
   Schema
   (mm-class
     ([this qn]
-     (if-let [cls (.getAttributedElementClass this (name qn))]
-       cls
-       (u/errorf "No such AttributedElementClass: %s." qn)))))
+     (attributed-element-class this qn))))
 
 (extend-protocol g/IMMDirectSuperclasses
   GraphElementClass

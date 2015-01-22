@@ -45,6 +45,18 @@
        Exception #"Bijectivity violation:"
        (transformation-2 (new-graph (schema rg))))))
 
+
+(e/deftransformation transformation-3 [g]
+  (etg/create-vertices! g 'City   (fn [] [1 2 3]))
+  ;; City and County are both NamedElements, so their archetypes must be
+  ;; disjoint.  Thus, the following must fail!
+  (etg/create-vertices! g 'County (fn [] [1 2 3])))
+
+(deftest test-transformation-3
+  (is (thrown-with-msg?
+       Exception #"Bijectivity violation:"
+       (transformation-3 (new-graph (schema rg))))))
+
 ;;# The Family2Genealogy transformation from EMF to TG
 
 

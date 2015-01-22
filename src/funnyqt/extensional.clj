@@ -43,6 +43,16 @@
 
 ;;# Utilities
 
+(defn ^:private top-superclasses
+  "Returns the set of top-level superclasses of mm-cls."
+  [mm-cls]
+  (loop [cs [mm-cls], tops #{}]
+    (if (seq cs)
+      (if-let [ncs (seq (g/mm-direct-superclasses (first cs)))]
+        (recur (into (set (rest cs)) ncs) tops)
+        (recur (rest cs) (conj tops (first cs))))
+      tops)))
+
 (defn ^:private into-trace-map
   "Internal helper: Update `trace-map` of `cls` with `new` mappings.
   Earlier mappings get overridden by `new` mappings."
@@ -50,10 +60,12 @@
   (update-in trace-map [cls] merge new))
 
 (defn ^:private check-trace-mappings [mm-cls new-archs]
-  (when-let [dups (seq (filter (partial image mm-cls) new-archs))]
-    (u/errorf
-     "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a subclass thereof."
-     dups (g/qname mm-cls))))
+  (let [top-classes (top-superclasses mm-cls)]
+    (when-let [dups (seq (filter (apply some-fn (map #(partial image %) top-classes))
+                                 new-archs))]
+      (u/errorf
+       "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
+       dups (g/qname mm-cls)))))
 
 (defn ^:private add-trace-mappings! [mm-cls img]
   (when *img*
