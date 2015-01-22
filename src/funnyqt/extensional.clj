@@ -9,37 +9,99 @@
 ;;# Dynamic vars
 
 (def ^{:dynamic true
-       :doc "A map of the form {TargetMetaClass {Archetype TargetInstance}}."}
+       :doc "A map of the form {TargetMetaClass {Archetype TargetInstance}}.
+  The inner maps from archetypes to images only contain the concrete
+  TargetMetaclass instances, not subclass instances.  So a lookup has to
+  consider the class hierarchy.
+
+  Don't use that directly but use the special resolving functions
+
+    - `funnyqt.extensional/resolve-element`
+    - `funnyqt.extensional/resolve-source`
+    - `funnyqt.extensional/resolve-target`
+    - `funnyqt.extensional/resolve-all-targets`
+
+  or the general resolving functions
+
+    - `funnyqt.extensional/image`
+    - `funnyqt.extensional/archetype`"}
   *img*)
 
 (def ^{:dynamic true
-       :doc "A map of the form {TargetMetaClass {TargetInstance Archetype}}."}
+       :doc "A map of the form {TargetMetaClass {TargetInstance Archetype}}.
+  The inner maps from images to archetypes only contain the concrete
+  TargetMetaclass instances, not subclass instances.  So a lookup has to
+  consider the class hierarchy.
+
+  Don't use this map directly but use the general resolving functions
+
+    - `funnyqt.extensional/image`
+    - `funnyqt.extensional/archetype`"}
   *arch*)
 
 ;;# Img/Arch accessors
 
-(defn image
+(defn ^:private image-internal
   "Returns the image of `arch` for element or relationship class `cls`.
   Can only be called inside a `deftransformation`."
-  [cls arch]
+  [error-if-not-found cls arch]
   (let [m (@*img* cls)]
     (or (and m (m arch))
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
-                (recur (rest subs))))))))
+                (recur (rest subs)))))
+        (when error-if-not-found
+          (u/errorf "No image of %s in image function of %s."
+                    arch (g/qname cls))))))
 
-(defn archetype
+(defn ^:private archetype-internal
   "Returns the archetype of `img` for element or relationship class `cls`.
   Can only be called inside a `deftransformation`."
-  [cls img]
+  [error-if-not-found cls img]
   (let [m (@*arch* cls)]
     (or (and m (m img))
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
-                (recur (rest subs))))))))
+                (recur (rest subs)))))
+        (when error-if-not-found
+          (u/errorf "No archetype of %s in archetype function of %s."
+                    img (g/qname cls))))))
 
+(defn image
+  "Returns the image of `arch` for element or relationship class `cls`.
+  If there is no image, returns nil.  `cls` may either by a metamodel class or
+  a symbol denoting the name of the metamodel class.  In the latter case, a
+  model `m` is required to resolve the metamodel class.
+
+  Can only be called inside a `deftransformation`."
+  ([cls arch]
+   (when-not (g/mm-class? cls)
+     (u/errorf "Use the arity-3 version of image if `cls` is no metamodel class."))
+   (image-internal false cls arch))
+  ([m cls arch]
+   (image (if (g/mm-class? cls)
+            cls
+            (g/mm-class m cls))
+          arch)))
+
+(defn archetype
+  "Returns the archetype of `img` for element or relationship class `cls`.
+  If there is no archetype, returns nil.  `cls` may either by a metamodel class
+  or a symbol denoting the name of the metamodel class.  In the latter case, a
+  model `m` is required to resolve the metamodel class.
+
+  Can only be called inside a `deftransformation`."
+  ([cls img]
+   (when-not (g/mm-class? cls)
+     (u/errorf "Use the arity-3 version of archetype if `cls` is no metamodel class."))
+   (archetype-internal false cls img))
+  ([m cls img]
+   (archetype (if (g/mm-class? cls)
+                cls
+                (g/mm-class m cls))
+              img)))
 
 ;;# Utilities
 
@@ -61,7 +123,8 @@
 
 (defn ^:private check-trace-mappings [mm-cls new-archs]
   (let [top-classes (top-superclasses mm-cls)]
-    (when-let [dups (seq (filter (apply some-fn (map #(partial image %) top-classes))
+    (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
+                                                     top-classes))
                                  new-archs))]
       (u/errorf
        "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
@@ -195,8 +258,8 @@
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
         trg-elem-cls (g/mm-relationship-class-target rel-cls)
-        archs (binding [resolve-source (partial image src-elem-cls)
-                        resolve-target (partial image trg-elem-cls)]
+        archs (binding [resolve-source (partial image-internal :error src-elem-cls)
+                        resolve-target (partial image-internal :error trg-elem-cls)]
                 (set (archfn)))]
     (check-trace-mappings rel-cls archs)
     (loop [as archs
@@ -221,7 +284,8 @@
   been created for the given archetype."
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
-    (doseq [[elem val] (binding [resolve-element (fn [arch] (image mm-cls arch))]
+    (doseq [[elem val] (binding [resolve-element (fn [arch]
+                                                   (image-internal :error mm-cls arch))]
                          (doall (valfn)))]
       (g/set-aval! elem attr val))))
 
@@ -245,10 +309,10 @@
   trace mappings are created for those."
   [m cls ref reffn]
   (let [mm-cls (g/mm-class m cls)
-        resolve-target-fn (partial image (g/mm-referenced-element-class mm-cls ref))
+        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [resolve-element     (partial image mm-cls)
+    (doseq [[elem val] (binding [resolve-element     (partial image-internal :error mm-cls)
                                  resolve-target      resolve-target-fn
                                  resolve-all-targets resolve-all-targets-fn]
                          (doall (reffn)))]
@@ -274,10 +338,10 @@
   trace mappings are created for those."
   [m cls ref reffn]
   (let [mm-cls (g/mm-class m cls)
-        resolve-target-fn (partial image (g/mm-referenced-element-class mm-cls ref))
+        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [resolve-element     (partial image mm-cls)
+    (doseq [[elem val] (binding [resolve-element     (partial image-internal :error mm-cls)
                                  resolve-target      resolve-target-fn
                                  resolve-all-targets resolve-all-targets-fn]
                          (doall (reffn)))]

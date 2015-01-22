@@ -386,10 +386,6 @@ functions `record` and `enum-constant`."
 
 ;;# Generic Metamodel Access
 
-(extend-protocol g/IMetaModelObject
-  AttributedElementClass
-  (meta-model-object? [this] true))
-
 (extend-protocol g/IMMElementClasses
   GraphElementClass
   (mm-element-classes [aec]
@@ -418,13 +414,17 @@ functions `record` and `enum-constant`."
     (-> this .getTo .getVertexClass)))
 
 (extend-protocol g/IMMClass
+  AttributedElementClass
+  (mm-class? [this] true)
   AttributedElement
+  (mm-class? [this] false)
   (mm-class
     ([this]
      (.getAttributedElementClass this))
     ([this qn]
      (attributed-element-class this qn)))
   Schema
+  (mm-class? [this] false)
   (mm-class
     ([this qn]
      (attributed-element-class this qn))))

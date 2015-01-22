@@ -312,16 +312,6 @@
   nil
   (model-object? [this] false))
 
-(defprotocol IMetaModelObject
-  (meta-model-object? [this]
-    "Returns true if `this` is a supported meta model object."))
-
-(extend-protocol IMetaModelObject
-  Object
-  (meta-model-object? [this] false)
-  nil
-  (meta-model-object? [this] false))
-
 ;;# Metamodel Access & Metamodel Protocols
 
 (defonce ^{:doc "A map from regular expressions to functions to load a metamodel."}
@@ -371,7 +361,17 @@
 (defprotocol IMMClass
   (mm-class [model-element] [model mm-class-sym]
     "Returns the given model-element's metamodel class,
-  or the metamodel class named mm-class-sym (a symbol)."))
+  or the metamodel class named mm-class-sym (a symbol).")
+  (mm-class? [obj]
+    "Returns true if the given `obj` is a metamodel class.
+  Default implementations exist for java.lang.Object and nil which simply
+  return false."))
+
+(extend-protocol IMMClass
+  Object
+  (mm-class? [this] false)
+  nil
+  (mm-class? [this] false))
 
 (defprotocol IMMDirectSuperclasses
   (mm-direct-superclasses [metamodel-type]

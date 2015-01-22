@@ -294,10 +294,6 @@
 
 ;;# Generic Metamodel Access
 
-(extend-protocol g/IMetaModelObject
-  EClass
-  (meta-model-object? [this] true))
-
 (extend-protocol g/IMMElementClasses
   EClass
   (mm-element-classes [cls]
@@ -321,17 +317,22 @@
     (eclasses rs)))
 
 (extend-protocol g/IMMClass
+  EClass
+  (mm-class? [this] true)
   EObject
+  (mm-class? [this] false)
   (mm-class
     ([this]
      (.eClass this))
     ([this qn]
      (eclassifier qn)))
   ResourceSet
+  (mm-class? [this] false)
   (mm-class
     ([this qn]
      (eclassifier qn)))
   Resource
+  (mm-class? [this] false)
   (mm-class
     ([this qn]
      (eclassifier qn))))
