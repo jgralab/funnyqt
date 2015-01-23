@@ -87,6 +87,15 @@
                                 ^String (name qname)
                                 ^java.util.List  (mapv name literals))])))
 
+(defn rename-domain!
+  "Renames the custem EnumDomain or RecordDomain `old-qname` in the schema of
+  graph `g` to `new-qname`.  `old-qname` and `new-qname` are qualified names
+  given as symbols.  A rename from 'MyEnum to 'pkg.MyEnum is a effectively a
+  package move."
+  [g old-qname new-qname]
+  (let [dom (tg/domain g old-qname)]
+    (with-open-schema g
+      (.setQualifiedName dom (name new-qname)))))
 
 ;;## AttributedElementClasses
 
