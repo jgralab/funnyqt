@@ -96,9 +96,22 @@
   given as symbols thus renaming a class foo.Bar to quux.Bar is essentially a
   package move."
   [g old-qname new-qname]
-  (let [aec (tg/attributed-element-class g old-qname)]
+  (let [aec (tg/attributed-element-class g old-qname)
+        ;; The hash of aec will change, so we have to remove its entry and add
+        ;; it back after the renaming has been performed.
+        img-val  (when e/*img*
+                   (let [img-val (@e/*img* aec)]
+                     (swap! e/*img* dissoc aec)
+                     img-val))
+        arch-val (when e/*arch*
+                   (let [arch-val (@e/*arch* aec)]
+                     (swap! e/*arch* dissoc aec)
+                     arch-val))]
     (with-open-schema g
-      (.setQualifiedName aec (name new-qname)))))
+      (.setQualifiedName aec (name new-qname)))
+    ;; Re-add the mappings.
+    (swap! e/*img*  assoc aec img-val)
+    (swap! e/*arch* assoc aec arch-val)))
 
 ;;## VertexClasses
 

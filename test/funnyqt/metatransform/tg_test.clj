@@ -1,10 +1,10 @@
 (ns funnyqt.metatransform.tg-test
-                                        ;  (:use funnyqt.tg-test)
   (:require [funnyqt.query :as q]
             [funnyqt.tg :as tg]
             [funnyqt.metatransform.tg :as mtg]
             [funnyqt.extensional :as e]
-            [funnyqt.extensional.tg :as etg])
+            [funnyqt.extensional.tg :as etg]
+            [funnyqt.utils :as u])
   (:use [clojure.test :only [deftest is test-all-vars]])
   (:import
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
@@ -211,6 +211,29 @@
            (tg/vcount g 'Sibling1)
            (tg/vcount g 'Sibling2)))
     (is (= 1 (tg/ecount g 'ecs.T2B)))))
+
+(e/deftransformation aec-renames-1 [g]
+  (top-sibs-bottom g)
+  ;; Ensure *img*/*arch* are hash-maps instead of array maps which have no
+  ;; problem with hash changes in the keys.
+  (reset! e/*img* (apply hash-map (mapcat identity @e/*img*)))
+  (reset! e/*arch* (apply hash-map (mapcat identity @e/*arch*)))
+  (when-not (= clojure.lang.PersistentHashMap
+               (class @e/*img*)
+               (class @e/*arch*))
+    (u/errorf "Error during setup of test: *img*/*arch* aren't hash-sets."))
+  (mtg/rename-attributed-element-class! g 'Top 'T)
+  [(tg/attributed-element-class g 'T) @e/*img* @e/*arch*])
+
+(deftest test-aec-renames-1
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
+        [tvc img arch] (aec-renames-1 g)]
+    ;; The hash of VC T (formerly Top) changed.  It must still be uplookable in
+    ;; *img*/*arch*.
+    (is (img tvc))
+    (is (= (img tvc) {:t (first (tg/vseq g 'T))}))
+    (is (arch tvc))
+    (is (= (arch tvc) {(first (tg/vseq g 'T)) :t}))))
 
 ;;## Attribute renames
 
