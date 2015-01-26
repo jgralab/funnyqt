@@ -262,7 +262,8 @@
                      ^objects new-ary (make-array Object (.getAttributeCount aec))]
                  (when (not= (alength new-ary)
                              (+ (count new-attrs) (if ary (alength ary) 0)))
-                   (u/errorf "Something's wrong!"))
+                   (u/errorf "New attr-ary length %s but %s was expected for AEC %s."
+                             (alength new-ary) (- (if ary (alength ary) 0) (count new-attrs)) aec))
                  (loop [atts (.getAttributeList aec), posinc 0]
                    (if (seq atts)
                      (let [^Attribute a (first atts)
@@ -295,7 +296,8 @@
                      ^objects new-ary (make-array Object (.getAttributeCount aec))]
                  (when (not= (alength new-ary)
                              (- (if ary (alength ary) 0) (count obs-attrs)))
-                   (u/errorf "Something's wrong!"))
+                   (u/errorf "New attr-ary length %s but %s was expected for AEC %s."
+                             (alength new-ary) (- (if ary (alength ary) 0) (count obs-attrs)) aec))
                  (loop [atts (.getAttributeList aec), posdec 0]
                    (if (seq atts)
                      (let [^Attribute a (first atts)
@@ -428,7 +430,7 @@
                             [(.getName a) (.getDomain a)])
                           (.getAttributeList aec))))
 
-(defn ^:private determine-new-attributes-after-adding-specializations
+(defn ^:private determine-new-attributes-before-adding-specialization
   [^GraphElementClass super ^GraphElementClass sub]
   (let [supermap (attr-name-dom-map super)
         ;; We need to check for clashes also in sub's subclasses.
@@ -463,10 +465,9 @@
                                                 new-attrs))))
     @gec2new-attrs-map))
 
-(defn ^:private determine-obsolete-attributes-after-removing-specializations
-  [^GraphElementClass super ^GraphElementClass sub]
+(defn ^:private determine-obsolete-attributes-after-removing-specialization
+  [^GraphElementClass super all-subs]
   (let [supermap (attr-name-dom-map super)
-        all-subs (conj (seq (.getAllSubClasses sub)) sub)
         gec2obs-attrs-map (atom {})]
     (doseq [^GraphElementClass sub all-subs
             :let [submap (attr-name-dom-map sub)
@@ -484,7 +485,7 @@
   [g super sub]
   (let [^GraphElementClass super-gec (get-aec g super)
         ^GraphElementClass sub-gec (get-aec g sub)
-        gec2new-attrs-map (determine-new-attributes-after-adding-specializations
+        gec2new-attrs-map (determine-new-attributes-before-adding-specialization
                            super-gec sub-gec)]
     (when-let [dups (seq (clojure.set/intersection
                           (set (map (partial e/archetype super-gec)
@@ -529,12 +530,12 @@
   [g super sub]
   (let [^GraphElementClass super-gec (get-aec g super)
         ^GraphElementClass sub-gec (get-aec g sub)
-        gec2obs-attrs-map (determine-obsolete-attributes-after-removing-specializations
-                           super-gec sub-gec)]
+        all-subs (conj (seq (.getAllSubClasses sub-gec)) sub-gec)]
     ;; The schema compatibility (esp. when deleting a specialization between
     ;; vertex classes) is already checked by JGraLab.
     (with-open-schema g
       (if (instance? VertexClass super-gec)
         (.removeSuperClass ^VertexClass sub-gec ^VertexClass super-gec)
         (.removeSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec)))
-    (fix-attr-array-after-del! sub-gec gec2obs-attrs-map)))
+    (fix-attr-array-after-del! g sub-gec (determine-obsolete-attributes-after-removing-specialization
+                                          super-gec all-subs))))

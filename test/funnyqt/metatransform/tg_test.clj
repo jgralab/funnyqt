@@ -189,6 +189,67 @@
     (is (thrown-with-msg? Exception #"Bijectivity violation: can't make SubEdge subclass of SuperEdge because their sets of archetypes are not disjoint. Common archetypes: \(1\)"
                           (ec-inheritance-2 g)))))
 
+(e/deftransformation delete-spec-base [g]
+  (top-sibs-bottom g)
+  (mtg/create-specialization! g 'Top 'Sibling1)
+  (mtg/create-specialization! g 'Top 'Sibling2)
+  (mtg/create-specialization! g 'Sibling1 'Bottom)
+  (mtg/create-specialization! g 'Sibling2 'Bottom)
+  (mtg/create-attribute! g 'Top :t 'String (fn [] {(e/resolve-element :t)  "t-top"
+                                                   (e/resolve-element :s1) "t-s1"
+                                                   (e/resolve-element :s2) "t-s2"
+                                                   (e/resolve-element :b)  "t-bottom"}))
+  (mtg/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/resolve-element :s1) "s1-s1"
+                                                         (e/resolve-element :b)  "s1-bottom"}))
+  (mtg/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/resolve-element :s2) "s2-s2"
+                                                         (e/resolve-element :b)  "s2-bottom"}))
+  (mtg/create-attribute! g 'Bottom :b 'String (fn [] {(e/resolve-element :b)  "b-bottom"})))
+
+(e/deftransformation delete-spec-0 [g]
+  (delete-spec-base g)
+  (mtg/delete-specialization! g 'Top 'Sibling2))
+
+(deftest test-delete-spec-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (delete-spec-0 g)
+    (let [s2 (first (tg/vseq g 'Sibling2))
+          s2-vc (tg/attributed-element-class s2)]
+      (is (= 1 (.getAttributeCount s2-vc)))
+      (is (= ["s2"] (map #(.getName ^Attribute %)
+                         (.getAttributeList s2-vc))))
+      (is (= "s2-s2" (tg/value s2 :s2))))))
+
+(e/deftransformation delete-spec-1 [g]
+  (delete-spec-0 g)
+  (mtg/delete-specialization! g 'Top 'Sibling1))
+
+(deftest test-delete-spec-1
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (delete-spec-1 g)
+    ;; (funnyqt.visualization/print-model g :gtk)
+    (let [s1 (first (tg/vseq g 'Sibling1))
+          s1-vc (tg/attributed-element-class s1)
+          s2 (first (tg/vseq g 'Sibling2))
+          s2-vc (tg/attributed-element-class s2)
+          b (first (tg/vseq g 'Bottom))
+          b-vc (tg/attributed-element-class b)]
+      (is (= 1 (.getAttributeCount s1-vc)))
+      (is (= ["s1"] (map #(.getName ^Attribute %)
+                         (.getAttributeList s1-vc))))
+      (is (= "s1-s1" (tg/value s1 :s1)))
+
+      (is (= 1 (.getAttributeCount s2-vc)))
+      (is (= ["s2"] (map #(.getName ^Attribute %)
+                         (.getAttributeList s2-vc))))
+      (is (= "s2-s2" (tg/value s2 :s2)))
+
+      (is (= 3 (.getAttributeCount b-vc)))
+      (is (= ["b" "s1" "s2"] (map #(.getName ^Attribute %)
+                                  (.getAttributeList b-vc))))
+      (is (= "s1-bottom" (tg/value b :s1)))
+      (is (= "s2-bottom" (tg/value b :s2)))
+      (is (= "b-bottom"  (tg/value b :b))))))
+
 ;;## GC/VC/EC renames
 
 (e/deftransformation aec-renames-0 [g]
