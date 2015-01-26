@@ -250,9 +250,9 @@
   "Resizes the attributes array of all `aec` instances after adding new
   attributes.  `aec2new-attrs-map` is a map of the form
 
-  {aec [new-attr1 ...]
-  sub-aec [new-attr1 ...]
-  ...}"
+    {aec [new-attr1 ...]
+     sub-aec [new-attr1 ...]
+     ...}"
   [g aec aec2new-attrs-map]
   (let [elems (element-seq g aec)
         oaf (on-attributes-fn
@@ -278,6 +278,36 @@
       (.invokeOnAttributesArray e oaf)
       (doseq [^Attribute a new-attrs]
         (.setDefaultValue a e)))))
+
+(defn ^:private fix-attr-array-after-del!
+  "Resizes the attributes array of all `aec` instances after deleting
+  attributes.  `aec2obs-attrs-map` is a map of the form
+
+    {aec [obsolete-attr1 ...]
+     sub-aec [obsolete-attr1 ...]
+     ...}"
+  [g aec aec2obs-attrs-map]
+  (let [elems (element-seq g aec)
+        oaf (on-attributes-fn
+             (fn [ae ^objects ary]
+               (let [^AttributedElementClass aec (tg/attributed-element-class ae)
+                     obs-attrs (set (aec2obs-attrs-map aec))
+                     ^objects new-ary (make-array Object (.getAttributeCount aec))]
+                 (when (not= (alength new-ary)
+                             (- (if ary (alength ary) 0) (count obs-attrs)))
+                   (u/errorf "Something's wrong!"))
+                 (loop [atts (.getAttributeList aec), posdec 0]
+                   (if (seq atts)
+                     (let [^Attribute a (first atts)
+                           idx (.getAttributeIndex aec (.getName a))]
+                       (if (obs-attrs a)
+                         (recur (rest atts) (inc posdec))
+                         (do
+                           (aset new-ary idx (aget ary (+ idx posdec)))
+                           (recur (rest atts) posdec))))
+                     new-ary)))))]
+    (doseq [^InternalAttributesArrayAccess e elems]
+      (.invokeOnAttributesArray e oaf))))
 
 (defn ^:private create-attr!
   [g aec attr domain default]
@@ -433,47 +463,78 @@
                                                 new-attrs))))
     @gec2new-attrs-map))
 
+(defn ^:private determine-obsolete-attributes-after-removing-specializations
+  [^GraphElementClass super ^GraphElementClass sub]
+  (let [supermap (attr-name-dom-map super)
+        all-subs (conj (seq (.getAllSubClasses sub)) sub)
+        gec2obs-attrs-map (atom {})]
+    (doseq [^GraphElementClass sub all-subs
+            :let [submap (attr-name-dom-map sub)
+                  obs-attrs (clojure.set/difference (set (keys supermap))
+                                                    (set (keys submap)))]]
+      (when (seq obs-attrs)
+        (swap! gec2obs-attrs-map assoc sub (map (fn [obs-attr-name]
+                                                  (.getAttribute super obs-attr-name))
+                                                obs-attrs))))
+    @gec2obs-attrs-map))
+
 (defn create-specialization!
   "Creates a specialization between Vertex- or EdgeClasses `super` and `sub`.
   Returns `super` again."
   [g super sub]
   (let [^GraphElementClass super-gec (get-aec g super)
-        ^GraphElementClass sub-gec (get-aec g sub)]
-    (let [gec2new-attrs-map (determine-new-attributes-after-adding-specializations
-                             super-gec sub-gec)]
-      (when-let [dups (seq (clojure.set/intersection
-                            (set (map (partial e/archetype super-gec)
-                                      (element-seq g super-gec)))
-                            (set (map (partial e/archetype sub-gec)
-                                      (element-seq g sub-gec)))))]
-        (u/errorf "Bijectivity violation: can't make %s subclass of %s because their sets of archetypes are not disjoint. Common archetypes: %s"
-                  sub super dups))
-      (if (instance? VertexClass super-gec)
-        (do
-          (with-open-schema g
-            (.addSuperClass ^VertexClass sub-gec ^VertexClass super-gec))
-          (when (seq gec2new-attrs-map)
-            (fix-attr-array-after-add! g sub-gec gec2new-attrs-map)))
-        (do
-          ;; With edge classes, sub may only become a subclass of super if its
-          ;; source/target vertex classes are also subclasses of super's
-          ;; source/target vertex classes.
-          (let [super-start  (g/mm-relationship-class-source super-gec)
-                super-target (g/mm-relationship-class-target super-gec)
-                sub-start  (g/mm-relationship-class-source sub-gec)
-                sub-target (g/mm-relationship-class-target sub-gec)]
-            (when-not (or (g/mm-superclass? super-start sub-start)
-                          (= super-start sub-start))
-              (u/errorf
-               "Can't make %s subclass of %s because %s's source element class %s is no subclass of or equal to %s's source element class %s."
-               sub super sub (g/qname sub-start) super (g/qname super-start)))
-            (when-not (or (g/mm-superclass? super-target sub-target)
-                          (= super-target sub-target))
-              (u/errorf
-               "Can't make %s subclass of %s because %s's target element class %s is no subclass of or equal to %s's target element class %s."
-               sub super sub (g/qname sub-target) super (g/qname super-target))))
-          (with-open-schema g
-            (.addSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec))
-          (when (seq gec2new-attrs-map)
-            (fix-attr-array-after-add! g sub-gec gec2new-attrs-map))))))
+        ^GraphElementClass sub-gec (get-aec g sub)
+        gec2new-attrs-map (determine-new-attributes-after-adding-specializations
+                           super-gec sub-gec)]
+    (when-let [dups (seq (clojure.set/intersection
+                          (set (map (partial e/archetype super-gec)
+                                    (element-seq g super-gec)))
+                          (set (map (partial e/archetype sub-gec)
+                                    (element-seq g sub-gec)))))]
+      (u/errorf "Bijectivity violation: can't make %s subclass of %s because their sets of archetypes are not disjoint. Common archetypes: %s"
+                sub super dups))
+    (if (instance? VertexClass super-gec)
+      (do
+        (with-open-schema g
+          (.addSuperClass ^VertexClass sub-gec ^VertexClass super-gec))
+        (when (seq gec2new-attrs-map)
+          (fix-attr-array-after-add! g sub-gec gec2new-attrs-map)))
+      (do
+        ;; With edge classes, sub may only become a subclass of super if its
+        ;; source/target vertex classes are also subclasses of super's
+        ;; source/target vertex classes.
+        (let [super-start  (g/mm-relationship-class-source super-gec)
+              super-target (g/mm-relationship-class-target super-gec)
+              sub-start  (g/mm-relationship-class-source sub-gec)
+              sub-target (g/mm-relationship-class-target sub-gec)]
+          (when-not (or (g/mm-superclass? super-start sub-start)
+                        (= super-start sub-start))
+            (u/errorf
+             "Can't make %s subclass of %s because %s's source element class %s is no subclass of or equal to %s's source element class %s."
+             sub super sub (g/qname sub-start) super (g/qname super-start)))
+          (when-not (or (g/mm-superclass? super-target sub-target)
+                        (= super-target sub-target))
+            (u/errorf
+             "Can't make %s subclass of %s because %s's target element class %s is no subclass of or equal to %s's target element class %s."
+             sub super sub (g/qname sub-target) super (g/qname super-target))))
+        (with-open-schema g
+          (.addSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec))
+        (when (seq gec2new-attrs-map)
+          (fix-attr-array-after-add! g sub-gec gec2new-attrs-map)))))
   super)
+
+(defn delete-specialization!
+  "Deletes the specialization between Vertex/EdgeClasses `super` and `sub`.
+  All attributes inherited from `super` to `sub` and its subclasses are deleted."
+  [g super sub]
+  (let [^GraphElementClass super-gec (get-aec g super)
+        ^GraphElementClass sub-gec (get-aec g sub)
+        gec2obs-attrs-map (determine-obsolete-attributes-after-removing-specializations
+                           super-gec sub-gec)]
+    ;; The schema compatibility (esp. when deleting a specialization between
+    ;; vertex classes) is already checked by JGraLab.
+    (with-open-schema g
+      (if (instance? VertexClass super-gec)
+        (.removeSuperClass ^VertexClass sub-gec ^VertexClass super-gec)
+        (.removeSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec)))
+    (fix-attr-array-after-del! sub-gec gec2obs-attrs-map)))
