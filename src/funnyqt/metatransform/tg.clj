@@ -433,8 +433,8 @@
                                                 new-attrs))))
     @gec2new-attrs-map))
 
-(defn add-subclass!
-  "Makes `sub` a sub-class of `super`.
+(defn create-specialization!
+  "Creates a specialization between Vertex- or EdgeClasses `super` and `sub`.
   Returns `super` again."
   [g super sub]
   (let [^GraphElementClass super-gec (get-aec g super)
@@ -477,10 +477,3 @@
           (when (seq gec2new-attrs-map)
             (fix-attr-array-after-add! g sub-gec gec2new-attrs-map))))))
   super)
-
-(defn add-superclass!
-  "Makes `super` super-classes of `sub`.
-  Returns `sub` again."
-  [g sub super]
-  (add-subclass! g super sub)
-  sub)

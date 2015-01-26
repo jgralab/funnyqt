@@ -29,7 +29,7 @@
                          (fn [] {(e/resolve-element :a) "Müller"
                                  (e/resolve-element :b) "Meier"}))
 
-  (mtg/add-subclass! g 'Person 'SpecialPerson)
+  (mtg/create-specialization! g 'Person 'SpecialPerson)
 
   (mtg/create-edge-class! g 'Knows 'Person 'Person
                           (fn [] (map (fn [[arch a o]]
@@ -68,10 +68,10 @@
   (top-sibs-bottom g)
   (mtg/create-attribute! g 'Top :name 'String
                          (fn [] {(e/resolve-element :t) "Top"}))
-  (mtg/add-subclass! g 'Top 'Sibling1)
-  (mtg/add-subclass! g 'Top 'Sibling2)
-  (mtg/add-superclass! g 'Bottom 'Sibling1)
-  (mtg/add-superclass! g 'Bottom 'Sibling2))
+  (mtg/create-specialization! g 'Top 'Sibling1)
+  (mtg/create-specialization! g 'Top 'Sibling2)
+  (mtg/create-specialization! g 'Sibling1 'Bottom)
+  (mtg/create-specialization! g 'Sibling2 'Bottom))
 
 (deftest test-multiple-inheritance-0
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -94,12 +94,12 @@
   (mtg/create-attribute! g 'Bottom :name 'String
                          (fn [] {(e/resolve-element :b) "Bottom"}))
 
-  (mtg/add-subclass! g 'Top 'Sibling1)
-  (mtg/add-subclass! g 'Top 'Sibling2)
+  (mtg/create-specialization! g 'Top 'Sibling1)
+  (mtg/create-specialization! g 'Top 'Sibling2)
   ;; This must error because Bottom already has a name attribute so it must not
   ;; inherit another one.
-  (mtg/add-superclass! g 'Bottom 'Sibling1)
-  (mtg/add-superclass! g 'Bottom 'Sibling2))
+  (mtg/create-specialization! g 'Sibling1 'Bottom)
+  (mtg/create-specialization! g 'Sibling2 'Bottom))
 
 (deftest test-multiple-inheritance-1
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -114,12 +114,12 @@
 
   (mtg/create-attribute! g 'Sibling2 :name 'String
                          (fn [] {(e/resolve-element :s2) "Sib2"}))
-  (mtg/add-subclass! g 'Top 'Sibling1)
-  (mtg/add-subclass! g 'Top 'Sibling2)
+  (mtg/create-specialization! g 'Top 'Sibling1)
+  (mtg/create-specialization! g 'Top 'Sibling2)
   ;; This must fail, cause Bottom inherits name from both Sibling1 and
   ;; Sibling2.
-  (mtg/add-superclass! g 'Bottom 'Sibling1)
-  (mtg/add-superclass! g 'Bottom 'Sibling2))
+  (mtg/create-specialization! g 'Sibling1 'Bottom)
+  (mtg/create-specialization! g 'Sibling2 'Bottom))
 
 (deftest test-multiple-inheritance-2
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -138,7 +138,7 @@
 
   ;; This must fail, cause Sibling1 inherits name from Top, but defines a name
   ;; attribute itself.
-  (mtg/add-subclass! g 'Top 'Sibling1))
+  (mtg/create-specialization! g 'Top 'Sibling1))
 
 (deftest test-multiple-inheritance-3
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -151,7 +151,7 @@
   (mtg/create-edge-class! g 'SubEdge 'Bottom 'Sibling2)
   ;; This must fail because SubEdge's source VC Bottom is no subcass of
   ;; Sibling1.
-  (mtg/add-subclass! g 'SuperEdge 'SubEdge))
+  (mtg/create-specialization! g 'SuperEdge 'SubEdge))
 
 (deftest test-ec-inheritance-0
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -164,7 +164,7 @@
   (mtg/create-edge-class! g 'SubEdge 'Sibling1 'Bottom)
   ;; This must fail because SubEdge's target VC Bottom is no subcass of
   ;; Sibling2.
-  (mtg/add-subclass! g 'SuperEdge 'SubEdge))
+  (mtg/create-specialization! g 'SuperEdge 'SubEdge))
 
 (deftest test-ec-inheritance-1
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -182,7 +182,7 @@
                           (fn []
                             [[1 (e/resolve-source 1) (e/resolve-target 1)]]))
   ;; This must fail because the archetypes aren't disjoint.
-  (mtg/add-subclass! g 'SuperEdge 'SubEdge))
+  (mtg/create-specialization! g 'SuperEdge 'SubEdge))
 
 (deftest test-ec-inheritance-2
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
