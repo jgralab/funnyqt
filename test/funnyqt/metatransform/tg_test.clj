@@ -10,8 +10,8 @@
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
 
 ;;* Tests
-
-(e/deftransformation transformation-2
+;;** Basic Tests
+(e/deftransformation transformation-0
   "Creates 1 VC and one EC."
   [g]
   (mtg/create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
@@ -37,9 +37,9 @@
                                       [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
                                        [6 1 :a] [7 2 :b]]))))
 
-(deftest test-transformation-2
+(deftest test-transformation-0
   (let [g (mtg/empty-graph 'test.transformation2.T2Schema 'T2Graph)]
-    (transformation-2 g)
+    (transformation-0 g)
     (is (== 7 (tg/vcount g)))
     (is (== 7 (tg/ecount g)))
     (is (== 2 (tg/vcount g 'SpecialPerson)))
@@ -54,6 +54,8 @@
                              (tg/vseq g 'Person)))))))
 
 ;;** Inheritance hierarchy
+
+;;*** Creating Specializations
 
 (defn ^:private top-sibs-bottom [g]
   (when (seq (.getVertexClasses (.getGraphClass (tg/schema g))))
@@ -188,6 +190,8 @@
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? Exception #"Bijectivity violation: can't make SubEdge subclass of SuperEdge because their sets of archetypes are not disjoint. Common archetypes: \(1\)"
                           (ec-inheritance-2 g)))))
+
+;;### Deleting Specializations
 
 (e/deftransformation delete-spec-base [g]
   (top-sibs-bottom g)
