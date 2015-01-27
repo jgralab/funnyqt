@@ -7,7 +7,8 @@
             [funnyqt.utils :as u])
   (:use [clojure.test :only [deftest is test-all-vars]])
   (:import
-   (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
+   (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)
+   (de.uni_koblenz.jgralab.schema.exception SchemaException)))
 
 ;;# Tests
 ;;## Basic Tests
@@ -55,7 +56,7 @@
 
 ;;## Inheritance hierarchy
 
-;;*** Creating Specializations
+;;### Creating Specializations
 
 (defn ^:private top-sibs-bottom [g]
   (when (seq (.getVertexClasses (.getGraphClass (tg/schema g))))
@@ -253,6 +254,18 @@
       (is (= "s1-bottom" (tg/value b :s1)))
       (is (= "s2-bottom" (tg/value b :s2)))
       (is (= "b-bottom"  (tg/value b :b))))))
+
+(e/deftransformation delete-indirect-spec [g]
+  (delete-spec-base g)
+  ;; This must fail because Bottom is an indirect subclass of Top.
+  (mtg/delete-specialization! g 'Top 'Bottom))
+
+(deftest test-delete-indirect-spec
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"Top is no direct superclass of Bottom"
+                          (delete-indirect-spec g)))
+    ))
 
 ;;## GC/VC/EC renames
 
