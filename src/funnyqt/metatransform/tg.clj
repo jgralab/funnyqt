@@ -49,8 +49,12 @@
        (tg/reset-all-tg-caches))
      r#))
 
-;;# Schema functions
+(defn ^:private get-aec [g aec]
+  (if (tg/attributed-element-class? aec)
+    aec
+    (tg/attributed-element-class g aec)))
 
+;;# Schema functions
 ;;## Create a new schema & empty graph
 
 (defn ^:private create-schema [sqname gcname]
@@ -122,8 +126,30 @@
     (swap! e/*img*  assoc aec img-val)
     (swap! e/*arch* assoc aec arch-val)))
 
-;;## VertexClasses
+(defn delete-graph-element-class!
+  "Deletes the GraphElementClass with qualified name `qname` in the schema of
+  graph `g`.  All its subclasses will be deleted, too, and likewise all
+  instances in the graph.  Additionally, the traceability information
+  wrt. class and its subclasses is purged from `funnyqt.extensional/*arch*` and
+  `funnyqt.extensional/*img*`."
+  [g qname]
+  (let [aec (get-aec g qname)]
+    (if (or (tg/vertex-class? aec) (tg/edge-class? aec))
+      (let [els (vec (element-seq g aec))
+            all-subs (conj (seq (.getAllSubClasses ^GraphElementClass aec)) aec)]
+        (with-open-schema g
+          (.delete ^GraphElementClass aec))
+        (when e/*arch*
+          (doseq [sub all-subs]
+            (swap! e/*arch* dissoc sub)))
+        (when e/*img*
+          (doseq [sub all-subs]
+            (swap! e/*img* dissoc sub)))
+        (doseq [el els]
+          (g/delete! el)))
+      (u/errorf "Don't know how to delete %s." aec))))
 
+;;## VertexClasses
 ;;### Creating
 
 (defn ^:private create-vc! [g qname abstract]
@@ -157,11 +183,6 @@
 ;;## EdgeClasses
 
 ;;### Creating
-
-(defn ^:private get-aec [g aec]
-  (if (tg/attributed-element-class? aec)
-    aec
-    (tg/attributed-element-class g aec)))
 
 (defn ^:private create-ec!
   [^Graph g qname abstract from to {:keys [from-multis from-role from-kind

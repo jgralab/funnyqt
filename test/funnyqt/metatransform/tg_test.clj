@@ -4,7 +4,8 @@
             [funnyqt.metatransform.tg :as mtg]
             [funnyqt.extensional :as e]
             [funnyqt.extensional.tg :as etg]
-            [funnyqt.utils :as u])
+            [funnyqt.utils :as u]
+            [funnyqt.generic :as g])
   (:use [clojure.test :only [deftest is test-all-vars]])
   (:import
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)
@@ -384,6 +385,121 @@
     (is (= (img tvc) {:t (first (tg/vseq g 'T))}))
     (is (arch tvc))
     (is (= (arch tvc) {(first (tg/vseq g 'T)) :t}))))
+
+;;## GC/VC/EC deletes
+
+(e/deftransformation ec-delete-0 [g]
+  (e/with-merged-trace-mappings (delete-ec-spec-base g)
+    ;; Should delete all EdgeClasses and all edges
+    (mtg/delete-graph-element-class! g 'T2T)
+    [@e/*arch* @e/*img*]))
+
+(deftest test-ec-delete-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
+        [arch img] (ec-delete-0 g)]
+    (is (= [] (.getEdgeClasses (.getGraphClass (tg/schema g)))))
+    (is (= [] (tg/eseq g)))
+    (doseq [[k _] arch]
+      (is (tg/vertex-class? k)))
+    (doseq [[k _] img]
+      (is (tg/vertex-class? k)))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class T2T"
+                          (tg/attributed-element-class g 'T2T)))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class T2S2"
+                          (tg/attributed-element-class g 'T2S2)))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class S12T"
+                          (tg/attributed-element-class g 'S12T)))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class S12S2"
+                          (tg/attributed-element-class g 'S12S2)))))
+
+(e/deftransformation ec-delete-1 [g]
+  (e/with-merged-trace-mappings (delete-ec-spec-base g)
+    ;; Should delete EdgeClasses T2S2 and S12S2 because that's a subclass.
+    (mtg/delete-graph-element-class! g 'T2S2)
+    [@e/*arch* @e/*img*]))
+
+(deftest test-ec-delete-1
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
+        [arch img] (ec-delete-1 g)]
+    (is (= ['T2T 'S12T] (map g/qname (.getEdgeClasses (.getGraphClass (tg/schema g))))))
+    (is (q/forall? #(g/has-type? % '[:or T2T S12T]) (tg/eseq g)))
+    (doseq [[k _] arch]
+      (is (or (tg/vertex-class? k)
+              (and (tg/edge-class? k)
+                   (#{'T2T 'S12T} (g/qname k))))))
+    (doseq [[k _] img]
+      (is (or (tg/vertex-class? k)
+              (and (tg/edge-class? k)
+                   (#{'T2T 'S12T} (g/qname k))))))
+    (is (= 2 (count (tg/eseq g))))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class T2S2"
+                          (tg/attributed-element-class g 'T2S2)))
+    (is (thrown-with-msg? Exception
+                          #"No such attributed element class S12S2"
+                          (tg/attributed-element-class g 'S12S2)))))
+
+(e/deftransformation vc-delete-with-conn-ecs-0 [g]
+  (delete-ec-spec-base g)
+  ;; Must not work because there's still the EC T2T connected to Top.
+  (mtg/delete-graph-element-class! g 'Top))
+
+(deftest test-vc-delete-with-conn-ecs-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"Cannot delete vertex class Top because there are still connected edge classes: \[S12T, T2S2, T2T\]"
+                          (vc-delete-with-conn-ecs-0 g)))))
+
+(e/deftransformation vc-delete-with-conn-ecs-1 [g]
+  (delete-ec-spec-base g)
+  ;; Must not work because there's still the ECs S12T S12S2 connected to
+  ;; Sibling1.
+  (mtg/delete-graph-element-class! g 'Sibling1))
+
+(deftest test-vc-delete-with-conn-ecs-1
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"Cannot delete vertex class Sibling1 because there are still connected edge classes: \[S12T, T2S2, T2T, S12S2\]"
+                          (vc-delete-with-conn-ecs-1 g)))))
+
+(e/deftransformation vc-ec-delete-0 [g]
+  (delete-ec-spec-base g)
+  ;; Delete all edge classes
+  (mtg/delete-graph-element-class! g 'T2T)
+  ;; Now delete VC Top non-recursively
+  (mtg/delete-specialization! g 'Top 'Sibling1)
+  (mtg/delete-specialization! g 'Top 'Sibling2)
+  (mtg/delete-graph-element-class! g 'Top))
+
+(deftest test-vc-ec-delete-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (vc-ec-delete-0 g)
+    (is (= 0 (count (tg/eseq g))))
+    (is (= 3 (count (tg/vseq g))))
+    (let [s1 (first (tg/vseq g 'Sibling1))
+          s1-vc (tg/attributed-element-class s1)
+          s2 (first (tg/vseq g 'Sibling2))
+          s2-vc (tg/attributed-element-class s2)
+          b  (first (tg/vseq g 'Bottom))
+          b-vc (tg/attributed-element-class b)]
+      (is s1)
+      (is s2)
+      (is b)
+      (is (= ["s1"] (map #(.getName ^Attribute %)
+                         (.getAttributeList s1-vc))))
+      (is (= ["s2"] (map #(.getName ^Attribute %)
+                         (.getAttributeList s2-vc))))
+      (is (= ["b" "s1" "s2"] (map #(.getName ^Attribute %)
+                                  (.getAttributeList b-vc))))
+      (is (= "s1-s1" (tg/value s1 :s1)))
+      (is (= "s2-s2" (tg/value s2 :s2)))
+      (is (= "s1-bottom" (tg/value b :s1)))
+      (is (= "s2-bottom" (tg/value b :s2)))
+      (is (= "b-bottom" (tg/value b :b))))))
 
 ;;## Attribute renames
 
