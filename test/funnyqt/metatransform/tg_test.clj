@@ -9,8 +9,8 @@
   (:import
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass)))
 
-;;* Tests
-;;** Basic Tests
+;;# Tests
+;;## Basic Tests
 (e/deftransformation transformation-0
   "Creates 1 VC and one EC."
   [g]
@@ -53,7 +53,7 @@
     (is (== 3 (count (filter (fn [p] (tg/value p :birthday))
                              (tg/vseq g 'Person)))))))
 
-;;** Inheritance hierarchy
+;;## Inheritance hierarchy
 
 ;;*** Creating Specializations
 
@@ -349,7 +349,7 @@
               "name")))
     (is (= name-map (attr-map :id)))))
 
-;;** Attribute deletions
+;;## Attribute deletions
 
 (defn ^:private attr-seq
   [ae]
