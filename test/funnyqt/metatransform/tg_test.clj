@@ -264,8 +264,19 @@
   (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? SchemaException
                           #"Top is no direct superclass of Bottom"
-                          (delete-indirect-spec g)))
-    ))
+                          (delete-indirect-spec g)))))
+
+(e/deftransformation delete-nonexisting-spec [g]
+  (delete-spec-base g)
+  ;; This must fail because Sibling1 and Sibling2 are completely unrelated wrt
+  ;; specialization.
+  (mtg/delete-specialization! g 'Sibling1 'Sibling2))
+
+(deftest test-delete-nonexisting-spec
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"Sibling1 is no direct superclass of Sibling2"
+                          (delete-nonexisting-spec g)))))
 
 ;;## GC/VC/EC renames
 
