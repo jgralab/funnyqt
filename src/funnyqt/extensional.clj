@@ -146,6 +146,16 @@
              *img*  (atom {})]
      ~@body))
 
+(defmacro with-merged-trace-mappings
+  "Executes `body` with trace mappings being the union of the current and the
+  given `arch-and-img` mappings.  `arch-and-img` must be a vector of the
+  form [arch img]."
+  [arch-and-img & body]
+  `(let [arch-and-img# ~arch-and-img]
+     (binding [*arch* (atom (merge @*arch* (first arch-and-img#)))
+               *img*  (atom (merge @*img*  (second arch-and-img#)))]
+       ~@body)))
+
 (defmacro without-trace-mappings
   "Executes `body` without recording traceability mappings, then re-establishes
   the previous traceability maps."
@@ -357,7 +367,10 @@
   {:arglists '([name doc-string? attr-map? [params*] & body])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
-        args (vec (first more))
+        args (first more)
+        _ (when-not (vector? args)
+            (u/errorf "No argument vector given to deftransformation `%s`!"
+                      name))
         body (next more)]
     `(defn ~name
        ~(meta name)

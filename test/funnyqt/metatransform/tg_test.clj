@@ -64,7 +64,8 @@
   (mtg/create-vertex-class! g 'Top (fn [] [:t]))
   (mtg/create-vertex-class! g 'Sibling1 (fn [] [:s1]))
   (mtg/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
-  (mtg/create-vertex-class! g 'Bottom (fn [] [:b])))
+  (mtg/create-vertex-class! g 'Bottom (fn [] [:b]))
+  [@e/*arch* @e/*img*])
 
 (e/deftransformation multiple-inheritance-0
   [g]
@@ -195,20 +196,22 @@
 ;;### Deleting Specializations
 
 (e/deftransformation delete-spec-base [g]
-  (top-sibs-bottom g)
-  (mtg/create-specialization! g 'Top 'Sibling1)
-  (mtg/create-specialization! g 'Top 'Sibling2)
-  (mtg/create-specialization! g 'Sibling1 'Bottom)
-  (mtg/create-specialization! g 'Sibling2 'Bottom)
-  (mtg/create-attribute! g 'Top :t 'String (fn [] {(e/resolve-element :t)  "t-top"
-                                                   (e/resolve-element :s1) "t-s1"
-                                                   (e/resolve-element :s2) "t-s2"
-                                                   (e/resolve-element :b)  "t-bottom"}))
-  (mtg/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/resolve-element :s1) "s1-s1"
-                                                         (e/resolve-element :b)  "s1-bottom"}))
-  (mtg/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/resolve-element :s2) "s2-s2"
-                                                         (e/resolve-element :b)  "s2-bottom"}))
-  (mtg/create-attribute! g 'Bottom :b 'String (fn [] {(e/resolve-element :b)  "b-bottom"})))
+  (e/with-merged-trace-mappings (top-sibs-bottom g)
+    (mtg/create-specialization! g 'Top 'Sibling1)
+    (mtg/create-specialization! g 'Top 'Sibling2)
+    (mtg/create-specialization! g 'Sibling1 'Bottom)
+    (mtg/create-specialization! g 'Sibling2 'Bottom)
+    (mtg/create-attribute! g 'Top :t 'String (fn [] {(e/resolve-element :t)  "t-top"
+                                                     (e/resolve-element :s1) "t-s1"
+                                                     (e/resolve-element :s2) "t-s2"
+                                                     (e/resolve-element :b)  "t-bottom"}))
+    (mtg/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/resolve-element :s1) "s1-s1"
+                                                           (e/resolve-element :b)  "s1-bottom"}))
+    (mtg/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/resolve-element :s2) "s2-s2"
+                                                           (e/resolve-element :b)  "s2-bottom"}))
+    (mtg/create-attribute! g 'Bottom :b 'String (fn [] {(e/resolve-element :b)  "b-bottom"}))
+
+    [@e/*arch* @e/*img*]))
 
 (e/deftransformation delete-spec-0 [g]
   (delete-spec-base g)
@@ -277,6 +280,64 @@
     (is (thrown-with-msg? SchemaException
                           #"Sibling1 is no direct superclass of Sibling2"
                           (delete-nonexisting-spec g)))))
+
+(e/deftransformation delete-ec-spec-base [g]
+  (e/with-merged-trace-mappings (delete-spec-base g)
+    (mtg/create-edge-class! g 'T2T 'Top 'Top
+                            (fn []
+                              [[:t2t (e/resolve-source :t) (e/resolve-target :t)]]))
+    (mtg/create-attribute! g 'T2T :t2t 'String
+                           (fn []
+                             {(e/resolve-element :t2t) "t-t2t"}))
+    (mtg/create-edge-class! g 'T2S2 'Top 'Sibling2
+                            (fn []
+                              [[:t2s2 (e/resolve-source :t) (e/resolve-target :s2)]]))
+    (mtg/create-specialization! g 'T2T 'T2S2)
+    (mtg/create-edge-class! g 'S12T 'Sibling1 'Top
+                            (fn []
+                              [[:s12t (e/resolve-source :s1) (e/resolve-target :t)]]))
+    (mtg/create-specialization! g 'T2T 'S12T)
+    (mtg/create-edge-class! g 'S12S2 'Sibling1 'Sibling2
+                            (fn []
+                              [[:s12s2 (e/resolve-source :s1) (e/resolve-target :s2)]]))
+    (mtg/create-specialization! g 'S12T 'S12S2)
+    (mtg/create-specialization! g 'T2S2 'S12S2)
+    [@e/*arch* @e/*img*]))
+
+(e/deftransformation delete-vc-spec-with-conn-ecs-0 [g]
+  (delete-ec-spec-base g)
+  ;; This must fail because Sibling1 has ECs which are derived from an T2T
+  ;; from/to Top.
+  (mtg/delete-specialization! g 'Top 'Sibling1))
+
+(deftest test-delete-vc-spec-with-conn-ecs-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"Cannot remove superclass Top from Sibling1 because the EdgeClass S12S2 specializes an EdgeClass starting or ending at Sibling1 or one of its superclasses."
+                          (delete-vc-spec-with-conn-ecs-0 g)))))
+
+(e/deftransformation delete-indirect-ec-spec [g]
+  (delete-ec-spec-base g)
+  ;; This must fail because Bottom is only an indirect subclass of Top
+  (mtg/delete-specialization! g 'T2T 'S12S2))
+
+(deftest test-delete-indirect-ec-spec
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (is (thrown-with-msg? SchemaException
+                          #"T2T is no direct superclass of S12S2 so cannot remove it as such."
+                          (delete-indirect-ec-spec g)))))
+
+(e/deftransformation delete-ec-spec-0 [g]
+  (delete-ec-spec-base g)
+  (mtg/delete-specialization! g 'T2T 'T2S2))
+
+(deftest test-delete-ec-spec-0
+  (let [g (mtg/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (delete-ec-spec-0 g)
+    (let [e (first (tg/eseq g 'T2S2))
+          e-ec (tg/attributed-element-class e)]
+      (is (= 0 (.getAttributeCount e-ec)))
+      (is (= [] (.getAttributeList e-ec))))))
 
 ;;## GC/VC/EC renames
 
