@@ -1,5 +1,6 @@
-(ns funnyqt.metatransform.tg
-  "Schema-creating transformations on TGraphs."
+(ns funnyqt.coevo.tg
+  "Co-Evolution transformations on TGraphs.
+  Those are transformations which change the schema and the graph in-place."
   (:require clojure.set
             clojure.pprint
             [clojure.tools.macro :as m]
