@@ -81,10 +81,20 @@
      (u/errorf "Use the arity-3 version of image if `cls` is no metamodel class."))
    (image-internal false cls arch))
   ([m cls arch]
-   (image (if (g/mm-class? cls)
-            cls
-            (g/mm-class m cls))
+   (image (if (g/mm-class? cls) cls (g/mm-class m cls))
           arch)))
+
+(defn images
+  "Returns a map of image traceability mappings of element or relationship
+  class `cls` and its subclasses."
+  ([cls]
+   (when-not (g/mm-class? cls)
+     (u/errorf "Use the arity-2 version of images if `cls` is no metamodel class."))
+   (when-not *img*
+     (u/errorf "No trace mappings in scope!"))
+   (apply merge (@*img* cls) (map images (g/mm-all-subclasses cls))))
+  ([m cls]
+   (images (if (g/mm-class? cls) cls (g/mm-class m cls)))))
 
 (defn archetype
   "Returns the archetype of `img` for element or relationship class `cls`.
@@ -96,10 +106,20 @@
      (u/errorf "Use the arity-3 version of archetype if `cls` is no metamodel class."))
    (archetype-internal false cls img))
   ([m cls img]
-   (archetype (if (g/mm-class? cls)
-                cls
-                (g/mm-class m cls))
+   (archetype (if (g/mm-class? cls) cls (g/mm-class m cls))
               img)))
+
+(defn archetypes
+  "Returns a map of archetype traceability mappings of element or relationship
+  class `cls` and its subclasses."
+  ([cls]
+   (when-not (g/mm-class? cls)
+     (u/errorf "Use the arity-2 version of archetypes if `cls` is no metamodel class."))
+   (when-not *arch*
+     (u/errorf "No trace mappings in scope!"))
+   (apply merge (@*arch* cls) (map archetypes (g/mm-all-subclasses cls))))
+  ([m cls]
+   (archetypes (if (g/mm-class? cls) cls (g/mm-class m cls)))))
 
 ;;# Utilities
 
