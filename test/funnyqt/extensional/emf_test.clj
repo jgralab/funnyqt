@@ -44,19 +44,19 @@
     (eemf/set-values! tm 'Person :fullName
                       (fn []
                         (for [mem (eallcontents m 'Member)]
-                          [(e/resolve-element mem)
+                          [(e/element-image mem)
                            (str (eget mem :firstName) " "
                                 (eget (family mem) :lastName))])))
     (eemf/set-erefs! tm 'Male :wife
                      (fn []
                        (for [mem (filter wife (eallcontents m 'Member))]
-                         [(e/resolve-element mem) (e/resolve-target (wife mem))])))
+                         [(e/element-image mem) (e/target-image (wife mem))])))
     (eemf/add-erefs! tm 'Person :parents
                      (fn []
                        (for [child (eallcontents m 'Member)
                              :let [parents (parents-of child)]
                              :when (seq parents)]
-                         [(e/resolve-element child) (e/resolve-all-targets parents)])))))
+                         [(e/element-image child) (e/target-images parents)])))))
 
 (load-ecore-resource "test/input/Genealogy.ecore")
 (load-ecore-resource "test/input/Families.ecore")

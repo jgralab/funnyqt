@@ -16,10 +16,10 @@
 
   Don't use that directly but use the special resolving functions
 
-    - `funnyqt.extensional/resolve-element`
-    - `funnyqt.extensional/resolve-source`
-    - `funnyqt.extensional/resolve-target`
-    - `funnyqt.extensional/resolve-all-targets`
+    - `funnyqt.extensional/element-image`
+    - `funnyqt.extensional/source-image`
+    - `funnyqt.extensional/target-image`
+    - `funnyqt.extensional/target-images`
 
   or the general resolving functions
 
@@ -84,17 +84,17 @@
    (image (if (g/mm-class? cls) cls (g/mm-class m cls))
           arch)))
 
-(defn images
+(defn image-map
   "Returns a map of image traceability mappings of element or relationship
   class `cls` and its subclasses."
   ([cls]
    (when-not (g/mm-class? cls)
-     (u/errorf "Use the arity-2 version of images if `cls` is no metamodel class."))
+     (u/errorf "Use the arity-2 version of image-map if `cls` is no metamodel class."))
    (when-not *img*
      (u/errorf "No trace mappings in scope!"))
-   (apply merge (@*img* cls) (map images (g/mm-all-subclasses cls))))
+   (apply merge (@*img* cls) (map image-map (g/mm-all-subclasses cls))))
   ([m cls]
-   (images (if (g/mm-class? cls) cls (g/mm-class m cls)))))
+   (image-map (if (g/mm-class? cls) cls (g/mm-class m cls)))))
 
 (defn archetype
   "Returns the archetype of `img` for element or relationship class `cls`.
@@ -109,17 +109,17 @@
    (archetype (if (g/mm-class? cls) cls (g/mm-class m cls))
               img)))
 
-(defn archetypes
+(defn archetype-map
   "Returns a map of archetype traceability mappings of element or relationship
   class `cls` and its subclasses."
   ([cls]
    (when-not (g/mm-class? cls)
-     (u/errorf "Use the arity-2 version of archetypes if `cls` is no metamodel class."))
+     (u/errorf "Use the arity-2 version of archetype-map if `cls` is no metamodel class."))
    (when-not *arch*
      (u/errorf "No trace mappings in scope!"))
-   (apply merge (@*arch* cls) (map archetypes (g/mm-all-subclasses cls))))
+   (apply merge (@*arch* cls) (map archetype-map (g/mm-all-subclasses cls))))
   ([m cls]
-   (archetypes (if (g/mm-class? cls) cls (g/mm-class m cls)))))
+   (archetype-map (if (g/mm-class? cls) cls (g/mm-class m cls)))))
 
 ;;# Utilities
 
@@ -194,7 +194,7 @@
 
     - `funnyqt.extensional/create-relationships!`
     - `funnyqt.extensional.tg/create-edges!`"}
-  resolve-source)
+  source-image)
 
 (def ^{:dynamic true
        :arglists '([archetype])
@@ -210,7 +210,7 @@
     - `funnyqt.extensional.tg/create-edges!`
     - `funnyqt.extensional.tg/set-adjs!`
     - `funnyqt.extensional.tg/add-adjs!`"}
-  resolve-target)
+  target-image)
 
 (def ^{:dynamic true
        :arglists '([archetype])
@@ -223,7 +223,7 @@
     - `funnyqt.extensional/add-adjs!`
     - `funnyqt.extensional.tg/set-adjs!`
     - `funnyqt.extensional.tg/add-adjs!`"}
-  resolve-all-targets)
+  target-images)
 
 (def ^{:dynamic true
        :arglists '([archetype])
@@ -239,7 +239,7 @@
     - `funnyqt.extensional.tg/set-values!`
     - `funnyqt.extensional.tg/set-adjs!`
     - `funnyqt.extensional.tg/add-adjs!`"}
-  resolve-element)
+  element-image)
 
 
 ;;# Creating Elements/Rels & setting Attrs
@@ -277,8 +277,8 @@
   are established implicitly in `funnyqt.extensional/*img*` and
   `funnyqt.extensional/*arch*`.
 
-  In `archfn`, `funnyqt.extensional/resolve-source` and
-  `funnyqt.extensional/resolve-target` are bound to functions that return the
+  In `archfn`, `funnyqt.extensional/source-image` and
+  `funnyqt.extensional/target-image` are bound to functions that return the
   image of the given archetype in the image-mapping of the new edge's
   source/target element class.
 
@@ -287,8 +287,8 @@
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
         trg-elem-cls (g/mm-relationship-class-target rel-cls)
-        archs (binding [resolve-source (partial image-internal :error src-elem-cls)
-                        resolve-target (partial image-internal :error trg-elem-cls)]
+        archs (binding [source-image (partial image-internal :error src-elem-cls)
+                        target-image (partial image-internal :error trg-elem-cls)]
                 (set (archfn)))]
     (check-trace-mappings rel-cls archs)
     (loop [as archs
@@ -307,14 +307,14 @@
   `valfn`, i.e., `valfn` has to return a map {attr-elem attr-value...} or a
   collection of pairs.
 
-  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the class defining `attr` (i.e., `cls`) returns its
   image, that is, the instance of the defining class (or subclass) that has
   been created for the given archetype."
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
-    (doseq [[elem val] (binding [resolve-element (fn [arch]
-                                                   (image-internal :error mm-cls arch))]
+    (doseq [[elem val] (binding [element-image (fn [arch]
+                                                 (image-internal :error mm-cls arch))]
                          (doall (valfn)))]
       (g/set-aval! elem attr val))))
 
@@ -324,12 +324,12 @@
   tuples ([elem refed]...) where refed is one element if `ref` is single-valued
   or a seq of elements if `ref` is multi-valued.
 
-  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
   returns its image, that is, the instance of the defining class (or subclass)
   that has been created for the given archetype.  Likewise,
-  `funnyqt.extensional/resolve-target` is bound to a resolving function for
-  `ref`s target metamodel class, and `funnyqt.extensional/resolve-all-targets`
+  `funnyqt.extensional/target-image` is bound to a resolving function for
+  `ref`s target metamodel class, and `funnyqt.extensional/target-images`
   is bound to a function that resolves all archetypes in a collection according
   to `ref`s target metamodel class.
 
@@ -341,9 +341,9 @@
         resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [resolve-element     (partial image-internal :error mm-cls)
-                                 resolve-target      resolve-target-fn
-                                 resolve-all-targets resolve-all-targets-fn]
+    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
+                                 target-image      resolve-target-fn
+                                 target-images resolve-all-targets-fn]
                          (doall (reffn)))]
       ((if multi-valued? g/set-adjs! g/set-adj!) elem ref val))))
 
@@ -353,12 +353,12 @@
   tuples ([elem refed]...) where refed is a seq of elements.  `ref` must be
   multi-valued.
 
-  In `valfn`, `funnyqt.extensional/resolve-element` is bound to a function that
+  In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
   returns its image, that is, the instance of the defining class (or subclass)
   that has been created for the given archetype.  Likewise,
-  `funnyqt.extensional/resolve-target` is bound to a resolving function for
-  `ref`s target metamodel class, and `funnyqt.extensional/resolve-all-targets`
+  `funnyqt.extensional/target-image` is bound to a resolving function for
+  `ref`s target metamodel class, and `funnyqt.extensional/target-images`
   is bound to a function that resolves all archetypes in a collection according
   to `ref`s target metamodel class.
 
@@ -370,8 +370,8 @@
         resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [resolve-element     (partial image-internal :error mm-cls)
-                                 resolve-target      resolve-target-fn
-                                 resolve-all-targets resolve-all-targets-fn]
+    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
+                                 target-image      resolve-target-fn
+                                 target-images resolve-all-targets-fn]
                          (doall (reffn)))]
       (g/add-adjs! elem ref val))))

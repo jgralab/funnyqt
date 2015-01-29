@@ -16,16 +16,16 @@
       (etg/create-vertices! g 'localities.City (fn [] [1 2]))
       (etg/set-values! g 'NamedElement :name
                        (fn []
-                         {(e/resolve-element 1) "Köln"
-                          (e/resolve-element 2) "Frankfurt"}))
+                         {(e/element-image 1) "Köln"
+                          (e/element-image 2) "Frankfurt"}))
       (etg/create-vertices! g 'junctions.Crossroad (fn [] ["a" "b"]))
       (etg/create-edges! g 'localities.ContainsCrossroad
                          (fn []
-                           [[1 (e/resolve-source 1) (e/resolve-target "a")]
-                            [2 (e/resolve-source 2) (e/resolve-target "b")]]))
+                           [[1 (e/source-image 1) (e/target-image "a")]
+                            [2 (e/source-image 2) (e/target-image "b")]]))
       (etg/create-edges! g 'connections.Street
                          (fn []
-                           [[1 (e/resolve-source "a") (e/resolve-target "b")]])))
+                           [[1 (e/source-image "a") (e/target-image "b")]])))
     (is (= 4 (vcount g)))
     (is (= 3 (ecount g)))
     (is (= "Köln"      (value (vertex g 1) :name)))
@@ -90,19 +90,19 @@
     (etg/set-values! g 'Person :fullName
                      (fn []
                        (for [mem (emf/eallcontents m 'Member)]
-                         [(e/resolve-element mem)
+                         [(e/element-image mem)
                           (str (emf/eget mem :firstName) " "
                                (emf/eget (family mem) :lastName))])))
     (etg/create-edges! g 'HasSpouse
                        (fn []
                          (for [mem (filter wife (emf/eallcontents m 'Member))
                                :let [w (wife mem)]]
-                           [(family mem) (e/resolve-source mem) (e/resolve-target w)])))
+                           [(family mem) (e/source-image mem) (e/target-image w)])))
     (etg/create-edges! g 'HasChild
                        (fn []
                          (for [child (emf/eallcontents m 'Member)
                                parent (parents-of child)]
-                           [[child parent] (e/resolve-source parent) (e/resolve-target child)])))
+                           [[child parent] (e/source-image parent) (e/target-image child)])))
     @e/*img*))
 
 (emf/load-ecore-resource "test/input/Families.ecore")

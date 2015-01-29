@@ -19,24 +19,24 @@
     (e/with-trace-mappings
       (coevo/create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
       (coevo/create-attribute! g 'Person :name 'String "\"Fritz\""
-                               (fn [] {(e/resolve-element 1) "Hugo"
-                                       (e/resolve-element 2) "Peter"
-                                       (e/resolve-element 3) "August"}))
+                               (fn [] {(e/element-image 1) "Hugo"
+                                       (e/element-image 2) "Peter"
+                                       (e/element-image 3) "August"}))
       (coevo/create-attribute! g 'Person :birthday 'String
-                               (fn [] {(e/resolve-element 3) "1980-11-01"
-                                       (e/resolve-element 4) "1970-06-22"
-                                       (e/resolve-element 5) "1975-01-01"}))
+                               (fn [] {(e/element-image 3) "1980-11-01"
+                                       (e/element-image 4) "1970-06-22"
+                                       (e/element-image 5) "1975-01-01"}))
 
       (coevo/create-vertex-class! g 'SpecialPerson (fn [] [:a :b]))
       (coevo/create-attribute! g 'SpecialPerson :lastName 'String
-                               (fn [] {(e/resolve-element :a) "Müller"
-                                       (e/resolve-element :b) "Meier"}))
+                               (fn [] {(e/element-image :a) "Müller"
+                                       (e/element-image :b) "Meier"}))
 
       (coevo/create-specialization! g 'Person 'SpecialPerson)
 
       (coevo/create-edge-class! g 'Knows 'Person 'Person
                                 (fn [] (map (fn [[arch a o]]
-                                              [arch (e/resolve-source a) (e/resolve-target o)])
+                                              [arch (e/source-image a) (e/target-image o)])
                                             [[1 1 2] [2 2 3] [3 3 4] [4 4 5] [5 5 1]
                                              [6 1 :a] [7 2 :b]]))))
     (is (== 7 (tg/vcount g)))
@@ -70,7 +70,7 @@
     (e/with-trace-mappings
       (top-sibs-bottom g)
       (coevo/create-attribute! g 'Top :name 'String
-                               (fn [] {(e/resolve-element :t) "Top"}))
+                               (fn [] {(e/element-image :t) "Top"}))
       (coevo/create-specialization! g 'Top 'Sibling1)
       (coevo/create-specialization! g 'Top 'Sibling2)
       (coevo/create-specialization! g 'Sibling1 'Bottom)
@@ -91,10 +91,10 @@
          (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Top :name 'String
-                                    (fn [] {(e/resolve-element :t) "Top"}))
+                                    (fn [] {(e/element-image :t) "Top"}))
 
            (coevo/create-attribute! g 'Bottom :name 'String
-                                    (fn [] {(e/resolve-element :b) "Bottom"}))
+                                    (fn [] {(e/element-image :b) "Bottom"}))
 
            (coevo/create-specialization! g 'Top 'Sibling1)
            (coevo/create-specialization! g 'Top 'Sibling2)
@@ -112,10 +112,10 @@
          (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Sibling1 :name 'String
-                                    (fn [] {(e/resolve-element :s1) "Sib1"}))
+                                    (fn [] {(e/element-image :s1) "Sib1"}))
 
            (coevo/create-attribute! g 'Sibling2 :name 'String
-                                    (fn [] {(e/resolve-element :s2) "Sib2"}))
+                                    (fn [] {(e/element-image :s2) "Sib2"}))
            (coevo/create-specialization! g 'Top 'Sibling1)
            (coevo/create-specialization! g 'Top 'Sibling2)
            ;; This must fail, cause Bottom inherits name from both Sibling1 and
@@ -130,10 +130,10 @@
          (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Top :name 'String
-                                    (fn [] {(e/resolve-element :t) "Top"}))
+                                    (fn [] {(e/element-image :t) "Top"}))
 
            (coevo/create-attribute! g 'Sibling1 :name 'Long
-                                    (fn [] {(e/resolve-element :s1) 11}))
+                                    (fn [] {(e/element-image :s1) 11}))
 
            ;; This must fail, cause Sibling1 inherits name from Top, but defines a name
            ;; attribute itself.
@@ -176,10 +176,10 @@
            (etg/create-vertices! g 'Sibling2 (fn [] [1 2 3]))
            (coevo/create-edge-class! g 'SuperEdge 'Sibling1 'Sibling2
                                      (fn []
-                                       [[1 (e/resolve-source 1) (e/resolve-target 1)]]))
+                                       [[1 (e/source-image 1) (e/target-image 1)]]))
            (coevo/create-edge-class! g 'SubEdge 'Sibling1 'Sibling2
                                      (fn []
-                                       [[1 (e/resolve-source 1) (e/resolve-target 1)]]))
+                                       [[1 (e/source-image 1) (e/target-image 1)]]))
            ;; This must fail because the archetypes aren't disjoint.
            (coevo/create-specialization! g 'SuperEdge 'SubEdge))))))
 
@@ -191,15 +191,15 @@
     (coevo/create-specialization! g 'Top 'Sibling2)
     (coevo/create-specialization! g 'Sibling1 'Bottom)
     (coevo/create-specialization! g 'Sibling2 'Bottom)
-    (coevo/create-attribute! g 'Top :t 'String (fn [] {(e/resolve-element :t)  "t-top"
-                                                       (e/resolve-element :s1) "t-s1"
-                                                       (e/resolve-element :s2) "t-s2"
-                                                       (e/resolve-element :b)  "t-bottom"}))
-    (coevo/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/resolve-element :s1) "s1-s1"
-                                                             (e/resolve-element :b)  "s1-bottom"}))
-    (coevo/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/resolve-element :s2) "s2-s2"
-                                                             (e/resolve-element :b)  "s2-bottom"}))
-    (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/resolve-element :b)  "b-bottom"}))
+    (coevo/create-attribute! g 'Top :t 'String (fn [] {(e/element-image :t)  "t-top"
+                                                       (e/element-image :s1) "t-s1"
+                                                       (e/element-image :s2) "t-s2"
+                                                       (e/element-image :b)  "t-bottom"}))
+    (coevo/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/element-image :s1) "s1-s1"
+                                                             (e/element-image :b)  "s1-bottom"}))
+    (coevo/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/element-image :s2) "s2-s2"
+                                                             (e/element-image :b)  "s2-bottom"}))
+    (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/element-image :b)  "b-bottom"}))
 
     [@e/*arch* @e/*img*]))
 
@@ -270,21 +270,21 @@
   (e/with-merged-trace-mappings (delete-vc-spec-base g)
     (coevo/create-edge-class! g 'T2T 'Top 'Top
                               (fn []
-                                [[:t2t (e/resolve-source :t) (e/resolve-target :t)]]))
+                                [[:t2t (e/source-image :t) (e/target-image :t)]]))
     (coevo/create-attribute! g 'T2T :t2t 'String
                              (fn []
-                               {(e/resolve-element :t2t) "t-t2t"}))
+                               {(e/element-image :t2t) "t-t2t"}))
     (coevo/create-edge-class! g 'T2S2 'Top 'Sibling2
                               (fn []
-                                [[:t2s2 (e/resolve-source :t) (e/resolve-target :s2)]]))
+                                [[:t2s2 (e/source-image :t) (e/target-image :s2)]]))
     (coevo/create-specialization! g 'T2T 'T2S2)
     (coevo/create-edge-class! g 'S12T 'Sibling1 'Top
                               (fn []
-                                [[:s12t (e/resolve-source :s1) (e/resolve-target :t)]]))
+                                [[:s12t (e/source-image :s1) (e/target-image :t)]]))
     (coevo/create-specialization! g 'T2T 'S12T)
     (coevo/create-edge-class! g 'S12S2 'Sibling1 'Sibling2
                               (fn []
-                                [[:s12s2 (e/resolve-source :s1) (e/resolve-target :s2)]]))
+                                [[:s12s2 (e/source-image :s1) (e/target-image :s2)]]))
     (coevo/create-specialization! g 'S12T 'S12S2)
     (coevo/create-specialization! g 'T2S2 'S12S2)
     [@e/*arch* @e/*img*]))
@@ -328,7 +328,7 @@
       (top-sibs-bottom g)
       (coevo/create-edge-class! g 'Top2Bottom 'Top 'Bottom
                                 (fn []
-                                  [[1 (e/resolve-source :t) (e/resolve-target :b)]]))
+                                  [[1 (e/source-image :t) (e/target-image :b)]]))
       (coevo/rename-attributed-element-class! g 'Top 'vcs.T)
       (coevo/rename-attributed-element-class! g 'Bottom 'vcs.B)
       (coevo/rename-attributed-element-class! g 'Top2Bottom 'ecs.T2B))
@@ -521,7 +521,7 @@
       (coevo/create-vertex-class! g 'Node (fn [] abc))
       (doseq [a abc]
         (coevo/create-attribute! g 'Node a 'String
-                                 (fn [] (zipmap (map e/resolve-element abc)
+                                 (fn [] (zipmap (map e/element-image abc)
                                                 (repeat (name a)))))))))
 
 (deftest test-delete-attr-1
