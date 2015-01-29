@@ -42,9 +42,10 @@
 ;;# Img/Arch accessors
 
 (defn ^:private image-internal
-  "Returns the image of `arch` for element or relationship class `cls`.
-  Can only be called inside a `deftransformation`."
+  "Returns the image of `arch` for element or relationship class `cls`."
   [error-if-not-found cls arch]
+  (when-not *img*
+    (u/errorf "No trace mappings in scope!"))
   (let [m (@*img* cls)]
     (or (and m (m arch))
         (loop [subs (g/mm-all-subclasses cls)]
@@ -56,9 +57,10 @@
                     arch (g/qname cls))))))
 
 (defn ^:private archetype-internal
-  "Returns the archetype of `img` for element or relationship class `cls`.
-  Can only be called inside a `deftransformation`."
+  "Returns the archetype of `img` for element or relationship class `cls`."
   [error-if-not-found cls img]
+  (when-not *img*
+    (u/errorf "No trace mappings in scope!"))
   (let [m (@*arch* cls)]
     (or (and m (m img))
         (loop [subs (g/mm-all-subclasses cls)]
@@ -73,9 +75,7 @@
   "Returns the image of `arch` for element or relationship class `cls`.
   If there is no image, returns nil.  `cls` may either by a metamodel class or
   a symbol denoting the name of the metamodel class.  In the latter case, a
-  model `m` is required to resolve the metamodel class.
-
-  Can only be called inside a `deftransformation`."
+  model `m` is required to resolve the metamodel class."
   ([cls arch]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-3 version of image if `cls` is no metamodel class."))
@@ -90,9 +90,7 @@
   "Returns the archetype of `img` for element or relationship class `cls`.
   If there is no archetype, returns nil.  `cls` may either by a metamodel class
   or a symbol denoting the name of the metamodel class.  In the latter case, a
-  model `m` is required to resolve the metamodel class.
-
-  Can only be called inside a `deftransformation`."
+  model `m` is required to resolve the metamodel class."
   ([cls img]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-3 version of archetype if `cls` is no metamodel class."))
@@ -122,13 +120,14 @@
   (update-in trace-map [cls] merge new))
 
 (defn ^:private check-trace-mappings [mm-cls new-archs]
-  (let [top-classes (top-superclasses mm-cls)]
-    (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
-                                                     top-classes))
-                                 new-archs))]
-      (u/errorf
-       "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
-       dups (g/qname mm-cls)))))
+  (when *img*
+    (let [top-classes (top-superclasses mm-cls)]
+      (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
+                                                       top-classes))
+                                   new-archs))]
+        (u/errorf
+         "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
+         dups (g/qname mm-cls))))))
 
 (defn ^:private add-trace-mappings! [mm-cls img]
   (when *img*
@@ -152,8 +151,8 @@
   form [arch img]."
   [arch-and-img & body]
   `(let [arch-and-img# ~arch-and-img]
-     (binding [*arch* (atom (merge @*arch* (first arch-and-img#)))
-               *img*  (atom (merge @*img*  (second arch-and-img#)))]
+     (binding [*arch* (atom (merge (if (bound? #'*arch*) @*arch* {}) (first arch-and-img#)))
+               *img*  (atom (merge (if (bound? #'*img*)  @*img*  {}) (second arch-and-img#)))]
        ~@body)))
 
 (defmacro without-trace-mappings
@@ -356,24 +355,3 @@
                                  resolve-all-targets resolve-all-targets-fn]
                          (doall (reffn)))]
       (g/add-adjs! elem ref val))))
-
-;;# The transformation macro itself
-
-(defmacro deftransformation
-  "Create a new transformation named `name` with optional `doc-string` and
-  optional `attr-map`, the given `params` (input graph args), and the given
-  `body`."
-  ;; Nicer arglist in doc
-  {:arglists '([name doc-string? attr-map? [params*] & body])}
-  [name & more]
-  (let [[name more] (m/name-with-attributes name more)
-        args (first more)
-        _ (when-not (vector? args)
-            (u/errorf "No argument vector given to deftransformation `%s`!"
-                      name))
-        body (next more)]
-    `(defn ~name
-       ~(meta name)
-       ~args
-       (with-trace-mappings
-         ~@body))))

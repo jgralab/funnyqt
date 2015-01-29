@@ -32,30 +32,31 @@
   [m]
   (g/adj m :familyFather :mother))
 
-(e/deftransformation families2genealogy [m tm]
-  (eemf/create-eobjects! tm 'Male
-                         (fn []
-                           (filter male? (eallcontents m 'Member))))
-  (eemf/create-eobjects! tm 'Female
-                         (fn []
-                           (filter (complement male?)
-                                   (eallcontents m 'Member))))
-  (eemf/set-values! tm 'Person :fullName
-                    (fn []
-                      (for [mem (eallcontents m 'Member)]
-                        [(e/resolve-element mem)
-                         (str (eget mem :firstName) " "
-                              (eget (family mem) :lastName))])))
-  (eemf/set-erefs! tm 'Male :wife
-                   (fn []
-                     (for [mem (filter wife (eallcontents m 'Member))]
-                       [(e/resolve-element mem) (e/resolve-target (wife mem))])))
-  (eemf/add-erefs! tm 'Person :parents
-                   (fn []
-                     (for [child (eallcontents m 'Member)
-                           :let [parents (parents-of child)]
-                           :when (seq parents)]
-                       [(e/resolve-element child) (e/resolve-all-targets parents)]))))
+(defn families2genealogy [m tm]
+  (e/with-trace-mappings
+    (eemf/create-eobjects! tm 'Male
+                           (fn []
+                             (filter male? (eallcontents m 'Member))))
+    (eemf/create-eobjects! tm 'Female
+                           (fn []
+                             (filter (complement male?)
+                                     (eallcontents m 'Member))))
+    (eemf/set-values! tm 'Person :fullName
+                      (fn []
+                        (for [mem (eallcontents m 'Member)]
+                          [(e/resolve-element mem)
+                           (str (eget mem :firstName) " "
+                                (eget (family mem) :lastName))])))
+    (eemf/set-erefs! tm 'Male :wife
+                     (fn []
+                       (for [mem (filter wife (eallcontents m 'Member))]
+                         [(e/resolve-element mem) (e/resolve-target (wife mem))])))
+    (eemf/add-erefs! tm 'Person :parents
+                     (fn []
+                       (for [child (eallcontents m 'Member)
+                             :let [parents (parents-of child)]
+                             :when (seq parents)]
+                         [(e/resolve-element child) (e/resolve-all-targets parents)])))))
 
 (load-ecore-resource "test/input/Genealogy.ecore")
 (load-ecore-resource "test/input/Families.ecore")

@@ -16,7 +16,7 @@
    (de.uni_koblenz.jgralab.schema AggregationKind Attribute
                                   AttributedElementClass GraphElementClass
                                   GraphClass EdgeClass Schema VertexClass
-                                  RecordDomain EnumDomain)
+                                  RecordDomain EnumDomain IncidenceClass)
    (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
    (de.uni_koblenz.jgralab.schema.impl SchemaImpl NamedElementImpl GraphClassImpl)
    (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
@@ -215,14 +215,15 @@
   "Creates a new EdgeClass with the qualified name `qname` starting at
   VertexClass `from` and ending at VertexClass `to` in the schema of graph `g`.
   Returns the newly created EdgeClass.  `props` is a map with additional
-  properties for the edge class.  If omitted, the default is:
+  properties for the edge class' incidence classes.  If omitted, the default
+  is:
 
-  {:from-multis [0, Integer/MAX_VALUE]
-  :from-role \"\"
-  :from-kind AggregationKind/NONE
-  :to-multis [0, Integer/MAX_VALUE]
-  :to-role \"\"
-  :to-kind AggregationKind/NONE}
+    {:from-multis [0, Integer/MAX_VALUE]
+     :from-role \"\"
+     :from-kind AggregationKind/NONE
+     :to-multis [0, Integer/MAX_VALUE]
+     :to-role \"\"
+     :to-kind AggregationKind/NONE}
 
   If an `archfn` is supplied, also creates edges in `g`.  For the details of
   `archfn`, see function `funnyqt.extensional.tg/create-edges!`."
@@ -245,14 +246,15 @@
   "Creates a new abstract EdgeClass with the qualified name `qname` starting at
   VertexClass `from` and ending at VertexClass `to` in the schema of graph `g`.
   Returns the newly created EdgeClass.  `props` is a map with additional
-  properties for the edge class.  If omitted, the default is:
+  properties for the edge class' incidence classes.  If omitted, the default
+  is:
 
-  {:from-multis [0, Integer/MAX_VALUE]
-  :from-role \"\"
-  :from-kind AggregationKind/NONE
-  :to-multis [0, Integer/MAX_VALUE]
-  :to-role \"\"
-  :to-kind AggregationKind/NONE}"
+    {:from-multis [0, Integer/MAX_VALUE]
+     :from-role \"\"
+     :from-kind AggregationKind/NONE
+     :to-multis [0, Integer/MAX_VALUE]
+     :to-role \"\"
+     :to-kind AggregationKind/NONE}"
   [g qname from to {:keys [from-multis from-role from-kind
                            to-multis   to-role   to-kind]
                     :or {from-multis [0, Integer/MAX_VALUE]
@@ -263,6 +265,46 @@
                          to-kind AggregationKind/NONE}
                     :as props}]
   (create-ec! g qname true from to props))
+
+(defn set-incidence-class-properties!
+  "In the schema of graph `g`, sets the properties of the IncidenceClasses of
+  the EdgeClass `ec-qname` according to `props`.  `props` is a map with the
+  properties for the edge class' incidence classes.  It has the form:
+
+    {:from-multis [0, Integer/MAX_VALUE]
+     :from-role \"\"
+     :from-kind AggregationKind/NONE
+     :to-multis [0, Integer/MAX_VALUE]
+     :to-role \"\"
+     :to-kind AggregationKind/NONE}"
+  [g ec-qname props]
+  (let [^EdgeClass ec (get-aec g ec-qname)
+        ^IncidenceClass from (.getFrom ec)
+        ^IncidenceClass to (.getTo ec)]
+    (when-let [[fmin fmax] (:from-multis props)]
+      (.setMin from fmin)
+      (.setMax from fmax))
+    (when-let [frole (:from-role props)]
+      (.setRolename from frole))
+    (when-let [[tmin tmax] (:to-multis props)]
+      (.setMin to tmin)
+      (.setMax to tmax))
+    (when-let [trole (:to-role props)]
+      (.setRolename to trole))
+    (let [^AggregationKind fak (:from-kind props)
+          ^AggregationKind tak (:to-kind props)]
+      ;; In order to be able to swap the aggregation kinds of an EC, the
+      ;; setting to NONE must happen first.
+      (if (= fak AggregationKind/NONE)
+        (do (.setAggregationKind from fak)
+            (when tak (.setAggregationKind to tak)))
+        (if (= tak AggregationKind/NONE)
+          (do (.setAggregationKind to tak)
+              (when fak (.setAggregationKind from fak)))
+          ;; Else, probably only fak or tak has been given.
+          (do
+            (when fak (.setAggregationKind from fak))
+            (when tak (.setAggregationKind to tak))))))))
 
 ;;## Attributes
 
@@ -390,9 +432,12 @@
   `newname` in the schema of graph `g`.  `aec` is a symbol denoting the
   qualified name of the attributed element class, `oldname` and `newname` are
   keywords denoting the attribute names."
-  [g aec oldname newname]
-  (let [aec ^AttributedElementClass (tg/attributed-element-class g aec)
+  [g aec-qname oldname newname]
+  (let [aec (tg/attributed-element-class g aec-qname)
         ^Attribute attribute (.getAttribute aec (name oldname))]
+    (when-not attribute
+      (u/errorf "No such attribute %s at attributed element class %s."
+                oldname aec))
     (when-not (.getOwnAttribute aec (name oldname))
       (u/errorf "Cannot rename attribute %s for class %s because it's owned by %s"
                 oldname aec (.getAttributedElementClass attribute)))
