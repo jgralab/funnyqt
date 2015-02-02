@@ -363,7 +363,8 @@
     (doseq [^InternalAttributesArrayAccess e elems
             :let [new-attrs (aec2new-attrs-map (tg/attributed-element-class e))]]
       (.invokeOnAttributesArray e oaf)
-      (doseq [^Attribute a new-attrs]
+      (doseq [^Attribute a new-attrs
+              :when (.getDefaultValueAsString a)]
         (.setDefaultValue a e)))))
 
 (defn ^:private fix-attr-array-after-del!
