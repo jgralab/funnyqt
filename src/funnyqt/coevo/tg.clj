@@ -32,13 +32,18 @@
       (f ae ary))))
 
 (defn ^:private element-seq
-  [g aec]
-  (let [ts (g/qname aec)]
-    (cond
-      (tg/graph-class? aec)  [g]
-      (tg/vertex-class? aec) (tg/vseq g ts)
-      (tg/edge-class? aec)   (tg/eseq g ts)
-      :else (u/errorf "Cannot handle %s" aec))))
+  ([g aec]
+   (element-seq g aec false))
+  ([g aec only-direct-instances]
+   (let [ts (g/qname aec)
+         ts (if only-direct-instances
+              (symbol (str ts "!"))
+              ts)]
+     (cond
+       (tg/graph-class? aec)  [g]
+       (tg/vertex-class? aec) (tg/vseq g ts)
+       (tg/edge-class? aec)   (tg/eseq g ts)
+       :else (u/errorf "Cannot handle %s" aec)))))
 
 (defmacro with-open-schema [g & body]
   `(let [g# ~g
@@ -127,6 +132,8 @@
     (swap! e/*img*  assoc aec img-val)
     (swap! e/*arch* assoc aec arch-val)))
 
+;;## GraphElementClasses
+
 (defn delete-graph-element-class!
   "Deletes the GraphElementClass with qualified name `qname` in the schema of
   graph `g`.  All its subclasses will be deleted, too, and likewise all
@@ -149,6 +156,21 @@
         (doseq [el els]
           (g/delete! el)))
       (u/errorf "Don't know how to delete %s." aec))))
+
+(defn set-abstract!
+  "Sets the abstract property of the GraphElementClass `gec-qname` to `val` in
+  the schema of graph `g`.  If `val` is true, no direct instances of the graph
+  element class may exist in the graph or an exception is thrown."
+  [g gec-qname val]
+  (let [^GraphElementClass gec (get-aec g gec-qname)]
+    (if val
+      (do
+        ;; Check that there are no instances
+        (when (seq (element-seq g gec true))
+          (u/errorf "Can't make class %s abstract because there are still direct instances."
+                    gec))
+        (.setAbstract gec true))
+      (.setAbstract gec false))))
 
 ;;## VertexClasses
 ;;### Creating

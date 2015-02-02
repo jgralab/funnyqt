@@ -44,7 +44,7 @@
 (defn ^:private image-internal
   "Returns the image of `arch` for element or relationship class `cls`."
   [error-if-not-found cls arch]
-  (when-not *img*
+  (when-not (bound? #'*img*)
     (u/errorf "No trace mappings in scope!"))
   (let [m (@*img* cls)]
     (or (and m (m arch))
@@ -59,7 +59,7 @@
 (defn ^:private archetype-internal
   "Returns the archetype of `img` for element or relationship class `cls`."
   [error-if-not-found cls img]
-  (when-not *img*
+  (when-not (bound? #'*arch*)
     (u/errorf "No trace mappings in scope!"))
   (let [m (@*arch* cls)]
     (or (and m (m img))
@@ -90,7 +90,7 @@
   ([cls]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-2 version of image-map if `cls` is no metamodel class."))
-   (when-not *img*
+   (when-not (bound? #'*img*)
      (u/errorf "No trace mappings in scope!"))
    (apply merge (@*img* cls) (map image-map (g/mm-all-subclasses cls))))
   ([m cls]
@@ -115,7 +115,7 @@
   ([cls]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-2 version of archetype-map if `cls` is no metamodel class."))
-   (when-not *arch*
+   (when-not (bound? #'*arch*)
      (u/errorf "No trace mappings in scope!"))
    (apply merge (@*arch* cls) (map archetype-map (g/mm-all-subclasses cls))))
   ([m cls]
@@ -140,7 +140,7 @@
   (update-in trace-map [cls] merge new))
 
 (defn ^:private check-trace-mappings [mm-cls new-archs]
-  (when *img*
+  (when (bound? #'*img*)
     (let [top-classes (top-superclasses mm-cls)]
       (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
                                                        top-classes))
@@ -150,9 +150,9 @@
          dups (g/qname mm-cls))))))
 
 (defn ^:private add-trace-mappings! [mm-cls img]
-  (when *img*
+  (when (bound? #'*img*)
     (swap! *img* into-trace-map mm-cls img))
-  (when *arch*
+  (when (bound? #'*arch*)
     (swap! *arch* into-trace-map mm-cls (clojure.set/map-invert img))))
 
 ;;# User fns and macros

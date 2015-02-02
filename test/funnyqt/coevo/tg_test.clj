@@ -8,6 +8,7 @@
             [funnyqt.generic :as g])
   (:use [clojure.test :only [deftest is test-all-vars]])
   (:import
+   (de.uni_koblenz.jgralab.exception GraphException)
    (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass AggregationKind)
    (de.uni_koblenz.jgralab.schema.exception SchemaException)))
 
@@ -64,6 +65,28 @@
   (coevo/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
   (coevo/create-vertex-class! g 'Bottom (fn [] [:b]))
   [@e/*arch* @e/*img*])
+
+(deftest test-set-abstract-0
+  (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (e/with-trace-mappings
+      (top-sibs-bottom g)
+      ;; This must fail because Top has a direct instance.
+      (is (thrown-with-msg? Exception
+                            #"Can't make class Top abstract because there are still direct instances"
+                            (coevo/set-abstract! g 'Top true))))))
+
+(deftest test-set-abstract-1
+  (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
+    (e/with-trace-mappings
+      (top-sibs-bottom g)
+      (doseq [t (tg/vseq g 'Top!)]
+        (g/delete! t))
+      ;; There are no instances anymore, so setting abstract should work.
+      (coevo/set-abstract! g 'Top true)
+      ;; Now we mustn't be able to create direct Top instances.
+      (is (thrown-with-msg? GraphException
+                            #"Cannot create instances of abstract type Top"
+                            (etg/create-vertices! g 'Top (fn [] [1 2 3])))))))
 
 (deftest test-multiple-inheritance-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
