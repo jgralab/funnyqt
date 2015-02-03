@@ -16,6 +16,7 @@
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
+                 [im.chit/vinyasa.inject "0.3.0"]
                  [inflections "0.9.13" :exclusions [org.clojure/clojure]]]
   :profiles {:dev {:source-paths ["dev"]}}
   ;; Don't put version control dirs into the jar
