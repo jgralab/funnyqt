@@ -45,7 +45,7 @@
        (tg/edge-class? aec)   (tg/eseq g ts)
        :else (u/errorf "Cannot handle %s" aec)))))
 
-(defmacro with-open-schema [g & body]
+(defmacro ^:private with-open-schema [g & body]
   `(let [g# ~g
          ^Schema s# (tg/schema g#)
          was-opened# (.reopen s#)
