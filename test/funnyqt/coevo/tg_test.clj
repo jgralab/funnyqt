@@ -441,7 +441,9 @@
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg?
          SchemaException
-         #"Cannot delete vertex class Top because there are still connected edge classes: \[S12T, T2S2, T2T\]"
+         ;; This regex is a bit strange, but I cannot rely on the order on
+         ;; which the connected edge classes are reported.
+         #"Cannot delete vertex class Top because there are still connected edge classes: \[(S12T|T2S2|T2T), (S12T|T2S2|T2T), (S12T|T2S2|T2T)\]"
          (e/with-trace-mappings
            (delete-vc-ec-spec-base g)
            ;; Must not work because there's still the EC T2T connected to Top.
@@ -450,7 +452,10 @@
 (deftest test-vc-delete-with-conn-ecs-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg? SchemaException
-                          #"Cannot delete vertex class Sibling1 because there are still connected edge classes: \[S12T, T2S2, T2T, S12S2\]"
+                          ;; This regex is a bit strange, but I cannot rely on
+                          ;; the order on which the connected edge classes are
+                          ;; reported.
+                          #"Cannot delete vertex class Sibling1 because there are still connected edge classes: \[(S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2)\]"
                           (e/with-trace-mappings
                             (delete-vc-ec-spec-base g)
                             ;; Must not work because there's still the ECs S12T S12S2 connected to
