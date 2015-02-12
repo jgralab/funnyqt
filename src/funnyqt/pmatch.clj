@@ -20,13 +20,13 @@
        (re-matches #"([a-zA-Z0-9_]*)(<[a-zA-Z0-9._!]*>)?" (name sym))))
 
 (defn ^:private edge-sym?
-  "Returns [match arrow-head id <type> arrow-head] if sym is an edge symbol."
+  "Returns [match arrow id <type> arrow] if sym is an edge symbol."
   [sym]
   (and
    (symbol? sym)
    (or (re-matches #"<-.*-" (name sym))
        (re-matches #"-.*->" (name sym)))
-   (re-matches #"(<?)-([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?-(>?)" (name sym))))
+   (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?(->?)" (name sym))))
 
 (defn ^:private name-and-type
   ([sym]
@@ -537,15 +537,6 @@
 
 (defn pattern-graph-to-for+-bindings-tg [argvec pg]
   (let [gsym (first argvec)
-        inc-dir (fn [e]
-                  ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
-                  ;; --> and -<:role>-> do not in order to stay compatible with
-                  ;; the generic version.
-                  (cond
-                    (nil? (get-type e))     nil
-                    (keyword? (get-type e)) nil
-                    (tg/normal-edge? e)     :out
-                    :else                   :in))
         inc-type (fn [e]
                    ;; -<_>-> accepts all edges of all ECs, and since an "edge
                    ;; class" name is given (the underscore), also the direction
@@ -555,7 +546,15 @@
                        nil
                        ec)))
         inc-iteration (fn [e src]
-                        `(tg/iseq ~src ~(inc-type e) ~(inc-dir e)))
+                        `(tg/iseq ~src ~(inc-type e)
+                                  ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
+                                  ;; --> and -<:role>-> do not in order to stay compatible with
+                                  ;; the generic version.
+                                  ~(cond
+                                     (nil? (get-type e))     nil
+                                     (keyword? (get-type e)) nil
+                                     (tg/normal-edge? e)     :out
+                                     :else                   :in)))
         anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -754,6 +753,10 @@
                           (if (keyword? t)
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
+        inc-iteration (fn [e src]
+                        (if-let [t (get-edge-type e)]
+                          `(~role-fn ~src ~t)
+                          `(~neighbors-fn ~src)))
         anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -772,9 +775,7 @@
                                                          ;; type-matcher named
                                                          ;; like the type.
                                                          `[:when (~t ~ncs)]))
-                                               (into r `[~ncs ~(if-let [t (get-edge-type el)]
-                                                                 `(~role-fn ~cs ~t)
-                                                                 `(~neighbors-fn ~cs))]))))
+                                               (into r `[~ncs ~(inc-iteration el cs)]))))
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r) ;; only one binding [G_NNNN exp]
@@ -843,9 +844,7 @@
                   (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf `[:when (not (q/member? ~(get-name trg)
-                                                          ~(if-let [t (get-edge-type cur)]
-                                                             `(~role-fn ~(get-name src) ~t)
-                                                             `(~neighbors-fn ~(get-name src)))))]))
+                                                          ~(inc-iteration cur (get-name src))))]))
                   (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf (if (anon? trg)
@@ -856,12 +855,8 @@
                                                        ;; type-matcher named
                                                        ;; like the type.
                                                        #(~tt %)
-                                                       ~(if-let [t (get-edge-type cur)]
-                                                          `(~role-fn ~(get-name src) ~t)
-                                                          `(~neighbors-fn ~(get-name src)))))]
-                                      `[:when (empty? ~(if-let [t (get-edge-type cur)]
-                                                         `(~role-fn ~(get-name src) ~t)
-                                                         `(~neighbors-fn ~(get-name src))))])
+                                                       ~(inc-iteration cur (get-name src))))]
+                                      `[:when (empty? ~(inc-iteration cur (get-name src)))])
                                     `[~(get-name trg) (~elements-fn ~gsym ~(get-type trg))
                                       :when (not (q/member? ~(get-name trg)
                                                             ~(if-let [t (get-edge-type cur)]
