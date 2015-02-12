@@ -3,9 +3,12 @@
   (:require [funnyqt.tg        :as tg]
             [funnyqt.emf       :as emf]
             [funnyqt.generic   :as g]
-            [funnyqt.query     :as q])
+            [funnyqt.query     :as q]
+            [funnyqt.tg-test   :as tt])
   (:use funnyqt.query)
-  (:use clojure.test))
+  (:use clojure.test)
+  (:import (de.uni_koblenz.jgralab.schema AggregationKind)
+           (de.uni_koblenz.jgralab Edge)))
 
 ;;# Tests on PMatchTest model/graph
 
@@ -54,17 +57,17 @@
 (defn pmt-matches [model & matches]
   (for [m matches]
     (cond
-     (and (vector? m)
-          (= 2 (count m))
-          (symbol? (first m))
-          (integer? (second m)))  (apply pmt-el model m)
-     (map? m)     (zipmap (keys m)
-                          (mapcat (partial pmt-matches model) (vals m)))
-     (coll? m)    (into (empty m) (let [r (mapcat (partial pmt-matches model) m)]
-                                    (if (vector? m)
-                                      r
-                                      (reverse r))))
-     :else m)))
+      (and (vector? m)
+           (= 2 (count m))
+           (symbol? (first m))
+           (integer? (second m)))  (apply pmt-el model m)
+           (map? m)     (zipmap (keys m)
+                                (mapcat (partial pmt-matches model) (vals m)))
+           (coll? m)    (into (empty m) (let [r (mapcat (partial pmt-matches model) m)]
+                                          (if (vector? m)
+                                            r
+                                            (reverse r))))
+           :else m)))
 
 (defn pmt-matches-fn [& matches]
   (fn [model]
@@ -535,426 +538,426 @@
                   [:extends [(a-having-d-tg 0 :a a1)
                              (a-having-d-tg :a a2)]
                    a1 -<:t>-> a2])]
-      (pmt-assert a-with-a-having-d-generic
-                  a-with-a-having-d-emf
-                  a-with-a-having-d-tg
-                  2
-                  (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
-                                  {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
-  (testing "Testing patterns with arguments."
-    (pmt-assert (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :generic}
-                    [m cur]
-                    [cur<A> -<:t>-> next<A>])
-                   m (pmt-el m 'B 1)))
-                (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :emf}
-                    [m cur]
-                    [cur<A> -<:t>-> next<A>])
-                   m (pmt-el m 'B 1)))
-                (fn [m]
-                  ((pattern
-                    {:pattern-expansion-context :tg}
-                    [m cur]
-                    [cur<A> -<:t>-> next<A>])
-                   m (pmt-el m 'B 1)))
-                2
-                (pmt-matches-fn {:cur ['B 1] :next ['C 1]}
-                                {:cur ['B 1] :next ['C 2]})))
-  (testing "Testing recursive patterns."
-    (letpattern [(successors-generic
-                  {:pattern-expansion-context :generic}
-                  [m cur known]
-                  [:when (not (known cur))
-                   cur<A> -<:t>-> next<A>
-                   :let [nnexts (successors-generic m next (conj known cur))]])
-                 (successors-emf
-                  {:pattern-expansion-context :emf}
-                  [m cur known]
-                  [:when (not (known cur))
-                   cur<A> -<:t>-> next<A>
-                   :let [nnexts (successors-emf m next (conj known cur))]])
-                 (successors-tg
-                  {:pattern-expansion-context :tg}
-                  [m cur known]
-                  [:when (not (known cur))
-                   cur<A> -<:t>-> next<A>
-                   :let [nnexts (successors-tg m next (conj known cur))]])]
-      (pmt-assert (fn [m]
-                    (successors-generic m (pmt-el m 'B 1) #{}))
-                  (fn [m]
-                    (successors-emf m (pmt-el m 'B 1) #{}))
-                  (fn [m]
-                    (successors-tg m (pmt-el m 'B 1) #{}))
-                  2
-                  (pmt-matches-fn
-                   '{:cur [B 1],
-                     :next [C 1],
-                     :nnexts ({:cur [C 1],
-                               :next [C 1],
-                               :nnexts ()}
-                              {:cur [C 1],
-                               :next [A 1],
-                               :nnexts ({:cur [A 1],
-                                         :next [B 2],
-                                         :nnexts ()})})}
-                   '{:cur [B 1],
-                     :next [C 2],
-                     :nnexts ({:cur [C 2],
-                               :next [A 1],
-                               :nnexts ({:cur [A 1],
-                                         :next [B 2],
-                                         :nnexts ()})}
-                              {:cur [C 2],
-                               :next [B 2],
-                               :nnexts ()})}))))
-  (testing "Testing :negative patterns. (1)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                1
-                (pmt-matches-fn {:b ['B 2]})))
-  (testing "Testing :negative patterns. (2)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [b<B>
-                              :negative [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                1
-                (pmt-matches-fn {:b ['B 2]})))
-  (testing "Testing :negative patterns. (3, global NAC)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [a<A>
-                              :negative [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [a<A>
-                              :negative [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [a<A>
-                              :negative [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                0
-                (pmt-matches-fn)))
-  (testing "Testing :positive patterns. (2)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> <A>
-                                         -<:s>-> c2<C> -<:s>-> b
-                                         :isomorphic]])
-                1
-                (pmt-matches-fn {:b ['B 1]})))
-  (testing "Testing :positive patterns. (1)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [b<B>
-                              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
-                                         b -<:t>-> c2<C> -<:t>-> a
-                                         :isomorphic]])
-                1
-                (pmt-matches-fn {:b ['B 1]})))
-  (testing "Testing :positive patterns. (3, global NAC)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [a<A>
-                              :positive [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [a<A>
-                              :positive [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [a<A>
-                              :positive [c1<C> -<:d>-> d1<D>
-                                         c1 -<:t>-> a1<A>
-                                         a1 -<:d>-> d1]])
-                5
-                (pmt-matches-fn {:a ['B 1]}
-                                {:a ['C 1]}
-                                {:a ['C 2]}
-                                {:a ['A 1]}
-                                {:a ['B 2]})))
-  (testing "Testing :or patterns."
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :or [[c -<:t>-> c]
-                                   [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :or [[c -<:t>-> c]
-                                   [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :or [[c -<:t>-> c]
-                                   [c -<:t>-> b<B>]]])
-                2
-                (pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
-  (testing "Testing :xor patterns."
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :xor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :xor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :xor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                2
-                (pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
-  (testing "Testing :and patterns. (1)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                0
-                (pmt-matches-fn)))
-  (testing "Testing :and patterns. (2)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> a<A>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> a<A>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :and [[c -<:t>-> c]
-                                    [c -<:t>-> a<A>]]])
-                1
-                (pmt-matches-fn {:c ['C 1]})))
-  (testing "Testing :nand patterns."
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :nand [[c -<:t>-> c]
-                                     [c -<:t>-> a<A>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :nand [[c -<:t>-> c]
-                                     [c -<:t>-> a<A>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :nand [[c -<:t>-> c]
-                                     [c -<:t>-> a<A>]]])
-                1
-                (pmt-matches-fn {:c ['C 2]})))
-  (testing "Testing :nor patterns."
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :nor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :nor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :nor [[c -<:t>-> c]
-                                    [c -<:t>-> b<B>]]])
-                0
-                (pmt-matches-fn)))
-  (testing "Testing :alternative patterns. (1)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
-                3
-                (pmt-matches-fn
-                 {:c ['C 1] :a ['A 1] :x nil}
-                 {:c ['C 2] :a ['A 1] :x nil}
-                 {:c ['C 2] :a ['A 1] :x ['B 2]})))
-  (testing "Testing :alternative patterns. (2)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
-                              a -<:d>-> d<D>])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
-                              a -<:d>-> d<D>])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :alternative [[c -<:t>-> a<A!>]
-                                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
-                              a -<:d>-> d<D>])
-                3
-                (pmt-matches-fn
-                 {:c ['C 1] :a ['A 1] :x nil    :d ['D 1]}
-                 {:c ['C 2] :a ['A 1] :x nil    :d ['D 1]}
-                 {:c ['C 2] :a ['A 1] :x ['B 2] :d ['D 1]})))
-  (testing "Testing :nested patterns. (1)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C>
-                              :nested [ds [c -<:d>-> d :as d]
-                                       ss [c -<:s>-> s :as s]
-                                       ts [c -<:t>-> t :as t]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C>
-                              :nested [ds [c -<:d>-> d :as d]
-                                       ss [c -<:s>-> s :as s]
-                                       ts [c -<:t>-> t :as t]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C>
-                              :nested [ds [c -<:d>-> d :as d]
-                                       ss [c -<:s>-> s :as s]
-                                       ts [c -<:t>-> t :as t]]])
-                2
-                (pmt-matches-fn
-                 {:c ['C 1], :ds (list ['D 1]), :ss (list ['B 1] ['C 1]), :ts (list ['C 1] ['A 1])}
-                 {:c ['C 2], :ds (list ['D 2]), :ss (list ['B 1]), :ts (list ['A 1] ['B 2])})))
-  (testing "Testing :nested patterns. (2)"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [a<A> -<:d>-> d<D>
-                              :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [a<A> -<:d>-> d<D>
-                              :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [a<A> -<:d>-> d<D>
-                              :nested [f1 [a -<:t>-> a1
-                                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
-                3
-                (pmt-matches-fn
-                 {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list ['C 1] ['A 1])}
-                                                {:a1 ['A 1] :f2 (list ['B 2])})}
-                 {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list ['B 2])}
-                                                {:a1 ['B 2] :f2 ()})}
-                 {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 ()})})))
-  (testing "Testing :as clause"
-    (pmt-assert (pattern {:pattern-expansion-context :generic}
-                         [m] [c<C> --> d<D>
-                              :let [i (g/aval c :i)
-                                    j (g/aval d :j)]
-                              :as [c d i j]])
-                (pattern {:pattern-expansion-context :emf}
-                         [m] [c<C> --> d<D>
-                              :let [i (g/aval c :i)
-                                    j (g/aval d :j)]
-                              :as [c d i j]])
-                (pattern {:pattern-expansion-context :tg}
-                         [m] [c<C> --> d<D>
-                              :let [i (g/aval c :i)
-                                    j (g/aval d :j)]
-                              :as [c d i j]])
-                2
-                (pmt-matches-fn (list ['C 1] ['D 1] 1 1)
-                                (list ['C 2] ['D 2] 2 2))))
-  (testing "Testing :distinct with :as"
-    (pmt-assert (pattern {:pattern-expansion-context :generic} [m] [n1 --> n2
-                                                                    :isomorphic
-                                                                    :as #{n1 n2} :distinct])
-                (pattern {:pattern-expansion-context :emf}     [m] [n1 --> n2
-                                                                    :isomorphic
-                                                                    :as #{n1 n2} :distinct])
-                (pattern {:pattern-expansion-context :tg}      [m] [n1 --> n2
-                                                                    :isomorphic
-                                                                    :as #{n1 n2} :distinct])
-                9
-                (pmt-matches-fn #{['B 1] ['C 1]}
-                                #{['C 1] ['A 1]}
-                                #{['C 1] ['D 1]}
-                                #{['A 1] ['B 2]}
-                                #{['A 1] ['D 1]}
-                                #{['B 1] ['C 2]}
-                                #{['C 2] ['A 1]}
-                                #{['C 2] ['B 2]}
-                                #{['C 2] ['D 2]})))
-  (testing "Testing example from impl chapter."
-    (pmt-assert (pattern
-                 {:pattern-expansion-context :generic}
-                 [m]
-                 [a1<A> -<:t>-> a2<A>
-                  a1 -<:d>-> d
-                  a2 -!<:d>-> <>
-                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
-                (pattern
-                 {:pattern-expansion-context :emf}
-                 [m]
-                 [a1<A> -<:t>-> a2<A>
-                  a1 -<:d>-> d
-                  a2 -!<:d>-> <>
-                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
-                (pattern
-                 {:pattern-expansion-context :tg}
-                 [m]
-                 [a1<A> -<:t>-> a2<A>
-                  a1 -<:d>-> d
-                  a2 -!<:d>-> <>
-                  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
-                2
-                (pmt-matches-fn {:a1 ['A 1] :a2 ['B 2] :d ['D 1] :a3s ()}
-                                {:a1 ['C 2] :a2 ['B 2] :d ['D 2] :a3s ()}))))
+(pmt-assert a-with-a-having-d-generic
+            a-with-a-having-d-emf
+            a-with-a-having-d-tg
+            2
+            (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
+                            {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+(testing "Testing patterns with arguments."
+(pmt-assert (fn [m]
+              ((pattern
+                {:pattern-expansion-context :generic}
+                [m cur]
+                [cur<A> -<:t>-> next<A>])
+               m (pmt-el m 'B 1)))
+(fn [m]
+  ((pattern
+    {:pattern-expansion-context :emf}
+    [m cur]
+    [cur<A> -<:t>-> next<A>])
+   m (pmt-el m 'B 1)))
+(fn [m]
+  ((pattern
+    {:pattern-expansion-context :tg}
+    [m cur]
+    [cur<A> -<:t>-> next<A>])
+   m (pmt-el m 'B 1)))
+2
+(pmt-matches-fn {:cur ['B 1] :next ['C 1]}
+                {:cur ['B 1] :next ['C 2]})))
+(testing "Testing recursive patterns."
+(letpattern [(successors-generic
+              {:pattern-expansion-context :generic}
+              [m cur known]
+              [:when (not (known cur))
+               cur<A> -<:t>-> next<A>
+               :let [nnexts (successors-generic m next (conj known cur))]])
+             (successors-emf
+              {:pattern-expansion-context :emf}
+              [m cur known]
+              [:when (not (known cur))
+               cur<A> -<:t>-> next<A>
+               :let [nnexts (successors-emf m next (conj known cur))]])
+             (successors-tg
+              {:pattern-expansion-context :tg}
+              [m cur known]
+              [:when (not (known cur))
+               cur<A> -<:t>-> next<A>
+               :let [nnexts (successors-tg m next (conj known cur))]])]
+(pmt-assert (fn [m]
+              (successors-generic m (pmt-el m 'B 1) #{}))
+            (fn [m]
+              (successors-emf m (pmt-el m 'B 1) #{}))
+            (fn [m]
+              (successors-tg m (pmt-el m 'B 1) #{}))
+            2
+            (pmt-matches-fn
+             '{:cur [B 1],
+               :next [C 1],
+               :nnexts ({:cur [C 1],
+                         :next [C 1],
+                         :nnexts ()}
+                        {:cur [C 1],
+                         :next [A 1],
+                         :nnexts ({:cur [A 1],
+                                   :next [B 2],
+                                   :nnexts ()})})}
+             '{:cur [B 1],
+               :next [C 2],
+               :nnexts ({:cur [C 2],
+                         :next [A 1],
+                         :nnexts ({:cur [A 1],
+                                   :next [B 2],
+                                   :nnexts ()})}
+                        {:cur [C 2],
+                         :next [B 2],
+                         :nnexts ()})}))))
+(testing "Testing :negative patterns. (1)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [b<B>
+                          :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                                     b -<:t>-> c2<C> -<:t>-> a
+                                     :isomorphic]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [b<B>
+              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                         b -<:t>-> c2<C> -<:t>-> a
+                         :isomorphic]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [b<B>
+              :negative [b -<:t>-> c1<C> -<:t>-> a<A>
+                         b -<:t>-> c2<C> -<:t>-> a
+                         :isomorphic]])
+1
+(pmt-matches-fn {:b ['B 2]})))
+(testing "Testing :negative patterns. (2)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [b<B>
+                          :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                                     -<:s>-> c2<C> -<:s>-> b
+                                     :isomorphic]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [b<B>
+              :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                         -<:s>-> c2<C> -<:s>-> b
+                         :isomorphic]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [b<B>
+              :negative [b -<:t>-> c1<C> -<:t>-> <A>
+                         -<:s>-> c2<C> -<:s>-> b
+                         :isomorphic]])
+1
+(pmt-matches-fn {:b ['B 2]})))
+(testing "Testing :negative patterns. (3, global NAC)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [a<A>
+                          :negative [c1<C> -<:d>-> d1<D>
+                                     c1 -<:t>-> a1<A>
+                                     a1 -<:d>-> d1]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [a<A>
+              :negative [c1<C> -<:d>-> d1<D>
+                         c1 -<:t>-> a1<A>
+                         a1 -<:d>-> d1]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [a<A>
+              :negative [c1<C> -<:d>-> d1<D>
+                         c1 -<:t>-> a1<A>
+                         a1 -<:d>-> d1]])
+0
+(pmt-matches-fn)))
+(testing "Testing :positive patterns. (2)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [b<B>
+                          :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                                     -<:s>-> c2<C> -<:s>-> b
+                                     :isomorphic]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [b<B>
+              :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                         -<:s>-> c2<C> -<:s>-> b
+                         :isomorphic]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [b<B>
+              :positive [b -<:t>-> c1<C> -<:t>-> <A>
+                         -<:s>-> c2<C> -<:s>-> b
+                         :isomorphic]])
+1
+(pmt-matches-fn {:b ['B 1]})))
+(testing "Testing :positive patterns. (1)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [b<B>
+                          :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                                     b -<:t>-> c2<C> -<:t>-> a
+                                     :isomorphic]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [b<B>
+              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                         b -<:t>-> c2<C> -<:t>-> a
+                         :isomorphic]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [b<B>
+              :positive [b -<:t>-> c1<C> -<:t>-> a<A>
+                         b -<:t>-> c2<C> -<:t>-> a
+                         :isomorphic]])
+1
+(pmt-matches-fn {:b ['B 1]})))
+(testing "Testing :positive patterns. (3, global NAC)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [a<A>
+                          :positive [c1<C> -<:d>-> d1<D>
+                                     c1 -<:t>-> a1<A>
+                                     a1 -<:d>-> d1]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [a<A>
+              :positive [c1<C> -<:d>-> d1<D>
+                         c1 -<:t>-> a1<A>
+                         a1 -<:d>-> d1]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [a<A>
+              :positive [c1<C> -<:d>-> d1<D>
+                         c1 -<:t>-> a1<A>
+                         a1 -<:d>-> d1]])
+5
+(pmt-matches-fn {:a ['B 1]}
+                {:a ['C 1]}
+                {:a ['C 2]}
+                {:a ['A 1]}
+                {:a ['B 2]})))
+(testing "Testing :or patterns."
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :or [[c -<:t>-> c]
+                               [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :or [[c -<:t>-> c]
+                   [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :or [[c -<:t>-> c]
+                   [c -<:t>-> b<B>]]])
+2
+(pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
+(testing "Testing :xor patterns."
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :xor [[c -<:t>-> c]
+                                [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :xor [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :xor [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+2
+(pmt-matches-fn {:c ['C 1]} {:c ['C 2]})))
+(testing "Testing :and patterns. (1)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :and [[c -<:t>-> c]
+                                [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :and [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :and [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+0
+(pmt-matches-fn)))
+(testing "Testing :and patterns. (2)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :and [[c -<:t>-> c]
+                                [c -<:t>-> a<A>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :and [[c -<:t>-> c]
+                    [c -<:t>-> a<A>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :and [[c -<:t>-> c]
+                    [c -<:t>-> a<A>]]])
+1
+(pmt-matches-fn {:c ['C 1]})))
+(testing "Testing :nand patterns."
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :nand [[c -<:t>-> c]
+                                 [c -<:t>-> a<A>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :nand [[c -<:t>-> c]
+                     [c -<:t>-> a<A>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :nand [[c -<:t>-> c]
+                     [c -<:t>-> a<A>]]])
+1
+(pmt-matches-fn {:c ['C 2]})))
+(testing "Testing :nor patterns."
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :nor [[c -<:t>-> c]
+                                [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :nor [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :nor [[c -<:t>-> c]
+                    [c -<:t>-> b<B>]]])
+0
+(pmt-matches-fn)))
+(testing "Testing :alternative patterns. (1)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :alternative [[c -<:t>-> a<A!>]
+                                        [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :alternative [[c -<:t>-> a<A!>]
+                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :alternative [[c -<:t>-> a<A!>]
+                            [c -<:t>-> x<A> -<:s>-> a<A!>]]])
+3
+(pmt-matches-fn
+ {:c ['C 1] :a ['A 1] :x nil}
+ {:c ['C 2] :a ['A 1] :x nil}
+ {:c ['C 2] :a ['A 1] :x ['B 2]})))
+(testing "Testing :alternative patterns. (2)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :alternative [[c -<:t>-> a<A!>]
+                                        [c -<:t>-> x<A> -<:s>-> a<A!>]]
+                          a -<:d>-> d<D>])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :alternative [[c -<:t>-> a<A!>]
+                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
+              a -<:d>-> d<D>])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :alternative [[c -<:t>-> a<A!>]
+                            [c -<:t>-> x<A> -<:s>-> a<A!>]]
+              a -<:d>-> d<D>])
+3
+(pmt-matches-fn
+ {:c ['C 1] :a ['A 1] :x nil    :d ['D 1]}
+ {:c ['C 2] :a ['A 1] :x nil    :d ['D 1]}
+ {:c ['C 2] :a ['A 1] :x ['B 2] :d ['D 1]})))
+(testing "Testing :nested patterns. (1)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C>
+                          :nested [ds [c -<:d>-> d :as d]
+                                   ss [c -<:s>-> s :as s]
+                                   ts [c -<:t>-> t :as t]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C>
+              :nested [ds [c -<:d>-> d :as d]
+                       ss [c -<:s>-> s :as s]
+                       ts [c -<:t>-> t :as t]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C>
+              :nested [ds [c -<:d>-> d :as d]
+                       ss [c -<:s>-> s :as s]
+                       ts [c -<:t>-> t :as t]]])
+2
+(pmt-matches-fn
+ {:c ['C 1], :ds (list ['D 1]), :ss (list ['B 1] ['C 1]), :ts (list ['C 1] ['A 1])}
+ {:c ['C 2], :ds (list ['D 2]), :ss (list ['B 1]), :ts (list ['A 1] ['B 2])})))
+(testing "Testing :nested patterns. (2)"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [a<A> -<:d>-> d<D>
+                          :nested [f1 [a -<:t>-> a1
+                                       :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [a<A> -<:d>-> d<D>
+              :nested [f1 [a -<:t>-> a1
+                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [a<A> -<:d>-> d<D>
+              :nested [f1 [a -<:t>-> a1
+                           :nested [f2 [a1 -<:t>-> a2 :as a2]]]]])
+3
+(pmt-matches-fn
+ {:a ['C 1] :d ['D 1] :f1 (list {:a1 ['C 1] :f2 (list ['C 1] ['A 1])}
+                                {:a1 ['A 1] :f2 (list ['B 2])})}
+ {:a ['C 2] :d ['D 2] :f1 (list {:a1 ['A 1] :f2 (list ['B 2])}
+                                {:a1 ['B 2] :f2 ()})}
+ {:a ['A 1] :d ['D 1] :f1 (list {:a1 ['B 2] :f2 ()})})))
+(testing "Testing :as clause"
+(pmt-assert (pattern {:pattern-expansion-context :generic}
+                     [m] [c<C> --> d<D>
+                          :let [i (g/aval c :i)
+                                j (g/aval d :j)]
+                          :as [c d i j]])
+(pattern {:pattern-expansion-context :emf}
+         [m] [c<C> --> d<D>
+              :let [i (g/aval c :i)
+                    j (g/aval d :j)]
+              :as [c d i j]])
+(pattern {:pattern-expansion-context :tg}
+         [m] [c<C> --> d<D>
+              :let [i (g/aval c :i)
+                    j (g/aval d :j)]
+              :as [c d i j]])
+2
+(pmt-matches-fn (list ['C 1] ['D 1] 1 1)
+                (list ['C 2] ['D 2] 2 2))))
+(testing "Testing :distinct with :as"
+(pmt-assert (pattern {:pattern-expansion-context :generic} [m] [n1 --> n2
+                                                                :isomorphic
+                                                                :as #{n1 n2} :distinct])
+(pattern {:pattern-expansion-context :emf}     [m] [n1 --> n2
+                                                    :isomorphic
+                                                    :as #{n1 n2} :distinct])
+(pattern {:pattern-expansion-context :tg}      [m] [n1 --> n2
+                                                    :isomorphic
+                                                    :as #{n1 n2} :distinct])
+9
+(pmt-matches-fn #{['B 1] ['C 1]}
+                #{['C 1] ['A 1]}
+                #{['C 1] ['D 1]}
+                #{['A 1] ['B 2]}
+                #{['A 1] ['D 1]}
+                #{['B 1] ['C 2]}
+                #{['C 2] ['A 1]}
+                #{['C 2] ['B 2]}
+                #{['C 2] ['D 2]})))
+(testing "Testing example from impl chapter."
+(pmt-assert (pattern
+             {:pattern-expansion-context :generic}
+             [m]
+             [a1<A> -<:t>-> a2<A>
+              a1 -<:d>-> d
+              a2 -!<:d>-> <>
+              :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+(pattern
+ {:pattern-expansion-context :emf}
+ [m]
+ [a1<A> -<:t>-> a2<A>
+  a1 -<:d>-> d
+  a2 -!<:d>-> <>
+  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+(pattern
+ {:pattern-expansion-context :tg}
+ [m]
+ [a1<A> -<:t>-> a2<A>
+  a1 -<:d>-> d
+  a2 -!<:d>-> <>
+  :nested [a3s [a2 -<:t>-> a3 :as a3]]])
+2
+(pmt-matches-fn {:a1 ['A 1] :a2 ['B 2] :d ['D 1] :a3s ()}
+                {:a1 ['C 2] :a2 ['B 2] :d ['D 2] :a3s ()}))))
 
 
 ;;# TG
@@ -1135,10 +1138,10 @@
 (defpattern families-with-fathers-emf
   {:pattern-expansion-context :emf}
   ([g]
-     [f<Family> -<:father>-> m<Member>])
+   [f<Family> -<:father>-> m<Member>])
   ([g famconst]
-     [f<Family> -<:father>-> m<Member>
-      :when (famconst f)]))
+   [f<Family> -<:father>-> m<Member>
+    :when (famconst f)]))
 
 (deftest test-families-with-fathers-emf
   (is (= 3 (count (families-with-fathers-emf fm))))
@@ -1199,14 +1202,14 @@
 
 (deftest test-letpattern-emf
   (letpattern [(families-with-fathers-simple [g]
-                 [f<Family> -<:father>-> m<Member>])
+                                             [f<Family> -<:father>-> m<Member>])
                (families-with-fathers
-                 ([g]
-                    [f<Family> -<:father>-> m<Member>])
-                 ([g famconst]
-                    [f<Family> -<:father>-> m<Member>
-                     :when (famconst f)
-                     :as [f m]]))]
+                ([g]
+                 [f<Family> -<:father>-> m<Member>])
+                ([g famconst]
+                 [f<Family> -<:father>-> m<Member>
+                  :when (famconst f)
+                  :as [f m]]))]
     {:pattern-expansion-context :emf}
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
@@ -1219,11 +1222,11 @@
                                               [f<Family> -<:father>-> m<Member>])
         families-with-fathers (pattern {:pattern-expansion-context :emf}
                                        ([g]
-                                          [f<Family> -<:father>-> m<Member>])
+                                        [f<Family> -<:father>-> m<Member>])
                                        ([g famconst]
-                                          [f<Family> -<:father>-> m<Member>
-                                           :when (famconst f)
-                                           :as [f m]]))]
+                                        [f<Family> -<:father>-> m<Member>
+                                         :when (famconst f)
+                                         :as [f m]]))]
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
@@ -1231,7 +1234,7 @@
 
 (deftest test-eager-pattern-emf
   (let [lazy-pattern1 (pattern {:pattern-expansion-context :emf} [g]
-                              [f<Family> -<:father>-> m<Member>])
+                               [f<Family> -<:father>-> m<Member>])
         eager-pattern1 (pattern {:pattern-expansion-context :emf, :eager true} [g]
                                 [f<Family> -<:father>-> m<Member>])
         lazy-pattern2 (pattern {:pattern-expansion-context :emf} [g]
@@ -1265,10 +1268,10 @@
 
 (defpattern families-with-fathers-generic
   ([g]
-     [f<Family> -<:father>-> m<Member>])
+   [f<Family> -<:father>-> m<Member>])
   ([g famconst]
-     [f<Family> -<:father>-> m<Member>
-      :when (famconst f)]))
+   [f<Family> -<:father>-> m<Member>
+    :when (famconst f)]))
 
 (deftest test-families-with-fathers-generic
   (is (= 3 (count (families-with-fathers-generic fm))))
@@ -1328,14 +1331,14 @@
 
 (deftest test-letpattern-generic
   (letpattern [(families-with-fathers-simple [g]
-                 [f<Family> -<:father>-> m<Member>])
+                                             [f<Family> -<:father>-> m<Member>])
                (families-with-fathers
-                 ([g]
-                    [f<Family> -<:father>-> m<Member>])
-                 ([g famconst]
-                    [f<Family> -<:father>-> m<Member>
-                     :when (famconst f)
-                     :as [f m]]))]
+                ([g]
+                 [f<Family> -<:father>-> m<Member>])
+                ([g famconst]
+                 [f<Family> -<:father>-> m<Member>
+                  :when (famconst f)
+                  :as [f m]]))]
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
@@ -1344,11 +1347,11 @@
 (deftest test-pattern-generic
   (let [families-with-fathers-simple (pattern [g] [f<Family> -<:father>-> m<Member>])
         families-with-fathers (pattern ([g]
-                                          [f<Family> -<:father>-> m<Member>])
+                                        [f<Family> -<:father>-> m<Member>])
                                        ([g famconst]
-                                          [f<Family> -<:father>-> m<Member>
-                                           :when (famconst f)
-                                           :as [f m]]))]
+                                        [f<Family> -<:father>-> m<Member>
+                                         :when (famconst f)
+                                         :as [f m]]))]
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
@@ -1369,3 +1372,34 @@
     (is (= (lazy-pattern1 fm) (eager-pattern1 fm)))
     ;; With :distinct patterns, the order is undefined in the eager case.
     (is (= (set (lazy-pattern2 fm)) (set (eager-pattern2 fm))))))
+
+;;# Test composition edges for TG
+
+(deftest test-composition-edges-tg
+  (letpattern [(all-comps [g]
+                          [a <>-e- b :as [a e b]])
+               (all-comps-rev [g]
+                              [a -e-<> b :as [a e b]])
+               (contains-loc [g]
+                             [a <ContainsLocality>-e- b :as [a e b]])
+               (contains-loc-rev [g]
+                                 [a -e-<ContainsLocality> b :as [a e b]])
+               (contains-loc-kw [g]
+                                [a<County> <:localities>-e- b :as [a e b]])
+               (contains-loc-kw-rev [g]
+                                    [a<Locality> -e-<:county> b :as [a e b]])]
+    {:pattern-expansion-context :tg}
+    (let [r (all-comps tt/rg), rr (all-comps-rev tt/rg)]
+      (is (= 144 (count r) (count rr)))
+      (is (= (set (map second r)) (set (map #(-> % second tg/normal-edge) rr))))
+      (doseq [[src ^Edge e trg] r]
+        (is (= AggregationKind/COMPOSITE (.getAggregationKind e)))))
+    (let [r (contains-loc tt/rg), rr (contains-loc-rev tt/rg),
+          rkw (contains-loc-kw tt/rg), rrkw (contains-loc-kw-rev tt/rg)]
+      (is (= 11 (count r) (count rr) (count rkw) (count rrkw)))
+      (is (= (set (map second r))
+             (set (map #(-> % second tg/normal-edge) rr))
+             (set (map second rkw))
+             (set (map #(-> % second tg/normal-edge) rrkw))))
+      (doseq [[src ^Edge e trg] r]
+        (is (= AggregationKind/COMPOSITE (.getAggregationKind e)))))))
