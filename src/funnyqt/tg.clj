@@ -1168,12 +1168,14 @@ functions `record` and `enum-constant`."
 
 (extend-protocol g/IContainer
   Vertex
-  (container [v]
-    (loop [^Edge inc (first-inc v)]
-      (when inc
-        (if (= AggregationKind/COMPOSITE (.getThisAggregationKind inc))
-          (that inc)
-          (recur (next-inc inc)))))))
+  (container
+    ([v]
+     (g/container v nil))
+    ([v ts-or-role]
+     (when-let [inc (first (filter #(= AggregationKind/COMPOSITE
+                                       (.getThisAggregationKind ^Edge %))
+                                   (iseq v ts-or-role)))]
+       (that inc)))))
 
 (def ^:private contents-transducer
   (comp (filter (fn [^Edge inc]

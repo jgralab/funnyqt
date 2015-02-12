@@ -715,8 +715,11 @@
 
 (extend-protocol g/IContainer
   EObject
-  (container [this]
-    (econtainer this)))
+  (container
+    ([this]
+     (econtainer this))
+    ([this rs]
+     (econtainer this rs))))
 
 (extend-protocol g/IContents
   EObject

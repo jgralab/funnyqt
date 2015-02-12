@@ -288,17 +288,18 @@
 ;;# IContainer
 
 (defprotocol IContainer
-  (container [this]
+  (container [this] [this ts-or-role]
     "Returns the container of this element.
   A container is an element that references `this` element by some link with
-  containment semantics."))
+  containment semantics.  If `ts-or-role` is given, the container must me
+  referenced with a link matching this type-spec or role name."))
 
 ;;# IContents
 
 (defprotocol IContents
-  (contents [this] [this ts]
+  (contents [this] [this ts-or-role]
     "Returns the seq of `this` element's direct contents possibly restricted by
-    the type-spec `ts`."))
+    the type-spec or role `ts-or-role`."))
 
 ;;# (Meta-)Model Object predicates
 
