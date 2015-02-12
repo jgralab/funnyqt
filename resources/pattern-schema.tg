@@ -13,10 +13,12 @@ VertexClass ArgumentVertex : APatternVertex;
 
 VertexClass BindingVarVertex : APatternVertex;
 
+EnumDomain Container (FROM, TO);
+
 abstract EdgeClass APatternEdge
   from APatternVertex (0,*) role src
   to APatternVertex (0,*) role dst
-  { type : String };
+  { container : Container, type : String };
 
 EdgeClass PatternEdge : APatternEdge
   from APatternVertex (0,*)

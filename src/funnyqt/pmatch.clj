@@ -9,24 +9,37 @@
             [funnyqt.query.tg          :as qtg]
             [funnyqt.utils             :as u]
             [funnyqt.tg                :as tg]
-            [funnyqt.emf               :as emf]))
+            [funnyqt.emf               :as emf])
+  (:import (de.uni_koblenz.jgralab.schema AggregationKind)
+           (de.uni_koblenz.jgralab Edge)))
 
 ;;# Pattern to pattern graph
 
 (defn ^:private vertex-sym?
-  "Returns [match id <type>] if sym is a vertex symbol."
+  "Returns [match id type] if sym is a vertex symbol."
   [sym]
   (and (symbol? sym)
-       (re-matches #"([a-zA-Z0-9_]*)(<[a-zA-Z0-9._!]*>)?" (name sym))))
+       (when-let [[match id _ type] (re-matches #"([a-zA-Z0-9_]*)(<([a-zA-Z0-9._!]*)>)?"
+                                                (name sym))]
+         [match id type])))
 
 (defn ^:private edge-sym?
-  "Returns [match arrow id <type> arrow] if sym is an edge symbol."
+  "Returns [match larrow id type rarrow] if sym is an edge symbol where
+  l/rarrow is <> for composition edges at the side with the <>."
   [sym]
   (and
    (symbol? sym)
    (or (re-matches #"<-.*-" (name sym))
-       (re-matches #"-.*->" (name sym)))
-   (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?(->?)" (name sym))))
+       (re-matches #"-.*->" (name sym))
+       (re-matches #"<[^>]*>-.*-" (name sym))
+       (re-matches #"-.*-<[^>]*>" (name sym)))
+   (or (when-let [[match larrow id _ type rarrow] (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<([a-zA-Z0-9._!:]*)>)?(->?)"
+                                                              (name sym))]
+         [match larrow id type rarrow])
+       (when-let [[match type id] (re-matches #"<([a-zA-Z0-9._!:]*)>-([!a-zA-Z0-9_]*)-" (name sym))]
+         [match "<>" id type nil])
+       (when-let [[match id type] (re-matches #"-([!a-zA-Z0-9_]*)-<([a-zA-Z0-9._!:]*)>" (name sym))]
+         [match nil id type "<>"]))))
 
 (defn ^:private name-and-type
   ([sym]
@@ -34,14 +47,16 @@
   ([sym cur-edge]
    (when (and cur-edge (edge-sym? sym))
      (u/errorf "Dangling edge in pattern: %s" cur-edge))
-   (if (or (vertex-sym? sym) (edge-sym? sym))
-     (let [[_ s ^String t] (re-matches #"(?:<-|-)?([!a-zA-Z0-9_]+)?(?:<([a-zA-Z0-9._!:]*)>)?(?:-|->)?"
-                                       (name sym))]
-       [(and (seq s) (symbol s))
-        (and (seq t) (if (.startsWith t ":")
-                       (keyword (subs t 1))
-                       (symbol t)))])
-     (u/errorf "No valid pattern symbol: %s" sym))))
+   (if-let [[_ id type] (vertex-sym? sym)]
+     [(when (seq id) (symbol id))
+      (when (seq type) (symbol type))]
+     (if-let [[_ _ id ^String type _] (edge-sym? sym)]
+       [(when (seq id) (symbol id))
+        (when (seq type)
+          (if (.startsWith type ":")
+            (keyword (subs type 1))
+            (symbol type)))]
+       (u/errorf "No valid pattern symbol: %s" sym)))))
 
 (defn ^:private neg-edge-sym? [sym]
   (and (edge-sym? sym)
@@ -113,7 +128,7 @@
                               r)))
           ;;---
           (edge-sym? cur)
-          (let [[_ _ id] (edge-sym? cur)]
+          (let [[_ _ id _ _] (edge-sym? cur)]
             (recur (next p) (if (seq id)
                               (conj r (symbol id))
                               r)))
@@ -385,6 +400,7 @@
                    lv binding-var-set pattern-var-set)
             ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             (edge-sym? cur) (let [[n t] (name-and-type cur)
+                                  [_ larrow _ _ rarrow] (edge-sym? cur)
                                   nsym (second pattern-spec)
                                   [nvn nvt] (name-and-type nsym cur)
                                   [nv iso-fn] (get-or-make-v nvn nvt binding-var-set)]
@@ -397,9 +413,9 @@
                                                   (= '! n)   'NegPatternEdge
                                                   (argset n) 'ArgumentEdge
                                                   :else      'PatternEdge)
-                                             (if (= :out (edge-dir cur))
-                                               [lv nv]
-                                               [nv lv]))]
+                                             (if (= :in (edge-dir cur))
+                                               [nv lv]
+                                               [lv nv]))]
                                 (when (and n (not (g/has-type? e 'NegPatternEdge)))
                                   (tg/set-value! e :name (name n))
                                   (when isomorphic
@@ -412,7 +428,11 @@
                                                                                        ~n
                                                                                        ~(get-name other)))])})]]
                                       (tg/create-edge! pg 'Precedes nv constr))))
-                                (when t (tg/set-value! e :type (str t))))
+                                (when t (tg/set-value! e :type (str t)))
+                                (when (= larrow "<>")
+                                  (tg/set-value! e :container (tg/enum-constant pg 'Container.FROM)))
+                                (when (= rarrow "<>")
+                                  (tg/set-value! e :container (tg/enum-constant pg 'Container.TO))))
                               (when iso-fn (iso-fn))
                               (recur (nnext pattern-spec) nv binding-var-set
                                      (let [pvs pattern-var-set
@@ -546,15 +566,33 @@
                        nil
                        ec)))
         inc-iteration (fn [e src]
-                        `(tg/iseq ~src ~(inc-type e)
-                                  ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
-                                  ;; --> and -<:role>-> do not in order to stay compatible with
-                                  ;; the generic version.
-                                  ~(cond
-                                     (nil? (get-type e))     nil
-                                     (keyword? (get-type e)) nil
-                                     (tg/normal-edge? e)     :out
-                                     :else                   :in)))
+                        (if-let [container (tg/value e :container)]
+                          `(filter
+                            ~(cond
+                               (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                        (= src (get-name (tg/alpha e))))
+                                   (and (= container (tg/enum-constant pg 'Container.TO))
+                                        (= src (get-name (tg/omega e)))))
+                               `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
+                               ;;---
+                               (or (and (= container (tg/enum-constant pg 'Container.TO))
+                                        (= src (get-name (tg/alpha e))))
+                                   (and (= container (tg/enum-constant pg 'Container.FROM))
+                                        (= src (get-name (tg/omega e)))))
+                               `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
+                               ;;---
+                               :else (u/errorf "Must not happen! container = %s, src = %s, al = %s, om = %s"
+                                               container src (get-name (tg/alpha e)) (get-name (tg/omega e))))
+                            (tg/iseq ~src ~(get-type e)))
+                          `(tg/iseq ~src ~(inc-type e)
+                                    ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
+                                    ;; --> and -<:role>-> do not in order to stay compatible with
+                                    ;; the generic version.
+                                    ~(cond
+                                       (nil? (get-type e))     nil
+                                       (keyword? (get-type e)) nil
+                                       (tg/normal-edge? e)     :out
+                                       :else                   :in))))
         anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -746,7 +784,7 @@
   "Internal transformer function that given a pattern argument vector `argvec`,
   a pattern graph `pg` and an `elements-fn`, a `role-fn` and a `neighbors-fn`
   transforms the pattern graph to a comprehension binding form."
-  [argvec pg elements-fn role-fn neighbors-fn]
+  [argvec pg elements-fn role-fn neighbors-fn contents-fn container-fn]
   (let [gsym (first argvec)
         get-edge-type (fn [e]
                         (when-let [t (get-type e)]
@@ -754,9 +792,13 @@
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
         inc-iteration (fn [e src]
-                        (if-let [t (get-edge-type e)]
-                          `(~role-fn ~src ~t)
-                          `(~neighbors-fn ~src)))
+                        (if-let [container (tg/value e :container)]
+                          (if (= container (tg/enum-constant pg 'Container.FROM))
+                            `(contents-fn ~src ~(get-type e))
+                            `(container-fn ~src ~(get-type e)))
+                          (if-let [t (get-edge-type e)]
+                            `(~role-fn ~src ~t)
+                            `(~neighbors-fn ~src))))
         anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -883,12 +925,14 @@
       #{x})))
 
 (defn pattern-graph-to-for+-bindings-emf [argvec pg]
-  (pattern-graph-to-for+-bindings-only-refs-base argvec pg `emf/eallcontents `eget-1 `emf/erefs))
+  (pattern-graph-to-for+-bindings-only-refs-base
+   argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtents `emf/econtainer))
 
 ;;*** Generic
 
 (defn pattern-graph-to-for+-bindings-generic [argvec pg]
-  (pattern-graph-to-for+-bindings-only-refs-base argvec pg `g/elements `g/adjs `g/neighbors))
+  (pattern-graph-to-for+-bindings-only-refs-base
+   argvec pg `g/elements `g/adjs `g/neighbors `g/contents `g/container))
 
 ;;** defpattern and friends
 
@@ -950,10 +994,13 @@
    :generic pattern-graph-to-for+-bindings-generic})
 
 (defn ^:private replace-id
-  ([new-id name old-id type]
-   (symbol (str new-id type)))
-  ([new-id name head old-id type tail]
-   (symbol (str head new-id type tail))))
+  ([new-id _ old-id type]
+   (symbol (str new-id "<" type ">")))
+  ([new-id _ head old-id type tail]
+   (cond
+     (= head "<>") (symbol (str "<" type ">-" new-id "-"))
+     (= tail "<>") (symbol (str "-" new-id "-<" type ">"))
+     :else (symbol (str head new-id "<" type ">" tail)))))
 
 (defn ^:private replace-ids-in-bindings [bindings rmap]
   (vec (mapcat (fn [[sym exp]]
