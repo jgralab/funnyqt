@@ -20,13 +20,13 @@
        (re-matches #"([a-zA-Z0-9_]*)(<[a-zA-Z0-9._!]*>)?" (name sym))))
 
 (defn ^:private edge-sym?
-  "Returns [match arrow id <type> arrow] if sym is an edge symbol."
+  "Returns [match arrow-head id <type> arrow-head] if sym is an edge symbol."
   [sym]
   (and
    (symbol? sym)
    (or (re-matches #"<-.*-" (name sym))
        (re-matches #"-.*->" (name sym)))
-   (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?(->?)" (name sym))))
+   (re-matches #"(<?)-([!a-zA-Z0-9_]*)(<[a-zA-Z0-9._!:]*>)?-(>?)" (name sym))))
 
 (defn ^:private name-and-type
   ([sym]
@@ -554,6 +554,8 @@
                      (if (= ec '_)
                        nil
                        ec)))
+        inc-iteration (fn [e src]
+                        `(tg/iseq ~src ~(inc-type e) ~(inc-dir e)))
         anon-vec-to-for (fn [start-sym av done]
                           (let [[v r]
                                 (loop [cs start-sym, av av, r []]
@@ -575,8 +577,7 @@
                                                              ;; a type-matcher
                                                              ;; named t
                                                              [:when `(~t ~ncs)])])
-                                               (into r `[~ncs (tg/iseq ~cs ~(inc-type el)
-                                                                       ~(inc-dir el))]))))
+                                               (into r `[~ncs ~(inc-iteration el cs)]))))
                                     [cs r]))]
                             (if (== 2 (count r))
                               (second r) ;; only one binding [G_NNNN exp]
@@ -650,8 +651,7 @@
                              (conj-done done (tg/that last-in-av))
                              done))
                          (apply conj bf `~(get-name cur)
-                                `(tg/iseq ~(get-name (tg/this cur)) ~(inc-type cur)
-                                          ~(inc-dir cur))
+                                (inc-iteration cur (get-name (tg/this cur)))
                                 (cond
                                   (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                   (anon? trg) (let [bindings (do-anons anon-vec-to-for
@@ -718,8 +718,7 @@
                          (conj-done done cur trg)
                          (into bf `[:when (not (q/exists?
                                                 #(= ~(get-name trg) (tg/that %))
-                                                (tg/iseq ~(get-name src) ~(inc-type cur)
-                                                         ~(inc-dir cur))))]))
+                                                ~(inc-iteration cur (get-name src))))]))
                   (recur (enqueue-incs trg (pop queue) done)
                          (conj-done done cur trg)
                          (into bf (if (anon? trg)
@@ -730,15 +729,12 @@
                                                        ;; type-matcher named
                                                        ;; like the type.
                                                        #(~tt (tg/that %))
-                                                       (tg/iseq ~(get-name src) ~(inc-type cur)
-                                                                ~(inc-dir cur))))]
-                                      `[:when (empty? (tg/iseq ~(get-name src) ~(inc-type cur)
-                                                               ~(inc-dir cur)))])
+                                                       ~(inc-iteration cur (get-name src))))]
+                                      `[:when (empty? ~(inc-iteration cur (get-name src)))])
                                     `[~(get-name trg) (tg/vseq ~gsym ~(get-type trg))
                                       :when (not (q/exists?
                                                   #(= ~(get-name trg) (tg/that %))
-                                                  (tg/iseq ~(get-name src) ~(inc-type cur)
-                                                           ~(inc-dir cur))))])))))
+                                                  ~(inc-iteration cur (get-name src))))])))))
               Precedes
               (recur (assoc (pop queue) (tg/that cur) 0) (conj-done done cur) bf))))
         (do
