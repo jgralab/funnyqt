@@ -1257,10 +1257,16 @@
   representation has first-class edges.  If it does, the edges can also be
   matched and added to the match results by adding an identifier.
 
+    v<V> -e<E>-> v
+
   Every edge symbol in a pattern must have a node symbol at its start and at
   its end.
 
-    v<V> -e<E>-> v
+  There are also edge symbols which only match edges with containment
+  semantics, e.g., v1 <>-- v2 matches a node v1 which contains a node v2, and
+  the other way round, v1 --<> v2 matches a node v1 which is contained by a
+  node v2.  Again, the edge can be restricted by type/role and have an
+  identifier in case of first-class edges: v1 <:contents>-hasContents- v2.
 
   Anonymous Node and Edge Symbols
   ===============================
