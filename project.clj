@@ -1,4 +1,4 @@
-(defproject funnyqt "0.39.0"
+(defproject funnyqt "0.39.1"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies.
 
@@ -18,7 +18,7 @@
                  [emf-xsd-sdk "2.10.1"]
                  [inflections "0.9.13" :exclusions [org.clojure/clojure]]]
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[im.chit/vinyasa "0.3.2"]]}}
+                   :dependencies [[im.chit/vinyasa "0.3.3"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]

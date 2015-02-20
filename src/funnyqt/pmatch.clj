@@ -31,14 +31,14 @@
    (symbol? sym)
    (or (re-matches #"<-.*-" (name sym))
        (re-matches #"-.*->" (name sym))
-       (re-matches #"<[^>]*>-.*-" (name sym))
-       (re-matches #"-.*-<[^>]*>" (name sym)))
+       (re-matches #"<[^>]*>.*--" (name sym))
+       (re-matches #"--.*<[^>]*>" (name sym)))
    (or (when-let [[match larrow id _ type rarrow] (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<([a-zA-Z0-9._!:]*)>)?(->?)"
                                                               (name sym))]
          [match larrow id type rarrow])
-       (when-let [[match type id] (re-matches #"<([a-zA-Z0-9._!:]*)>-([!a-zA-Z0-9_]*)-" (name sym))]
+       (when-let [[match type id] (re-matches #"<([a-zA-Z0-9._!:]*)>([!a-zA-Z0-9_]*)--" (name sym))]
          [match "<>" id type nil])
-       (when-let [[match id type] (re-matches #"-([!a-zA-Z0-9_]*)-<([a-zA-Z0-9._!:]*)>" (name sym))]
+       (when-let [[match id type] (re-matches #"--([!a-zA-Z0-9_]*)<([a-zA-Z0-9._!:]*)>" (name sym))]
          [match nil id type "<>"]))))
 
 (defn ^:private name-and-type
@@ -1266,7 +1266,7 @@
   semantics, e.g., v1 <>-- v2 matches a node v1 which contains a node v2, and
   the other way round, v1 --<> v2 matches a node v1 which is contained by a
   node v2.  Again, the edge can be restricted by type/role and have an
-  identifier in case of first-class edges: v1 <:contents>-hasContents- v2.
+  identifier in case of first-class edges: v1 <:contents>hasContents-- v2.
 
   Anonymous Node and Edge Symbols
   ===============================

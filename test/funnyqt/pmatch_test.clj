@@ -1377,17 +1377,17 @@
 
 (deftest test-composition-edges-tg
   (letpattern [(all-comps [g]
-                          [a <>-e- b :as [a e b]])
+                          [a <>e-- b :as [a e b]])
                (all-comps-rev [g]
-                              [a -e-<> b :as [a e b]])
+                              [a --e<> b :as [a e b]])
                (contains-loc [g]
-                             [a <ContainsLocality>-e- b :as [a e b]])
+                             [a <ContainsLocality>e-- b :as [a e b]])
                (contains-loc-rev [g]
-                                 [a -e-<ContainsLocality> b :as [a e b]])
+                                 [a --e<ContainsLocality> b :as [a e b]])
                (contains-loc-kw [g]
-                                [a<County> <:localities>-e- b :as [a e b]])
+                                [a<County> <:localities>e-- b :as [a e b]])
                (contains-loc-kw-rev [g]
-                                    [a<Locality> -e-<:county> b :as [a e b]])]
+                                    [a<Locality> --e<:county> b :as [a e b]])]
     {:pattern-expansion-context :tg}
     (let [r (all-comps tt/rg), rr (all-comps-rev tt/rg)]
       (is (= 144 (count r) (count rr)))
