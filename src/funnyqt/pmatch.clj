@@ -794,8 +794,8 @@
         inc-iteration (fn [e src]
                         (if-let [container (tg/value e :container)]
                           (if (= container (tg/enum-constant pg 'Container.FROM))
-                            `(contents-fn ~src ~(get-type e))
-                            `(container-fn ~src ~(get-type e)))
+                            `(~contents-fn ~src ~(get-type e))
+                            `(~container-fn ~src ~(get-type e)))
                           (if-let [t (get-edge-type e)]
                             `(~role-fn ~src ~t)
                             `(~neighbors-fn ~src))))
