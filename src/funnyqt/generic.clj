@@ -534,7 +534,7 @@
                ((resolve ref-fn) r owners prefix)))))
        (in-ns '~(ns-name old-ns))
        ~@(when alias
-           [`(require '~(vector nssym :as alias))]))))
+           [`(alias '~alias '~nssym)]))))
 
 ;;# Metamodel-specific functional API
 
