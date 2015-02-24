@@ -91,7 +91,7 @@
   a model object.  Else returns `val` unchanged.
   Only for internal use."
   [lv val]
-  (if (g/model-object? val)
+  (if (or (g/element? val) (g/relationship? val))
     (tmp/make-wrapper *target-model* lv val)
     val))
 

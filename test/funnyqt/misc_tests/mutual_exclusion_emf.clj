@@ -69,9 +69,8 @@
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
   releases that resource."
-  ([model] [r<Resource> -<:holder>-> p
-            :when (empty? (eget p :requested))]
-     (release-rule model r p))
+  ([model] [r<Resource> -<:holder>-> p -!<:requested>-> <>]
+   (release-rule model r p))
   ([model r p]
      (when (empty? (eget p :requested))
        (eunset! r :holder)
@@ -111,8 +110,7 @@
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
-  [model] [r<Resource> -<:blocked>-> p
-         :when (empty? (eget p :held))]
+  [model] [r<Resource> -<:blocked>-> p -!<:held>-> <>]
   (eremove! r :blocked p))
 
 (defrule unlock-rule
@@ -167,13 +165,12 @@
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([model] [p1<Process> -<:requested>-> r1 -<:holder>-> p2 -<:held>-> r2
-            ]
-     (eunset! r1 :holder)
-     (eset! r1 :releaser p2))
+  ([model] [p1<Process> -<:requested>-> r1 -<:holder>-> p2 -<:held>-> r2]
+   (eunset! r1 :holder)
+   (eset! r1 :releaser p2))
   ([model r2 p2] [p2 -<:held>-> r1 -<:requester>-> p1]
-     (eunset! r1 :holder)
-     (eset! r1 :releaser p2)))
+   (eunset! r1 :holder)
+   (eset! r1 :releaser p2)))
 
 
 (defn apply-mutual-exclusion-lts
@@ -191,7 +188,7 @@
     (if param-pass
       (apply-repeatedly #(or (apply-repeatedly* waiting-rule model)
                              (waiting-rule model)))
-      (apply-repeatedly #(waiting-rule model)))
+      (apply-repeatedly waiting-rule model))
     (ignore-rule model)
     (if param-pass
       (apply-repeatedly #(apply release-star-rule model

@@ -1,6 +1,7 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
   (:require [clojure.tools.macro   :as m]
+            [funnyqt.generic       :as g]
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
@@ -392,10 +393,13 @@
                     viewb (JButton. ^Action
                                     (action
                                      "Show Match"
-                                     #(viz/print-model
-                                       model :gtk
-                                       :mark (concat (:args (meta thunk))
-                                                     @(:current-match-atom (meta thunk))))))
+                                     #(let [els (concat (:args (meta thunk))
+                                                        @(:current-match-atom (meta thunk)))]
+                                        (viz/print-model
+                                         model :gtk
+                                         :mark els
+                                         :include (let [nodes (filter g/element? els)]
+                                                    (mapcat g/neighbors nodes))))))
                     applyb (JButton. ^Action (deliver-action "Apply Rule" thunk))
                     tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
                     tooltip! (fn []
@@ -421,7 +425,7 @@
         (.add rp applyb)
         (.setConstraints gridbag applyb gridbagconsts))
       ;; The button rp bp
-      (.add bp (JButton. ^Action (action "View model" #(viz/print-model model ".gtk"))))
+      (.add bp (JButton. ^Action (action "View model" #(viz/print-model model :gtk))))
       (.add bp (JButton. ^Action (deliver-action "Cancel" nil)))
       (.pack d)
       (if pos

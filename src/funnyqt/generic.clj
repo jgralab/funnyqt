@@ -130,6 +130,28 @@
     "Sets the value of `el`s `attr` attribute to `val`.
   `attr` is the attribute name given as keyword."))
 
+;;# Element/Relationship predicates
+
+(defprotocol IElement
+  (element? [this]
+    "Returns true if `this` is an element."))
+
+(extend-protocol IElement
+  Object
+  (element? [this] false)
+  nil
+  (element? [this] false))
+
+(defprotocol IRelationship
+  (relationship? [this]
+    "Returns true if `this` is a relationship."))
+
+(extend-protocol IRelationship
+  Object
+  (relationship? [this] false)
+  nil
+  (relationship? [this] false))
+
 ;;# Generic Access to Elements and Relationships
 
 (defprotocol IElements
@@ -283,7 +305,11 @@
   (add-adj!  [obj role robj]
     "Adds `robj` to `obj`s `role`.  Returns `obj` again.")
   (add-adjs! [obj role robjs]
-    "Adds all `robjs` to `obj`s `role`.  Returns `obj` again."))
+    "Adds all `robjs` to `obj`s `role`.  Returns `obj` again.")
+  (remove-adj!  [obj role robj]
+    "Removes `robj` from `obj`s `role`.  Returns `obj` again.")
+  (remove-adjs! [obj role robjs]
+    "Removes all `robjs` from `obj`s `role`.  Returns `obj` again."))
 
 ;;# IContainer
 
@@ -300,18 +326,6 @@
   (contents [this] [this ts-or-role]
     "Returns the seq of `this` element's direct contents possibly restricted by
     the type-spec or role `ts-or-role`."))
-
-;;# (Meta-)Model Object predicates
-
-(defprotocol IModelObject
-  (model-object? [this]
-    "Returns true if `this` is a supported model object."))
-
-(extend-protocol IModelObject
-  Object
-  (model-object? [this] false)
-  nil
-  (model-object? [this] false))
 
 ;;# Metamodel Access & Metamodel Protocols
 

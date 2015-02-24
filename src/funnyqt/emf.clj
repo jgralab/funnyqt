@@ -28,6 +28,10 @@
   [eo]
   (instance? EObject eo))
 
+(extend-protocol g/IElement
+  EObject
+  (element? [this] true))
+
 (defn eclass?
   "Returns true if `ec` is an EClass."
   {:inline (fn [x] `(instance? EClass ~x))}
@@ -51,10 +55,6 @@
   {:inline (fn [x] `(instance? EAttribute ~x))}
   [ea]
   (instance? EAttribute ea))
-
-(extend-protocol g/IModelObject
-  EObject
-  (model-object? [this] true))
 
 ;;# Metamodel Access
 
@@ -966,7 +966,9 @@
   EStructuralFeature `sf`.
 
   In the arity-2 version, removes `obj` from `resource` and returns `resource`.
-  Note that it won't delete `obj` or remove references to it."
+  Note that it won't delete `obj` or remove references to it.
+
+  Returns `eo` or `resource` again."
   ([eo sf value & more]
    (let [^EList l (eget-raw eo sf)]
      (.remove l value)
@@ -984,7 +986,9 @@
 
   In the arity-2 version, removes all objects in `coll` from `resource`
   and returns `resource`.  Note that it won't delete the objects or
-  remove references to it."
+  remove references to it.
+
+  Returns `eo` or `resource` again."
   ([eo sf coll]
    (let [^EList l (eget-raw eo sf)]
      (.removeAll l coll)
@@ -1115,7 +1119,11 @@
   (add-adjs! [o role os]
     (apply eadd! o role (first os) (rest os)))
   (add-adj! [o1 role o2]
-    (eadd! o1 (name role) o2)))
+    (eadd! o1 (name role) o2))
+  (remove-adj! [o1 role o2]
+    (eremove! o1 role o2))
+  (remove-adjs! [o role os]
+    (eremoveall! o role os)))
 
 ;;## EObject Deletion
 

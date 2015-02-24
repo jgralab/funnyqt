@@ -36,9 +36,7 @@
 
 (defrule pass-rule
   "Passes the token to the next process if the current doesn't request it."
-  [g] [r<Resource> -t<Token>-> p1
-       :when (empty? (filter #(= (that %) r)
-                             (iseq p1 'Request)))
+  [g] [r<Resource> -t<Token>-> p1 -!<Request>-> r
        p1 -n<Next>-> p2]
   (set-omega! t p2))
 
@@ -63,9 +61,8 @@
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
   releases that resource."
-  ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>
-        :when (empty? (iseq p 'Request))]
-     (release-rule g r hb p))
+  ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>]
+   (release-rule g r hb p))
   ([g r hb p]
      (when (empty? (iseq p 'Request))
        (g/delete! hb)

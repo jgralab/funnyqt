@@ -194,11 +194,19 @@ functions `record` and `enum-constant`."
   [v]
   (instance? Vertex v))
 
+(extend-protocol g/IElement
+  Vertex
+  (element? [this] true))
+
 (defn edge?
   "Returns logical true if `e` is an Edge."
   {:inline (fn [x] `(instance? Edge ~x))}
   [e]
   (instance? Edge e))
+
+(extend-protocol g/IRelationship
+  Edge
+  (relationship? [this] true))
 
 (defn graph-element?
   "Returns logical true if `ge` is a GraphElement."
@@ -1192,10 +1200,6 @@ functions `record` and `enum-constant`."
       (comp contents-transducer (filter (type-matcher-tg this ts)))
       (iseq this)))))
 
-(extend-protocol g/IModelObject
-  GraphElement
-  (model-object? [this] true))
-
 ;;## Vertex, edge counts, degree
 
 (defn vcount
@@ -1345,7 +1349,15 @@ functions `record` and `enum-constant`."
         (.addAdjacence v1 (name role) v2)
         v1)
       (u/errorf "Can't add to the single-value role %s of %s."
-                (name role) v1))))
+                (name role) v1)))
+  (remove-adj! [v1 role v2]
+    (.removeAdjacence v1 (name role) v2)
+    v1)
+  (remove-adjs! [v role vs]
+    (let [role (name role)]
+      (doseq [vx vs]
+        (.removeAdjacence v role vx)))
+    v))
 
 ;;## Deletions
 
