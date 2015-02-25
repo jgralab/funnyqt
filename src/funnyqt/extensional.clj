@@ -149,6 +149,11 @@
          "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
          dups (g/qname mm-cls))))))
 
+(defn ^:private check-valid-arch [a]
+  (if (nil? a)
+    (u/errorf "nil is no valid archetype!")
+    a))
+
 (defn ^:private add-trace-mappings! [mm-cls img]
   (when (bound? #'*img*)
     (swap! *img* into-trace-map mm-cls img))
@@ -257,8 +262,8 @@
     (loop [as archs
            im (transient {})]
       (if (seq as)
-        (let [elem (g/create-element! m cls)
-              a (first as)]
+        (let [a (check-valid-arch (first as))
+              elem (g/create-element! m cls)]
           ;;(println "Created" elem "for" a)
           (recur (rest as)
                  (assoc! im a elem)))
@@ -295,6 +300,7 @@
            im (transient {})]
       (if (seq as)
         (let [[a s t] (first as)
+              a (check-valid-arch a)
               e (g/create-relationship! m cls s t)]
           (recur (rest as)
                  (assoc! im a e)))

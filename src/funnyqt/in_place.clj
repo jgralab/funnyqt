@@ -133,15 +133,15 @@
       ;; No pattern given
       `(~args
         (cond
-         *as-pattern* (u/errorf "Can't apply rule %s without pattern as pattern!" name)
-         *as-test*    (fn [] ~@(unrecur name more))
-         :else        (do ~@more))))))
+          *as-pattern* (u/errorf "Can't apply rule %s without pattern as pattern!" name)
+          *as-test*    (fn [] ~@(unrecur name more))
+          :else        (do ~@more))))))
 
 (defmacro rule
   "Defines an anonymous rule.  Stands to `defrule` (which see) in the same way
   as `fn` stands to `defn`.  Also see `letrule`."
   {:arglists '([name? attr-map? [args] [pattern] & body]
-                 [name? attr-map? ([args] [pattern] & body)+])}
+               [name? attr-map? ([args] [pattern] & body)+])}
   [& more]
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]
@@ -217,7 +217,7 @@
 
   Also see `as-pattern` and `as-test`."
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
-                 [name doc-string? attr-map? ([args] [pattern] & body)+])}
+               [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
@@ -390,23 +390,21 @@
       (doseq [[rvar thunk] rule-var-thunk-tups
               :let [label (JLabel. (str (:name (meta rvar)) ":"))
                     cb (JComboBox. (to-array (:all-matches (meta thunk))))
-                    viewb (JButton. ^Action
-                                    (action
-                                     "Show Match"
-                                     #(let [els (concat (:args (meta thunk))
-                                                        @(:current-match-atom (meta thunk)))]
-                                        (viz/print-model
-                                         model :gtk
-                                         :mark els
-                                         :include (let [nodes (filter g/element? els)]
-                                                    (mapcat g/neighbors nodes))))))
+                    show-match-fn (fn smf
+                                    ([] (smf :gtk))
+                                    ([file]
+                                     (let [els (concat (:args (meta thunk))
+                                                       @(:current-match-atom (meta thunk)))]
+                                       (viz/print-model
+                                        model file :mark els
+                                        :include (let [nodes (filter g/element? els)]
+                                                   (concat nodes
+                                                           (mapcat g/neighbors nodes)))))))
+                    viewb (JButton. ^Action (action "Show Match" show-match-fn))
                     applyb (JButton. ^Action (deliver-action "Apply Rule" thunk))
                     tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
                     tooltip! (fn []
-                               (viz/print-model
-                                model (.getPath tmpfile)
-                                :include (concat (:args (meta thunk))
-                                                 @(:current-match-atom (meta thunk))))
+                               (show-match-fn (.getPath tmpfile))
                                (.setToolTipText
                                 cb
                                 (str "<html><img src=\"file://"
@@ -443,9 +441,10 @@
                                   rule-vars)
           t (promise)]
       (if (seq rule-thunk-tups)
-        (select-rule-dialog model rule-thunk-tups t pos posp)
-        (println "None of the rules is applicable."))
-      (when-let [thunk @t]
-        (let [pos @posp]
-          (thunk)
-          (recur pos (promise)))))))
+        (do
+          (select-rule-dialog model rule-thunk-tups t pos posp)
+          (when-let [thunk @t]
+            (let [pos @posp]
+              (thunk)
+              (recur pos (promise)))))
+        (println "None of the rules is applicable.")))))

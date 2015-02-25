@@ -578,10 +578,10 @@
         gec2new-attrs-map (determine-new-attributes-before-adding-specialization
                            super-gec sub-gec)]
     (when-let [dups (seq (clojure.set/intersection
-                          (set (map (partial e/archetype super-gec)
-                                    (element-seq g super-gec)))
-                          (set (map (partial e/archetype sub-gec)
-                                    (element-seq g sub-gec)))))]
+                          (set (remove nil? (map (partial e/archetype super-gec)
+                                                 (element-seq g super-gec))))
+                          (set (remove nil? (map (partial e/archetype sub-gec)
+                                                 (element-seq g sub-gec))))))]
       (u/errorf "Bijectivity violation: can't make %s subclass of %s because their sets of archetypes are not disjoint. Common archetypes: %s"
                 sub super dups))
     (if (instance? VertexClass super-gec)

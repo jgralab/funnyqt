@@ -17,7 +17,8 @@
 
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
-  [model] [p1<Process> -<:next>-> p2]
+  [model] [p1<Process> -<:next>-> p2
+           :isomorphic]
   (let [p (ecreate! model 'Process)]
     (eset! p :name (str "np" @counter))
     (swap! counter inc)
@@ -26,7 +27,8 @@
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
-  [model] [p1<Process> -<:next>-> p -<:next>-> p2]
+  [model] [p1<Process> -<:next>-> p -<:next>-> p2
+           :isomorphic]
   (delete! p)
   (eset! p1 :next p2))
 
@@ -59,12 +61,12 @@
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
   ([model] [p<Process> -<:requested>-> r -<:taker>-> p]
-     (take-rule model r p))
+   (take-rule model r p))
   ([model r p]
-     (eunset! r :taker)
-     (eremove! r :requester p)
-     (eset! r :holder p)
-     [r p]))
+   (eunset! r :taker)
+   (eremove! r :requester p)
+   (eset! r :holder p)
+   [r p]))
 
 (defrule release-rule
   "Matches a resource held by a process and not requesting more resources, and
@@ -72,41 +74,42 @@
   ([model] [r<Resource> -<:holder>-> p -!<:requested>-> <>]
    (release-rule model r p))
   ([model r p]
-     (when (empty? (eget p :requested))
-       (eunset! r :holder)
-       (eset! r :releaser p)
-       [r p])))
+   (when (empty? (eget p :requested))
+     (eunset! r :holder)
+     (eset! r :releaser p)
+     [r p])))
 
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
   ([model] [r<Resource> -<:releaser>-> p1 -<:next>-> p2]
-     (give-rule model r p1))
+   (give-rule model r p1))
   ([model r p1]
-     (let [p2 (eget p1 :next)]
-       (eunset! r :releaser)
-       (eset! r :taker p2)
-       [r p2])))
+   (let [p2 (eget p1 :next)]
+     (eunset! r :releaser)
+     (eset! r :taker p2)
+     [r p2])))
 
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
-  [model] [p1<Process> -<:requested>-> r -<:holder>-> p2]
+  [model] [p1<Process> -<:requested>-> r -<:holder>-> p2
+           :isomorphic]
   (eadd! r :blocked p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
   ([model] [p2<Process> -<:requested>-> r1 -<:holder>-> p1 -<:blocked_by>-> r2
-          :when (not= r1 r2)]
-     (waiting-rule model r1 r2 p1 p2))
+            :isomorphic]
+   (waiting-rule model r1 r2 p1 p2))
   ([model r1] [r1 -<:requester>-> p2
-             r1 -<:holder>-> p1 -<:blocked_by>-> r2
-             :when (not= r1 r2)]
-     (waiting-rule model r1 r2 p1 p2))
+               r1 -<:holder>-> p1 -<:blocked_by>-> r2
+               :isomorphic]
+   (waiting-rule model r1 r2 p1 p2))
   ([model r1 r2 p1 p2]
-     (eremove! r2 :blocked p1)
-     (eadd! r2 :blocked p2)
-     [model r1]))
+   (eremove! r2 :blocked p1)
+   (eadd! r2 :blocked p2)
+   [model r1]))
 
 (defrule ignore-rule
   "Removes the blocked state if nothing is held anymore."
@@ -159,16 +162,18 @@
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [model] [r1<Resource> -<:holder>-> p1 -<:prev>-> p2 -<:held>-> r2
-           :when (not (q/member? r2 (eget p1 :requested)))]
+           p1 -!<:requested>-> r2
+           :isomorphic]
   (eadd! p1 :requested r2))
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([model] [p1<Process> -<:requested>-> r1 -<:holder>-> p2 -<:held>-> r2]
+  ([model] [p1<Process> -<:requested>-> r1 -<:holder>-> p2 -<:held>-> r2
+            :isomorphic]
    (eunset! r1 :holder)
    (eset! r1 :releaser p2))
-  ([model r2 p2] [p2 -<:held>-> r1 -<:requester>-> p1]
+  ([model r2 p2] [p2 -<:held>-> r1 -<:requester>-> p1 :isomorphic]
    (eunset! r1 :holder)
    (eset! r1 :releaser p2)))
 
@@ -224,6 +229,14 @@
 
 ;;* Tests
 
+#_(deftest test-apply-interactively
+    (let [m (g-sts)]
+      (apply-interactively m [#'take-rule #'pass-rule #'give-rule #'release-rule
+                              #'release-star-rule #'waiting-rule #'blocked-rule
+                              #'request-rule #'request-star-rule
+                              #'new-rule #'mount-rule]
+                           m)))
+
 (deftest mutual-exclusion-sts
   (println)
   (println "Mutual Exclusion STS")
@@ -249,7 +262,6 @@
   (println)
   (println "Mutual Exclusion LTS")
   (println "====================")
-  ;; Now what's the correct value (8 or 23)???
   (doseq [[n r vc ec] [[4 100 8 8]
                        #_[1000 1 2000 2000]]]
     (let [g1 (g-lts n)

@@ -13,14 +13,16 @@
 
 (defrule new-rule
   "Matches 2 connected processes and injects a new process in between."
-  [g] [p1<Process> -n<Next>-> p2]
+  [g] [p1<Process> -n<Next>-> p2
+       :isomorphic]
   (let [p (create-vertex! g 'Process)]
     (set-omega! n p)
     (create-edge! g 'Next p p2)))
 
 (defrule kill-rule
   "Matches a sequence of 3 connected processes and deletes the middle one."
-  [g] [p1<Process> -n1<Next>-> p -n2<Next>-> p2]
+  [g] [p1<Process> -n1<Next>-> p -n2<Next>-> p2
+       :isomorphic]
   (set-omega! n1 p2)
   (g/delete! p))
 
@@ -50,13 +52,13 @@
   "Matches a process that requests a resource that in turn tokens the process
   and makes the process hold that resource."
   ([g] [p -rq<Request>-> r -t<Token>-> p]
-     (take-rule g r t p rq))
+   (take-rule g r t p rq))
   ([g r t p] [p -rq<Request>-> r]
-     (take-rule g r t p rq))
+   (take-rule g r t p rq))
   ([g r t p rq]
-     (g/delete! [t rq])
-     ;; Return a vec of the resource, HeldBy and process for param passing
-     [r (create-edge! g 'HeldBy r p) p]))
+   (g/delete! [t rq])
+   ;; Return a vec of the resource, HeldBy and process for param passing
+   [r (create-edge! g 'HeldBy r p) p]))
 
 (defrule release-rule
   "Matches a resource holding a resource and not requesting more resources, and
@@ -64,40 +66,41 @@
   ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>]
    (release-rule g r hb p))
   ([g r hb p]
-     (when (empty? (iseq p 'Request))
-       (g/delete! hb)
-       [r (create-edge! g 'Release r p) p])))
+   (when (empty? (iseq p 'Request))
+     (g/delete! hb)
+     [r (create-edge! g 'Release r p) p])))
 
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
   to the next process."
   ([g] [r<Resource> -rel<Release>-> p1 -n<Next>-> p2]
-     (give-rule g r rel p1 n p2))
+   (give-rule g r rel p1 n p2))
   ([g r rel p1] [p1 -n<Next>-> p2]
-     (give-rule g r rel p1 n p2))
+   (give-rule g r rel p1 n p2))
   ([g r rel p1 n p2]
-     (g/delete! rel)
-     [r (create-edge! g 'Token r p2) p2]))
+   (g/delete! rel)
+   [r (create-edge! g 'Token r p2) p2]))
 
 (defrule blocked-rule
   "Matches a process requesting a resource held by some other process, and
   creates a blocked edge."
-  [g] [p1<Process> -req<Request>-> r -hb<HeldBy>-> p2]
+  [g] [p1<Process> -req<Request>-> r -hb<HeldBy>-> p2
+       :isomorphic]
   (create-edge! g 'Blocked r p1))
 
 (defrule waiting-rule
   "Moves the blocked state."
   ([g] [p2<Process> -req<Request>-> r1 -hb<HeldBy>->
         p1 <-b<Blocked>- r2
-        :when (not= r1 r2)]
-     (waiting-rule g r1 b p2))
+        :isomorphic]
+   (waiting-rule g r1 b p2))
   ([g r1] [r1 <-req<Request>- p2
            r1 -hb<HeldBy>-> p1 <-b<Blocked>- r2
-           :when (not= r1 r2)]
-     (waiting-rule g r1 b p2))
+           :isomorphic]
+   (waiting-rule g r1 b p2))
   ([g r1 b p2]
-     (set-omega! b p2)
-     [g r1]))
+   (set-omega! b p2)
+   [g r1]))
 
 
 (defrule ignore-rule
@@ -148,20 +151,21 @@
   "Matches a process and its successor that hold two different resources, and
   makes the successor request its predecessor's resource."
   [g] [r1<Resource> -h1<HeldBy>-> p1 <-<Next>- p2 <-h2<HeldBy>- r2
-       :when (empty? (filter #(= r2 (omega %))
-                             (iseq p2 'Request)))]
+       p1 -!<Request>-> r2
+       :isomorphic]
   (create-edge! g 'Request p1 r2))
 
 (defrule release-star-rule
   "Matches a process holding 2 resources where one is requested by another
   process, and releases the requested one."
-  ([g] [p1<Process> -rq<Request>-> r1 -h1<HeldBy>-> p2 <-h2<HeldBy>- r2]
-     (release-star-rule g r2 h2 p2 h1 r1 rq p1))
-  ([g r2 h2 p2] [p2 <-h1<_>- r1 <-rq<Request>- p1]
-     (release-star-rule g r2 h2 p2 h1 r1 rq p1))
+  ([g] [p1<Process> -rq<Request>-> r1 -h1<HeldBy>-> p2 <-h2<HeldBy>- r2
+        :isomorphic]
+   (release-star-rule g r2 h2 p2 h1 r1 rq p1))
+  ([g r2 h2 p2] [p2 <-h1<_>- r1 <-rq<Request>- p1 :isomorphic]
+   (release-star-rule g r2 h2 p2 h1 r1 rq p1))
   ([g r2 h2 p2 h1 r1 rq p1]
-     (g/delete! h1)
-     (create-edge! g 'Release r1 p2)))
+   (g/delete! h1)
+   (create-edge! g 'Release r1 p2)))
 
 (defn apply-mutual-exclusion-lts
   [g n param-pass]
@@ -228,14 +232,13 @@
   (println "Mutual Exclusion LTS")
   (println "====================")
   ;; vc and ec are the expected values
-  (doseq [[n r vc ec] [[4 100 8 23]
+  (doseq [[n r vc ec] [[4 100 8 8]
                        #_[1000 1 2000 3001]]]
     (let [g1 (g-lts n)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
       (print "  without parameter passing:\t")
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g1 n false)))
-      #_(show-graph g1)
       (is (= vc (vcount g1)))
       (is (= ec (ecount g1)))
 
