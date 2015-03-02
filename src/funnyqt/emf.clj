@@ -431,6 +431,7 @@
 
 (defn new-resource
   "Creates and returns a new, empty Resource."
+  ^org.eclipse.emf.ecore.resource.Resource
   []
   (XMIResourceImpl.))
 
@@ -500,20 +501,25 @@
 
 (alter-var-root #'g/mm-load-handlers assoc #".*\.ecore$" load-ecore-resource)
 
+;; FIXME: That's actual a workaround for a misfeature of EMF.  See
+;; http://www.eclipse.org/forums/index.php/m/405881/
+(defn ^:private fixup-resource [^Resource resource]
+  (let [l (.getContents resource)
+        ^java.util.ListIterator li (.listIterator l)]
+    (while (.hasNext li)
+      (let [^EObject o (.next li)]
+        (when (.eContainer o)
+          (.remove li))))
+    resource))
+
 (defn save-resource
   "Saves the given `resource`.  If given a file `f`, saves to it.
   `f` may be a file name given as string, a java.io.File, an URI, or a
   java.net.URL."
   ([^Resource resource]
    (if-let [uri (.getURI resource)]
-     ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
-     ;; http://www.eclipse.org/forums/index.php/m/405881/
-     (let [l (.getContents resource)
-           ^java.util.ListIterator li (.listIterator l)]
-       (while (.hasNext li)
-         (let [^EObject o (.next li)]
-           (when (.eContainer o)
-             (.remove li))))
+     (do
+       (fixup-resource  resource)
        (println "Saving resource to" (.toFileString uri))
        (.save resource nil))
      (u/error (str "You tried to call save-resource on a Resource not associated "
@@ -1218,6 +1224,28 @@
   (--<>
     ([n]         (u/oset (econtainer n)))
     ([n rs]      (u/oset (econtainer n rs)))))
+
+;;# Copying a resource
+
+(extend-protocol g/ICopyModel
+  Resource
+  (copy-model [r]
+    (fixup-resource r)
+    (let [r-new (new-resource)
+          ^EList l-new (.getContents r-new)
+          ^EList l (.getContents r)]
+      (.addAll l-new (EcoreUtil/copyAll l))
+      r-new)))
+
+;;# Resource equality
+
+(extend-protocol g/IEqualModels
+  Resource
+  (equal-models? [r1 r2]
+    (fixup-resource r1)
+    (fixup-resource r2)
+    (EcoreUtil/equals ^EList (.getContents ^Resource r1)
+                      ^EList (.getContents ^Resource r2))))
 
 ;;# Describing EObjects and EClasses
 

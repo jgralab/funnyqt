@@ -327,6 +327,16 @@
     "Returns the seq of `this` element's direct contents possibly restricted by
     the type-spec or role `ts-or-role`."))
 
+;;# ICloneModel
+
+(defprotocol ICopyModel
+  (copy-model [this]
+    "Returns a copy of the given model and all its elements."))
+
+(defprotocol IEqualModels
+  (equal-models? [m1 m2]
+    "Returns true only if model `m1` and model `m2` are structurally equal."))
+
 ;;# Metamodel Access & Metamodel Protocols
 
 (defonce ^{:doc "A map from regular expressions to functions to load a metamodel."}

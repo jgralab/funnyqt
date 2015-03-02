@@ -248,7 +248,7 @@
   (let [g (new-graph (schema rg))
         county (create-vertex! g 'County {:name "Hessen"})
         c1 (g/create-element! g 'City {:name "Wiesbaden"
-                                     :county county})]
+                                       :county county})]
     (is (= 2 (vcount g)))
     (is (= 1 (ecount g) (ecount g 'ContainsLocality)))))
 
@@ -410,11 +410,11 @@
   (let [eval-args #(map eval-bin-tree
                         (qtg/--> % 'HasArg))]
     (cond
-     (g/has-type? v 'Const) (value v :value)
-     (g/has-type? v 'Add)   (reduce + (eval-args v))
-     (g/has-type? v 'Sub)   (reduce - (eval-args v))
-     (g/has-type? v 'Mul)   (reduce * (eval-args v))
-     (g/has-type? v 'Div)   (reduce / (eval-args v)))))
+      (g/has-type? v 'Const) (value v :value)
+      (g/has-type? v 'Add)   (reduce + (eval-args v))
+      (g/has-type? v 'Sub)   (reduce - (eval-args v))
+      (g/has-type? v 'Mul)   (reduce * (eval-args v))
+      (g/has-type? v 'Div)   (reduce / (eval-args v)))))
 
 (defprotocol BinTreeEval (eval-exp [this]))
 
@@ -425,17 +425,28 @@
 (let [g (bin-tree)
       eval-args #(map eval-exp (qtg/--> % 'HasArg))]
   (extend-type (schema-class g 'Const) BinTreeEval
-    (eval-exp [c] (value c :value)))
+               (eval-exp [c] (value c :value)))
   (extend-type (schema-class g 'Add)   BinTreeEval
-    (eval-exp [b] (reduce + (eval-args b))))
+               (eval-exp [b] (reduce + (eval-args b))))
   (extend-type (schema-class g 'Sub)   BinTreeEval
-    (eval-exp [b] (reduce - (eval-args b))))
+               (eval-exp [b] (reduce - (eval-args b))))
   (extend-type (schema-class g 'Mul)   BinTreeEval
-    (eval-exp [b] (reduce * (eval-args b))))
+               (eval-exp [b] (reduce * (eval-args b))))
   (extend-type (schema-class g 'Div)   BinTreeEval
-    (eval-exp [b] (reduce / (eval-args b)))))
+               (eval-exp [b] (reduce / (eval-args b)))))
 
 (deftest test-bin-tree-eval
   (is (== 1.65
           (eval-bin-tree (vertex (bin-tree) 1))
           (eval-exp (vertex (bin-tree) 1)))))
+
+(deftest test-copy-model-and-equal-models?
+  (let [c (g/copy-model rg)]
+    (is (= (count (vseq rg))
+           (count (vseq c))))
+    (is (= (count (eseq rg))
+           (count (eseq c))))
+    (is (g/equal-models? rg c))
+    ;; Now change something
+    (set-value! (first (vseq c 'Village)) :name "Foobar")
+    (is (not (g/equal-models? rg c)))))

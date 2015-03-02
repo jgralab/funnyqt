@@ -278,7 +278,7 @@
     (is (q/forall? (fn [f]
                      (and (eget f :father)
                           (eget f :mother)))
-                 (eallcontents m 'Family)))))
+                   (eallcontents m 'Family)))))
 
 (deftest test-eget-raw
   (let [i 1000
@@ -464,14 +464,14 @@
                           (eclassifier 'Member))))
   (is (= (eallcontents family-model '[Member Family])
          (eallcontents family-model
-                      '{"http://addressbook/1.0"
-                        [:or {"http://families/1.0" Member}
-                         {"http://families/1.0" Family}]})))
+                       '{"http://addressbook/1.0"
+                         [:or {"http://families/1.0" Member}
+                          {"http://families/1.0" Family}]})))
   (is (thrown-with-msg? Exception #"No such EClassifier"
                         (eallcontents family-model
-                                     '{"http://addressbook/1.0"
-                                       [:or {"http://families/1.0" Member}
-                                        Family]})))
+                                      '{"http://addressbook/1.0"
+                                        [:or {"http://families/1.0" Member}
+                                         Family]})))
   (is (= (eclassifier 'AddressBook)
          (eclassifier {"http://addressbook/1.0" 'AddressBook})
          (with-ns-uris ["http://addressbook/1.0"]
@@ -504,3 +504,14 @@
               (eallcontents family-model 'Family)))
   ;; Multivalued refs should throw
   (is (thrown? Exception (g/adj (first (econtents family-model)) :members))))
+
+(deftest test-copy-model-and-equal-models?
+  (let [c (g/copy-model family-model)]
+    (is (= (count (eallcontents family-model))
+           (count (eallcontents c))))
+    (is (= (count (epairs family-model))
+           (count (epairs c))))
+    (is (g/equal-models? family-model c))
+    ;; Now change something
+    (eset! (first (eallcontents c 'Member)) :firstName "Foobar")
+    (is (not (g/equal-models? family-model c)))))

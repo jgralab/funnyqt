@@ -1662,6 +1662,62 @@ functions `record` and `enum-constant`."
     ([n ts]      (--- n :inout [AggregationKind/COMPOSITE] nil ts  nil))
     ([n ts pred] (--- n :inout [AggregationKind/COMPOSITE] nil ts  pred))))
 
+;;# Copying graphs
+
+(extend-protocol g/ICopyModel
+  Graph
+  (copy-model [g]
+    (let [ng (new-graph (schema g))
+          ^java.util.List l [ng g]]
+      (.merge (de.uni_koblenz.jgralab.utilities.tgmerge.TGMerge. l)))))
+
+;;# Graph equality
+
+(defn ^:private attributes= [ae1 ae2]
+  (every? (fn [attr]
+            (= (value ae1 attr) (value ae2 attr)))
+          (map #(keyword (.getName ^Attribute %))
+               (.getAttributeList
+                (attributed-element-class ae1)))))
+
+(defn ^:private vertex= [v1 v2]
+  (attributes= v1 v2))
+
+(defn ^:private edge= [e1 e2]
+  (and (attributes= e1 e2)
+       (vertex= (alpha e1) (alpha e2))
+       (vertex= (omega e1) (omega e2))))
+
+(extend-protocol g/IEqualModels
+  Graph
+  (equal-models? [g1 g2]
+    (and g2
+         (= (schema g1) (schema g2))
+         (= (vcount g1) (vcount g2))
+         (= (ecount g1) (ecount g2))
+         (let [vcs (map #(let [qn (g/qname %)]
+                           (symbol (str qn "!")))
+                        (remove g/mm-abstract?
+                                (.getVertexClasses
+                                 (.getGraphClass (schema g1)))))
+               ecs (map #(let [qn (g/qname %)]
+                           (symbol (str qn "!")))
+                        (remove g/mm-abstract?
+                                (.getEdgeClasses
+                                 (.getGraphClass (schema g1)))))]
+           (and (every? (fn [vc]
+                          (every? (fn [v1]
+                                    (some (partial vertex= v1)
+                                          (vseq g2 vc)))
+                                  (vseq g1 vc)))
+                        vcs)
+                (every? (fn [ec]
+                          (every? (fn [e1]
+                                    (some (partial edge= e1)
+                                          (eseq g2 ec)))
+                                  (eseq g1 ec)))
+                        ecs))))))
+
 ;;# Describe Schema and Graph Elements
 
 (defn ^:private attr-desc
