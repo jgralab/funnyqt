@@ -5,7 +5,8 @@
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
             [funnyqt.query         :as q]
-            [funnyqt.pmatch        :as pm])
+            [funnyqt.pmatch        :as pm]
+            [funnyqt.tg            :as tg])
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                 JPanel JLabel JScrollPane JComboBox Action)
@@ -448,3 +449,37 @@
               (thunk)
               (recur pos (promise)))))
         (println "None of the rules is applicable.")))))
+
+(def ^:private statespace-schema (tg/load-schema "state-space-schema.tg"))
+
+(defn ^:private rule-name [r]
+  (let [^String s (pr-str (class r))
+        i (.lastIndexOf s (int\$))]
+    (clojure.string/replace (subs s (inc i)) \_ \-)))
+
+(defn explore-state-space [model rules & args]
+  (let [args (rest args) ;; Don't use the model param
+        ssg (tg/new-graph statespace-schema)
+        create-state! (fn []
+                        (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
+        state2model (volatile! {(create-state!) model})
+        states (fn [] (tg/vseq ssg 'State))
+        done-states (volatile! #{})
+        incomplete-states (fn [] (remove @done-states (states)))
+        find-equiv-state (fn [m]
+                           (first (filter #(g/equal-models? m (@state2model %))
+                                          (states))))]
+    (loop [sts (incomplete-states)]
+      (if (seq sts)
+        (let [st (first sts)]
+          (doseq [r rules
+                  :let [m (g/copy-model (@state2model st))]]
+            (when (apply r m args)
+              (let [nst (or (find-equiv-state m)
+                            (create-state!))]
+                (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
+                (when-not (contains? @state2model nst)
+                  (vswap! state2model assoc nst m)))))
+          (vswap! done-states conj st)
+          (recur (incomplete-states)))
+        [ssg @state2model]))))

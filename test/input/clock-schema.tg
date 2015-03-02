@@ -1,0 +1,11 @@
+// JGraLab - The Java graph laboratory
+//   Version : Efraasia
+//   Revision: 3528:56c9875e9fe4
+
+TGraph 2;
+Schema de.uni_koblenz.jgralabtest.clockschema.ClockSchema;
+GraphClass ClockGraph;
+VertexClass Hour { hour : Integer };
+VertexClass Clock;
+EdgeClass NextHour from Hour (1,1) to Hour (1,1);
+EdgeClass CurrentHour from Clock (0,1) to Hour (1,1);

@@ -229,14 +229,6 @@
 
 ;;* Tests
 
-#_(deftest test-apply-interactively
-    (let [m (g-sts)]
-      (apply-interactively m [#'take-rule #'pass-rule #'give-rule #'release-rule
-                              #'release-star-rule #'waiting-rule #'blocked-rule
-                              #'request-rule #'request-star-rule
-                              #'new-rule #'mount-rule]
-                           m)))
-
 (deftest mutual-exclusion-sts
   (println)
   (println "Mutual Exclusion STS")
