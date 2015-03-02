@@ -1681,16 +1681,14 @@ functions `record` and `enum-constant`."
                 (attributed-element-class ae1)))))
 
 (defn ^:private vertex= [v1 v2]
-  (attributes= v1 v2))
-
-(defn ^:private edge= [e1 e2]
-  (and (attributes= e1 e2)
-       (vertex= (alpha e1) (alpha e2))
-       (vertex= (omega e1) (omega e2))))
+  (and (= (attributed-element-class v1)
+          (attributed-element-class v2))
+       (attributes= v1 v2)))
 
 (extend-protocol g/IEqualModels
   Graph
   (equal-models? [g1 g2]
+    ;; FIXME: This is reasonably fast but not completely correct.
     (and g2
          (= (schema g1) (schema g2))
          (= (vcount g1) (vcount g2))
@@ -1704,19 +1702,28 @@ functions `record` and `enum-constant`."
                            (symbol (str qn "!")))
                         (remove g/mm-abstract?
                                 (.getEdgeClasses
-                                 (.getGraphClass (schema g1)))))]
-           (and (every? (fn [vc]
-                          (every? (fn [v1]
-                                    (some (partial vertex= v1)
-                                          (vseq g2 vc)))
-                                  (vseq g1 vc)))
-                        vcs)
-                (every? (fn [ec]
-                          (every? (fn [e1]
-                                    (some (partial edge= e1)
-                                          (eseq g2 ec)))
-                                  (eseq g1 ec)))
-                        ecs))))))
+                                 (.getGraphClass (schema g1)))))
+               done (atom #{})]
+           (and (every? (fn [ec]
+                          (let [es1 (vec (eseq g1 ec))
+                                es2 (vec (eseq g2 ec))]
+                            (and (= (count es1) (count es2))
+                                 (every? (fn [e1]
+                                           (let [e2s (filter (partial attributes= e1) es2)]
+                                             (some (fn [e2]
+                                                     (when (and (vertex= (alpha e1) (alpha e2))
+                                                                (vertex= (omega e1) (omega e2)))
+                                                       (swap! done conj (alpha e1) (omega e1))))
+                                                   e2s)))
+                                         es1))))
+                        ecs)
+                (every? (fn [vc]
+                          (let [vs1 (vec (vseq g1 vc))
+                                vs2 (vec (vseq g2 vc))]
+                            (every? (fn [v1]
+                                      (some (partial attributes= v1) vs2))
+                                    (remove @done vs1))))
+                        vcs))))))
 
 ;;# Describe Schema and Graph Elements
 
