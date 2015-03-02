@@ -10,7 +10,7 @@
 ;;# Regular Path Expressions
 
 ;; refer the private var
-(def --- @#'tg/---)
+(def ^:private --- @#'tg/---)
 
 (defn -->
   "Returns the vertices reachable from `v` via outgoing incidences,

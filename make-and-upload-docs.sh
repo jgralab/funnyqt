@@ -3,7 +3,7 @@
 echo "Deleting the old docs"
 rm docs/*
 
-lein with-profile docs marg && lein with-profile docs html5-docs
+lein with-profile docs html5-docs
 
 if [[ $? -eq 0 ]]; then
     echo "Deleting the old docs on helena"
@@ -17,3 +17,5 @@ if [[ $? -eq 0 ]]; then
 else
     echo Error.
 fi
+
+lein with-profile docs html5-docs :docset
