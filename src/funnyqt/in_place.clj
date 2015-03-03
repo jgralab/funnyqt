@@ -457,10 +457,10 @@
         i (.lastIndexOf s (int\$))]
     (clojure.string/replace (subs s (inc i)) \_ \-)))
 
-(defn explore-state-space
+(defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it possibly
   resulting in new states.  Old states are reused if a rule changes a model in
-  such a way that it's equivalent to an older model.
+  such a way that it's equivalent to an older state's model.
   Returns [state-space-graph state2model-map]."
   [model rules & args]
   (let [args (rest args) ;; Don't use the model param

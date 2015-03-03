@@ -126,7 +126,7 @@
 
 (deftest test-state-space
   (let [g (clock-graph)
-        [ssg s2g] (explore-state-space
+        [ssg s2g] (create-state-space
                    g [tick-forward tick-backward reset-clock]
                    g)]
     ;;(./print-model ssg :gtk)
