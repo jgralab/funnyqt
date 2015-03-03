@@ -460,10 +460,29 @@
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it possibly
   resulting in new states.  Old states are reused if a rule changes a model in
-  such a way that it's equivalent to an older state's model.
-  Returns [state-space-graph state2model-map]."
-  [model rules & args]
-  (let [args (rest args) ;; Don't use the model param
+  such a way that it's equivalent to an older state's model.  This is achieved
+  by testing if (comparefn old-model new-model) returns true for any old-model.
+  The default `comparefn` is `funnyqt.generic/equal-models?`.
+
+  Returns [state-space-graph state2model-map].
+
+  The state-space-graph is a TGraph conforming to a schema defining the vertex
+  class State and the edge class Transition.  States have an integer attribute
+  n which is assigned monotonically increasing starting with 1, and the
+  Transition edges have an attribute rule naming the rule which triggered this
+  transition.  Every State has one outgoing Transition per rule applicable to
+  the model represented by that State, i.e., there are at most (count rules)
+  outgoing Transitions at each State.
+
+  The state2model-map is a map from State vertices to the model which this
+  State represents."
+  {:arglists '([model comparefn rules & args])}
+  [model & args]
+  (let [[comparefn args] (if (fn? (first args))
+                           [(first args) (rest args)]
+                           [g/equal-models? args])
+        [rules args] [(first args) (rest args)]
+        args (rest args) ;; Don't use the model param
         ssg (tg/new-graph statespace-schema)
         create-state! (fn []
                         (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
@@ -472,7 +491,7 @@
         done-states (volatile! #{})
         incomplete-states (fn [] (remove @done-states (states)))
         find-equiv-state (fn [m]
-                           (first (filter #(g/equal-models? m (@state2model %))
+                           (first (filter #(comparefn m (@state2model %))
                                           (states))))]
     (loop [sts (incomplete-states)]
       (if (seq sts)

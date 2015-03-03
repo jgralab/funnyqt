@@ -124,10 +124,22 @@
    :when (not= 12 (value h :hour))]
   (set-omega! ch (vertex g 12)))
 
-(deftest test-state-space
+(deftest test-state-space-1
   (let [g (clock-graph)
         [ssg s2g] (create-state-space
                    g [tick-forward tick-backward reset-clock]
+                   g)]
+    ;;(./print-model ssg :gtk)
+    (is (= 12 (vcount ssg)))
+    ;; From every Hour we can tick forward and backward, and from every state
+    ;; except for the first, we can reset to 12 o'clock.
+    (is (= 35 (ecount ssg)))))
+
+(deftest test-state-space-2
+  (let [g (clock-graph)
+        [ssg s2g] (create-state-space
+                   g g/equal-models?
+                   [tick-forward tick-backward reset-clock]
                    g)]
     ;;(./print-model ssg :gtk)
     (is (= 12 (vcount ssg)))

@@ -1244,6 +1244,9 @@
   (equal-models? [r1 r2]
     (fixup-resource r1)
     (fixup-resource r2)
+    ;; FIXME: EcoreUtil/equals is not really what we want because the order of
+    ;; elements in the content lists and in all reference lists is significant,
+    ;; even with reference lists that are defined to be non-ordered.
     (EcoreUtil/equals ^EList (.getContents ^Resource r1)
                       ^EList (.getContents ^Resource r2))))
 
