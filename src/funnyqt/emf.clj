@@ -1239,8 +1239,6 @@
 
 ;;# Resource equality
 
-(def ^:private ^:dynamic *matching* {})
-
 (defn ^:private non-derived-attrs [^EClass ec]
   (filter (fn [^EStructuralFeature sf]
             (and (instance? EAttribute sf)
@@ -1285,11 +1283,16 @@
                       (every? identity (map #(matches? true %1 %2) ros1 ros2)))))
              (non-derived-refs (.eClass o1))))
 
+(def ^:private ^:dynamic *dynamic-matching*)
+(def ^:private ^:dynamic *matching*)
+
 (defn ^:private matches? [link-order o1 o2]
-  (or (= (*matching* o1) o2)
+  (or (= (@*matching* o1) o2)
+      (= (*dynamic-matching* o1) o2)
       (when (attrs= o1 o2)
-        (binding [*matching* (assoc *matching* o1 o2)]
-          ((if link-order refs=-with-link-order refs=-without-link-order) o1 o2)))))
+        (binding [*dynamic-matching* (assoc *dynamic-matching* o1 o2)]
+          (when ((if link-order refs=-with-link-order refs=-without-link-order) o1 o2)
+            (vswap! *matching* assoc o1 o2))))))
 
 (extend-protocol g/IEqualModels
   Resource
@@ -1297,17 +1300,20 @@
     ([r1 r2]
      (g/equal-models? r1 r2 false))
     ([r1 r2 link-order]
-     (fixup-resource r1)
-     (fixup-resource r2)
-     (or (identical? r1 r2)
-         (and (= (count (econtents r1))
-                 (count (econtents r2)))
-              (= (count (eallcontents r1))
-                 (count (eallcontents r2)))
-              (q/forall? (fn [o1]
-                           (q/exists? #(matches? link-order o1 %)
-                                      (econtents r2)))
-                         (econtents r1)))))))
+     (when r2
+       (fixup-resource r1)
+       (fixup-resource r2)
+       (or (identical? r1 r2)
+           (and (= (count (econtents r1))
+                   (count (econtents r2)))
+                (= (count (eallcontents r1))
+                   (count (eallcontents r2)))
+                (binding [*dynamic-matching* {}
+                          *matching* (volatile! {})]
+                  (q/forall? (fn [o1]
+                               (q/exists? #(matches? link-order o1 %)
+                                          (econtents r2)))
+                             (econtents r1)))))))))
 
 ;;# Describing EObjects and EClasses
 

@@ -1673,17 +1673,50 @@ functions `record` and `enum-constant`."
 
 ;;# Graph equality
 
-(defn ^:private attributes= [ae1 ae2]
-  (every? (fn [attr]
-            (= (value ae1 attr) (value ae2 attr)))
-          (map #(keyword (.getName ^Attribute %))
-               (.getAttributeList
-                (attributed-element-class ae1)))))
+(defn ^:private attrs= [^AttributedElement ae1 ^AttributedElement ae2]
+  (let [^AttributedElementClass aec1 (attributed-element-class ae1)
+        ^AttributedElementClass aec2 (attributed-element-class ae2)]
+    (and (= aec1 aec2)
+         (q/forall? (fn [^String attr]
+                      (= (.getAttribute ae1 attr) (.getAttribute ae2 attr)))
+                    (map #(.getName ^Attribute %)
+                         (.getAttributeList aec1))))))
 
-(defn ^:private vertex= [v1 v2]
-  (and (= (attributed-element-class v1)
-          (attributed-element-class v2))
-       (attributes= v1 v2)))
+(def ^:private ^:dynamic *dynamic-matching*)
+(def ^:private ^:dynamic *matching*)
+
+(declare matches?)
+(defn ^:private inc= [link-order ^Edge i1 ^Edge i2]
+  (or (= (@*matching* i1) i2)
+      (= (*dynamic-matching* i1) i2)
+      (when (and (= (.isNormal i1) (.isNormal i2))
+                 (attrs= i1 i2))
+        (binding [*dynamic-matching* (assoc *dynamic-matching* i1 i2
+                                            (inverse-edge i1) (inverse-edge i2))]
+          (when (matches? link-order (that i1) (that i2))
+            (vswap! *matching* assoc i1 i2))))))
+
+(defn ^:private incs=-with-link-order [v1 v2]
+  (let [is1 (vec (iseq v1))
+        is2 (vec (iseq v2))]
+    (and (= (count is1) (count is2))
+         (every? identity (map #(inc= true %1 %2) is1 is2)))))
+
+(defn ^:private incs=-without-link-order [v1 v2]
+  (q/forall? (fn [i1]
+               (q/exists? #(inc= false i1 %) (iseq v2)))
+             (iseq v1)))
+
+(defn ^:private matches? [link-order v1 v2]
+  (or (= (@*matching* v1) v2)
+      (= (*dynamic-matching* v1) v2)
+      (when (attrs= v1 v2)
+        (binding [*dynamic-matching* (assoc *dynamic-matching* v1 v2)]
+          (when ((if link-order incs=-with-link-order incs=-without-link-order) v1 v2)
+            (vswap! *matching* assoc v1 v2))))))
+
+(defn ^:private top-level-vertices [g]
+  (remove g/container (vseq g)))
 
 (extend-protocol g/IEqualModels
   Graph
@@ -1691,42 +1724,17 @@ functions `record` and `enum-constant`."
     ([g1 g2]
      (g/equal-models? g1 g2 false))
     ([g1 g2 link-order]
-     ;; FIXME: This is reasonably fast but not completely correct.
-     (and g2
-          (= (schema g1) (schema g2))
-          (= (vcount g1) (vcount g2))
-          (= (ecount g1) (ecount g2))
-          (let [vcs (map #(let [qn (g/qname %)]
-                            (symbol (str qn "!")))
-                         (remove g/mm-abstract?
-                                 (.getVertexClasses
-                                  (.getGraphClass (schema g1)))))
-                ecs (map #(let [qn (g/qname %)]
-                            (symbol (str qn "!")))
-                         (remove g/mm-abstract?
-                                 (.getEdgeClasses
-                                  (.getGraphClass (schema g1)))))
-                done (atom #{})]
-            (and (every? (fn [ec]
-                           (let [es1 (vec (eseq g1 ec))
-                                 es2 (vec (eseq g2 ec))]
-                             (and (= (count es1) (count es2))
-                                  (every? (fn [e1]
-                                            (let [e2s (filter (partial attributes= e1) es2)]
-                                              (some (fn [e2]
-                                                      (when (and (vertex= (alpha e1) (alpha e2))
-                                                                 (vertex= (omega e1) (omega e2)))
-                                                        (swap! done conj (alpha e1) (omega e1))))
-                                                    e2s)))
-                                          es1))))
-                         ecs)
-                 (every? (fn [vc]
-                           (let [vs1 (vec (vseq g1 vc))
-                                 vs2 (vec (vseq g2 vc))]
-                             (every? (fn [v1]
-                                       (some (partial attributes= v1) vs2))
-                                     (remove @done vs1))))
-                         vcs)))))))
+     (or (identical? g1 g2)
+         (and g2
+              (= (schema g1) (schema g2))
+              (= (vcount g1) (vcount g2))
+              (= (ecount g1) (ecount g2))
+              (binding [*dynamic-matching* {}
+                        *matching* (volatile! {})]
+                (q/forall? (fn [v1]
+                             (q/exists? #(matches? link-order v1 %)
+                                        (top-level-vertices g2)))
+                           (top-level-vertices g1))))))))
 
 ;;# Describe Schema and Graph Elements
 

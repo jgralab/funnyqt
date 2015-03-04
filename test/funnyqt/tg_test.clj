@@ -446,7 +446,17 @@
            (count (vseq c))))
     (is (= (count (eseq rg))
            (count (eseq c))))
-    (is (g/equal-models? rg c))
-    ;; Now change something
+    (is (g/equal-models? rg c false))
+    (is (g/equal-models? rg c true))
+    ;; Now change the incidence order somewhere
+    (let [lv (last-vertex c)]
+      (put-before-inc! (-> lv first-inc next-inc)
+                       (first-inc lv))
+      ;; Now the graphs should be equal when comparing without respect to link
+      ;; order, but with respect to link order they must not be equal.
+      (is (g/equal-models? rg c false))
+      (is (not (g/equal-models? rg c true))))
+    ;; Now really change something
     (set-value! (first (vseq c 'Village)) :name "Foobar")
-    (is (not (g/equal-models? rg c)))))
+    (is (not (g/equal-models? rg c false)))
+    (is (not (g/equal-models? rg c true)))))

@@ -512,6 +512,14 @@
     (is (= (count (epairs family-model))
            (count (epairs c))))
     (is (g/equal-models? family-model c))
+    (let [fs (q/the #(= (eget % :street) "Smith Avenue 4")
+                    (eallcontents c 'Family))
+          ^EList l (eget-raw fs :sons)]
+      (.move l 0 (int (dec (.size l))))
+      ;; Now the models should be equal when comparing without respect to link
+      ;; order, but with respect to link order they must not be equal.
+      (is (g/equal-models? family-model c false))
+      (is (not (g/equal-models? family-model c true))))
     ;; Now change something
     (eset! (first (eallcontents c 'Member)) :firstName "Foobar")
     (is (not (g/equal-models? family-model c)))))
