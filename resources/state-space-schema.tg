@@ -2,5 +2,5 @@ TGraph 2;
 Schema de.uni_koblenz.jgralab.statespaceschema.StateSpaceSchema;
 GraphClass StateSpaceGraph;
 
-VertexClass State {n : Integer};
+VertexClass State {n : Integer, done : Boolean};
 EdgeClass Transition from State (0,*) role src to State (0,*) role trg {rule : String};

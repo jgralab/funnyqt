@@ -482,8 +482,7 @@
                         (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
         state2model (volatile! {(create-state!) model})
         states (fn [] (tg/vseq ssg 'State))
-        done-states (volatile! #{})
-        incomplete-states (fn [] (remove @done-states (states)))
+        incomplete-states (fn [] (remove #(tg/value % :done) (states)))
         find-equiv-state (fn [m]
                            (first (filter #(comparefn m (@state2model %))
                                           (states))))]
@@ -498,6 +497,6 @@
                 (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
                 (when-not (contains? @state2model nst)
                   (vswap! state2model assoc nst m)))))
-          (vswap! done-states conj st)
+          (tg/set-value! st :done true)
           (recur (incomplete-states)))
         [ssg @state2model]))))
