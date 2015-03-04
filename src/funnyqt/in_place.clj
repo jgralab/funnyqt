@@ -493,17 +493,23 @@
         state2model (volatile! {(create-state!) init-model})
         find-equiv-state (fn [m]
                            (first (filter #(comparefn m (@state2model %))
-                                          (tg/vseq ssg 'State))))]
+                                          (tg/vseq ssg 'State))))
+        rule-names (set (map rule-name rules))]
     (with-meta (fn do-step
                  ([]
                   (do-step first rules))
                  ([select-state-fn]
                   (do-step select-state-fn rules))
-                 ([select-state-fn rules]
-                  (if-let [st (select-state-fn (remove #(tg/value % :done)
-                                                       (tg/vseq ssg 'State)))]
+                 ([select-state-fn rs]
+                  (if-let [st (select-state-fn
+                               (remove #(.containsAll
+                                         ^java.util.Set (tg/value % :done)
+                                         (if (identical? rs rules)
+                                           rule-names
+                                           (map rule-name rs)))
+                                       (tg/vseq ssg 'State)))]
                     (do
-                      (doseq [r rules
+                      (doseq [r rs
                               :let [m (g/copy-model (@state2model st))]]
                         (when (apply r m additional-args)
                           (let [nst (or (find-equiv-state m)
@@ -511,7 +517,9 @@
                             (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
                             (when-not (contains? @state2model nst)
                               (vswap! state2model assoc nst m)))))
-                      (tg/set-value! st :done true)
+                      (tg/set-value! st :done (.plusAll
+                                               ^org.pcollections.PSet (tg/value st :done)
+                                               ^java.util.Collection (map rule-name rs)))
                       [true ssg @state2model])
                     [false ssg @state2model])))
       {::state-space-graph ssg
@@ -547,7 +555,7 @@
         [ssg s2m]))))
 
 ;; TODO: Allow for selecting which rules to apply!
-(defn ^:private explore-state-space-dialog [sss-fn]
+(defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (::state-space-graph (meta sss-fn))
         s2m (::state2model-map (meta sss-fn))
         state (fn [n]
@@ -565,11 +573,14 @@
                                               (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
         state-apply-panel (JPanel.)
+        selected-rules (fn [] rules) ;; TODO: Check the JCheckBoxes
         undone-states-cb (JComboBox.)
-        reset-undone-states-cb! (fn []
+        reset-undone-states-cb! (fn reset-undone-states-cb! []
                                   (.removeAllItems undone-states-cb)
                                   (doseq [n (map #(tg/value % :n)
-                                                 (remove #(tg/value % :done)
+                                                 (remove #(.containsAll
+                                                           ^java.util.Set (tg/value % :done)
+                                                           (map rule-name (selected-rules)))
                                                          (tg/vseq ssg 'State)))]
                                     (.addItem undone-states-cb n)))
         button-panel (JPanel.)
@@ -615,4 +626,4 @@
 
 (defn explore-state-space [model comparefn rules & additional-args]
   (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
-    (explore-state-space-dialog sss-fn)))
+    (explore-state-space-dialog sss-fn rules)))
