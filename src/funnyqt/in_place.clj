@@ -9,7 +9,7 @@
             [funnyqt.tg            :as tg])
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
-                JPanel JLabel JScrollPane JComboBox Action)
+                JPanel JLabel JScrollPane JComboBox Action JCheckBox)
    (java.awt.event ActionEvent ItemEvent ItemListener)
    (java.awt GridLayout GridBagLayout GridBagConstraints)))
 
@@ -563,8 +563,13 @@
                                (tg/vseq ssg 'State))))
         state-model (fn [n]
                       (@s2m (state n)))
+        action (fn ^Action [name f]
+                 (proxy [AbstractAction] [name]
+                   (actionPerformed [ev]
+                     (f))))
         d (javax.swing.JDialog.)
         cp (.getContentPane d)
+        rule-select-panel (JPanel.)
         state-view-panel (JPanel.)
         all-states-cb (JComboBox.)
         reset-all-states-cb! (fn []
@@ -573,28 +578,42 @@
                                               (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
         state-apply-panel (JPanel.)
-        selected-rules (fn [] rules) ;; TODO: Check the JCheckBoxes
         undone-states-cb (JComboBox.)
+        button-panel (JPanel.)
+        selected-rules (promise)
         reset-undone-states-cb! (fn reset-undone-states-cb! []
                                   (.removeAllItems undone-states-cb)
                                   (doseq [n (map #(tg/value % :n)
                                                  (remove #(.containsAll
                                                            ^java.util.Set (tg/value % :done)
-                                                           (map rule-name (selected-rules)))
+                                                           (map rule-name (@selected-rules)))
                                                          (tg/vseq ssg 'State)))]
                                     (.addItem undone-states-cb n)))
-        button-panel (JPanel.)
-        action (fn ^Action [name f]
-                 (proxy [AbstractAction] [name]
-                   (actionPerformed [ev]
-                     (f))))]
+        rule-check-boxes (for [r rules]
+                           (let [cb (JCheckBox. (let [^Action a (action (rule-name r)
+                                                                        reset-undone-states-cb!)]
+                                                  (.putValue a "rule" r)
+                                                  a))]
+                             (doto cb (.setSelected true))))]
+    (deliver selected-rules (fn selected-rules []
+                              (for [^JCheckBox cb rule-check-boxes
+                                    :when (.isSelected cb)]
+                                (.getValue (.getAction cb) "rule"))))
     (.setTitle d "State Space Explorer")
     (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
     (doto (javax.swing.ToolTipManager/sharedInstance)
       (.setEnabled true))
     (reset-all-states-cb!)
     (reset-undone-states-cb!)
-    (.setLayout cp (GridLayout. 3 1))
+    (.setLayout cp (GridLayout. 4 1))
+
+    (.setLayout rule-select-panel (GridLayout. (let [rc (count rules)]
+                                                 (if (odd? rc)
+                                                   (inc (quot rc 2))
+                                                   (quot rc 2)))
+                                               2))
+    (doseq [^JCheckBox rcb rule-check-boxes]
+      (.add rule-select-panel rcb))
 
     (.add state-view-panel (JLabel. "All States:"))
     (.add state-view-panel all-states-cb)
@@ -609,7 +628,8 @@
     (.add state-apply-panel (JButton. ^Action (action "Apply"
                                                       (fn []
                                                         (let [n (.getSelectedItem undone-states-cb)]
-                                                          (sss-fn (constantly (state n)))
+                                                          (sss-fn (constantly (state n))
+                                                                  (@selected-rules))
                                                           (reset-undone-states-cb!)
                                                           (reset-all-states-cb!))))))
 
@@ -617,6 +637,7 @@
                                                  #(viz/print-model ssg :gtk))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
 
+    (.add cp rule-select-panel)
     (.add cp state-view-panel)
     (.add cp state-apply-panel)
     (.add cp button-panel)
