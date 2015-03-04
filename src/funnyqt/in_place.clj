@@ -11,7 +11,7 @@
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                 JPanel JLabel JScrollPane JComboBox Action)
    (java.awt.event ActionEvent ItemEvent ItemListener)
-   (java.awt GridBagLayout GridBagConstraints)))
+   (java.awt GridLayout GridBagLayout GridBagConstraints)))
 
 
 ;;# Rules
@@ -457,7 +457,36 @@
         i (.lastIndexOf s (int\$))]
     (clojure.string/replace (subs s (inc i)) \_ \-)))
 
-(defn state-space-step-fn [init-model comparefn rules & additional-args]
+(defn state-space-step-fn
+  "Creates and returns a function for step-wise state space exploration.
+  The state space exploration uses `init-model` as initial model.  The returned
+  step-function is overloaded on arity and accepts these arguments:
+
+    []                        ;; arity zero
+    [select-state-fn]         ;; arity one
+    [select-state-fn rules]   ;; arity two
+
+  `select-state-fn` is a function that receives the sequence of undone states
+  in the state space graph and returns the one to which `rules` should be
+  applied.
+
+  `rules` defaults to the argument of the same name given to
+  state-space-step-fn, and `select-state-fn` defaults to `clojure.core/first`.
+
+  Applying the step-function returns a vector of the form
+
+    [has-done-something state-space-graph state2model-map]
+
+  where `has-done-something` is true if the step-function could be
+  applied (i.e., the `select-state-fn` selected some state),
+  `state-space-graph` is the state space graph, and `state2model-map` is a map
+  from states in the states space graph to the models these states represent.
+
+  The step-function has the following metadata:
+
+    {::state-space-graph the-state-space-graph
+     ::state2model-map volatile-state2model-map}"
+  [init-model comparefn rules & additional-args]
   (let [ssg (tg/new-graph statespace-schema)
         create-state! (fn []
                         (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
@@ -465,26 +494,28 @@
         find-equiv-state (fn [m]
                            (first (filter #(comparefn m (@state2model %))
                                           (tg/vseq ssg 'State))))]
-    (fn do-step
-      ([]
-       (do-step first rules))
-      ([select-state-fn]
-       (do-step select-state-fn rules))
-      ([select-state-fn rules]
-       (if-let [st (select-state-fn (remove #(tg/value % :done)
-                                            (tg/vseq ssg 'State)))]
-         (do
-           (doseq [r rules
-                   :let [m (g/copy-model (@state2model st))]]
-             (when (apply r m additional-args)
-               (let [nst (or (find-equiv-state m)
-                             (create-state!))]
-                 (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
-                 (when-not (contains? @state2model nst)
-                   (vswap! state2model assoc nst m)))))
-           (tg/set-value! st :done true)
-           [true ssg @state2model])
-         [false ssg @state2model])))))
+    (with-meta (fn do-step
+                 ([]
+                  (do-step first rules))
+                 ([select-state-fn]
+                  (do-step select-state-fn rules))
+                 ([select-state-fn rules]
+                  (if-let [st (select-state-fn (remove #(tg/value % :done)
+                                                       (tg/vseq ssg 'State)))]
+                    (do
+                      (doseq [r rules
+                              :let [m (g/copy-model (@state2model st))]]
+                        (when (apply r m additional-args)
+                          (let [nst (or (find-equiv-state m)
+                                        (create-state!))]
+                            (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
+                            (when-not (contains? @state2model nst)
+                              (vswap! state2model assoc nst m)))))
+                      (tg/set-value! st :done true)
+                      [true ssg @state2model])
+                    [false ssg @state2model])))
+      {::state-space-graph ssg
+       ::state2model-map state2model})))
 
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it possibly
@@ -514,3 +545,74 @@
       (if done-something
         (recur (sss-fn))
         [ssg s2m]))))
+
+;; TODO: Allow for selecting which rules to apply!
+(defn ^:private explore-state-space-dialog [sss-fn]
+  (let [ssg (::state-space-graph (meta sss-fn))
+        s2m (::state2model-map (meta sss-fn))
+        state (fn [n]
+                (first (filter #(= n (tg/value % :n))
+                               (tg/vseq ssg 'State))))
+        state-model (fn [n]
+                      (@s2m (state n)))
+        d (javax.swing.JDialog.)
+        cp (.getContentPane d)
+        state-view-panel (JPanel.)
+        all-states-cb (JComboBox.)
+        reset-all-states-cb! (fn []
+                               (.removeAllItems all-states-cb)
+                               (doseq [n (map #(tg/value % :n)
+                                              (tg/vseq ssg 'State))]
+                                 (.addItem all-states-cb n)))
+        state-apply-panel (JPanel.)
+        undone-states-cb (JComboBox.)
+        reset-undone-states-cb! (fn []
+                                  (.removeAllItems undone-states-cb)
+                                  (doseq [n (map #(tg/value % :n)
+                                                 (remove #(tg/value % :done)
+                                                         (tg/vseq ssg 'State)))]
+                                    (.addItem undone-states-cb n)))
+        button-panel (JPanel.)
+        action (fn ^Action [name f]
+                 (proxy [AbstractAction] [name]
+                   (actionPerformed [ev]
+                     (f))))]
+    (.setTitle d "State Space Explorer")
+    (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
+    (doto (javax.swing.ToolTipManager/sharedInstance)
+      (.setEnabled true))
+    (reset-all-states-cb!)
+    (reset-undone-states-cb!)
+    (.setLayout cp (GridLayout. 3 1))
+
+    (.add state-view-panel (JLabel. "All States:"))
+    (.add state-view-panel all-states-cb)
+    (.add state-view-panel (JButton. ^Action (action "View Model"
+                                                     #(viz/print-model
+                                                       (state-model
+                                                        (.getSelectedItem all-states-cb))
+                                                       :gtk))))
+
+    (.add state-apply-panel (JLabel. "Undone States:"))
+    (.add state-apply-panel undone-states-cb)
+    (.add state-apply-panel (JButton. ^Action (action "Apply"
+                                                      (fn []
+                                                        (let [n (.getSelectedItem undone-states-cb)]
+                                                          (sss-fn (constantly (state n)))
+                                                          (reset-undone-states-cb!)
+                                                          (reset-all-states-cb!))))))
+
+    (.add button-panel (JButton. ^Action (action "View State Space Graph"
+                                                 #(viz/print-model ssg :gtk))))
+    (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
+
+    (.add cp state-view-panel)
+    (.add cp state-apply-panel)
+    (.add cp button-panel)
+    (.pack d)
+    (.setVisible d true)
+    d))
+
+(defn explore-state-space [model comparefn rules & additional-args]
+  (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
+    (explore-state-space-dialog sss-fn)))

@@ -60,3 +60,10 @@
     ;; From every Hour we can tick forward and backward, and from every state
     ;; except for the first, we can reset to 12 o'clock.
     (is (= 35 (tg/ecount ssg)))))
+
+(defn test-explore-state-space []
+  (let [g (clock-model)]
+    (explore-state-space
+     g
+     #(g/equal-models? %1 %2 false)
+     [tick-forward tick-backward reset-clock])))
