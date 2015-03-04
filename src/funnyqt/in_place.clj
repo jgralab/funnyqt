@@ -457,14 +457,46 @@
         i (.lastIndexOf s (int\$))]
     (clojure.string/replace (subs s (inc i)) \_ \-)))
 
+(defn state-space-step-fn [init-model comparefn rules & additional-args]
+  (let [ssg (tg/new-graph statespace-schema)
+        create-state! (fn []
+                        (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
+        state2model (volatile! {(create-state!) init-model})
+        find-equiv-state (fn [m]
+                           (first (filter #(comparefn m (@state2model %))
+                                          (tg/vseq ssg 'State))))]
+    (fn do-step
+      ([]
+       (do-step first rules))
+      ([select-state-fn]
+       (do-step select-state-fn rules))
+      ([select-state-fn rules]
+       (if-let [st (select-state-fn (remove #(tg/value % :done)
+                                            (tg/vseq ssg 'State)))]
+         (do
+           (doseq [r rules
+                   :let [m (g/copy-model (@state2model st))]]
+             (when (apply r m additional-args)
+               (let [nst (or (find-equiv-state m)
+                             (create-state!))]
+                 (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
+                 (when-not (contains? @state2model nst)
+                   (vswap! state2model assoc nst m)))))
+           (tg/set-value! st :done true)
+           [true ssg @state2model])
+         [false ssg @state2model])))))
+
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it possibly
   resulting in new states.  Old states are reused if a rule changes a model in
   such a way that it's equivalent to an older state's model.  This is achieved
   by testing if (comparefn old-model new-model) returns true for any old-model.
-  The default `comparefn` is `funnyqt.generic/equal-models?`.
+  A predefined `comparefn` is `funnyqt.generic/equal-models?` which see.
 
-  Returns [state-space-graph state2model-map].
+  Returns [state-space-graph state2model-map] after every rule has been applied
+  to every state.  Of course, if the model diverges through application of the
+  rules, i.e., the number of states constantly increases, then this will never
+  terminate.
 
   The state-space-graph is a TGraph conforming to a schema defining the vertex
   class State and the edge class Transition.  States have an integer attribute
@@ -477,26 +509,8 @@
   The state2model-map is a map from State vertices to the model which this
   State represents."
   [model comparefn rules & additional-args]
-  (let [ssg (tg/new-graph statespace-schema)
-        create-state! (fn []
-                        (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
-        state2model (volatile! {(create-state!) model})
-        states (fn [] (tg/vseq ssg 'State))
-        incomplete-states (fn [] (remove #(tg/value % :done) (states)))
-        find-equiv-state (fn [m]
-                           (first (filter #(comparefn m (@state2model %))
-                                          (states))))]
-    (loop [sts (incomplete-states)]
-      (if (seq sts)
-        (let [st (first sts)]
-          (doseq [r rules
-                  :let [m (g/copy-model (@state2model st))]]
-            (when (apply r m additional-args)
-              (let [nst (or (find-equiv-state m)
-                            (create-state!))]
-                (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
-                (when-not (contains? @state2model nst)
-                  (vswap! state2model assoc nst m)))))
-          (tg/set-value! st :done true)
-          (recur (incomplete-states)))
-        [ssg @state2model]))))
+  (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
+    (loop [[done-something ssg s2m] (sss-fn)]
+      (if done-something
+        (recur (sss-fn))
+        [ssg s2m]))))
