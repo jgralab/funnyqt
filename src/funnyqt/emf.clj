@@ -1239,16 +1239,75 @@
 
 ;;# Resource equality
 
+(def ^:private ^:dynamic *matching* {})
+
+(defn ^:private non-derived-attrs [^EClass ec]
+  (filter (fn [^EStructuralFeature sf]
+            (and (instance? EAttribute sf)
+                 (not (.isDerived sf))))
+          (.getEStructuralFeatures ec)))
+
+(defn ^:private non-derived-refs [^EClass ec]
+  (filter (fn [^EStructuralFeature sf]
+            (and (instance? EReference sf)
+                 (not (.isDerived sf))))
+          (.getEStructuralFeatures ec)))
+
+(defn ^:private attrs= [^EObject o1 ^EObject o2]
+  (let [ec1 (.eClass o1)
+        ec2 (.eClass o2)]
+    (and (= ec1 ec2)
+         (q/forall? #(= (.eGet o1 %) (.eGet o2 %))
+                    (non-derived-attrs ec1)))))
+
+(defn ^:private eget-1 [^EObject eo ^EReference r]
+  (when-let [x (.eGet eo r)]
+    (if (instance? java.util.Collection x) x [x])))
+
+(declare matches?)
+(defn ^:private refs=-without-link-order [^EObject o1 ^EObject o2]
+  ;; We always check attrs first so the type is guaranteed to be equal already.
+  (q/forall? (fn [ref]
+               (let [ros1 (eget-1 o1 ref)
+                     ros2 (eget-1 o2 ref)]
+                 (and (= (count ros1) (count ros2))
+                      (q/forall? (fn [ro1]
+                                   (q/exists? #(matches? false ro1 %) ros2))
+                                 ros1))))
+             (non-derived-refs (.eClass o1))))
+
+(defn ^:private refs=-with-link-order [^EObject o1 ^EObject o2]
+  ;; We always check attrs first so the type is guaranteed to be equal already.
+  (q/forall? (fn [ref]
+               (let [ros1 (eget-1 o1 ref)
+                     ros2 (eget-1 o2 ref)]
+                 (and (= (count ros1) (count ros2))
+                      (every? identity (map #(matches? true %1 %2) ros1 ros2)))))
+             (non-derived-refs (.eClass o1))))
+
+(defn ^:private matches? [link-order o1 o2]
+  (or (= (*matching* o1) o2)
+      (when (attrs= o1 o2)
+        (binding [*matching* (assoc *matching* o1 o2)]
+          ((if link-order refs=-with-link-order refs=-without-link-order) o1 o2)))))
+
 (extend-protocol g/IEqualModels
   Resource
-  (equal-models? [r1 r2]
-    (fixup-resource r1)
-    (fixup-resource r2)
-    ;; FIXME: EcoreUtil/equals is not really what we want because the order of
-    ;; elements in the content lists and in all reference lists is significant,
-    ;; even with reference lists that are defined to be non-ordered.
-    (EcoreUtil/equals ^EList (.getContents ^Resource r1)
-                      ^EList (.getContents ^Resource r2))))
+  (equal-models?
+    ([r1 r2]
+     (g/equal-models? r1 r2 false))
+    ([r1 r2 link-order]
+     (fixup-resource r1)
+     (fixup-resource r2)
+     (or (identical? r1 r2)
+         (and (= (count (econtents r1))
+                 (count (econtents r2)))
+              (= (count (eallcontents r1))
+                 (count (eallcontents r2)))
+              (q/forall? (fn [o1]
+                           (q/exists? #(matches? link-order o1 %)
+                                      (econtents r2)))
+                         (econtents r1)))))))
 
 ;;# Describing EObjects and EClasses
 

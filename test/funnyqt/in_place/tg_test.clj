@@ -127,8 +127,9 @@
 (deftest test-state-space-1
   (let [g (clock-graph)
         [ssg s2g] (create-state-space
-                   g [tick-forward tick-backward reset-clock]
-                   g)]
+                   g
+                   g/equal-models?
+                   [tick-forward tick-backward reset-clock])]
     ;;(./print-model ssg :gtk)
     (is (= 12 (vcount ssg)))
     ;; From every Hour we can tick forward and backward, and from every state
@@ -138,9 +139,9 @@
 (deftest test-state-space-2
   (let [g (clock-graph)
         [ssg s2g] (create-state-space
-                   g g/equal-models?
-                   [tick-forward tick-backward reset-clock]
-                   g)]
+                   g
+                   #(g/equal-models? %1 %2 true)
+                   [tick-forward tick-backward reset-clock])]
     ;;(./print-model ssg :gtk)
     (is (= 12 (vcount ssg)))
     ;; From every Hour we can tick forward and backward, and from every state

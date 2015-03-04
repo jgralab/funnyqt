@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="clock" nsURI="http://clock/1.0" nsPrefix="clock">
+  <eClassifiers xsi:type="ecore:EClass" name="Clock">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="current" eType="#//Hour"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Hour">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="hour" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EInt"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="next" eType="#//Hour" eOpposite="#//Hour/prev"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="prev" eType="#//Hour" eOpposite="#//Hour/next"/>
+  </eClassifiers>
+</ecore:EPackage>

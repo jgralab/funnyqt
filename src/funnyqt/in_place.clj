@@ -476,14 +476,8 @@
 
   The state2model-map is a map from State vertices to the model which this
   State represents."
-  {:arglists '([model comparefn rules & args])}
-  [model & args]
-  (let [[comparefn args] (if (fn? (first args))
-                           [(first args) (rest args)]
-                           [g/equal-models? args])
-        [rules args] [(first args) (rest args)]
-        args (rest args) ;; Don't use the model param
-        ssg (tg/new-graph statespace-schema)
+  [model comparefn rules & additional-args]
+  (let [ssg (tg/new-graph statespace-schema)
         create-state! (fn []
                         (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
         state2model (volatile! {(create-state!) model})
@@ -498,7 +492,7 @@
         (let [st (first sts)]
           (doseq [r rules
                   :let [m (g/copy-model (@state2model st))]]
-            (when (apply r m args)
+            (when (apply r m additional-args)
               (let [nst (or (find-equiv-state m)
                             (create-state!))]
                 (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})

@@ -1687,43 +1687,46 @@ functions `record` and `enum-constant`."
 
 (extend-protocol g/IEqualModels
   Graph
-  (equal-models? [g1 g2]
-    ;; FIXME: This is reasonably fast but not completely correct.
-    (and g2
-         (= (schema g1) (schema g2))
-         (= (vcount g1) (vcount g2))
-         (= (ecount g1) (ecount g2))
-         (let [vcs (map #(let [qn (g/qname %)]
-                           (symbol (str qn "!")))
-                        (remove g/mm-abstract?
-                                (.getVertexClasses
-                                 (.getGraphClass (schema g1)))))
-               ecs (map #(let [qn (g/qname %)]
-                           (symbol (str qn "!")))
-                        (remove g/mm-abstract?
-                                (.getEdgeClasses
-                                 (.getGraphClass (schema g1)))))
-               done (atom #{})]
-           (and (every? (fn [ec]
-                          (let [es1 (vec (eseq g1 ec))
-                                es2 (vec (eseq g2 ec))]
-                            (and (= (count es1) (count es2))
-                                 (every? (fn [e1]
-                                           (let [e2s (filter (partial attributes= e1) es2)]
-                                             (some (fn [e2]
-                                                     (when (and (vertex= (alpha e1) (alpha e2))
-                                                                (vertex= (omega e1) (omega e2)))
-                                                       (swap! done conj (alpha e1) (omega e1))))
-                                                   e2s)))
-                                         es1))))
-                        ecs)
-                (every? (fn [vc]
-                          (let [vs1 (vec (vseq g1 vc))
-                                vs2 (vec (vseq g2 vc))]
-                            (every? (fn [v1]
-                                      (some (partial attributes= v1) vs2))
-                                    (remove @done vs1))))
-                        vcs))))))
+  (equal-models?
+    ([g1 g2]
+     (g/equal-models? g1 g2 false))
+    ([g1 g2 link-order]
+     ;; FIXME: This is reasonably fast but not completely correct.
+     (and g2
+          (= (schema g1) (schema g2))
+          (= (vcount g1) (vcount g2))
+          (= (ecount g1) (ecount g2))
+          (let [vcs (map #(let [qn (g/qname %)]
+                            (symbol (str qn "!")))
+                         (remove g/mm-abstract?
+                                 (.getVertexClasses
+                                  (.getGraphClass (schema g1)))))
+                ecs (map #(let [qn (g/qname %)]
+                            (symbol (str qn "!")))
+                         (remove g/mm-abstract?
+                                 (.getEdgeClasses
+                                  (.getGraphClass (schema g1)))))
+                done (atom #{})]
+            (and (every? (fn [ec]
+                           (let [es1 (vec (eseq g1 ec))
+                                 es2 (vec (eseq g2 ec))]
+                             (and (= (count es1) (count es2))
+                                  (every? (fn [e1]
+                                            (let [e2s (filter (partial attributes= e1) es2)]
+                                              (some (fn [e2]
+                                                      (when (and (vertex= (alpha e1) (alpha e2))
+                                                                 (vertex= (omega e1) (omega e2)))
+                                                        (swap! done conj (alpha e1) (omega e1))))
+                                                    e2s)))
+                                          es1))))
+                         ecs)
+                 (every? (fn [vc]
+                           (let [vs1 (vec (vseq g1 vc))
+                                 vs2 (vec (vseq g2 vc))]
+                             (every? (fn [v1]
+                                       (some (partial attributes= v1) vs2))
+                                     (remove @done vs1))))
+                         vcs)))))))
 
 ;;# Describe Schema and Graph Elements
 

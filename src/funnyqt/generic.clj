@@ -325,7 +325,7 @@
 (defprotocol IContents
   (contents [this] [this ts-or-role]
     "Returns the seq of `this` element's direct contents possibly restricted by
-    the type-spec or role `ts-or-role`."))
+  the type-spec or role `ts-or-role`."))
 
 ;;# ICloneModel
 
@@ -334,8 +334,10 @@
     "Returns a copy of the given model and all its elements."))
 
 (defprotocol IEqualModels
-  (equal-models? [m1 m2]
-    "Returns true only if model `m1` and model `m2` are structurally equal."))
+  (equal-models? [m1 m2] [m1 m2 link-order]
+    "Returns true only if model `m1` and model `m2` are structurally equal.
+  If `link-order` is true, also consider the order of links (false by
+  default)."))
 
 ;;# Metamodel Access & Metamodel Protocols
 
