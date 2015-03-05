@@ -474,19 +474,18 @@
   `rules` defaults to the argument of the same name given to
   state-space-step-fn, and `select-state-fn` defaults to `clojure.core/first`.
 
-  Applying the step-function returns a vector of the form
-
-    [has-done-something state-space-graph state2model-map]
-
-  where `has-done-something` is true if the step-function could be
-  applied (i.e., the `select-state-fn` selected some state),
-  `state-space-graph` is the state space graph, and `state2model-map` is a map
-  from states in the states space graph to the models these states represent.
+  Applying the step-function returns true if some rule could be applied, else,
+  i.e., if the `select-state-fn` couldn't selected some state, returns false.
 
   The step-function has the following metadata:
 
-    {::state-space-graph the-state-space-graph
-     ::state2model-map volatile-state2model-map}"
+    {:state-space-graph the-state-space-graph
+     :state2model-map volatile-state2model-map}
+
+  So this metadata is where you extract the states space graph and the map from
+  states to corresponding models.  The latter is a volatile so needs to be
+  dereferenced (e.g., @volatile-state2model-map or using `clojure.core/deref`)
+  in orded to obtain its current value."
   [init-model comparefn rules & additional-args]
   (let [ssg (tg/new-graph statespace-schema)
         create-state! (fn []
@@ -521,17 +520,18 @@
                       (tg/set-value! st :done (.plusAll
                                                ^org.pcollections.PSet (tg/value st :done)
                                                ^java.util.Collection (map rule-name rs)))
-                      [true ssg @state2model])
-                    [false ssg @state2model])))
-      {::state-space-graph ssg
-       ::state2model-map state2model})))
+                      true)
+                    false)))
+      {:state-space-graph ssg
+       :state2model-map state2model})))
 
 (defn create-state-space
-  "Takes the `model` as initial state and applies all `rules` to it possibly
-  resulting in new states.  Old states are reused if a rule changes a model in
-  such a way that it's equivalent to an older state's model.  This is achieved
-  by testing if (comparefn old-model new-model) returns true for any old-model.
-  A predefined `comparefn` is `funnyqt.generic/equal-models?` which see.
+  "Takes the `model` as initial state and applies all `rules` to it (and
+  optionally `additional-args`) possibly resulting in new states.  Old states
+  are reused if a rule changes a model in such a way that it's equivalent to an
+  older state's model.  This is achieved by testing if (comparefn old-model
+  new-model) returns true for any old-model.  A predefined `comparefn` is
+  `funnyqt.generic/equal-models?` which see.
 
   Returns [state-space-graph state2model-map] after every rule has been applied
   to every state.  Of course, if the model diverges through application of the
@@ -550,15 +550,12 @@
   State represents."
   [model comparefn rules & additional-args]
   (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
-    (loop [[done-something ssg s2m] (sss-fn)]
-      (if done-something
-        (recur (sss-fn))
-        [ssg s2m]))))
+    (while (sss-fn)) ;; Apply as long as it returns true
+    [(:state-space-graph (meta sss-fn)) @(:state2model-map (meta sss-fn))]))
 
-;; TODO: Allow for selecting which rules to apply!
 (defn ^:private explore-state-space-dialog [sss-fn rules]
-  (let [ssg (::state-space-graph (meta sss-fn))
-        s2m (::state2model-map (meta sss-fn))
+  (let [ssg (:state-space-graph (meta sss-fn))
+        s2m (:state2model-map (meta sss-fn))
         state (fn [n]
                 (first (filter #(= n (tg/value % :n))
                                (tg/vseq ssg 'State))))
@@ -657,6 +654,11 @@
     (.setVisible d true)
     d))
 
-(defn explore-state-space [model comparefn rules & additional-args]
+(defn explore-state-space
+  "Fires up a GUI that allows for creating and inspecting the state space by
+  starting with initial model `model`, the given `comparefn` (see, e.g.,
+  `funnyqt.generic/equal-models?`), and the given `rules` plus
+  `additional-args` applied to each rule in addition to the current model."
+  [model comparefn rules & additional-args]
   (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
     (explore-state-space-dialog sss-fn rules)))
