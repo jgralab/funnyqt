@@ -34,6 +34,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   *excluded*)
 
 (def ^{:dynamic true
+       :doc "A map from class names to set of that classes' attributes which
+  should not be printed."}
+  *excluded-attributes*)
+
+(def ^{:dynamic true
        :doc "A set of elements to be printed in red instead of black.  It might
   also be a predicate receiving a model element.  This is not to be used
   directly but set by `print-model` according to its :mark option."}
@@ -79,6 +84,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           ;; ditto for :exclude
           exclude (:exclude m)
           m (dissoc m :exclude)
+          ;; ditto for :excluded-attributes
+          excluded-attibutes (:excluded-attributes m)
+          m (dissoc m :excluded-attributes)
           ;; ditto for :mark
           mark (:mark m)
           m (dissoc m :mark)
@@ -89,7 +97,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           m (update m :ranksep 1.5)]
       (with-meta m
         {:name gname, :include include, :exclude exclude,
-         :mark mark, :qualified-names qnames}))))
+         :excluded-attributes excluded-attibutes, :mark mark,
+         :qualified-names qnames}))))
 
 ;;** EMF stuff
 
@@ -104,7 +113,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn ^:private emf-dot-attributes [^EObject eo]
   (reduce str
           (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
-                :let [n (.getName attr)]]
+                :let [n (.getName attr)]
+                :when (let [ex-attrs (*excluded-attributes* (g/qname eo))]
+                        (not (and ex-attrs
+                                  (contains? ex-attrs (keyword n)))))]
             (str n " = " (dot-escape (try (emf/eget eo (keyword n))
                                           (catch Exception _
                                             (emf/eget eo (keyword n)))))
@@ -192,7 +204,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn ^:private tg-dot-attributes [^AttributedElement elem]
   (reduce str
           (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
-                :let [n (.getName attr)]]
+                :let [n (.getName attr)]
+                :when (let [ex-attrs (*excluded-attributes* (g/qname elem))]
+                        (not (and ex-attrs
+                                  (contains? ex-attrs (keyword n)))))]
             (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
 
 (defn ^:private tg-dot-vertex [^Vertex v]
@@ -294,6 +309,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (binding [*included* (when-let [included (:include (meta opts))]
                            (set included))
               *excluded* (set (:exclude (meta opts)))
+              *excluded-attributes* (or (:excluded-attributes (meta opts))
+                                        {})
               *marked*   (if-let [mark (:mark (meta opts))]
                            (cond
                              (fn? mark)   mark
@@ -344,6 +361,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   and :exclude usually specify only vertices.  Edges are printed if their alpha
   and omega vertex are printed.  To forbid printing of certain edges where
   alpha/omega are printed, it is possible to add them to :exclude, though.
+
+  The option :excluded-attributes is a map of the form {'SomeClass
+  #{:attr1 :attr2}} determining that these two attributes should not be printed
+  for instances of classes with that given name.  'SomeClass must be a
+  qualified name.
 
   Furthermore, a :mark option is supported.  It is a seq of elements that
   should be highlighted.  It may also be a predicate that gets an element and

@@ -594,7 +594,8 @@
                                                                         reset-undone-states-cb!)]
                                                   (.putValue a "rule" r)
                                                   a))]
-                             (doto cb (.setSelected true))))]
+                             (doto cb (.setSelected true))))
+        show-done-attr-checkbox (JCheckBox. "Show :done")]
     (deliver selected-rules (fn selected-rules []
                               (for [^JCheckBox cb rule-check-boxes
                                     :when (.isSelected cb)]
@@ -636,9 +637,16 @@
     (doseq [^JCheckBox rcb rule-check-boxes]
       (.add rule-select-panel rcb))
 
-    (.setLayout button-panel (GridLayout. 1 2))
-    (.add button-panel (JButton. ^Action (action "View State Space Graph"
-                                                 #(viz/print-model ssg :gtk))))
+    (.setLayout button-panel (GridLayout. 1 3))
+    (.add button-panel show-done-attr-checkbox)
+    (.add button-panel (JButton.
+                        ^Action
+                        (action "View State Space Graph"
+                                #(apply
+                                  viz/print-model
+                                  ssg :gtk
+                                  (when-not (.isSelected show-done-attr-checkbox)
+                                    (list :excluded-attributes {'State #{:done}}))))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)
