@@ -434,13 +434,15 @@
       (.setVisible d true))))
 
 (defn apply-interactively
-  "Interactively applies the rules being the values of `rule-vars`."
-  [model rule-vars & args]
+  "Interactively applies the rules being the values of `rule-vars` to `model`
+  and the given `additional-args`."
+  [model rule-vars & additional-args]
   (loop [pos nil, posp (promise)]
-    (let [rule-thunk-tups (mapcat (fn [rv]
-                                    (when-let [thunk (as-test (apply @rv args))]
-                                      [[rv thunk]]))
-                                  rule-vars)
+    (let [rule-thunk-tups (mapcat
+                           (fn [rv]
+                             (when-let [thunk (as-test (apply @rv additional-args))]
+                               [[rv thunk]]))
+                           rule-vars)
           t (promise)]
       (if (seq rule-thunk-tups)
         (do

@@ -47,7 +47,7 @@ representation.
   - _funnyqt.emf_: The EMF-specific core API
   - _funnyqt.tg_: The TGraph-specific core API (JGraLab)
   - _funnyqt.generic_: Core functions working with both kinds of models/model
-    elements
+    elements, and protocols extended on EMF and JGraLab interfaces
 
 The **functional querying API** builds upon the core API and provides features
 such as navigation inside models in terms of role names, quantified
@@ -64,9 +64,9 @@ functions dispatching on metamodel type.
 
   - _funnyqt.polyfns_: Polymorphic function API
 
-The *pattern-matching API* provides constructs for defining patterns using node
-and edge symbols.  When a pattern is called on some model, it returns a lazy
-sequence of all matches in the model.
+The **pattern-matching API** provides constructs for defining patterns using
+node and edge symbols.  When a pattern is called on some model, it returns a
+lazy sequence of all matches in the model.
 
   - _funnyqt.pmatch_: Pattern-matching in models
 
@@ -76,7 +76,7 @@ When a rule is invoked, it searches for a match in the model and applies its
 actions to it.  Typical control structures such as as-long-as-possible
 application of a rule are provided as higher-order functions.
 
-  - _funnyqt.in-place_: In-place transformations
+  - _funnyqt.in-place_: In-place transformations and state-space exploration
 
 FunnyQT provides two kinds of *model transformation APIs*.  The **extensional
 model transformation API** builds upon GReTL's concepts of extensional
@@ -108,6 +108,13 @@ model in terms of relations between elements in those models.  Such a
 transformation can be used to generate a new right model from a given left
 model and vice versa.  Additionally, it can be used to synchronize between two
 existing models in either direction.
+
+For TGraphs, there is a **co-evolution transformation API**.
+
+- _funnyqt.coevo.tg_: Co-evolution transformations
+
+Co-evolution transformations allow to evolve a schema and a conforming graph
+simultaneously at runtime.
 
 Finally, there are some **utility and helper APIs**.
 
