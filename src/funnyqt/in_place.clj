@@ -9,7 +9,8 @@
             [funnyqt.tg            :as tg])
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
-                JPanel JLabel JScrollPane JComboBox Action JCheckBox)
+                JPanel JLabel JScrollPane JComboBox Action JCheckBox
+                BorderFactory)
    (java.awt.event ActionEvent ItemEvent ItemListener)
    (java.awt GridLayout GridBagLayout GridBagConstraints)))
 
@@ -607,6 +608,7 @@
     (.setLayout content-pane (GridLayout. 3 1))
 
     (.setLayout states-panel (GridLayout. 2 3))
+    (.setBorder states-panel (BorderFactory/createTitledBorder "State Selection"))
     (.add states-panel (JLabel. "All States:"))
     (.add states-panel all-states-cb)
     (.add states-panel (JButton. ^Action (action "View Model"
@@ -630,6 +632,7 @@
                                                    (inc (quot rc 2))
                                                    (quot rc 2)))
                                                2))
+    (.setBorder rule-select-panel (BorderFactory/createTitledBorder "Rule Selection"))
     (doseq [^JCheckBox rcb rule-check-boxes]
       (.add rule-select-panel rcb))
 
