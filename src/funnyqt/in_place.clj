@@ -357,7 +357,7 @@
 
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
-        cp (.getContentPane d)
+        content-pane (.getContentPane d)
         rp (JPanel.)
         sp (JScrollPane. rp)
         bp (JPanel.)
@@ -379,10 +379,10 @@
                                 (when-not (instance? java.awt.Point posp)
                                   (deliver posp (.getLocation d)))
                                 (deliver thunkp nil))))
-      (.setLayout cp (BoxLayout. cp BoxLayout/Y_AXIS))
+      (.setLayout content-pane (BoxLayout. content-pane BoxLayout/Y_AXIS))
       (.setLayout rp gridbag)
-      (.add cp sp)
-      (.add cp bp)
+      (.add content-pane sp)
+      (.add content-pane bp)
       (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
       ;; The rule panel rp
       (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
@@ -568,16 +568,15 @@
                    (actionPerformed [ev]
                      (f))))
         d (javax.swing.JDialog.)
-        cp (.getContentPane d)
+        content-pane (.getContentPane d)
         rule-select-panel (JPanel.)
-        state-view-panel (JPanel.)
+        states-panel (JPanel.)
         all-states-cb (JComboBox.)
         reset-all-states-cb! (fn []
                                (.removeAllItems all-states-cb)
                                (doseq [n (map #(tg/value % :n)
                                               (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
-        state-apply-panel (JPanel.)
         undone-states-cb (JComboBox.)
         button-panel (JPanel.)
         selected-rules (promise)
@@ -605,7 +604,26 @@
       (.setEnabled true))
     (reset-all-states-cb!)
     (reset-undone-states-cb!)
-    (.setLayout cp (GridLayout. 4 1))
+    (.setLayout content-pane (GridLayout. 3 1))
+
+    (.setLayout states-panel (GridLayout. 2 3))
+    (.add states-panel (JLabel. "All States:"))
+    (.add states-panel all-states-cb)
+    (.add states-panel (JButton. ^Action (action "View Model"
+                                                 #(viz/print-model
+                                                   (state-model
+                                                    (.getSelectedItem all-states-cb))
+                                                   :gtk))))
+
+    (.add states-panel (JLabel. "Undone States:"))
+    (.add states-panel undone-states-cb)
+    (.add states-panel (JButton. ^Action (action "Apply"
+                                                 (fn []
+                                                   (let [n (.getSelectedItem undone-states-cb)]
+                                                     (sss-fn (constantly (state n))
+                                                             (@selected-rules))
+                                                     (reset-undone-states-cb!)
+                                                     (reset-all-states-cb!))))))
 
     (.setLayout rule-select-panel (GridLayout. (let [rc (count rules)]
                                                  (if (odd? rc)
@@ -615,33 +633,16 @@
     (doseq [^JCheckBox rcb rule-check-boxes]
       (.add rule-select-panel rcb))
 
-    (.add state-view-panel (JLabel. "All States:"))
-    (.add state-view-panel all-states-cb)
-    (.add state-view-panel (JButton. ^Action (action "View Model"
-                                                     #(viz/print-model
-                                                       (state-model
-                                                        (.getSelectedItem all-states-cb))
-                                                       :gtk))))
-
-    (.add state-apply-panel (JLabel. "Undone States:"))
-    (.add state-apply-panel undone-states-cb)
-    (.add state-apply-panel (JButton. ^Action (action "Apply"
-                                                      (fn []
-                                                        (let [n (.getSelectedItem undone-states-cb)]
-                                                          (sss-fn (constantly (state n))
-                                                                  (@selected-rules))
-                                                          (reset-undone-states-cb!)
-                                                          (reset-all-states-cb!))))))
-
+    (.setLayout button-panel (GridLayout. 1 2))
     (.add button-panel (JButton. ^Action (action "View State Space Graph"
                                                  #(viz/print-model ssg :gtk))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
 
-    (.add cp rule-select-panel)
-    (.add cp state-view-panel)
-    (.add cp state-apply-panel)
-    (.add cp button-panel)
+    (.add content-pane states-panel)
+    (.add content-pane rule-select-panel)
+    (.add content-pane button-panel)
     (.pack d)
+    (.setResizable d false)
     (.setVisible d true)
     d))
 
