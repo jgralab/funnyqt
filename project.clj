@@ -5,13 +5,13 @@
                  [org.clojure/core.cache "0.6.4"]
                  [org.clojure/data.priority-map "0.0.5"]
                  [de.uni-koblenz.ist/jgralab "8.0.8"]
-                 [org.clojure/core.logic "0.8.9"]
+                 [org.clojure/core.logic "0.8.10"]
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
                  [inflections "0.9.13" :exclusions [org.clojure/clojure]]]
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[im.chit/vinyasa "0.3.3"]]}}
+                   :dependencies [[im.chit/vinyasa "0.3.4"]]}}
   ;; Don't put version control dirs into the jar
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
