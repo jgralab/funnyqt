@@ -1287,12 +1287,31 @@
 (def ^:private ^:dynamic *matching*)
 
 (defn ^:private matches? [link-order o1 o2]
-  (or (= (@*matching* o1) o2)
-      (= (*dynamic-matching* o1) o2)
-      (when (attrs= o1 o2)
-        (binding [*dynamic-matching* (assoc *dynamic-matching* o1 o2)]
-          (when ((if link-order refs=-with-link-order refs=-without-link-order) o1 o2)
-            (vswap! *matching* assoc o1 o2))))))
+  (let [m-o1 (@*matching* o1)]
+    (cond
+      (identical? m-o1 o2) true
+      ;;---
+      (and (nil? m-o1)
+           (nil? (@*matching* o2)))
+      (let [dm-o1 (*dynamic-matching* o1)]
+        (cond
+          (identical? dm-o1 o2) true
+          ;;---
+          (and (nil? dm-o1)
+               (nil? (*dynamic-matching* o2)))
+          (when (attrs= o1 o2)
+            (binding [*dynamic-matching*
+                      (assoc *dynamic-matching*
+                             o1 o2 o2 o1)]
+              (when ((if link-order
+                       refs=-with-link-order
+                       refs=-without-link-order)
+                     o1 o2)
+                (vswap! *matching* assoc o1 o2 o2 o1))))
+          ;;---
+          :else false))
+      ;;---
+      :else false)))
 
 (extend-protocol g/IEqualModels
   Resource
@@ -1310,10 +1329,15 @@
                    (count (eallcontents r2)))
                 (binding [*dynamic-matching* {}
                           *matching* (volatile! {})]
-                  (q/forall? (fn [o1]
-                               (q/exists? #(matches? link-order o1 %)
-                                          (econtents r2)))
-                             (econtents r1)))))))))
+                  (if (q/forall? (fn [^EObject o1]
+                                   (let [ec1 (.eClass o1)]
+                                     (q/exists? #(matches? link-order o1 %)
+                                                (econtents r2
+                                                           (fn [^EObject o2]
+                                                             (= ec1 (.eClass o2)))))))
+                                 (econtents r1))
+                    @*matching*
+                    false))))))))
 
 ;;# Describing EObjects and EClasses
 

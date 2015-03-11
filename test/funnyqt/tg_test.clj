@@ -460,3 +460,21 @@
     (set-value! (first (vseq c 'Village)) :name "Foobar")
     (is (not (g/equal-models? rg c false)))
     (is (not (g/equal-models? rg c true)))))
+
+(deftest test-equal-models?
+  (let [g1 (doto (new-graph (schema rg))
+             (create-vertex! 'City {:name "C1"})
+             (create-vertex! 'City {:name "C2"})
+             (create-vertex! 'City {:name "C3"}))
+        g2 (doto (new-graph (schema rg))
+             (create-vertex! 'City {:name "C1"})
+             (create-vertex! 'City {:name "C1"})
+             (create-vertex! 'City {:name "C1"}))
+        g3 (doto (new-graph (schema rg))
+             (create-vertex! 'City {:name "C1"})
+             (create-vertex! 'City {:name "C1"})
+             (create-vertex! 'City {:name "C1"}))]
+    (is (not (g/equal-models? g1 g2)))
+    (is (not (g/equal-models? g2 g1)))
+    (is (g/equal-models? g2 g3))
+    (is (g/equal-models? g3 g2))))

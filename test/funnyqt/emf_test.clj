@@ -523,3 +523,24 @@
     ;; Now change something
     (eset! (first (eallcontents c 'Member)) :firstName "Foobar")
     (is (not (g/equal-models? family-model c)))))
+
+(deftest test-equal-models?
+  (let [m1 (doto (new-resource)
+             (ecreate! 'Member {:firstName "X"})
+             (ecreate! 'Member {:firstName "Y"})
+             (ecreate! 'Member {:firstName "Z"}))
+        m2 (doto (new-resource)
+             (ecreate! 'Member {:firstName "X"})
+             (ecreate! 'Member {:firstName "X"})
+             (ecreate! 'Member {:firstName "X"}))
+        m3 (doto (new-resource)
+             (ecreate! 'Member {:firstName "X"})
+             (ecreate! 'Member {:firstName "X"})
+             (ecreate! 'Member {:firstName "X"}))]
+    (clojure.pprint/pprint (g/equal-models? m1 m2))
+    (clojure.pprint/pprint (g/equal-models? m2 m1))
+    (clojure.pprint/pprint (g/equal-models? m3 m2))
+    (is (not (g/equal-models? m1 m2)))
+    (is (not (g/equal-models? m2 m1)))
+    (is (g/equal-models? m2 m3))
+    (is (g/equal-models? m3 m2))))
