@@ -1251,7 +1251,7 @@
                  (not (.isDerived sf))))
           (.getEStructuralFeatures ec)))
 
-(defn ^:private attrs= [^EObject o1 ^EObject o2]
+(defn ^:private type-and-attrs= [^EObject o1 ^EObject o2]
   (let [ec1 (.eClass o1)
         ec2 (.eClass o2)]
     (and (= ec1 ec2)
@@ -1299,7 +1299,7 @@
           ;;---
           (and (nil? dm-o1)
                (nil? (*dynamic-matching* o2)))
-          (when (attrs= o1 o2)
+          (when (type-and-attrs= o1 o2)
             (binding [*dynamic-matching*
                       (assoc *dynamic-matching*
                              o1 o2 o2 o1)]
