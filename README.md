@@ -281,7 +281,7 @@ the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
 
 # License
 
-Copyright (C) 2011-2014 Tassilo Horn <horn@uni-koblenz.de> & The JGraLab Team <ist@uni-koblenz.de>
+Copyright (C) 2011-2015 Tassilo Horn <horn@uni-koblenz.de> & The JGraLab Team <ist@uni-koblenz.de>
 
 Distributed under the
 [General Public License, Version 3](http://www.gnu.org/copyleft/gpl.html) with
