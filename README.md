@@ -1,3 +1,5 @@
+<link rel="icon" href="https://raw.githubusercontent.com/jgralab/funnyqt/master/logos/icon32.png">
+
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
