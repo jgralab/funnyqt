@@ -498,14 +498,17 @@
    (state-space-step-fn init-model comparefn rules state-preds state-space-preds nil))
   ([init-model comparefn rules state-preds state-space-preds additional-rule-args]
    (let [ssg (tg/new-graph statespace-schema)
+         state-valid? (fn [m] (every? #(% m) state-preds))
          create-state! (fn [kind]
                          (tg/create-vertex! ssg kind {:n (inc (tg/vcount ssg))}))
-         state2model (volatile! {(create-state! 'InitialState) init-model})
+         state2model (volatile! {(create-state! (if (state-valid? init-model)
+                                                  'ValidState
+                                                  'InvalidState))
+                                 init-model})
          find-equiv-state (fn [m]
                             (first (filter #(comparefn m (@state2model %))
                                            (tg/vseq ssg 'State))))
          rule-names (set (map rule-name rules))
-         state-valid? (fn [m] (every? #(% m) state-preds))
          state-space-valid? (fn [] (every? #(% ssg) state-space-preds))
          invalid-state-tm (g/type-matcher ssg 'InvalidState)
          has-invalid-state? (fn [] (tg/first-vertex ssg invalid-state-tm))]
@@ -671,9 +674,7 @@
                                 #(apply
                                   viz/print-model
                                   ssg :gtk
-                                  :node-attrs {(g/type-matcher ssg 'InitialState!)
-                                               "style=filled, fillcolor=yellow"
-                                               (g/type-matcher ssg 'ValidState!)
+                                  :node-attrs {(g/type-matcher ssg 'ValidState)
                                                "style=filled, fillcolor=green"
                                                (g/type-matcher ssg 'InvalidState)
                                                "style=filled, fillcolor=red"}

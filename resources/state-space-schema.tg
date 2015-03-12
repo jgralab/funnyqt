@@ -5,5 +5,4 @@ GraphClass StateSpaceGraph;
 abstract VertexClass State {n : Integer, done : Set<String> = "{}"};
 VertexClass ValidState : State;
 VertexClass InvalidState : State;
-VertexClass InitialState : ValidState;
 EdgeClass Transition from State (0,*) role src to State (0,*) role trg {rule : String};
