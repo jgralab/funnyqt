@@ -4,6 +4,7 @@
 Using the function `print-model`, TGraph and EMF models can be visualized,
 either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (:require clojure.java.shell
+            [clojure.string  :as str]
             [funnyqt.generic :as g]
             [funnyqt.emf     :as emf]
             [funnyqt.tg      :as tg]
@@ -43,6 +44,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   also be a predicate receiving a model element.  This is not to be used
   directly but set by `print-model` according to its :mark option."}
   *marked*)
+
+(def ^{:dynamic true
+       :doc "A map of the form {pred node-attrs}.  If (pred el) returns true,
+  node-attrs is appended to its node definition.  Useful for colorizing etc."}
+  *node-attrs*)
 
 (def ^{:dynamic true
        :doc "A boolean determining if class names should be printed fully
@@ -90,6 +96,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           ;; ditto for :mark
           mark (:mark m)
           m (dissoc m :mark)
+          ;; ditto for :node-attrs
+          node-attrs (:node-attrs m)
+          m (dissoc m :node-attrs)
           ;; ditto for :qualified-names
           qnames (:qualified-names m)
           m (dissoc m :qualified-names)
@@ -98,7 +107,16 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (with-meta m
         {:name gname, :include include, :exclude exclude,
          :excluded-attributes excluded-attibutes, :mark mark,
-         :qualified-names qnames}))))
+         :node-attrs node-attrs, :qualified-names qnames}))))
+
+(defn ^:private add-node-attrs [el]
+  (let [attrs (str/join ", "
+                        (remove not (map (fn [[pred attrs]]
+                                           (when (pred el) attrs))
+                                         *node-attrs*)))]
+    (if (seq attrs)
+      (str ", " attrs)
+      attrs)))
 
 ;;** EMF stuff
 
@@ -134,6 +152,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
            "}\", shape=record, fontname=Sans, fontsize=14, "
            "color=" (if (*marked* eo)
                       "red" "black")
+           (add-node-attrs eo)
            "];\n"))))
 
 (defn ^:private emf-dot-contentrefs [^EObject eo]
@@ -221,6 +240,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          (tg-dot-attributes v)
          "}\", shape=record, fontname=Sans, fontsize=14, "
          "color=" (if (*marked* v) "red" "black")
+         (add-node-attrs v)
          "];\n")))
 
 (defn tg-role-name [^de.uni_koblenz.jgralab.schema.IncidenceClass ic]
@@ -318,6 +338,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                              :else (u/errorf ":mark must be a function or collection but was a %s: %s."
                                              (class mark) mark))
                            (constantly false))
+              *node-attrs* (or (:node-attrs (meta opts)) {})
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
@@ -367,9 +388,21 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   for instances of classes with that given name.  'SomeClass must be a
   qualified name.
 
-  Furthermore, a :mark option is supported.  It is a seq of elements that
-  should be highlighted.  It may also be a predicate that gets an element and
-  returns true/false.
+  A :mark option is supported, too.  It is a seq of elements that should be
+  highlighted (printed in red color instead of black).  It may also be a
+  predicate that gets an element and returns true/false.
+
+  A :node-attrs option may be specified.  It is a map of the form {pred
+  node-attrs} where pred is a predicate applied to each element in the model.
+  If (pred el) returns true, this element gets the string node-attrs appended
+  to its definition.  You can use that for example to colorize the output,
+  e.g., :node-attrs {#(g/has-type? % 'Person) \"fillcolor=\\\"green\\\"\"} will
+  print all Person elements with a green background.  All predicates are
+  tested, and all node-attrs of all succeeding preds are appended.  Note that
+  using :mark and :node-attrs where the latter sets the dot color attribute may
+  interfer in case a marked node is also matched my the
+  corresponding :node-attrs predicate.  In this case, the latter takes
+  precedence.
 
   If the option :qualified-names is set to true, the element types will be
   printed as fully qualified names.  The default is false, where only simple

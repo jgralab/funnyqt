@@ -490,9 +490,9 @@
   in orded to obtain its current value."
   [init-model comparefn rules & additional-args]
   (let [ssg (tg/new-graph statespace-schema)
-        create-state! (fn []
-                        (tg/create-vertex! ssg 'State {:n (inc (tg/vcount ssg))}))
-        state2model (volatile! {(create-state!) init-model})
+        create-state! (fn [kind]
+                        (tg/create-vertex! ssg kind {:n (inc (tg/vcount ssg))}))
+        state2model (volatile! {(create-state! 'InitialState) init-model})
         find-equiv-state (fn [m]
                            (first (filter #(comparefn m (@state2model %))
                                           (tg/vseq ssg 'State))))
@@ -515,7 +515,7 @@
                               :let [m (g/copy-model (@state2model st))]]
                         (when (apply r m additional-args)
                           (let [nst (or (find-equiv-state m)
-                                        (create-state!))]
+                                        (create-state! 'ValidState))]
                             (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
                             (when-not (contains? @state2model nst)
                               (vswap! state2model assoc nst m)))))
@@ -644,6 +644,12 @@
                                 #(apply
                                   viz/print-model
                                   ssg :gtk
+                                  :node-attrs {(g/type-matcher ssg 'InitialState!)
+                                               "style=filled, fillcolor=yellow"
+                                               (g/type-matcher ssg 'ValidState!)
+                                               "style=filled, fillcolor=green"
+                                               (g/type-matcher ssg 'InvalidState)
+                                               "style=filled, fillcolor=red"}
                                   (when-not (.isSelected show-done-attr-checkbox)
                                     (list :excluded-attributes {'State #{:done}}))))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
