@@ -10,7 +10,7 @@
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                 JPanel JLabel JScrollPane JComboBox Action JCheckBox
-                BorderFactory)
+                BorderFactory ImageIcon JComponent)
    (java.awt.event ActionEvent ItemEvent ItemListener)
    (java.awt Color GridLayout GridBagLayout GridBagConstraints)))
 
@@ -588,6 +588,8 @@
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
         s2m (:state2model-map (meta sss-fn))
+        CHECK16 (ImageIcon. (ClassLoader/getSystemResource "check16.png"))
+        CROSS16 (ImageIcon. (ClassLoader/getSystemResource "cross16.png"))
         state (fn [n]
                 (first (filter #(= n (tg/value % :n))
                                (tg/vseq ssg 'State))))
@@ -598,26 +600,47 @@
                    (actionPerformed [ev]
                      (f))))
         d (javax.swing.JDialog.)
-        content-pane (.getContentPane d)
+        valid-state-tm (g/type-matcher ssg 'ValidState)
+        valid-state? (fn [i] (valid-state-tm (tg/vertex ssg i)))
+        cb-renderer (proxy [javax.swing.plaf.basic.BasicComboBoxRenderer] []
+                      (getListCellRendererComponent [list value index isSelected cellHasFocus]
+                        (let [^javax.swing.plaf.basic.BasicComboBoxRenderer$UIResource this this
+                              ^JLabel default (proxy-super getListCellRendererComponent
+                                                           list value index isSelected
+                                                           cellHasFocus)]
+                          (.setHorizontalAlignment default JLabel/CENTER)
+                          (.setIcon default (cond
+                                              (nil? value) nil
+                                              (valid-state? value) CHECK16
+                                              :else                CROSS16))
+                          default)))
+        content-pane (let [^JComponent cp(.getContentPane d)]
+                       (doto cp (.setBorder (BorderFactory/createEmptyBorder 5 5 5 5))))
         rule-select-panel (JPanel.)
         states-panel (JPanel.)
-        all-states-cb (JComboBox.)
+        all-states-cb (doto (JComboBox.)
+                        (.setRenderer cb-renderer))
         reset-all-states-cb! (fn []
                                (.removeAllItems all-states-cb)
                                (doseq [n (map #(tg/value % :n)
                                               (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
-        undone-states-cb (JComboBox.)
+        undone-states-cb (doto (JComboBox.)
+                           (.setRenderer cb-renderer))
         button-panel (JPanel.)
-        selected-rules (promise)
+        selected-rules-promise (promise)
+        apply-rules-button-promise (promise)
         reset-undone-states-cb! (fn reset-undone-states-cb! []
                                   (.removeAllItems undone-states-cb)
-                                  (doseq [n (map #(tg/value % :n)
-                                                 (remove #(.containsAll
-                                                           ^java.util.Set (tg/value % :done)
-                                                           (map rule-name (@selected-rules)))
-                                                         (tg/vseq ssg 'State)))]
-                                    (.addItem undone-states-cb n)))
+                                  (let [undone (map #(tg/value % :n)
+                                                    (remove #(.containsAll
+                                                              ^java.util.Set (tg/value % :done)
+                                                              (map rule-name (@selected-rules-promise)))
+                                                            (tg/vseq ssg 'State)))]
+                                    (doseq [n undone]
+                                      (.addItem undone-states-cb n))
+                                    (.setEnabled ^JButton @apply-rules-button-promise
+                                                 (pos? (count undone)))))
         rule-check-boxes (for [r rules]
                            (let [cb (JCheckBox. (let [^Action a (action (rule-name r)
                                                                         reset-undone-states-cb!)]
@@ -633,23 +656,31 @@
         no-of-states-label (JLabel.)
         no-of-valid-states-label (JLabel.)
         no-of-invalid-states-label (JLabel.)
-        state-space-valid-label (JLabel.)
+        state-space-valid-label (doto (JLabel.)
+                                  (.setIcon CHECK16))
         reset-state-space-valid-label! (fn [ssg-valid?]
-                                         (.setText state-space-valid-label
-                                                   (if ssg-valid? "yes" "no"))
-                                         (.setForeground state-space-valid-label
-                                                         (if ssg-valid?
-                                                           Color/GREEN
-                                                           Color/RED)))
+                                         (.setIcon state-space-valid-label
+                                                   (if ssg-valid? CHECK16 CROSS16)))
         reset-state-counts-labels! (fn []
                                      (let [[as vs is] (state-counts)]
                                        (.setText no-of-states-label (str as))
                                        (.setText no-of-valid-states-label (str vs))
                                        (.setText no-of-invalid-states-label (str is))))]
-    (deliver selected-rules (fn selected-rules []
-                              (for [^JCheckBox cb rule-check-boxes
-                                    :when (.isSelected cb)]
-                                (.getValue (.getAction cb) "rule"))))
+    (deliver selected-rules-promise (fn []
+                                      (for [^JCheckBox cb rule-check-boxes
+                                            :when (.isSelected cb)]
+                                        (.getValue (.getAction cb) "rule"))))
+    (deliver apply-rules-button-promise (JButton. ^Action (action "Apply"
+                                                                  (fn []
+                                                                    (let [n (.getSelectedItem undone-states-cb)
+                                                                          ret (sss-fn (constantly (state n))
+                                                                                      (@selected-rules-promise))]
+                                                                      (when ret
+                                                                        (let [[states-valid? ssg-valid?] ret]
+                                                                          (reset-state-space-valid-label! ssg-valid?)))
+                                                                      (reset-undone-states-cb!)
+                                                                      (reset-all-states-cb!)
+                                                                      (reset-state-counts-labels!))))))
     (.setTitle d "State Space Explorer")
     (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
     (doto (javax.swing.ToolTipManager/sharedInstance)
@@ -672,17 +703,7 @@
                                               :gtk))))
       (.add upper (JLabel. "Undone States:"))
       (.add upper undone-states-cb)
-      (.add upper (JButton. ^Action (action "Apply"
-                                          (fn []
-                                            (let [n (.getSelectedItem undone-states-cb)
-                                                  ret (sss-fn (constantly (state n))
-                                                              (@selected-rules))]
-                                              (when ret
-                                                (let [[states-valid? ssg-valid?] ret]
-                                                  (reset-state-space-valid-label! ssg-valid?)))
-                                              (reset-undone-states-cb!)
-                                              (reset-all-states-cb!)
-                                              (reset-state-counts-labels!))))))
+      (.add upper ^JButton @apply-rules-button-promise)
       (.add states-panel upper))
 
     (let [lower (JPanel.)]
