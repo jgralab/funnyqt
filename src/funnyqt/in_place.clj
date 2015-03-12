@@ -12,7 +12,7 @@
                 JPanel JLabel JScrollPane JComboBox Action JCheckBox
                 BorderFactory)
    (java.awt.event ActionEvent ItemEvent ItemListener)
-   (java.awt GridLayout GridBagLayout GridBagConstraints)))
+   (java.awt Color GridLayout GridBagLayout GridBagConstraints)))
 
 
 ;;# Rules
@@ -511,7 +511,7 @@
          rule-names (set (map rule-name rules))
          state-space-valid? (fn [] (every? #(% ssg) state-space-preds))
          invalid-state-tm (g/type-matcher ssg 'InvalidState)
-         has-invalid-state? (fn [] (tg/first-vertex ssg invalid-state-tm))]
+         all-states-valid? (fn [] (nil? (tg/first-vertex ssg invalid-state-tm)))]
      (with-meta (fn do-step
                   ([]
                    (do-step first rules))
@@ -539,8 +539,8 @@
                        (tg/set-value! st :done (.plusAll
                                                 ^org.pcollections.PSet (tg/value st :done)
                                                 ^java.util.Collection (map rule-name rs)))
-                       [(if (has-invalid-state?) :invalid-state true)
-                        (if (state-space-valid?) true :invalid-state-space)])
+                       [(all-states-valid?)
+                        (state-space-valid?)])
                      false)))
        {:state-space-graph ssg
         :state2model-map state2model}))))
@@ -624,7 +624,28 @@
                                                   (.putValue a "rule" r)
                                                   a))]
                              (doto cb (.setSelected true))))
-        show-done-attr-checkbox (JCheckBox. "Show :done")]
+        show-done-attr-checkbox (JCheckBox. "Show :done")
+        state-counts (fn []
+                       (let [sc (tg/vcount ssg)
+                             isc (tg/vcount ssg 'InvalidState)]
+                         ;; total, valid, invalid
+                         [sc (- sc isc) isc]))
+        no-of-states-label (JLabel.)
+        no-of-valid-states-label (JLabel.)
+        no-of-invalid-states-label (JLabel.)
+        state-space-valid-label (JLabel.)
+        reset-state-space-valid-label! (fn [ssg-valid?]
+                                         (.setText state-space-valid-label
+                                                   (if ssg-valid? "yes" "no"))
+                                         (.setForeground state-space-valid-label
+                                                         (if ssg-valid?
+                                                           Color/GREEN
+                                                           Color/RED)))
+        reset-state-counts-labels! (fn []
+                                     (let [[as vs is] (state-counts)]
+                                       (.setText no-of-states-label (str as))
+                                       (.setText no-of-valid-states-label (str vs))
+                                       (.setText no-of-invalid-states-label (str is))))]
     (deliver selected-rules (fn selected-rules []
                               (for [^JCheckBox cb rule-check-boxes
                                     :when (.isSelected cb)]
@@ -635,27 +656,47 @@
       (.setEnabled true))
     (reset-all-states-cb!)
     (reset-undone-states-cb!)
-    (.setLayout content-pane (GridLayout. 3 1))
+    (reset-state-counts-labels!)
+    (.setLayout content-pane (BoxLayout. content-pane BoxLayout/Y_AXIS))
 
-    (.setLayout states-panel (GridLayout. 2 3))
+    (.setLayout states-panel (BoxLayout. states-panel BoxLayout/Y_AXIS))
     (.setBorder states-panel (BorderFactory/createTitledBorder "State Selection"))
-    (.add states-panel (JLabel. "All States:"))
-    (.add states-panel all-states-cb)
-    (.add states-panel (JButton. ^Action (action "View Model"
-                                                 #(viz/print-model
-                                                   (state-model
-                                                    (.getSelectedItem all-states-cb))
-                                                   :gtk))))
+    (let [upper (JPanel.)]
+      (.setLayout upper (GridLayout. 2 3))
+      (.add upper (JLabel. "All States:"))
+      (.add upper all-states-cb)
+      (.add upper (JButton. ^Action (action "View Model"
+                                            #(viz/print-model
+                                              (state-model
+                                               (.getSelectedItem all-states-cb))
+                                              :gtk))))
+      (.add upper (JLabel. "Undone States:"))
+      (.add upper undone-states-cb)
+      (.add upper (JButton. ^Action (action "Apply"
+                                          (fn []
+                                            (let [n (.getSelectedItem undone-states-cb)
+                                                  ret (sss-fn (constantly (state n))
+                                                              (@selected-rules))]
+                                              (when ret
+                                                (let [[states-valid? ssg-valid?] ret]
+                                                  (reset-state-space-valid-label! ssg-valid?)))
+                                              (reset-undone-states-cb!)
+                                              (reset-all-states-cb!)
+                                              (reset-state-counts-labels!))))))
+      (.add states-panel upper))
 
-    (.add states-panel (JLabel. "Undone States:"))
-    (.add states-panel undone-states-cb)
-    (.add states-panel (JButton. ^Action (action "Apply"
-                                                 (fn []
-                                                   (let [n (.getSelectedItem undone-states-cb)]
-                                                     (sss-fn (constantly (state n))
-                                                             (@selected-rules))
-                                                     (reset-undone-states-cb!)
-                                                     (reset-all-states-cb!))))))
+    (let [lower (JPanel.)]
+      (.setLayout lower (BoxLayout. lower BoxLayout/X_AXIS))
+      (.add lower (doto (JPanel.)
+                    (.setBorder (BorderFactory/createTitledBorder "# All States"))
+                    (.add no-of-states-label)))
+      (.add lower (doto (JPanel.)
+                    (.setBorder (BorderFactory/createTitledBorder "# Valid States"))
+                    (.add no-of-valid-states-label)))
+      (.add lower (doto (JPanel.)
+                    (.setBorder (BorderFactory/createTitledBorder "StateSpace valid?"))
+                    (.add state-space-valid-label)))
+      (.add states-panel lower))
 
     (.setLayout rule-select-panel (GridLayout. (let [rc (count rules)]
                                                  (if (odd? rc)

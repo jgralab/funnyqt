@@ -75,4 +75,5 @@
      g
      #(g/equal-models? %1 %2 false)
      [tick-forward tick-backward reset-clock erase-clock-hand]
-     [#(seq (current-hour-exists? %))])))
+     [#(seq (current-hour-exists? %))]
+     [#(<= (tg/vcount %) 12)])))
