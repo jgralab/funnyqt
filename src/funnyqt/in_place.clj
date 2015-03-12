@@ -697,10 +697,11 @@
       (.add upper (JLabel. "All States:"))
       (.add upper all-states-cb)
       (.add upper (JButton. ^Action (action "View Model"
-                                            #(viz/print-model
-                                              (state-model
-                                               (.getSelectedItem all-states-cb))
-                                              :gtk))))
+                                            #(future
+                                               (viz/print-model
+                                                (state-model
+                                                 (.getSelectedItem all-states-cb))
+                                                :gtk)))))
       (.add upper (JLabel. "Undone States:"))
       (.add upper undone-states-cb)
       (.add upper ^JButton @apply-rules-button-promise)
@@ -733,16 +734,17 @@
     (.add button-panel (JButton.
                         ^Action
                         (action "View State Space Graph"
-                                #(apply
-                                  viz/print-model
-                                  ssg :gtk
-                                  :node-attrs {(g/type-matcher ssg 'ValidState)
-                                               "style=filled, fillcolor=green"
-                                               (g/type-matcher ssg 'InvalidState)
-                                               "style=filled, fillcolor=red"}
-                                  (when-not (.isSelected show-done-attr-checkbox)
-                                    (list :excluded-attributes
-                                          {(g/type-matcher ssg 'State) [:done]}))))))
+                                #(future
+                                   (apply
+                                    viz/print-model
+                                    ssg :gtk
+                                    :node-attrs {(g/type-matcher ssg 'ValidState)
+                                                 "style=filled, fillcolor=green"
+                                                 (g/type-matcher ssg 'InvalidState)
+                                                 "style=filled, fillcolor=red"}
+                                    (when-not (.isSelected show-done-attr-checkbox)
+                                      (list :excluded-attributes
+                                            {(g/type-matcher ssg 'State) [:done]})))))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)
