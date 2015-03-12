@@ -435,12 +435,12 @@
 
 (defn apply-interactively
   "Interactively applies the rules being the values of `rule-vars` to `model`
-  and the given `additional-args`."
-  [model rule-vars & additional-args]
+  and the given `additional-rule-args`."
+  [model rule-vars & additional-rule-args]
   (loop [pos nil, posp (promise)]
     (let [rule-thunk-tups (mapcat
                            (fn [rv]
-                             (when-let [thunk (as-test (apply @rv additional-args))]
+                             (when-let [thunk (as-test (apply @rv additional-rule-args))]
                                [[rv thunk]]))
                            rule-vars)
           t (promise)]
@@ -476,6 +476,8 @@
   `rules` defaults to the argument of the same name given to
   state-space-step-fn, and `select-state-fn` defaults to `clojure.core/first`.
 
+  Each rule is applied to the current model and `additional-rule-args`.
+
   Applying the step-function returns true if some rule could be applied, else,
   i.e., if the `select-state-fn` couldn't selected some state, returns false.
 
@@ -488,48 +490,61 @@
   states to corresponding models.  The latter is a volatile so needs to be
   dereferenced (e.g., @volatile-state2model-map or using `clojure.core/deref`)
   in orded to obtain its current value."
-  [init-model comparefn rules & additional-args]
-  (let [ssg (tg/new-graph statespace-schema)
-        create-state! (fn [kind]
-                        (tg/create-vertex! ssg kind {:n (inc (tg/vcount ssg))}))
-        state2model (volatile! {(create-state! 'InitialState) init-model})
-        find-equiv-state (fn [m]
-                           (first (filter #(comparefn m (@state2model %))
-                                          (tg/vseq ssg 'State))))
-        rule-names (set (map rule-name rules))]
-    (with-meta (fn do-step
-                 ([]
-                  (do-step first rules))
-                 ([select-state-fn]
-                  (do-step select-state-fn rules))
-                 ([select-state-fn rs]
-                  (if-let [st (select-state-fn
-                               (remove #(.containsAll
-                                         ^java.util.Set (tg/value % :done)
-                                         (if (identical? rs rules)
-                                           rule-names
-                                           (map rule-name rs)))
-                                       (tg/vseq ssg 'State)))]
-                    (do
-                      (doseq [r rs
-                              :let [m (g/copy-model (@state2model st))]]
-                        (when (apply r m additional-args)
-                          (let [nst (or (find-equiv-state m)
-                                        (create-state! 'ValidState))]
-                            (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
-                            (when-not (contains? @state2model nst)
-                              (vswap! state2model assoc nst m)))))
-                      (tg/set-value! st :done (.plusAll
-                                               ^org.pcollections.PSet (tg/value st :done)
-                                               ^java.util.Collection (map rule-name rs)))
-                      true)
-                    false)))
-      {:state-space-graph ssg
-       :state2model-map state2model})))
+  ([init-model comparefn rules]
+   (state-space-step-fn init-model comparefn rules nil nil nil))
+  ([init-model comparefn rules state-preds]
+   (state-space-step-fn init-model comparefn rules state-preds nil nil))
+  ([init-model comparefn rules state-preds state-space-preds]
+   (state-space-step-fn init-model comparefn rules state-preds state-space-preds nil))
+  ([init-model comparefn rules state-preds state-space-preds additional-rule-args]
+   (let [ssg (tg/new-graph statespace-schema)
+         create-state! (fn [kind]
+                         (tg/create-vertex! ssg kind {:n (inc (tg/vcount ssg))}))
+         state2model (volatile! {(create-state! 'InitialState) init-model})
+         find-equiv-state (fn [m]
+                            (first (filter #(comparefn m (@state2model %))
+                                           (tg/vseq ssg 'State))))
+         rule-names (set (map rule-name rules))
+         state-valid? (fn [m] (every? #(% m) state-preds))
+         state-space-valid? (fn [] (every? #(% ssg) state-space-preds))
+         invalid-state-tm (g/type-matcher ssg 'InvalidState)
+         has-invalid-state? (fn [] (tg/first-vertex ssg invalid-state-tm))]
+     (with-meta (fn do-step
+                  ([]
+                   (do-step first rules))
+                  ([select-state-fn]
+                   (do-step select-state-fn rules))
+                  ([select-state-fn rs]
+                   (if-let [st (select-state-fn
+                                (remove #(.containsAll
+                                          ^java.util.Set (tg/value % :done)
+                                          (if (identical? rs rules)
+                                            rule-names
+                                            (map rule-name rs)))
+                                        (tg/vseq ssg 'State)))]
+                     (do
+                       (doseq [r rs
+                               :let [m (g/copy-model (@state2model st))]]
+                         (when (apply r m additional-rule-args)
+                           (let [nst (or (find-equiv-state m)
+                                         (create-state! (if (state-valid? m)
+                                                          'ValidState
+                                                          'InvalidState)))]
+                             (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
+                             (when-not (contains? @state2model nst)
+                               (vswap! state2model assoc nst m)))))
+                       (tg/set-value! st :done (.plusAll
+                                                ^org.pcollections.PSet (tg/value st :done)
+                                                ^java.util.Collection (map rule-name rs)))
+                       [(if (has-invalid-state?) :invalid-state true)
+                        (if (state-space-valid?) true :invalid-state-space)])
+                     false)))
+       {:state-space-graph ssg
+        :state2model-map state2model}))))
 
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it (and
-  optionally `additional-args`) possibly resulting in new states.  Old states
+  optionally `additional-rule-args`) possibly resulting in new states.  Old states
   are reused if a rule changes a model in such a way that it's equivalent to an
   older state's model.  This is achieved by testing if (comparefn old-model
   new-model) returns true for any old-model.  A predefined `comparefn` is
@@ -550,10 +565,22 @@
 
   The state2model-map is a map from State vertices to the model which this
   State represents."
-  [model comparefn rules & additional-args]
-  (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
-    (while (sss-fn)) ;; Apply as long as it returns true
-    [(:state-space-graph (meta sss-fn)) @(:state2model-map (meta sss-fn))]))
+  ([model comparefn rules]
+   (create-state-space model comparefn rules nil nil nil))
+  ([model comparefn rules state-preds]
+   (create-state-space model comparefn rules state-preds nil nil))
+  ([model comparefn rules state-preds state-space-preds]
+   (create-state-space model comparefn rules state-preds state-space-preds nil))
+  ([model comparefn rules state-preds state-space-preds additional-rule-args]
+   (let [sss-fn (state-space-step-fn model comparefn rules state-preds
+                                     state-space-preds additional-rule-args)]
+     (loop [ret (sss-fn)]
+       ;; Apply as long as sss-fn returns [true true], i.e., stop if no new
+       ;; states can be created, or an invalid state has been created, or the
+       ;; state space has become invalid.
+       (when (and ret (every? true? ret))
+         (recur (sss-fn))))
+     [(:state-space-graph (meta sss-fn)) @(:state2model-map (meta sss-fn))])))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
@@ -651,7 +678,8 @@
                                                (g/type-matcher ssg 'InvalidState)
                                                "style=filled, fillcolor=red"}
                                   (when-not (.isSelected show-done-attr-checkbox)
-                                    (list :excluded-attributes {'State #{:done}}))))))
+                                    (list :excluded-attributes
+                                          {(g/type-matcher ssg 'State) [:done]}))))))
     (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)
@@ -666,7 +694,14 @@
   "Fires up a GUI that allows for creating and inspecting the state space by
   starting with initial model `model`, the given `comparefn` (see, e.g.,
   `funnyqt.generic/equal-models?`), and the given `rules` plus
-  `additional-args` applied to each rule in addition to the current model."
-  [model comparefn rules & additional-args]
-  (let [sss-fn (apply state-space-step-fn model comparefn rules additional-args)]
-    (explore-state-space-dialog sss-fn rules)))
+  `additional-rule-args` applied to each rule in addition to the current model."
+  ([model comparefn rules]
+   (explore-state-space model comparefn rules nil nil nil))
+  ([model comparefn rules state-preds]
+   (explore-state-space model comparefn rules state-preds nil nil))
+  ([model comparefn rules state-preds state-space-preds]
+   (explore-state-space model comparefn rules state-preds state-space-preds nil))
+  ([model comparefn rules state-preds state-space-preds additional-rule-args]
+   (let [sss-fn (state-space-step-fn model comparefn rules state-preds
+                                     state-space-preds additional-rule-args)]
+     (explore-state-space-dialog sss-fn rules))))

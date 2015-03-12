@@ -3,7 +3,8 @@
   (:require [funnyqt.generic :as g]
             [funnyqt.query   :as q]
             [funnyqt.emf     :as emf]
-            [funnyqt.tg      :as tg])
+            [funnyqt.tg      :as tg]
+            [funnyqt.pmatch  :as pmatch])
   (:use funnyqt.in-place)
   (:use clojure.test))
 
@@ -61,9 +62,17 @@
     ;; except for the first, we can reset to 12 o'clock.
     (is (= 35 (tg/ecount ssg)))))
 
+(defrule erase-clock-hand [g]
+  [c<Clock> -<:current>-> <>]
+  (emf/eset! c :current nil))
+
+(pmatch/defpattern current-hour-exists? [g]
+  [c<Clock> -<:current>-> <>])
+
 (defn test-explore-state-space []
   (let [g (clock-model)]
     (explore-state-space
      g
      #(g/equal-models? %1 %2 false)
-     [tick-forward tick-backward reset-clock])))
+     [tick-forward tick-backward reset-clock erase-clock-hand]
+     [#(seq (current-hour-exists? %))])))

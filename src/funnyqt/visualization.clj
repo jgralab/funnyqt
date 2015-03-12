@@ -35,8 +35,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   *excluded*)
 
 (def ^{:dynamic true
-       :doc "A map from class names to set of that classes' attributes which
-  should not be printed."}
+       :doc "A map from predicates to set of attributes which should not be
+  printed for elements that match the predicate."}
   *excluded-attributes*)
 
 (def ^{:dynamic true
@@ -118,6 +118,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (str ", " attrs)
       attrs)))
 
+(defn ^:private excluded-attributes [el]
+  (set (mapcat (fn [[pred attrs]]
+                 (when (pred el) attrs))
+               *excluded-attributes*)))
+
 ;;** EMF stuff
 
 (def ^{:private true, :dynamic true
@@ -131,10 +136,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn ^:private emf-dot-attributes [^EObject eo]
   (reduce str
           (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
-                :let [n (.getName attr)]
-                :when (let [ex-attrs (*excluded-attributes* (g/qname eo))]
-                        (not (and ex-attrs
-                                  (contains? ex-attrs (keyword n)))))]
+                :let [n (.getName attr)
+                      ex-attrs (excluded-attributes eo)]
+                :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
             (str n " = " (dot-escape (try (emf/eget eo (keyword n))
                                           (catch Exception _
                                             (emf/eget eo (keyword n)))))
@@ -223,10 +227,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 (defn ^:private tg-dot-attributes [^AttributedElement elem]
   (reduce str
           (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
-                :let [n (.getName attr)]
-                :when (let [ex-attrs (*excluded-attributes* (g/qname elem))]
-                        (not (and ex-attrs
-                                  (contains? ex-attrs (keyword n)))))]
+                :let [n (.getName attr)
+                      ex-attrs (excluded-attributes elem)]
+                :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
             (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
 
 (defn ^:private tg-dot-vertex [^Vertex v]
@@ -383,10 +386,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   and omega vertex are printed.  To forbid printing of certain edges where
   alpha/omega are printed, it is possible to add them to :exclude, though.
 
-  The option :excluded-attributes is a map of the form {'SomeClass
-  #{:attr1 :attr2}} determining that these two attributes should not be printed
-  for instances of classes with that given name.  'SomeClass must be a
-  qualified name.
+  The option :excluded-attributes is a map of the form {pred [:attr1 :attr2]}
+  determining that these two attributes should not be printed for elements for
+  which pred holds.
 
   A :mark option is supported, too.  It is a seq of elements that should be
   highlighted (printed in red color instead of black).  It may also be a
