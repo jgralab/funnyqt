@@ -361,6 +361,14 @@
         i (.lastIndexOf s (int\$))]
     (clojure.string/replace (subs s (inc i)) \_ \-)))
 
+(defn ^:private action ^Action [name f]
+  (proxy [AbstractAction] [name]
+    (actionPerformed [ev]
+      (try
+        (f)
+        (catch Exception e
+          (.printStackTrace e))))))
+
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
         content-pane (.getContentPane d)
@@ -369,11 +377,7 @@
         bp (JPanel.)
         gridbag (GridBagLayout.)
         gridbagconsts (GridBagConstraints.)]
-    (letfn [(action ^Action [name f]
-              (proxy [AbstractAction] [name]
-                (actionPerformed [ev]
-                  (f))))
-            (deliver-action ^Action [name val]
+    (letfn [(deliver-action ^Action [name val]
               (proxy [AbstractAction] [name]
                 (actionPerformed [ev]
                   (deliver thunkp val)
@@ -407,7 +411,7 @@
                                         :include (let [nodes (filter g/element? els)]
                                                    (concat nodes
                                                            (mapcat g/neighbors nodes)))))))
-                    viewb (JButton. ^Action (action "Show Match" show-match-fn))
+                    viewb (JButton. (action "Show Match" show-match-fn))
                     applyb (JButton. ^Action (deliver-action "Apply Rule" thunk))
                     tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
                     tooltip! (fn []
@@ -430,7 +434,7 @@
         (.add rp applyb)
         (.setConstraints gridbag applyb gridbagconsts))
       ;; The button rp bp
-      (.add bp (JButton. ^Action (action "View model" #(viz/print-model model :gtk))))
+      (.add bp (JButton. (action "View model" #(viz/print-model model :gtk))))
       (.add bp (JButton. ^Action (deliver-action "Cancel" nil)))
       (.pack d)
       (if pos
@@ -587,9 +591,10 @@
        ;; Apply as long as sss-fn returns [() #{}], i.e., stop if no new states
        ;; can be created, or an invalid state has been created, or the state
        ;; space has become invalid.
-       (when (and ret (every? empty? ret))
-         (recur (sss-fn))))
-     [(:state-space-graph (meta sss-fn)) @(:state2model-map (meta sss-fn))])))
+       (if (and ret (every? empty? ret))
+         (recur (sss-fn))
+         [(:state-space-graph (meta sss-fn))
+          @(:state2model-map (meta sss-fn))])))))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
@@ -601,10 +606,6 @@
                                (tg/vseq ssg 'State))))
         state-model (fn [n]
                       (@s2m (state n)))
-        action (fn ^Action [name f]
-                 (proxy [AbstractAction] [name]
-                   (actionPerformed [ev]
-                     (f))))
         d (javax.swing.JDialog.)
         valid-state-tm (g/type-matcher ssg 'ValidState)
         valid-state? (fn [i] (valid-state-tm (tg/vertex ssg i)))
@@ -615,13 +616,16 @@
                                                            list value index isSelected
                                                            cellHasFocus)]
                           (.setHorizontalAlignment default JLabel/CENTER)
-                          (.setIcon default (cond
-                                              (nil? value) nil
-                                              (valid-state? value) CHECK16
-                                              :else                CROSS16))
-                          (when-not (valid-state? value)
-                            (.setToolTipText default (str "Failed state predicates: "
-                                                          (tg/value (tg/vertex ssg value) :failed))))
+                          (cond
+                            (nil? value) (do (.setIcon default nil)
+                                             (.setToolTipText default "No undone states"))
+                            (valid-state? value) (do (.setIcon default CHECK16)
+                                                     (.setToolTipText default "Valid state"))
+                            :else (let [v (tg/vertex ssg value)]
+                                    (.setIcon default CROSS16)
+                                    (.setToolTipText default
+                                                     (str "Failed state predicates: "
+                                                          (tg/value v :failed)))))
                           default)))
         content-pane (let [^JComponent cp(.getContentPane d)]
                        (doto cp (.setBorder (BorderFactory/createEmptyBorder 5 5 5 5))))
@@ -651,8 +655,8 @@
                                     (.setEnabled ^JButton @apply-rules-button-promise
                                                  (pos? (count undone)))))
         rule-check-boxes (for [r rules]
-                           (let [cb (JCheckBox. (let [^Action a (action (fn-name r)
-                                                                        reset-undone-states-cb!)]
+                           (let [cb (JCheckBox. (let [a (action (fn-name r)
+                                                                reset-undone-states-cb!)]
                                                   (.putValue a "rule" r)
                                                   a))]
                              (doto cb (.setSelected true))))
@@ -674,7 +678,10 @@
                                              (.setToolTipText state-space-valid-label
                                                               (str "Failed SSG predicates: "
                                                                    failed-ssg-preds)))
-                                           (.setIcon state-space-valid-label CHECK16)))
+                                           (do
+                                             (.setIcon state-space-valid-label CHECK16)
+                                             (.setToolTipText state-space-valid-label
+                                                              "All state space predicates pass."))))
         reset-state-counts-labels! (fn []
                                      (let [[as vs is] (state-counts)]
                                        (.setText no-of-states-label (str as))
@@ -684,19 +691,18 @@
                                       (for [^JCheckBox cb rule-check-boxes
                                             :when (.isSelected cb)]
                                         (.getValue (.getAction cb) "rule"))))
-    (deliver apply-rules-button-promise (JButton.
-                                         ^Action
-                                         (action "Apply"
-                                                 (fn []
-                                                   (let [n (.getSelectedItem undone-states-cb)
-                                                         ret (sss-fn (constantly (state n))
-                                                                     (@selected-rules-promise))]
-                                                     (when ret
-                                                       (let [[_ failed-ssg-preds] ret]
-                                                         (reset-state-space-valid-label! failed-ssg-preds)))
-                                                     (reset-undone-states-cb!)
-                                                     (reset-all-states-cb!)
-                                                     (reset-state-counts-labels!))))))
+    (deliver apply-rules-button-promise
+             (JButton. (action "Apply"
+                               (fn []
+                                 (let [n (.getSelectedItem undone-states-cb)
+                                       ret (sss-fn (constantly (state n))
+                                                   (@selected-rules-promise))]
+                                   (when ret
+                                     (let [[_ failed-ssg-preds] ret]
+                                       (reset-state-space-valid-label! failed-ssg-preds)))
+                                   (reset-undone-states-cb!)
+                                   (reset-all-states-cb!)
+                                   (reset-state-counts-labels!))))))
     (.setTitle d "State Space Explorer")
     (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
     (doto (javax.swing.ToolTipManager/sharedInstance)
@@ -712,12 +718,12 @@
       (.setLayout upper (GridLayout. 2 3))
       (.add upper (JLabel. "All States:"))
       (.add upper all-states-cb)
-      (.add upper (JButton. ^Action (action "View Model"
-                                            #(future
-                                               (viz/print-model
-                                                (state-model
-                                                 (.getSelectedItem all-states-cb))
-                                                :gtk)))))
+      (.add upper (JButton. (action "View Model"
+                                    #(future
+                                       (viz/print-model
+                                        (state-model
+                                         (.getSelectedItem all-states-cb))
+                                        :gtk)))))
       (.add upper (JLabel. "Undone States:"))
       (.add upper undone-states-cb)
       (.add upper ^JButton @apply-rules-button-promise)
@@ -748,7 +754,6 @@
     (.setLayout button-panel (GridLayout. 1 3))
     (.add button-panel show-done-attr-checkbox)
     (.add button-panel (JButton.
-                        ^Action
                         (action "View State Space Graph"
                                 #(future
                                    (apply
@@ -761,7 +766,7 @@
                                     (when-not (.isSelected show-done-attr-checkbox)
                                       (list :excluded-attributes
                                             {(g/type-matcher ssg 'State) [:done]})))))))
-    (.add button-panel (JButton. ^Action (action "Done" #(.dispose d))))
+    (.add button-panel (JButton. (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)
     (.add content-pane rule-select-panel)
