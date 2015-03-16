@@ -356,6 +356,11 @@
             v (apply r args)]
         (or v (recur (disj rs r)))))))
 
+(defn ^:private fn-name [r]
+  (let [^String s (pr-str (class r))
+        i (.lastIndexOf s (int\$))]
+    (clojure.string/replace (subs s (inc i)) \_ \-)))
+
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
         content-pane (.getContentPane d)
@@ -389,8 +394,8 @@
       (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
       (doto (javax.swing.ToolTipManager/sharedInstance)
         (.setEnabled true))
-      (doseq [[rvar thunk] rule-var-thunk-tups
-              :let [label (JLabel. (str (:name (meta rvar)) ":"))
+      (doseq [[rule thunk] rule-var-thunk-tups
+              :let [label (JLabel. (str (fn-name rule) ":"))
                     cb (JComboBox. (to-array (:all-matches (meta thunk))))
                     show-match-fn (fn smf
                                     ([] (smf :gtk))
@@ -434,15 +439,15 @@
       (.setVisible d true))))
 
 (defn apply-interactively
-  "Interactively applies the rules being the values of `rule-vars` to `model`
-  and the given `additional-rule-args`."
-  [model rule-vars & additional-rule-args]
+  "Interactively applies the given `rules` to `model` and the given
+  `additional-rule-args`."
+  [model rules & additional-rule-args]
   (loop [pos nil, posp (promise)]
     (let [rule-thunk-tups (mapcat
-                           (fn [rv]
-                             (when-let [thunk (as-test (apply @rv additional-rule-args))]
-                               [[rv thunk]]))
-                           rule-vars)
+                           (fn [r]
+                             (when-let [thunk (as-test (apply r model additional-rule-args))]
+                               [[r thunk]]))
+                           rules)
           t (promise)]
       (if (seq rule-thunk-tups)
         (do
@@ -454,11 +459,6 @@
         (println "None of the rules is applicable.")))))
 
 (def ^:private statespace-schema (tg/load-schema "state-space-schema.tg"))
-
-(defn ^:private rule-name [r]
-  (let [^String s (pr-str (class r))
-        i (.lastIndexOf s (int\$))]
-    (clojure.string/replace (subs s (inc i)) \_ \-)))
 
 (defn state-space-step-fn
   "Creates and returns a function for step-wise state space exploration.
@@ -478,8 +478,9 @@
 
   Each rule is applied to the current model and `additional-rule-args`.
 
-  Applying the step-function returns true if some rule could be applied, else,
-  i.e., if the `select-state-fn` couldn't selected some state, returns false.
+  Applying the step-function returns false if no rule could be applied, i.e.,
+  if the `select-state-fn` couldn't selected some state.  Else, returns a
+  vector of the form [seq-of-invalid-states set-of-failed-state-space-preds].
 
   The step-function has the following metadata:
 
@@ -498,20 +499,28 @@
    (state-space-step-fn init-model comparefn rules state-preds state-space-preds nil))
   ([init-model comparefn rules state-preds state-space-preds additional-rule-args]
    (let [ssg (tg/new-graph statespace-schema)
-         state-valid? (fn [m] (every? #(% m) state-preds))
-         create-state! (fn [kind]
-                         (tg/create-vertex! ssg kind {:n (inc (tg/vcount ssg))}))
-         state2model (volatile! {(create-state! (if (state-valid? init-model)
-                                                  'ValidState
-                                                  'InvalidState))
-                                 init-model})
+         failed-state-preds (fn [m]
+                              (set (for [p state-preds
+                                         :when (not (p m))]
+                                     (fn-name p))))
+         failed-state-space-preds (fn []
+                                    (set (for [p state-space-preds
+                                               :when (not (p ssg))]
+                                           (fn-name p))))
+         create-state! (fn create-new-state! [m]
+                         (let [failed (failed-state-preds m)]
+                           (if (seq failed)
+                             (tg/create-vertex! ssg 'InvalidState
+                                                {:n (inc (tg/vcount ssg))
+                                                 :failed failed})
+                             (tg/create-vertex! ssg 'ValidState
+                                                {:n (inc (tg/vcount ssg))}))))
+         state2model (volatile! {(create-state! init-model) init-model})
          find-equiv-state (fn [m]
                             (first (filter #(comparefn m (@state2model %))
                                            (tg/vseq ssg 'State))))
-         rule-names (set (map rule-name rules))
-         state-space-valid? (fn [] (every? #(% ssg) state-space-preds))
-         invalid-state-tm (g/type-matcher ssg 'InvalidState)
-         all-states-valid? (fn [] (nil? (tg/first-vertex ssg invalid-state-tm)))]
+         rule-names (set (map fn-name rules))
+         invalid-state-tm (g/type-matcher ssg 'InvalidState)]
      (with-meta (fn do-step
                   ([]
                    (do-step first rules))
@@ -523,24 +532,21 @@
                                           ^java.util.Set (tg/value % :done)
                                           (if (identical? rs rules)
                                             rule-names
-                                            (map rule-name rs)))
+                                            (map fn-name rs)))
                                         (tg/vseq ssg 'State)))]
                      (do
                        (doseq [r rs
                                :let [m (g/copy-model (@state2model st))]]
                          (when (apply r m additional-rule-args)
                            (let [nst (or (find-equiv-state m)
-                                         (create-state! (if (state-valid? m)
-                                                          'ValidState
-                                                          'InvalidState)))]
-                             (tg/create-edge! ssg 'Transition st nst {:rule (rule-name r)})
+                                         (create-state! m))]
+                             (tg/create-edge! ssg 'Transition st nst {:rule (fn-name r)})
                              (when-not (contains? @state2model nst)
                                (vswap! state2model assoc nst m)))))
                        (tg/set-value! st :done (.plusAll
                                                 ^org.pcollections.PSet (tg/value st :done)
-                                                ^java.util.Collection (map rule-name rs)))
-                       [(all-states-valid?)
-                        (state-space-valid?)])
+                                                ^java.util.Collection (map fn-name rs)))
+                       [(tg/vseq ssg invalid-state-tm) (failed-state-space-preds)])
                      false)))
        {:state-space-graph ssg
         :state2model-map state2model}))))
@@ -578,10 +584,10 @@
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
                                      state-space-preds additional-rule-args)]
      (loop [ret (sss-fn)]
-       ;; Apply as long as sss-fn returns [true true], i.e., stop if no new
-       ;; states can be created, or an invalid state has been created, or the
-       ;; state space has become invalid.
-       (when (and ret (every? true? ret))
+       ;; Apply as long as sss-fn returns [() #{}], i.e., stop if no new states
+       ;; can be created, or an invalid state has been created, or the state
+       ;; space has become invalid.
+       (when (and ret (every? empty? ret))
          (recur (sss-fn))))
      [(:state-space-graph (meta sss-fn)) @(:state2model-map (meta sss-fn))])))
 
@@ -613,6 +619,9 @@
                                               (nil? value) nil
                                               (valid-state? value) CHECK16
                                               :else                CROSS16))
+                          (when-not (valid-state? value)
+                            (.setToolTipText default (str "Failed state predicates: "
+                                                          (tg/value (tg/vertex ssg value) :failed))))
                           default)))
         content-pane (let [^JComponent cp(.getContentPane d)]
                        (doto cp (.setBorder (BorderFactory/createEmptyBorder 5 5 5 5))))
@@ -635,14 +644,14 @@
                                   (let [undone (map #(tg/value % :n)
                                                     (remove #(.containsAll
                                                               ^java.util.Set (tg/value % :done)
-                                                              (map rule-name (@selected-rules-promise)))
+                                                              (map fn-name (@selected-rules-promise)))
                                                             (tg/vseq ssg 'State)))]
                                     (doseq [n undone]
                                       (.addItem undone-states-cb n))
                                     (.setEnabled ^JButton @apply-rules-button-promise
                                                  (pos? (count undone)))))
         rule-check-boxes (for [r rules]
-                           (let [cb (JCheckBox. (let [^Action a (action (rule-name r)
+                           (let [cb (JCheckBox. (let [^Action a (action (fn-name r)
                                                                         reset-undone-states-cb!)]
                                                   (.putValue a "rule" r)
                                                   a))]
@@ -658,9 +667,14 @@
         no-of-invalid-states-label (JLabel.)
         state-space-valid-label (doto (JLabel.)
                                   (.setIcon CHECK16))
-        reset-state-space-valid-label! (fn [ssg-valid?]
-                                         (.setIcon state-space-valid-label
-                                                   (if ssg-valid? CHECK16 CROSS16)))
+        reset-state-space-valid-label! (fn [failed-ssg-preds]
+                                         (if (seq failed-ssg-preds)
+                                           (do
+                                             (.setIcon state-space-valid-label CROSS16)
+                                             (.setToolTipText state-space-valid-label
+                                                              (str "Failed SSG predicates: "
+                                                                   failed-ssg-preds)))
+                                           (.setIcon state-space-valid-label CHECK16)))
         reset-state-counts-labels! (fn []
                                      (let [[as vs is] (state-counts)]
                                        (.setText no-of-states-label (str as))
@@ -670,17 +684,19 @@
                                       (for [^JCheckBox cb rule-check-boxes
                                             :when (.isSelected cb)]
                                         (.getValue (.getAction cb) "rule"))))
-    (deliver apply-rules-button-promise (JButton. ^Action (action "Apply"
-                                                                  (fn []
-                                                                    (let [n (.getSelectedItem undone-states-cb)
-                                                                          ret (sss-fn (constantly (state n))
-                                                                                      (@selected-rules-promise))]
-                                                                      (when ret
-                                                                        (let [[states-valid? ssg-valid?] ret]
-                                                                          (reset-state-space-valid-label! ssg-valid?)))
-                                                                      (reset-undone-states-cb!)
-                                                                      (reset-all-states-cb!)
-                                                                      (reset-state-counts-labels!))))))
+    (deliver apply-rules-button-promise (JButton.
+                                         ^Action
+                                         (action "Apply"
+                                                 (fn []
+                                                   (let [n (.getSelectedItem undone-states-cb)
+                                                         ret (sss-fn (constantly (state n))
+                                                                     (@selected-rules-promise))]
+                                                     (when ret
+                                                       (let [[_ failed-ssg-preds] ret]
+                                                         (reset-state-space-valid-label! failed-ssg-preds)))
+                                                     (reset-undone-states-cb!)
+                                                     (reset-all-states-cb!)
+                                                     (reset-state-counts-labels!))))))
     (.setTitle d "State Space Explorer")
     (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
     (doto (javax.swing.ToolTipManager/sharedInstance)

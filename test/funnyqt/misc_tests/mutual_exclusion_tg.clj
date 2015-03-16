@@ -246,3 +246,10 @@
       (time (dotimes [_ r] (apply-mutual-exclusion-lts g2 n true)))
       (is (= vc (vcount g2)))
       (is (= ec (ecount g2))))))
+
+(defn test-apply-interactively []
+  (apply-interactively
+   (g-lts 4)
+   [new-rule kill-rule mount-rule unmount-rule pass-rule request-rule
+    take-rule release-rule give-rule blocked-rule waiting-rule
+    ignore-rule unlock-rule request-star-rule release-star-rule]))
