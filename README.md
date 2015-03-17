@@ -202,8 +202,7 @@ following steps:
       :url "http://example.com/FIXME"
       :license {:name "Eclipse Public License"
                 :url "http://www.eclipse.org/legal/epl-v10.html"}
-      :dependencies [[org.clojure/clojure "1.5.1"]
-                     [funnyqt "0.42.0"]])
+      :dependencies [ [funnyqt "0.42.0"] ])
     ```
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
