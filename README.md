@@ -190,7 +190,7 @@ following steps:
     To see other templates (app, lein plugin, etc), try `lein help new`.
     ```
 
-3. Declare that your project depends on FunnyQT.  Replace 0.13.0 below with
+3. Declare that your project depends on FunnyQT.  Replace 0.42.0 below with
    whatever is the the [current FunnyQT release](http://clojars.org/funnyqt).
 
     ```
@@ -203,23 +203,23 @@ following steps:
       :license {:name "Eclipse Public License"
                 :url "http://www.eclipse.org/legal/epl-v10.html"}
       :dependencies [[org.clojure/clojure "1.5.1"]
-                     [funnyqt "0.13.0"]])
+                     [funnyqt "0.42.0"]])
     ```
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
    all dependencies such as Clojure and FunnyQT.
 
     ```
-    $ lein repl
-    nREPL server started on port 39869 on host 127.0.0.1
-    REPL-y 0.3.0
-    Clojure 1.5.1
-        Docs: (doc function-name-here)
-              (find-doc "part-of-name-here")
-      Source: (source function-name-here)
-     Javadoc: (javadoc java-object-or-class-here)
-        Exit: Control+D or (exit) or (quit)
-     Results: Stored in vars *1, *2, *3, an exception in *e
+    nREPL server started on port 44783 on host 127.0.0.1 - nrepl://127.0.0.1:44783
+    REPL-y 0.3.5, nREPL 0.2.6
+    Clojure 1.7.0-alpha5
+    OpenJDK 64-Bit Server VM 1.8.0_40-b20
+       Docs: (doc function-name-here)
+             (find-doc "part-of-name-here")
+     Source: (source function-name-here)
+    Javadoc: (javadoc java-object-or-class-here)
+       Exit: Control+D or (exit) or (quit)
+    Results: Stored in vars *1, *2, *3, an exception in *e
     user=> ;; Here you go!
     ```
 

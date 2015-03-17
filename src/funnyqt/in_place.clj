@@ -466,8 +466,10 @@
 
 (defn state-space-step-fn
   "Creates and returns a function for step-wise state space exploration.
-  The state space exploration uses `init-model` as initial model.  The returned
-  step-function is overloaded on arity and accepts these arguments:
+  The state space exploration uses `init-model` as initial model.
+
+  The returned step-function is overloaded on arity and accepts these
+  arguments:
 
     []                        ;; arity zero
     [select-state-fn]         ;; arity one
@@ -475,18 +477,24 @@
 
   `select-state-fn` is a function that receives the sequence of undone states
   in the state space graph and returns the one to which `rules` should be
-  applied.
+  applied next.  If omitted, the default is clojure.core/first.
 
-  `rules` defaults to the argument of the same name given to
-  state-space-step-fn, and `select-state-fn` defaults to `clojure.core/first`.
+  `rules` is a sequence of rules to be applied in the step.  Of omitted, it
+  defaults to the `rules` given to `state-space-step-fn`.
 
   Each rule is applied to the current model and `additional-rule-args`.
 
   Applying the step-function returns false if no rule could be applied, i.e.,
   if the `select-state-fn` couldn't selected some state.  Else, returns a
-  vector of the form [seq-of-invalid-states set-of-failed-state-space-preds].
+  vector of the form
 
-  The step-function has the following metadata:
+    [seq-of-invalid-states seq-of-failed-state-space-preds]
+
+  where seq-of-invalid-states is the sequence of InvalidState vertices in the
+  state space graph, and seq-of-failed-state-space-preds is the sequence of
+  `state-space-preds` which failed.
+
+  The returned step-function has the following metadata:
 
     {:state-space-graph the-state-space-graph
      :state2model-map volatile-state2model-map}
@@ -504,19 +512,20 @@
   ([init-model comparefn rules state-preds state-space-preds additional-rule-args]
    (let [ssg (tg/new-graph statespace-schema)
          failed-state-preds (fn [m]
-                              (set (for [p state-preds
-                                         :when (not (p m))]
-                                     (fn-name p))))
+                              (for [p state-preds
+                                    :when (not (p m))]
+                                p))
          failed-state-space-preds (fn []
-                                    (set (for [p state-space-preds
-                                               :when (not (p ssg))]
-                                           (fn-name p))))
+                                    (doall
+                                     (for [p state-space-preds
+                                           :when (not (p ssg))]
+                                       p)))
          create-state! (fn create-new-state! [m]
                          (let [failed (failed-state-preds m)]
                            (if (seq failed)
                              (tg/create-vertex! ssg 'InvalidState
                                                 {:n (inc (tg/vcount ssg))
-                                                 :failed failed})
+                                                 :failed (set (map fn-name failed))})
                              (tg/create-vertex! ssg 'ValidState
                                                 {:n (inc (tg/vcount ssg))}))))
          state2model (volatile! {(create-state! init-model) init-model})
@@ -557,44 +566,84 @@
 
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it (and
-  optionally `additional-rule-args`) possibly resulting in new states.  Old states
-  are reused if a rule changes a model in such a way that it's equivalent to an
-  older state's model.  This is achieved by testing if (comparefn old-model
-  new-model) returns true for any old-model.  A predefined `comparefn` is
-  `funnyqt.generic/equal-models?` which see.
+  optionally `additional-rule-args`) generating a state space graph.
 
-  Returns [state-space-graph state2model-map] after every rule has been applied
-  to every state.  Of course, if the model diverges through application of the
-  rules, i.e., the number of states constantly increases, then this will never
-  terminate.
+  The state space graph is a TGraph conforming to a schema defining
+  the (abstract) vertex class State and the edge class Transition.  States have
+  an integer attribute n which is assigned monotonically increasing starting
+  with 1, and the Transition edges have an attribute rule naming the rule which
+  triggered this transition.  Every State has one outgoing Transition per rule
+  applicable to the model represented by that State, i.e., there are at
+  most (count rules) outgoing Transitions at each State.
 
-  The state-space-graph is a TGraph conforming to a schema defining the vertex
-  class State and the edge class Transition.  States have an integer attribute
-  n which is assigned monotonically increasing starting with 1, and the
-  Transition edges have an attribute rule naming the rule which triggered this
-  transition.  Every State has one outgoing Transition per rule applicable to
-  the model represented by that State, i.e., there are at most (count rules)
-  outgoing Transitions at each State.
+  Old states are reused if a rule changes a model in such a way that it's
+  equivalent to an older state's model.  This is achieved by testing
+  if (comparefn old-model new-model) returns true for any old-model.  A
+  predefined `comparefn` is `funnyqt.generic/equal-models?` which see.
+
+  Each state may be validated by `state-preds` which are applied to the model
+  represented by that state.  If all predicates pass, the state is represented
+  by a ValidState vertex in the state space graph.  If any predicate fails, the
+  state is represented by an InvalidState vertex in the state space graph, and
+  its failed attribute holds the names of the failing predicates.
+
+  The state space graph itself may be validated using `state-space-preds`.
+  Whenever it changes, all these predicates are applied to it.
+
+  This function builds the complete state space graph, i.e., it applies all
+  rules to each state's model.  This might create new states to which the rules
+  are applied in turn.  If the state space does not diverge, i.e., the rules
+  can only create a fixed set of different models, the function eventually
+  returns with the value
+
+    [state-space-graph state2model-map false]
 
   The state2model-map is a map from State vertices to the model which this
-  State represents."
+  State represents, and false indicates that the state-space-step-fn did not
+  find any state anymore to which rules could be applied.
+
+  If `state-preds` or `state-space-preds` are given, this function returns as
+  soon as a one of their predicates failed by default.  In that case, the
+  return value is
+
+
+    [state-space-graph state2model-map
+     [seq-of-invalid-states seq-of-failed-state-space-preds]]
+
+  where seq-of-invalid-states is the sequence of InvalidState vertices in the
+  state-space-graph, and seq-of-failed-state-space-preds is the sequence of
+  `state-space-preds` which failed.
+
+  By providing a `recur-pred`, one can define not to stop generating the state
+  space when predicates fail.  The `recur-pred` is a predicate of the form
+
+    (fn [seq-of-invalid-states seq-of-failed-state-space-preds] ...)
+
+  If it returns logical true, the state space generation is resumed.  Else,
+  create-state-space returns as defined above."
   ([model comparefn rules]
-   (create-state-space model comparefn rules nil nil nil))
+   (create-state-space model comparefn rules nil nil nil nil))
   ([model comparefn rules state-preds]
-   (create-state-space model comparefn rules state-preds nil nil))
+   (create-state-space model comparefn rules state-preds nil nil nil))
   ([model comparefn rules state-preds state-space-preds]
-   (create-state-space model comparefn rules state-preds state-space-preds nil))
-  ([model comparefn rules state-preds state-space-preds additional-rule-args]
+   (create-state-space model comparefn rules state-preds state-space-preds nil nil))
+  ([model comparefn rules state-preds state-space-preds recur-pred]
+   (create-state-space model comparefn rules state-preds state-space-preds recur-pred nil))
+  ([model comparefn rules state-preds state-space-preds recur-pred additional-rule-args]
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     state-space-preds additional-rule-args)]
+                                     state-space-preds additional-rule-args)
+         recur-pred (or recur-pred (fn default-recur-pred [inv-states failed-ssg-preds]
+                                     (and (empty? inv-states)
+                                          (empty? failed-ssg-preds))))]
      (loop [ret (sss-fn)]
        ;; Apply as long as sss-fn returns [() #{}], i.e., stop if no new states
        ;; can be created, or an invalid state has been created, or the state
        ;; space has become invalid.
-       (if (and ret (every? empty? ret))
+       (if (and ret (apply recur-pred ret))
          (recur (sss-fn))
          [(:state-space-graph (meta sss-fn))
-          @(:state2model-map (meta sss-fn))])))))
+          @(:state2model-map (meta sss-fn))
+          ret])))))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
@@ -625,7 +674,7 @@
                                     (.setIcon default CROSS16)
                                     (.setToolTipText default
                                                      (str "Failed state predicates: "
-                                                          (tg/value v :failed)))))
+                                                          (list* (tg/value v :failed))))))
                           default)))
         content-pane (let [^JComponent cp(.getContentPane d)]
                        (doto cp (.setBorder (BorderFactory/createEmptyBorder 5 5 5 5))))
@@ -675,9 +724,10 @@
                                          (if (seq failed-ssg-preds)
                                            (do
                                              (.setIcon state-space-valid-label CROSS16)
-                                             (.setToolTipText state-space-valid-label
-                                                              (str "Failed SSG predicates: "
-                                                                   failed-ssg-preds)))
+                                             (.setToolTipText
+                                              state-space-valid-label
+                                              (str "Failed SSG predicates: "
+                                                   (list* (map fn-name failed-ssg-preds)))))
                                            (do
                                              (.setIcon state-space-valid-label CHECK16)
                                              (.setToolTipText state-space-valid-label
