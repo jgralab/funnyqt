@@ -127,11 +127,11 @@
     (request-rule g))
   ;; Handle the requests...
   (if param-pass
-    (apply-repeatedly #(apply give-rule g (apply release-rule g (take-rule g))))
-    (apply-repeatedly #(do
-                         (take-rule g)
-                         (release-rule g)
-                         (give-rule g)))))
+    ((iterated-rule #(apply give-rule g (apply release-rule g (take-rule g)))))
+    ((iterated-rule #(do
+                       (take-rule g)
+                       (release-rule g)
+                       (give-rule g))))))
 
 (defn g-sts
   "Returns an initial graph for the STS.
@@ -177,13 +177,13 @@
   (unlock-rule g)
   (blocked-rule g)
   (if param-pass
-    (apply-repeatedly #(or (apply-repeatedly* waiting-rule g)
-                           (waiting-rule g)))
-    (apply-repeatedly #(waiting-rule g)))
+    ((iterated-rule #(or ((iterated-rule* waiting-rule) g)
+                         (waiting-rule g))))
+    ((iterated-rule #(waiting-rule g))))
   (ignore-rule g)
   (if param-pass
-    (apply-repeatedly #(apply release-star-rule % (apply take-rule % (give-rule %))) g)
-    (apply-repeatedly #(do (give-rule g) (take-rule g) (release-star-rule g))))
+    ((iterated-rule #(apply release-star-rule % (apply take-rule % (give-rule %)))) g)
+    ((iterated-rule #(do (give-rule g) (take-rule g) (release-star-rule g)))))
   (give-rule g)
   (take-rule g))
 
@@ -247,9 +247,9 @@
       (is (= vc (vcount g2)))
       (is (= ec (ecount g2))))))
 
-(defn test-apply-interactively []
-  (apply-interactively
-   (g-lts 4)
-   [new-rule kill-rule mount-rule unmount-rule pass-rule request-rule
+(defn test-interactive-rule []
+  ((interactive-rule
+    new-rule kill-rule mount-rule unmount-rule pass-rule request-rule
     take-rule release-rule give-rule blocked-rule waiting-rule
-    ignore-rule unlock-rule request-star-rule release-star-rule]))
+    ignore-rule unlock-rule request-star-rule release-star-rule)
+   (g-lts 4)))

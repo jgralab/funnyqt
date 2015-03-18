@@ -230,134 +230,164 @@
              (convert-spec name more)
              (mapv (partial convert-spec name) more))))))
 
-;;# Higher order rule application functions
+;;# Higher order rule combinators
 
-(defn apply-disjunctively
-  "Applies the first matching rule in `rules` with `args` and returns its
-  result.  If no rule matches, returns nil."
-  [rules & args]
-  (loop [rs rules]
-    (when (seq rs)
-      (or (apply (first rs) args)
-          (recur (rest rs))))))
+(defn disjunctive-rule
+  "Returns a varargs function which applies the first matching rule in `rules`
+  to its args and returns the result of this application.  If no rule matches,
+  the function returns nil."
+  [& rules]
+  (fn  disjunctive-rule-fn [& args]
+    (loop [rs rules]
+      (when (seq rs)
+        (or (apply (first rs) args)
+            (recur (rest rs)))))))
 
-(defn apply-all
-  "Applies all `rules` with `args` in sequence collecting the individual
-  application results in a vector.  Returns the value of calling `result-fn` on
-  the vector of individual application results.
+(defn all-rule
+  "Returns a varargs function which applies all `rules` to its args in sequence
+  collecting the individual application results in a vector.  The function
+  returns the value of calling `result-fn` on the vector of individual
+  application results.
 
   Some useful result functions are applications of `and*`, `or*`, `nand*`,
   `nor*` and `xor*`, e.g., #(apply and* %) defined in the funnyqt.query
   namespace.  clojure.core/identity is also a useful result function if you
   want to get the vector of individual application results."
-  [rules result-fn & args]
-  (loop [rs rules, rets []]
-    (if (seq rs)
-      (let [r (apply (first rs) args)]
-        (recur (rest rs) (conj rets r)))
-      (result-fn rets))))
+  [result-fn & rules]
+  (fn all-rule-fn [& args]
+    (loop [rs rules, rets []]
+      (if (seq rs)
+        (let [r (apply (first rs) args)]
+          (recur (rest rs) (conj rets r)))
+        (result-fn rets)))))
 
-(defn apply-all:and
-  "Applies all `rules` with `args` and returns logical true iff all rules could
-  be applied.  This is identical to `apply-all` with #(apply and* %) as
-  combfn."
-  [rules & args]
-  (apply-all rules #(apply q/and* %) args))
+(defn conjunctive-rule
+  "Returns a varargs function which applies `rules` in sequence to its args
+  until one rule returns logical false.  The function returns the value of the
+  last rule application iff all rules could be applied.  Else, it returns
+  logical false.
 
-(defn apply-all:or
-  "Applies all `rules` with `args` and returns logical true iff at least one
-  rule could be applied.  This is identical to `apply-all` with #(apply or* %)
-  as combfn."
-  [rules & args]
-  (apply-all rules #(apply q/or* %) args))
-
-(defn apply-conjunctively
-  "Applies `rules` in sequence with `args` until one rule returns logical
-  false.  Returns the value of the last rule application iff all rules could be
-  applied.  Else, it returns logical false.
-
-  Thus,            (apply-conjunctively [r1 r2 r3 r4 r5] x y)
+  Thus,            ((conjunctive-rule r1 r2 r3 r4 r5) x y)
   is equivalent to (and (r1 x y) (r2 x y) (r3 x y) (r4 x y) (r5 x y))"
-  [rules & args]
-  (loop [rs rules, ret true]
-    (if (seq rs)
-      (when-let [v (apply (first rs) args)]
-        (recur (rest rs) v))
-      ret)))
+  [& rules]
+  (fn conjunctive-rule-fn [& args]
+    (loop [rs rules, ret true]
+      (if (seq rs)
+        (when-let [v (apply (first rs) args)]
+          (recur (rest rs) v))
+        ret))))
 
-(defn apply-conjunctively*
-  "Applies `rules` in sequence until one rule returns logical false.  Returns
-  the value of the last rule application iff all rules could be applied.  Else,
-  it returns logical false.  The first rule is applied with `args`, all others
-  are applied with the result of the previous rule application.
+(defn conjunctive-rule*
+  "Returns a varargs function which applies `rules` in sequence until one rule
+  returns logical false.  The first rule is applied to the arguments given to
+  the function, all others are applied with the result of the previous rule
+  application.  The function returns the value of the last rule application iff
+  all rules could be applied.  Else, it returns logical false.
 
-  Thus,            (apply-conjunctively* [r1 r2 r3 r4 r5] x y)
+  Thus,            ((conjunctive-rule* r1 r2 r3 r4 r5) x y)
   is equivalent to (when-let [r (r1 x y)]
                      (when-let [r (apply r2 r)]
                        (when-let [r (apply r3 r)]
                          (when-let [r (apply r4 r)]
                            (when-let [r (apply r5 r)]
                              r)))))."
-  [rules & args]
-  (loop [rs rules, ret (or args true)]
-    (if (seq rs)
-      (when-let [v (apply (first rs) ret)]
-        (recur (rest rs) v))
-      ret)))
+  [& rules]
+  (fn conjunctive-rule*-fn [ & args]
+    (loop [rs rules, ret (or args true)]
+      (if (seq rs)
+        (when-let [v (apply (first rs) ret)]
+          (recur (rest rs) v))
+        ret))))
 
-(defn apply-repeatedly
-  "Applies the rule `r` with `args` as long as it returns logical true.
-  Returns the number of successful applications or nil if it couldn't be
-  applied at least once."
+(defn iterated-rule
+  "Returns a varargs function which applies the rule `r` to the function's
+  arguments as long as it returns logical true.  The function returns the
+  number of successful applications or nil if it couldn't be applied at least
+  once."
   [r & args]
-  (loop [val (apply r args), i 0]
-    (if val
-      (recur (apply r args) (inc i))
-      (when-not (zero? i) i))))
+  (fn iterated-rule-fn [& args]
+    (loop [val (apply r args), i 0]
+      (if val
+        (recur (apply r args) (inc i))
+        (when-not (zero? i) i)))))
 
-(defn apply-repeatedly*
-  "Applies the rule `r` as long as it returns logical true.
-  On the first application, `r` receives `args`.  The second till last
-  application receive the value of the previous successful application.
-  Returns the number of successful applications, or nil, if it couldn't be
-  applied at least once."
-  [r & args]
-  (loop [val (apply r args), i 0]
-    (if val
-      (recur (apply r val) (inc i))
-      (when-not (zero? i) i))))
+(defn iterated-rule*
+  "Returns a varargs function which applies the rule `r` as long as it returns
+  logical true.  On the first application, `r` receives the arguments given to
+  the function.  The second till last application receive the value of the
+  previous successful application.  Returns the number of successful
+  applications, or nil if it couldn't be applied at least once."
+  [r]
+  (fn iterated-rule*-fn [& args]
+    (loop [val (apply r args), i 0]
+      (if val
+        (recur (apply r val) (inc i))
+        (when-not (zero? i) i)))))
 
-(defn apply-ntimes
-  "Applies the rule `r` at most `n` times and returns the number of successfull
-  applications.  Stops as soon as `r` fails."
-  [n r & args]
-  (loop [i n]
-    (if (and (pos? i) (apply r args))
-      (recur (dec i))
-      (- n i))))
+(defn repeated-rule
+  "Returns a varargs function which applies the rule `r` at most `n` times to
+  the arguments given to the function and returns the number of successfull
+  applications.  Stops as soon as `r` fails.
 
-(defn apply-ntimes*
-  "Applies the rule `r` at most `n` times and returns the number of successfull
-  applications.  Stops as soon as `r` fails.  On the first application, `r`
-  receives `args`.  The second to last application receives the results of the
-  previous application."
-  [n r & args]
-  (loop [i n, val args]
-    (if (pos? i)
-      (if-let [val (apply r val)]
-        (recur (dec i) val)
-        (- n i))
-      (- n i))))
+  The version of arity one returns a function (fn [n & args] ...), i.e., the
+  maximum number of repetitions has to be provided as first argument when
+  calling the returned functions.
 
-(defn apply-randomly
-  "Randomly chooses one applicable rule in `rules` and applies it with `args`.
-  Returns that rule's return value or nil if no rule was applicable."
-  [rules & args]
-  (loop [rs (set rules)]
-    (when (seq rs)
-      (let [r (rand-nth rs)
-            v (apply r args)]
-        (or v (recur (disj rs r)))))))
+  For example ((repeated-rule 10 r) m) and ((repeated-rule r) 10 m) are
+  equivalent."
+  ([r]
+   (fn repeated-rule-fn1 [n & args]
+     (loop [i n]
+       (if (and (pos? i) (apply r args))
+         (recur (dec i))
+         (- n i)))))
+  ([n r]
+   (fn repeated-rule-fn2 [& args]
+     (loop [i n]
+       (if (and (pos? i) (apply r args))
+         (recur (dec i))
+         (- n i))))))
+
+(defn repeated-rule*
+  "Returns a function which applies the rule `r` at most `n` times and then
+  returns the number of successfull applications.  Stops as soon as `r` fails.
+  On the first application, `r` receives `args`.  The second to last
+  application receive the result of the previous application.
+
+  The version of arity one returns a function (fn [n & args] ...), i.e., the
+  maximum number of repetitions has to be provided as first argument when
+  calling the returned functions.
+
+  For example ((repeated-rule* 10 r) m) and ((repeated-rule* r) 10 m) are
+  equivalent."
+  ([r]
+   (fn repeated-rule*-fn1 [n & args]
+     (loop [i n, val args]
+       (if (pos? i)
+         (if-let [val (apply r val)]
+           (recur (dec i) val)
+           (- n i))
+         (- n i)))))
+  ([n r]
+   (fn repeated-rule*-fn2 [& args]
+     (loop [i n, val args]
+       (if (pos? i)
+         (if-let [val (apply r val)]
+           (recur (dec i) val)
+           (- n i))
+         (- n i))))))
+
+(defn random-rule
+  "Returns a varargs funtion which randomly chooses one applicable rule in
+  `rules` and applies it to the arguments given to the function.  The function
+  returns that rule's return value or nil if no rule was applicable."
+  [& rules]
+  (fn [& args]
+    (loop [rs (set rules)]
+      (when (seq rs)
+        (let [r (rand-nth rs)
+              v (apply r args)]
+          (or v (recur (disj rs r))))))))
 
 (defn ^:private fn-name [r]
   (let [^String s (pr-str (class r))
@@ -445,25 +475,31 @@
         (.setLocationRelativeTo d nil))
       (.setVisible d true))))
 
-(defn apply-interactively
-  "Interactively applies the given `rules` to `model` and the given
-  `additional-rule-args`."
-  [model rules & additional-rule-args]
-  (loop [pos nil, posp (promise)]
-    (let [rule-thunk-tups (mapcat
-                           (fn [r]
-                             (when-let [thunk (as-test (apply r model additional-rule-args))]
-                               [[r thunk]]))
-                           rules)
-          t (promise)]
-      (if (seq rule-thunk-tups)
-        (do
-          (select-rule-dialog model rule-thunk-tups t pos posp)
-          (when-let [thunk @t]
-            (let [pos @posp]
-              (thunk)
-              (recur pos (promise)))))
-        (println "None of the rules is applicable.")))))
+(defn interactive-rule
+  "Returns a function which interactively applies the given `rules` to `model`
+  and the returned function's arguments."
+  [& rules]
+  (fn [& args]
+    (let [model (first args)]
+      (loop [pos nil, posp (promise)]
+        (let [rule-thunk-tups (mapcat
+                               (fn [r]
+                                 (when-let [thunk (as-test (apply r args))]
+                                   [[r thunk]]))
+                               rules)
+              t (promise)]
+          (if (seq rule-thunk-tups)
+            (do
+              (select-rule-dialog model rule-thunk-tups t pos posp)
+              (when-let [thunk @t]
+                (let [pos @posp]
+                  (thunk)
+                  (recur pos (promise)))))
+            (println "None of the rules is applicable.")))))))
+
+
+;;# State Space Exploration/Generation
+
 
 (def ^:private statespace-schema (tg/load-schema "state-space-schema.tg"))
 
@@ -485,7 +521,7 @@
   `rules` is a sequence of rules to be applied in the step.  Of omitted, it
   defaults to the `rules` given to `state-space-step-fn`.
 
-  Each rule is applied to the current model and `additional-rule-args`.
+  Each rule is applied to the current model and `additional-args`.
 
   Applying the step-function returns false if no rule could be applied, i.e.,
   if the `select-state-fn` couldn't selected some state.  Else, returns a
@@ -512,7 +548,7 @@
    (state-space-step-fn init-model comparefn rules state-preds nil nil))
   ([init-model comparefn rules state-preds state-space-preds]
    (state-space-step-fn init-model comparefn rules state-preds state-space-preds nil))
-  ([init-model comparefn rules state-preds state-space-preds additional-rule-args]
+  ([init-model comparefn rules state-preds state-space-preds additional-args]
    (let [ssg (tg/new-graph statespace-schema)
          failed-state-preds (fn [m]
                               (for [p state-preds
@@ -553,7 +589,7 @@
                      (do
                        (doseq [r rs
                                :let [m (g/copy-model (@state2model st))]]
-                         (when (apply r m additional-rule-args)
+                         (when (apply r m additional-args)
                            (let [nst (or (find-equiv-state m)
                                          (create-state! m))]
                              (tg/create-edge! ssg 'Transition st nst {:rule (fn-name r)})
@@ -569,7 +605,7 @@
 
 (defn create-state-space
   "Takes the `model` as initial state and applies all `rules` to it (and
-  optionally `additional-rule-args`) generating a state space graph.
+  optionally `additional-args`) generating a state space graph.
 
   The state space graph is a TGraph conforming to a schema defining
   the (abstract) vertex class State and the edge class Transition.  States have
@@ -632,9 +668,9 @@
    (create-state-space model comparefn rules state-preds state-space-preds nil nil))
   ([model comparefn rules state-preds state-space-preds recur-pred]
    (create-state-space model comparefn rules state-preds state-space-preds recur-pred nil))
-  ([model comparefn rules state-preds state-space-preds recur-pred additional-rule-args]
+  ([model comparefn rules state-preds state-space-preds recur-pred additional-args]
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     state-space-preds additional-rule-args)
+                                     state-space-preds additional-args)
          recur-pred (or recur-pred (fn default-recur-pred [inv-states failed-ssg-preds]
                                      (and (empty? inv-states)
                                           (empty? failed-ssg-preds))))]
@@ -833,14 +869,14 @@
   "Fires up a GUI that allows for creating and inspecting the state space by
   starting with initial model `model`, the given `comparefn` (see, e.g.,
   `funnyqt.generic/equal-models?`), and the given `rules` plus
-  `additional-rule-args` applied to each rule in addition to the current model."
+  `additional-args` applied to each rule in addition to the current model."
   ([model comparefn rules]
    (explore-state-space model comparefn rules nil nil nil))
   ([model comparefn rules state-preds]
    (explore-state-space model comparefn rules state-preds nil nil))
   ([model comparefn rules state-preds state-space-preds]
    (explore-state-space model comparefn rules state-preds state-space-preds nil))
-  ([model comparefn rules state-preds state-space-preds additional-rule-args]
+  ([model comparefn rules state-preds state-space-preds additional-args]
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     state-space-preds additional-rule-args)]
+                                     state-space-preds additional-args)]
      (explore-state-space-dialog sss-fn rules))))

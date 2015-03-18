@@ -38,7 +38,7 @@
     (let [g1 (mintree-init)
           g2 (mintree-init)
           n 1000]
-      (timing "%s. SNOC SEQ: %Tmilli" (apply-ntimes n snoc g1) (inc i))
+      (timing "%s. SNOC SEQ: %Tmilli" ((repeated-rule n snoc) g1) (inc i))
       (timing "%s. SNOC REC: %Tmilli" (snoc-recursively g2 n) (inc i))
 
       (is (== (inc n) (vcount g1) (vcount g2)))
