@@ -242,31 +242,34 @@
           (recur (rest rs))))))
 
 (defn apply-all
-  "Applies all `rules` with `args` in sequence and returns the value of
-  applying the given `combfn` to the results of all applications.
+  "Applies all `rules` with `args` in sequence collecting the individual
+  application results in a vector.  Returns the value of calling `result-fn` on
+  the vector of individual application results.
 
-  Useful combining functions are `and*`, `or*`, `nand*`, `nor*` and `xor*`
-  defined in the funnyqt.query namespace."
-  [rules combfn & args]
+  Some useful result functions are applications of `and*`, `or*`, `nand*`,
+  `nor*` and `xor*`, e.g., #(apply and* %) defined in the funnyqt.query
+  namespace.  clojure.core/identity is also a useful result function if you
+  want to get the vector of individual application results."
+  [rules result-fn & args]
   (loop [rs rules, rets []]
     (if (seq rs)
       (let [r (apply (first rs) args)]
         (recur (rest rs) (conj rets r)))
-      (apply combfn rets))))
+      (result-fn rets))))
 
 (defn apply-all:and
   "Applies all `rules` with `args` and returns logical true iff all rules could
-  be applied.  This is identical to `apply-all` with `funnyqt.query/and*` as
+  be applied.  This is identical to `apply-all` with #(apply and* %) as
   combfn."
   [rules & args]
-  (apply-all rules q/and* args))
+  (apply-all rules #(apply q/and* %) args))
 
 (defn apply-all:or
   "Applies all `rules` with `args` and returns logical true iff at least one
-  rule could be applied.  This is identical to `apply-all` with
-  `funnyqt.query/or*` as combfn."
+  rule could be applied.  This is identical to `apply-all` with #(apply or* %)
+  as combfn."
   [rules & args]
-  (apply-all rules q/or* args))
+  (apply-all rules #(apply q/or* %) args))
 
 (defn apply-conjunctively
   "Applies `rules` in sequence with `args` until one rule returns logical
@@ -290,10 +293,10 @@
 
   Thus,            (apply-conjunctively* [r1 r2 r3 r4 r5] x y)
   is equivalent to (when-let [r (r1 x y)]
-                     (when-let [r (apply r2 x)]
-                       (when-let [r (apply r3 x)]
-                         (when-let [r (apply r4 x)]
-                           (when-let [r (apply r5 x)]
+                     (when-let [r (apply r2 r)]
+                       (when-let [r (apply r3 r)]
+                         (when-let [r (apply r4 r)]
+                           (when-let [r (apply r5 r)]
                              r)))))."
   [rules & args]
   (loop [rs rules, ret (or args true)]
