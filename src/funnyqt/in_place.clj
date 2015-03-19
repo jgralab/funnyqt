@@ -10,7 +10,7 @@
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                 JPanel JLabel JScrollPane JComboBox Action JCheckBox
-                BorderFactory ImageIcon JComponent)
+                Box BorderFactory ImageIcon JComponent)
    (java.awt.event ActionEvent ItemEvent ItemListener)
    (java.awt Color GridLayout GridBagLayout GridBagConstraints)))
 
@@ -722,7 +722,7 @@
         content-pane (let [^JComponent cp(.getContentPane d)]
                        (doto cp (.setBorder (BorderFactory/createEmptyBorder 3 3 3 3))))
         rule-select-panel (JPanel.)
-        states-panel (JPanel.)
+        states-panel (Box. BoxLayout/Y_AXIS)
         all-states-cb (doto (JComboBox.)
                         (.setRenderer cb-renderer))
         reset-all-states-cb! (fn []
@@ -732,7 +732,7 @@
                                  (.addItem all-states-cb n)))
         undone-states-cb (doto (JComboBox.)
                            (.setRenderer cb-renderer))
-        button-panel (JPanel.)
+        button-panel (Box. BoxLayout/X_AXIS)
         selected-rules-promise (promise)
         apply-rules-button-promise (promise)
         reset-undone-states-cb! (fn reset-undone-states-cb! []
@@ -762,19 +762,21 @@
         no-of-valid-states-label (JLabel.)
         no-of-invalid-states-label (JLabel.)
         state-space-valid-label (doto (JLabel.)
+                                  (.setText "yes")
                                   (.setIcon CHECK16))
         reset-state-space-valid-label! (fn [failed-ssg-preds]
                                          (if (seq failed-ssg-preds)
-                                           (do
-                                             (.setIcon state-space-valid-label CROSS16)
+                                           (doto state-space-valid-label
+                                             (.setText "no")
+                                             (.setIcon CROSS16)
                                              (.setToolTipText
-                                              state-space-valid-label
                                               (str "Failed SSG predicates: "
                                                    (list* (map fn-name failed-ssg-preds)))))
-                                           (do
-                                             (.setIcon state-space-valid-label CHECK16)
-                                             (.setToolTipText state-space-valid-label
-                                                              "All state space predicates pass."))))
+                                           (doto state-space-valid-label
+                                             (.setText "yes")
+                                             (.setIcon CHECK16)
+                                             (.setToolTipText
+                                              "All state space predicates pass."))))
         reset-state-counts-labels! (fn []
                                      (let [[as vs is] (state-counts)]
                                        (.setText no-of-states-label (str as))
@@ -805,7 +807,6 @@
     (reset-state-counts-labels!)
     (.setLayout content-pane (BoxLayout. content-pane BoxLayout/Y_AXIS))
 
-    (.setLayout states-panel (BoxLayout. states-panel BoxLayout/Y_AXIS))
     (.setBorder states-panel (BorderFactory/createTitledBorder "State Selection"))
     (let [upper (JPanel.)]
       (.setLayout upper (GridLayout. 2 3))
@@ -821,8 +822,7 @@
       (.add upper ^JButton @apply-rules-button-promise)
       (.add states-panel upper))
 
-    (let [lower (JPanel.)]
-      (.setLayout lower (BoxLayout. lower BoxLayout/X_AXIS))
+    (let [lower (Box. BoxLayout/X_AXIS)]
       (.add lower (doto (JPanel.)
                     (.setBorder (BorderFactory/createTitledBorder "# All States"))
                     (.add no-of-states-label)))
@@ -830,8 +830,9 @@
                     (.setBorder (BorderFactory/createTitledBorder "# Valid States"))
                     (.add no-of-valid-states-label)))
       (.add lower (doto (JPanel.)
-                    (.setBorder (BorderFactory/createTitledBorder "StateSpace valid?"))
-                    (.add state-space-valid-label)))
+                    (.setBorder (BorderFactory/createTitledBorder
+                                 "StateSpace valid?"))
+                    (.add  state-space-valid-label)))
       (.add states-panel lower))
 
     (.setLayout rule-select-panel (GridLayout. (let [rc (count rules)]
@@ -843,8 +844,9 @@
     (doseq [^JCheckBox rcb rule-check-boxes]
       (.add rule-select-panel rcb))
 
-    (.setLayout button-panel (GridLayout. 1 3))
+    (.add button-panel (Box/createHorizontalStrut 15))
     (.add button-panel show-done-attr-checkbox)
+    (.add button-panel (Box/createHorizontalStrut 15))
     (.add button-panel (JButton.
                         (action "View State Space Graph"
                                 #(apply
@@ -857,6 +859,7 @@
                                   (when-not (.isSelected show-done-attr-checkbox)
                                     (list :excluded-attributes
                                           {(g/type-matcher ssg 'State) [:done]}))))))
+    (.add button-panel (Box/createHorizontalGlue))
     (.add button-panel (JButton. (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)
