@@ -400,7 +400,8 @@
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
         content-pane (.getContentPane d)
-        rp (JPanel.)
+        rp (doto (JPanel.)
+             (.setBorder (BorderFactory/createTitledBorder "Applicable rules")))
         sp (JScrollPane. rp)
         bp (JPanel.)
         gridbag (GridBagLayout.)
