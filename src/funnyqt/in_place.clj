@@ -399,11 +399,12 @@
 
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
-        content-pane (.getContentPane d)
-        rp (doto (JPanel.)
-             (.setBorder (BorderFactory/createTitledBorder "Applicable rules")))
-        sp (JScrollPane. rp)
-        bp (JPanel.)
+        content-pane (let [^JComponent cp(.getContentPane d)]
+                       (doto cp (.setBorder (BorderFactory/createEmptyBorder 3 3 3 3))))
+        rule-panel (doto (JPanel.)
+                     (.setBorder (BorderFactory/createTitledBorder "Applicable rules")))
+        sp (JScrollPane. rule-panel)
+        button-box (Box. BoxLayout/X_AXIS)
         gridbag (GridBagLayout.)
         gridbagconsts (GridBagConstraints.)]
     (letfn [(deliver-action ^Action [name val]
@@ -419,16 +420,16 @@
                                   (deliver posp (.getLocation d)))
                                 (deliver thunkp nil))))
       (.setLayout content-pane (BoxLayout. content-pane BoxLayout/Y_AXIS))
-      (.setLayout rp gridbag)
+      (.setLayout rule-panel gridbag)
       (.add content-pane sp)
-      (.add content-pane bp)
+      (.add content-pane button-box)
       (.setDefaultCloseOperation d WindowConstants/DISPOSE_ON_CLOSE)
-      ;; The rule panel rp
-      (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
+      ;; The rule panel
       (doto (javax.swing.ToolTipManager/sharedInstance)
         (.setEnabled true))
+      (set! (.fill gridbagconsts) GridBagConstraints/BOTH)
       (doseq [[rule thunk] rule-var-thunk-tups
-              :let [label (JLabel. (str (fn-name rule) ":"))
+              :let [label (JLabel. (str (fn-name rule) ": "))
                     cb (JComboBox. (to-array (:all-matches (meta thunk))))
                     show-match-fn (fn smf
                                     ([] (smf :gtk))
@@ -457,14 +458,21 @@
                                            (.getItem ev))
                                    (tooltip!)))))
         (tooltip!)
-        (.add rp label)
-        (.add rp cb)
-        (.add rp viewb)
-        (.add rp applyb)
+        (.add rule-panel label)
+        (set! (.gridwidth gridbagconsts) GridBagConstraints/LINE_START)
+        (.setConstraints gridbag label gridbagconsts)
+        (.add rule-panel cb)
+        (set! (.gridwidth gridbagconsts) 1)
+        (.setConstraints gridbag cb gridbagconsts)
+        (.add rule-panel viewb)
+        (.setConstraints gridbag viewb gridbagconsts)
+        (.add rule-panel applyb)
+        (set! (.gridwidth gridbagconsts) GridBagConstraints/REMAINDER)
         (.setConstraints gridbag applyb gridbagconsts))
-      ;; The button rp bp
-      (.add bp (JButton. (action "View model" #(viz/print-model model :gtk))))
-      (.add bp (JButton. ^Action (deliver-action "Cancel" nil)))
+      ;; The button-box
+      (.add button-box (JButton. (action "View model"
+                                         #(viz/print-model model :gtk))))
+      (.add button-box (JButton. ^Action (deliver-action "Done" nil)))
       (.pack d)
       (if pos
         (.setLocation d pos)
@@ -712,7 +720,7 @@
                                                           (list* (tg/value v :failed))))))
                           default)))
         content-pane (let [^JComponent cp(.getContentPane d)]
-                       (doto cp (.setBorder (BorderFactory/createEmptyBorder 5 5 5 5))))
+                       (doto cp (.setBorder (BorderFactory/createEmptyBorder 3 3 3 3))))
         rule-select-panel (JPanel.)
         states-panel (JPanel.)
         all-states-cb (doto (JComboBox.)
@@ -804,11 +812,10 @@
       (.add upper (JLabel. "All States:"))
       (.add upper all-states-cb)
       (.add upper (JButton. (action "View Model"
-                                    #(future
-                                       (viz/print-model
-                                        (state-model
-                                         (.getSelectedItem all-states-cb))
-                                        :gtk)))))
+                                    #(viz/print-model
+                                      (state-model
+                                       (.getSelectedItem all-states-cb))
+                                      :gtk))))
       (.add upper (JLabel. "Undone States:"))
       (.add upper undone-states-cb)
       (.add upper ^JButton @apply-rules-button-promise)
@@ -840,17 +847,16 @@
     (.add button-panel show-done-attr-checkbox)
     (.add button-panel (JButton.
                         (action "View State Space Graph"
-                                #(future
-                                   (apply
-                                    viz/print-model
-                                    ssg :gtk
-                                    :node-attrs {(g/type-matcher ssg 'ValidState)
-                                                 "style=filled, fillcolor=green"
-                                                 (g/type-matcher ssg 'InvalidState)
-                                                 "style=filled, fillcolor=red"}
-                                    (when-not (.isSelected show-done-attr-checkbox)
-                                      (list :excluded-attributes
-                                            {(g/type-matcher ssg 'State) [:done]})))))))
+                                #(apply
+                                  viz/print-model
+                                  ssg :gtk
+                                  :node-attrs {(g/type-matcher ssg 'ValidState)
+                                               "style=filled, fillcolor=green"
+                                               (g/type-matcher ssg 'InvalidState)
+                                               "style=filled, fillcolor=red"}
+                                  (when-not (.isSelected show-done-attr-checkbox)
+                                    (list :excluded-attributes
+                                          {(g/type-matcher ssg 'State) [:done]}))))))
     (.add button-panel (JButton. (action "Done" #(.dispose d))))
 
     (.add content-pane states-panel)

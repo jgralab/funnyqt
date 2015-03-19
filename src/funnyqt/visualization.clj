@@ -429,7 +429,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (when (string? f)
       (println (format "Printing visualization to %s." f)))
     (condp = fmt
-      :gtk   (dot "gtk")
+      :gtk   (.start (Thread. #(dot "gtk")))
       :image (let [tmp (java.io.File/createTempFile "img" "png")
                    path (.getPath tmp)]
                (when (dot "png" path)
