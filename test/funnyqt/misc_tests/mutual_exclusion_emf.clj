@@ -199,10 +199,9 @@
       ((iterated-rule #(apply release-star-rule model
                               (apply take-rule model
                                      (give-rule model)))))
-      ((iterated-rule #(do
-                   (give-rule model)
-                         (take-rule model)
-                         (release-star-rule model)))))
+      ((iterated-rule (sequential-rule
+                       give-rule take-rule release-star-rule))
+       model))
     (give-rule model)
     (take-rule model)))
 
@@ -255,7 +254,7 @@
   (println "Mutual Exclusion LTS")
   (println "====================")
   (doseq [[n r vc ec] [[4 100 8 8]
-                       #_[1000 1 2000 2000]]]
+                       [1000 1 2000 2000]]]
     (let [g1 (g-lts n)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)

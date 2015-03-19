@@ -243,23 +243,18 @@
         (or (apply (first rs) args)
             (recur (rest rs)))))))
 
-(defn all-rule
+(defn sequential-rule
   "Returns a varargs function which applies all `rules` to its args in sequence
   collecting the individual application results in a vector.  The function
-  returns the value of calling `result-fn` on the vector of individual
-  application results.
-
-  Some useful result functions are applications of `and*`, `or*`, `nand*`,
-  `nor*` and `xor*`, e.g., #(apply and* %) defined in the funnyqt.query
-  namespace.  clojure.core/identity is also a useful result function if you
-  want to get the vector of individual application results."
-  [result-fn & rules]
+  returns this vector if at least one rule could be applied.  Else, it returns
+  false."
+  [& rules]
   (fn all-rule-fn [& args]
-    (loop [rs rules, rets []]
+    (loop [rs rules, rets [], one-was-applied false]
       (if (seq rs)
         (let [r (apply (first rs) args)]
-          (recur (rest rs) (conj rets r)))
-        (result-fn rets)))))
+          (recur (rest rs) (conj rets r) (or one-was-applied r)))
+        (if one-was-applied rets false)))))
 
 (defn conjunctive-rule
   "Returns a varargs function which applies `rules` in sequence to its args

@@ -183,7 +183,7 @@
   (ignore-rule g)
   (if param-pass
     ((iterated-rule #(apply release-star-rule % (apply take-rule % (give-rule %)))) g)
-    ((iterated-rule #(do (give-rule g) (take-rule g) (release-star-rule g)))))
+    ((iterated-rule (sequential-rule give-rule take-rule release-star-rule)) g))
   (give-rule g)
   (take-rule g))
 
@@ -233,7 +233,7 @@
   (println "====================")
   ;; vc and ec are the expected values
   (doseq [[n r vc ec] [[4 100 8 8]
-                       #_[1000 1 2000 3001]]]
+                       [1000 1 2000 2000]]]
     (let [g1 (g-lts n)
           g2 (g-lts n)]
       (println "N =" n ", R =" r)
