@@ -519,26 +519,35 @@
                      (tg/iseq cur))]
     (into queue (map (fn [i] [i (tg/id i)]) incs))))
 
-(defn ^:private do-anons [anon-vec-transformer-fn startsym av done]
+(defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
   (let [target-node (last av)]
     (cond
+      ;; Handle the special case of a pattern like [x -e-> <>].  Here, e is
+      ;; already bound by an iseq-call and we don't have to do anything except
+      ;; for checking the type of the that-vertex.
+      (and (anon? target-node)
+           (= 1 (count av))
+           (tg/edge? start-v-or-e))
+      (when-let [t (get-type target-node)]
+        [:when `(~t (tg/that ~(get-name start-v-or-e)))])
+      ;;---
       (anon? target-node)
-      [:when `(seq ~(anon-vec-transformer-fn startsym av done))]
+      [:when `(seq ~(anon-vec-transformer-fn start-v-or-e av done))]
       ;;---
       (done target-node)
       `[:when (q/member? ~(get-name target-node)
-                         (q/no-dups ~(anon-vec-transformer-fn startsym av done)))]
+                         (q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done)))]
       ;;---
       (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
                    (and ~(get-name target-node)
                         (q/member? ~(get-name target-node)
-                                   (q/no-dups ~(anon-vec-transformer-fn startsym av done)))
+                                   (q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done)))
                         ~(get-name target-node))]]
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(q/no-dups ~(anon-vec-transformer-fn startsym av done))]
+       `(q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -593,9 +602,9 @@
                                        (keyword? (get-type e)) nil
                                        (tg/normal-edge? e)     :out
                                        :else                   :in))))
-        anon-vec-to-for (fn [start-sym av done]
+        anon-vec-to-for (fn [start-v-or-e av done]
                           (let [[v r]
-                                (loop [cs start-sym, av av, r []]
+                                (loop [cs (get-name start-v-or-e), av av, r []]
                                   (if (seq av)
                                     (let [el (first av)
                                           ncs (gensym)]
@@ -672,7 +681,7 @@
                            (if (tg/edge? last-in-av)
                              (conj-done done (tg/that last-in-av))
                              done))
-                         (into bf (let [bindings (do-anons anon-vec-to-for (get-name (tg/this cur)) av done)]
+                         (into bf (let [bindings (do-anons anon-vec-to-for (tg/this cur) av done)]
                                     (if (tg/edge? last-in-av)
                                       (conj bindings :let
                                             [(get-name (tg/that last-in-av))
@@ -692,8 +701,7 @@
                                 (cond
                                   (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
                                   (anon? trg) (let [bindings (do-anons anon-vec-to-for
-                                                                       (get-name cur)
-                                                                       av done)]
+                                                                       cur av done)]
                                                 (if (tg/edge? last-in-av)
                                                   (conj bindings :let
                                                         [(get-name (tg/that last-in-av))
@@ -799,9 +807,9 @@
                           (if-let [t (get-edge-type e)]
                             `(~role-fn ~src ~t)
                             `(~neighbors-fn ~src))))
-        anon-vec-to-for (fn [start-sym av done]
+        anon-vec-to-for (fn [start-v-or-e av done]
                           (let [[v r]
-                                (loop [cs start-sym, av av, r []]
+                                (loop [cs (get-name start-v-or-e), av av, r []]
                                   (if (seq av)
                                     (let [el (first av)
                                           ncs (if (tg/vertex? el) cs (gensym))]
@@ -876,7 +884,7 @@
                   (recur (enqueue-incs target-node (pop queue) (apply conj-done done av))
                          (apply conj-done done cur av)
                          (into bf (do-anons anon-vec-to-for
-                                            (get-name (tg/this cur)) av done))))
+                                            (tg/this cur) av done))))
                 (u/errorf "Edges cannot be match-bound with models with just refs: %s" (g/describe cur)))
               NegPatternEdge
               (let [src (tg/this cur)

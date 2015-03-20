@@ -147,3 +147,14 @@
     ;; From every Hour we can tick forward and backward, and from every state
     ;; except for the first, we can reset to 12 o'clock.
     (is (= 35 (ecount ssg)))))
+
+(defrule erase-clock-hand [g]
+  [c<Clock> -ch<CurrentHour>-> <>]
+  (g/delete! ch))
+
+;; FIXME: Why does this throw a NPE???
+#_(funnyqt.pmatch/defpattern foo [g]
+    [c<Clock> -ch<CurrentHour>-> <> -e<NextHour>-> <>])
+
+(defn current-hour-exists? [g]
+  (seq (tg/eseq g 'CurrentHour)))
