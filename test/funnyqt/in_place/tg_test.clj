@@ -154,3 +154,15 @@
 
 (defn current-hour-exists? [g]
   (seq (tg/eseq g 'CurrentHour)))
+
+(defn ssg-has-<=12-states [ssg]
+  (<= (tg/vcount ssg) 12))
+
+(defn test-explore-state-space []
+  (let [g (clock-graph)]
+    (explore-state-space
+     g
+     #(g/equal-models? %1 %2 false)
+     [tick-forward tick-backward reset-clock erase-clock-hand]
+     [current-hour-exists?]
+     [ssg-has-<=12-states])))

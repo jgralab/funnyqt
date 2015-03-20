@@ -1,6 +1,7 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
   (:require [clojure.tools.macro   :as m]
+            [clojure.repl          :as repl]
             [funnyqt.generic       :as g]
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
@@ -385,9 +386,9 @@
           (or v (recur (disj rs r))))))))
 
 (defn ^:private fn-name [r]
-  (let [^String s (pr-str (class r))
-        i (.lastIndexOf s (int\$))]
-    (clojure.string/replace (subs s (inc i)) \_ \-)))
+  (let [^String s (repl/demunge (pr-str (class r)))
+        i (.lastIndexOf s (int \/))]
+    (subs s (inc i))))
 
 (defn ^:private action ^Action [name f]
   (proxy [AbstractAction] [name]
