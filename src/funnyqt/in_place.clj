@@ -441,8 +441,8 @@
                                         :include (let [nodes (filter g/element? els)]
                                                    (concat nodes
                                                            (mapcat g/neighbors nodes)))))))
-                    viewb (JButton. (action "Show Match" show-match-fn))
-                    applyb (JButton. ^Action (deliver-action "Apply Rule" thunk))
+                    viewb (JButton. (action "Show match" show-match-fn))
+                    applyb (JButton. ^Action (deliver-action "Apply rule" thunk))
                     tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
                     tooltip! (fn []
                                (show-match-fn (.getPath tmpfile))
