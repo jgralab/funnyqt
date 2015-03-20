@@ -485,7 +485,7 @@
   [& rules]
   (fn [& args]
     (let [model (first args)]
-      (loop [pos nil, posp (promise)]
+      (loop [pos nil, posp (promise), rules-applied 0]
         (let [rule-thunk-tups (mapcat
                                (fn [r]
                                  (when-let [thunk (as-test (apply r args))]
@@ -495,10 +495,11 @@
           (if (seq rule-thunk-tups)
             (do
               (select-rule-dialog model rule-thunk-tups t pos posp)
-              (when-let [thunk @t]
+              (if-let [thunk @t]
                 (let [pos @posp]
                   (thunk)
-                  (recur pos (promise)))))
+                  (recur pos (promise) (inc rules-applied)))
+                (if (zero? rules-applied) nil rules-applied)))
             (println "None of the rules is applicable.")))))))
 
 
