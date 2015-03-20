@@ -703,9 +703,19 @@
                                   (anon? trg) (let [bindings (do-anons anon-vec-to-for
                                                                        cur av done)]
                                                 (if (tg/edge? last-in-av)
-                                                  (conj bindings :let
-                                                        [(get-name (tg/that last-in-av))
-                                                         `(tg/that ~(get-name last-in-av))])
+                                                  (into bindings
+                                                        (if (anon? (tg/that last-in-av))
+                                                          ;; This is something like
+                                                          ;; [a --> <> -e-> <>], so
+                                                          ;; here we only need to
+                                                          ;; type-check the
+                                                          ;; that-vertex of
+                                                          ;; last-in-av.
+                                                          (when-let [t (get-type (tg/that last-in-av))]
+                                                            [:when `(~t (tg/that ~(get-name last-in-av)))])
+                                                          [:let
+                                                           [(get-name (tg/that last-in-av))
+                                                            `(tg/that ~(get-name last-in-av))]]))
                                                   bindings))
                                   ;;---
                                   (g/has-type? trg 'ArgumentVertex)

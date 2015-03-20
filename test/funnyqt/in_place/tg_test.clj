@@ -152,9 +152,5 @@
   [c<Clock> -ch<CurrentHour>-> <>]
   (g/delete! ch))
 
-;; FIXME: Why does this throw a NPE???
-#_(funnyqt.pmatch/defpattern foo [g]
-    [c<Clock> -ch<CurrentHour>-> <> -e<NextHour>-> <>])
-
 (defn current-hour-exists? [g]
   (seq (tg/eseq g 'CurrentHour)))
