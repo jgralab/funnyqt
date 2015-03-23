@@ -89,9 +89,6 @@
             bf          (@#'pm/transform-pattern-spec name pattern-vector args)
             custom-as   (:as (meta bf))
             matchsyms   (pm/bindings-to-argvec bf)
-            pattern-vector (if custom-as
-                             pattern-vector
-                             (conj pattern-vector :as matchsyms))
             body        (next more)
             pattern     (gensym "pattern")
             matches     (gensym "matches")
@@ -109,7 +106,7 @@
                                      ~args ~pattern-vector)
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
-                             (let [~matchsyms ~match]
+                             (let [{:keys ~matchsyms} ~match]
                                (when *on-matched-rule-fn*
                                  (*on-matched-rule-fn* '~name ~args ~match))
                                (if *as-test*
@@ -510,7 +507,7 @@
 (def ^:private statespace-schema (tg/load-schema "state-space-schema.tg"))
 
 (defn state-space-step-fn
-  "Creates and returns a function for step-wise state space exploration.
+  "Creates and returns a function for step-wise state space creation.
   The state space exploration uses `init-model` as initial model.
 
   The returned step-function is overloaded on arity and accepts these
@@ -529,15 +526,38 @@
 
   Each rule is applied to the current model and `additional-args`.
 
+  There are three validation possibilities:
+
+  - state-preds is a sequence of predicates that receive the current model.  If
+    any predicate returns logical false, the state of that model is an
+    InvalidState.  Else, it is a ValidState.
+
+  - transition-preds is a map of the form {rule pred, ...}.  When rule is
+    executed to the model of a state, pred is called like (pred old-model match
+    new-model).  If that returns logical false, the transition from the state of
+    old-model to the state of new-model is an InvalidTransition.  Else, it is a
+    ValidTransition.
+
+  - state-space-preds is a sequence of predicates that receive the current
+    state space graph.  Whenever a new state is created, all these predicates are
+    evaluated.
+
+  Thus, `state-preds` checks invariants of the model under transformation,
+  `state-space-preds` checks invariants of the state space graph, and
+  `transition-preds` implements a kind of post-conditions for the rules.
+
   Applying the step-function returns false if no rule could be applied, i.e.,
   if the `select-state-fn` couldn't selected some state.  Else, returns a
   vector of the form
 
-    [seq-of-invalid-states seq-of-failed-state-space-preds]
+    [seq-of-invalid-states
+     seq-of-invalid-transitions
+     seq-of-failed-state-space-preds]
 
   where seq-of-invalid-states is the sequence of InvalidState vertices in the
-  state space graph, and seq-of-failed-state-space-preds is the sequence of
-  `state-space-preds` which failed.
+  state space graph, seq-of-invalid-transitions is the sequence of
+  InvalidTransition edges, and seq-of-failed-state-space-preds is the sequence
+  of `state-space-preds` which failed.
 
   The returned step-function has the following metadata:
 
@@ -549,17 +569,26 @@
   dereferenced (e.g., @volatile-state2model-map or using `clojure.core/deref`)
   in orded to obtain its current value."
   ([init-model comparefn rules]
-   (state-space-step-fn init-model comparefn rules nil nil nil))
+   (state-space-step-fn init-model comparefn rules nil nil nil nil))
   ([init-model comparefn rules state-preds]
-   (state-space-step-fn init-model comparefn rules state-preds nil nil))
-  ([init-model comparefn rules state-preds state-space-preds]
-   (state-space-step-fn init-model comparefn rules state-preds state-space-preds nil))
-  ([init-model comparefn rules state-preds state-space-preds additional-args]
+   (state-space-step-fn init-model comparefn rules state-preds nil nil nil))
+  ([init-model comparefn rules state-preds transition-preds]
+   (state-space-step-fn init-model comparefn rules state-preds transition-preds nil nil))
+  ([init-model comparefn rules state-preds transition-preds state-space-preds]
+   (state-space-step-fn init-model comparefn rules state-preds transition-preds nil))
+  ([init-model comparefn rules state-preds transition-preds state-space-preds additional-args]
+   (when (and transition-preds (not (map? transition-preds)))
+     (u/errorf "transition-preds must be a map but was %s" transition-preds))
    (let [ssg (tg/new-graph statespace-schema)
          failed-state-preds (fn [m]
                               (for [p state-preds
                                     :when (not (p m))]
                                 p))
+         failed-transition-preds (fn [r old-m match new-m]
+                                   (when transition-preds
+                                     (for [p (transition-preds r)
+                                           :when (not (p old-m match new-m))]
+                                       p)))
          failed-state-space-preds (fn []
                                     (doall
                                      (for [p state-space-preds
@@ -578,7 +607,8 @@
                             (first (filter #(comparefn m (@state2model %))
                                            (tg/vseq ssg 'State))))
          rule-names (set (map fn-name rules))
-         invalid-state-tm (g/type-matcher ssg 'InvalidState)]
+         invalid-state-tm (g/type-matcher ssg 'InvalidState)
+         invalid-transition-tm (g/type-matcher ssg 'InvalidTransition)]
      (with-meta (fn do-step
                   ([]
                    (do-step first rules))
@@ -595,16 +625,27 @@
                      (do
                        (doseq [r rs
                                :let [m (g/copy-model (@state2model st))]]
-                         (when (apply r m additional-args)
+                         (when-let [thunk (as-test (apply r m additional-args))]
+                           (thunk)
                            (let [nst (or (find-equiv-state m)
                                          (create-state! m))]
-                             (tg/create-edge! ssg 'Transition st nst {:rule (fn-name r)})
+                             (if-let [failed-posts (seq (failed-transition-preds
+                                                         r
+                                                         (@state2model st)
+                                                         @(:current-match-atom (meta thunk))
+                                                         m))]
+                               (tg/create-edge! ssg 'InvalidTransition st nst
+                                                {:rule (fn-name r)
+                                                 :failed (set (map fn-name failed-posts))})
+                               (tg/create-edge! ssg 'ValidTransition st nst {:rule (fn-name r)}))
                              (when-not (contains? @state2model nst)
                                (vswap! state2model assoc nst m)))))
                        (tg/set-value! st :done (.plusAll
                                                 ^org.pcollections.PSet (tg/value st :done)
                                                 ^java.util.Collection (map fn-name rs)))
-                       [(tg/vseq ssg invalid-state-tm) (failed-state-space-preds)])
+                       [(tg/vseq ssg invalid-state-tm)
+                        (tg/eseq ssg invalid-transition-tm)
+                        (failed-state-space-preds)])
                      false)))
        {:state-space-graph ssg
         :state2model-map state2model}))))
@@ -613,71 +654,38 @@
   "Takes the `model` as initial state and applies all `rules` to it (and
   optionally `additional-args`) generating a state space graph.
 
-  The state space graph is a TGraph conforming to a schema defining
-  the (abstract) vertex class State and the edge class Transition.  States have
-  an integer attribute n which is assigned monotonically increasing starting
-  with 1, and the Transition edges have an attribute rule naming the rule which
-  triggered this transition.  Every State has one outgoing Transition per rule
-  applicable to the model represented by that State, i.e., there are at
-  most (count rules) outgoing Transitions at each State.
-
-  Old states are reused if a rule changes a model in such a way that it's
-  equivalent to an older state's model.  This is achieved by testing
-  if (comparefn old-model new-model) returns true for any old-model.  A
-  predefined `comparefn` is `funnyqt.generic/equal-models?` which see.
-
-  Each state may be validated by `state-preds` which are applied to the model
-  represented by that state.  If all predicates pass, the state is represented
-  by a ValidState vertex in the state space graph.  If any predicate fails, the
-  state is represented by an InvalidState vertex in the state space graph, and
-  its failed attribute holds the names of the failing predicates.
-
-  The state space graph itself may be validated using `state-space-preds`.
-  Whenever it changes, all these predicates are applied to it.
-
-  This function builds the complete state space graph, i.e., it applies all
-  rules to each state's model.  This might create new states to which the rules
-  are applied in turn.  If the state space does not diverge, i.e., the rules
-  can only create a fixed set of different models, the function eventually
-  returns with the value
-
-    [state-space-graph state2model-map false]
-
-  The state2model-map is a map from State vertices to the model which this
-  State represents, and false indicates that the state-space-step-fn did not
-  find any state anymore to which rules could be applied.
-
-  If `state-preds` or `state-space-preds` are given, this function returns as
-  soon as a one of their predicates failed by default.  In that case, the
-  return value is
-
-
-    [state-space-graph state2model-map
-     [seq-of-invalid-states seq-of-failed-state-space-preds]]
-
-  where seq-of-invalid-states is the sequence of InvalidState vertices in the
-  state-space-graph, and seq-of-failed-state-space-preds is the sequence of
-  `state-space-preds` which failed.
+  For a description of arguments, see `funnyqt.in-place/state-space-step-fn`.
 
   By providing a `recur-pred`, one can define not to stop generating the state
   space when predicates fail.  The `recur-pred` is a predicate of the form
 
-    (fn [seq-of-invalid-states seq-of-failed-state-space-preds] ...)
+    (fn [seq-of-invalid-states seq-of-invalid-transitions seq-of-failed-state-space-preds] ...)
 
-  If it returns logical true, the state space generation is resumed.  Else,
-  create-state-space returns as defined above."
+  If it returns logical true, the state space generation is resumed.  By
+  default, i.e., when no `recur-pred` is given, `create-state-space` returns
+  when at least one predicate of `state-preds`, `transition-preds`, or
+  `state-space-preds` fails.
+
+  The return value has the form:
+
+    [state-space-graph
+     state2model-map
+     [invalid-states invalid-transitions failed-state-space-preds]]"
   ([model comparefn rules]
-   (create-state-space model comparefn rules nil nil nil nil))
+   (create-state-space model comparefn rules nil nil nil nil nil))
   ([model comparefn rules state-preds]
-   (create-state-space model comparefn rules state-preds nil nil nil))
-  ([model comparefn rules state-preds state-space-preds]
-   (create-state-space model comparefn rules state-preds state-space-preds nil nil))
-  ([model comparefn rules state-preds state-space-preds recur-pred]
-   (create-state-space model comparefn rules state-preds state-space-preds recur-pred nil))
-  ([model comparefn rules state-preds state-space-preds recur-pred additional-args]
+   (create-state-space model comparefn rules state-preds nil nil nil nil))
+  ([model comparefn rules state-preds transition-preds]
+   (create-state-space model comparefn rules state-preds transition-preds nil nil nil))
+  ([model comparefn rules state-preds transition-preds state-space-preds]
+   (create-state-space model comparefn rules state-preds transition-preds state-space-preds nil nil))
+  ([model comparefn rules state-preds transition-preds state-space-preds recur-pred]
+   (create-state-space model comparefn rules state-preds transition-preds state-space-preds recur-pred nil))
+  ([model comparefn rules state-preds transition-preds state-space-preds recur-pred additional-args]
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     state-space-preds additional-args)
-         recur-pred (or recur-pred (fn default-recur-pred [inv-states failed-ssg-preds]
+                                     transition-preds state-space-preds
+                                     additional-args)
+         recur-pred (or recur-pred (fn default-recur-pred [inv-states inv-transitions failed-ssg-preds]
                                      (and (empty? inv-states)
                                           (empty? failed-ssg-preds))))]
      (loop [ret (sss-fn)]
@@ -757,11 +765,18 @@
         show-done-attr-checkbox (JCheckBox. "Show :done")
         state-counts (fn []
                        (let [sc (tg/vcount ssg)
-                             isc (tg/vcount ssg 'InvalidState)]
+                             isc (tg/vcount ssg 'InvalidState)
+                             tc (tg/ecount ssg)
+                             itc (tg/ecount ssg 'InvalidTransition)]
                          ;; total, valid, invalid
-                         [sc (- sc isc) isc]))
+                         [sc (- sc isc) isc
+                          tc (- tc itc) itc]))
         no-of-states-label (JLabel.)
+        no-of-transitions-label (JLabel.)
         no-of-valid-states-label (JLabel.)
+        no-of-invalid-states-label (JLabel.)
+        no-of-valid-transitions-label (JLabel.)
+        no-of-invalid-transitions-label (JLabel.)
         no-of-invalid-states-label (JLabel.)
         state-space-valid-label (doto (JLabel.)
                                   (.setText "yes")
@@ -780,9 +795,13 @@
                                              (.setToolTipText
                                               "All state space predicates pass."))))
         reset-state-counts-labels! (fn []
-                                     (let [[as vs is] (state-counts)]
+                                     (let [[as vs is at vt it] (state-counts)]
                                        (.setText no-of-states-label (str as))
+                                       (.setText no-of-transitions-label (str at))
                                        (.setText no-of-valid-states-label (str vs))
+                                       (.setText no-of-invalid-states-label (str is))
+                                       (.setText no-of-valid-transitions-label (str vt))
+                                       (.setText no-of-invalid-transitions-label (str it))
                                        (.setText no-of-invalid-states-label (str is))))]
     (deliver selected-rules-promise (fn []
                                       (for [^JCheckBox cb rule-check-boxes
@@ -795,7 +814,7 @@
                                        ret (sss-fn (constantly (state n))
                                                    (@selected-rules-promise))]
                                    (when ret
-                                     (let [[_ failed-ssg-preds] ret]
+                                     (let [[_ _ failed-ssg-preds] ret]
                                        (reset-state-space-valid-label! failed-ssg-preds)))
                                    (reset-undone-states-cb!)
                                    (reset-all-states-cb!)
@@ -826,14 +845,23 @@
 
     (let [lower (Box. BoxLayout/X_AXIS)]
       (.add lower (doto (JPanel.)
-                    (.setBorder (BorderFactory/createTitledBorder "# All States"))
-                    (.add no-of-states-label)))
+                    (.setBorder (BorderFactory/createTitledBorder "# All S/T"))
+                    (.add no-of-states-label)
+                    (.add (JLabel. " / "))
+                    (.add no-of-transitions-label)))
       (.add lower (doto (JPanel.)
-                    (.setBorder (BorderFactory/createTitledBorder "# Valid States"))
-                    (.add no-of-valid-states-label)))
+                    (.setBorder (BorderFactory/createTitledBorder "# Valid S/T"))
+                    (.add no-of-valid-states-label)
+                    (.add (JLabel. " / "))
+                    (.add no-of-valid-transitions-label)))
+      (.add lower (doto (JPanel.)
+                    (.setBorder (BorderFactory/createTitledBorder "# Invalid S/T"))
+                    (.add no-of-invalid-states-label)
+                    (.add (JLabel. " / "))
+                    (.add no-of-invalid-transitions-label)))
       (.add lower (doto (JPanel.)
                     (.setBorder (BorderFactory/createTitledBorder
-                                 "StateSpace valid?"))
+                                 "SSG valid?"))
                     (.add  state-space-valid-label)))
       (.add states-panel lower))
 
@@ -858,6 +886,8 @@
                                                "style=filled, fillcolor=green"
                                                (g/type-matcher ssg 'InvalidState)
                                                "style=filled, fillcolor=red"}
+                                  :edge-attrs {(g/type-matcher ssg 'InvalidTransition)
+                                               "color=red"}
                                   (when-not (.isSelected show-done-attr-checkbox)
                                     (list :excluded-attributes
                                           {(g/type-matcher ssg 'State) [:done]}))))))
@@ -868,22 +898,24 @@
     (.add content-pane rule-select-panel)
     (.add content-pane button-panel)
     (.pack d)
-    (.setResizable d false)
     (.setVisible d true)
     d))
 
 (defn explore-state-space
   "Fires up a GUI that allows for creating and inspecting the state space by
   starting with initial model `model`, the given `comparefn` (see, e.g.,
-  `funnyqt.generic/equal-models?`), and the given `rules` plus
-  `additional-args` applied to each rule in addition to the current model."
+  `funnyqt.generic/equal-models?`), and the given `rules`.  For a description
+  of arguments, see `funnyqt.in-place/state-space-step-fn`."
   ([model comparefn rules]
-   (explore-state-space model comparefn rules nil nil nil))
+   (explore-state-space model comparefn rules nil nil nil nil))
   ([model comparefn rules state-preds]
-   (explore-state-space model comparefn rules state-preds nil nil))
-  ([model comparefn rules state-preds state-space-preds]
-   (explore-state-space model comparefn rules state-preds state-space-preds nil))
-  ([model comparefn rules state-preds state-space-preds additional-args]
+   (explore-state-space model comparefn rules state-preds nil nil nil))
+  ([model comparefn rules state-preds transition-preds]
+   (explore-state-space model comparefn rules state-preds transition-preds nil nil))
+  ([model comparefn rules state-preds transition-preds state-space-preds]
+   (explore-state-space model comparefn rules state-preds transition-preds state-space-preds nil))
+  ([model comparefn rules state-preds transition-preds state-space-preds additional-args]
    (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     state-space-preds additional-args)]
+                                     transition-preds state-space-preds
+                                     additional-args)]
      (explore-state-space-dialog sss-fn rules))))

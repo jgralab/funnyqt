@@ -51,6 +51,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   *node-attrs*)
 
 (def ^{:dynamic true
+       :doc "A map of the form {pred edge-attrs}.  If (pred e) returns true,
+  edge-attrs is appended to its edge definition.  Useful for colorizing etc."}
+  *edge-attrs*)
+
+(def ^{:dynamic true
        :doc "A boolean determining if class names should be printed fully
   qualified or not.  This is not to be used directly but set by `print-model`
   according to its :qualified-names option."}
@@ -99,6 +104,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           ;; ditto for :node-attrs
           node-attrs (:node-attrs m)
           m (dissoc m :node-attrs)
+          ;; ditto for :edge-attrs
+          edge-attrs (:edge-attrs m)
+          m (dissoc m :edge-attrs)
           ;; ditto for :qualified-names
           qnames (:qualified-names m)
           m (dissoc m :qualified-names)
@@ -107,13 +115,14 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (with-meta m
         {:name gname, :include include, :exclude exclude,
          :excluded-attributes excluded-attibutes, :mark mark,
-         :node-attrs node-attrs, :qualified-names qnames}))))
+         :node-attrs node-attrs, :edge-attrs edge-attrs,
+         :qualified-names qnames}))))
 
-(defn ^:private add-node-attrs [el]
+(defn ^:private add-attrs [el current-attrs]
   (let [attrs (str/join ", "
                         (remove not (map (fn [[pred attrs]]
                                            (when (pred el) attrs))
-                                         *node-attrs*)))]
+                                         current-attrs)))]
     (if (seq attrs)
       (str ", " attrs)
       attrs)))
@@ -156,7 +165,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
            "}\", shape=record, fontname=Sans, fontsize=14, "
            "color=" (if (*marked* eo)
                       "red" "black")
-           (add-node-attrs eo)
+           (add-attrs eo *node-attrs*)
            "];\n"))))
 
 (defn ^:private emf-dot-contentrefs [^EObject eo]
@@ -243,7 +252,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          (tg-dot-attributes v)
          "}\", shape=record, fontname=Sans, fontsize=14, "
          "color=" (if (*marked* v) "red" "black")
-         (add-node-attrs v)
+         (add-attrs v *node-attrs*)
          "];\n")))
 
 (defn tg-role-name [^de.uni_koblenz.jgralab.schema.IncidenceClass ic]
@@ -283,6 +292,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
              AggregationKind/COMPOSITE ", arrowtail=diamond"
              AggregationKind/SHARED    ", arrowtail=odiamond"
              AggregationKind/NONE      ", arrowtail=none")
+           (add-attrs e *edge-attrs*)
            "];\n"))))
 
 (defn ^:private tg-dot-model [g]
@@ -342,6 +352,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                                              (class mark) mark))
                            (constantly false))
               *node-attrs* (or (:node-attrs (meta opts)) {})
+              *edge-attrs* (or (:edge-attrs (meta opts)) {})
               *print-qualified-names* (:qualified-names (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
@@ -405,6 +416,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   interfer in case a marked node is also matched my the
   corresponding :node-attrs predicate.  In this case, the latter takes
   precedence.
+
+  Similar to :node-attrs, there's the :edge-attrs option.  It has the same form
+  and meaning as the former, except that the predicates are applied to
+  edges.  (And therefore, this option is only available with JGraLab TGraphs.)
 
   If the option :qualified-names is set to true, the element types will be
   printed as fully qualified names.  The default is false, where only simple

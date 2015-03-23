@@ -537,9 +537,6 @@
              (ecreate! 'Member {:firstName "X"})
              (ecreate! 'Member {:firstName "X"})
              (ecreate! 'Member {:firstName "X"}))]
-    (clojure.pprint/pprint (g/equal-models? m1 m2))
-    (clojure.pprint/pprint (g/equal-models? m2 m1))
-    (clojure.pprint/pprint (g/equal-models? m3 m2))
     (is (not (g/equal-models? m1 m2)))
     (is (not (g/equal-models? m2 m1)))
     (is (g/equal-models? m2 m3))
