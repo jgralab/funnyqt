@@ -99,70 +99,35 @@
       (is (== 0 (ecount tree)))
       (is (== 1.65 (value (q/the (vseq tree)) :value))))))
 
-(defn ^:private clock-graph []
-  (let [s (load-schema "test/input/clock-schema.tg")
+(defn ^:private counter-graph []
+  (let [s (load-schema "test/input/counter-schema.tg")
         g (new-graph s)]
-    (dotimes [i 12]
-      (let [h (tg/create-vertex! g 'Hour {:hour (inc i)})]
+    (dotimes [i 5]
+      (let [h (tg/create-vertex! g 'Digit {:val (inc i)})]
         (when-not (zero? i)
-          (create-edge! g 'NextHour (tg/vertex g i) h))))
-    (create-edge! g 'NextHour (tg/vertex g 12) (tg/vertex g 1))
-    (let [c (tg/create-vertex! g 'Clock)]
-      (create-edge! g 'CurrentHour c (tg/vertex g 12)))
+          (create-edge! g 'HasNext (tg/vertex g i) h))))
+    (create-edge! g 'HasNext (tg/vertex g 5) (tg/vertex g 1))
+    (let [c (tg/create-vertex! g 'Counter)]
+      (create-edge! g 'HasPrimaryDigit c (tg/vertex g 12))
+      (create-edge! g 'HasSecondaryDigit c (tg/vertex g 12)))
     g))
 
+(defn max-digit-val [g]
+  (reduce max (map #(tg/value % :val))))
+
 (defrule tick-forward [g]
-  [c<Clock> -ch<CurrentHour>-> <> -<NextHour>-> n]
-  (tg/set-omega! ch n))
-
-(defrule tick-backward [g]
-  [c<Clock> -ch<CurrentHour>-> <> <-<NextHour>- n]
-  (tg/set-omega! ch n))
-
-(defrule reset-clock [g]
-  [c<Clock> -ch<CurrentHour>-> h
-   :when (not= 12 (value h :hour))]
-  (set-omega! ch (vertex g 12)))
-
-(deftest test-state-space-1
-  (let [g (clock-graph)
-        [ssg s2g] (create-state-space
-                   g
-                   g/equal-models?
-                   [tick-forward tick-backward reset-clock])]
-    ;;(./print-model ssg :gtk)
-    (is (= 12 (vcount ssg)))
-    ;; From every Hour we can tick forward and backward, and from every state
-    ;; except for the first, we can reset to 12 o'clock.
-    (is (= 35 (ecount ssg)))))
-
-(deftest test-state-space-2
-  (let [g (clock-graph)
-        [ssg s2g] (create-state-space
-                   g
-                   #(g/equal-models? %1 %2 true)
-                   [tick-forward tick-backward reset-clock])]
-    ;;(./print-model ssg :gtk)
-    (is (= 12 (vcount ssg)))
-    ;; From every Hour we can tick forward and backward, and from every state
-    ;; except for the first, we can reset to 12 o'clock.
-    (is (= 35 (ecount ssg)))))
-
-(defrule erase-clock-hand [g]
-  [c<Clock> -ch<CurrentHour>-> <>]
-  (g/delete! ch))
-
-(defn current-hour-exists? [g]
-  (seq (tg/eseq g 'CurrentHour)))
-
-(defn ssg-has-<=12-states [ssg]
-  (<= (tg/vcount ssg) 12))
+  [c<Counter> -sec<:secondary>-> <> -<HasNext>-> n
+   :alternative [[:when (not= (tg/value n :val) (max-digit-val g))]
+                 [c -prim<:primary>-> <> -<HasNext>-> n2]]]
+  (tg/set-omega! sec n)
+  (when prim
+    (tg/set-omega! prim n2)))
 
 (defn test-explore-state-space []
-  (let [g (clock-graph)]
+  (let [g (counter-graph)]
     (explore-state-space
      g
      #(g/equal-models? %1 %2 false)
-     [tick-forward tick-backward reset-clock erase-clock-hand]
-     [current-hour-exists?]
-     [ssg-has-<=12-states])))
+     [tick-forward]
+     []
+     [])))

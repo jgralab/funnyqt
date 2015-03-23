@@ -556,9 +556,11 @@
   [cob done]
   (q/forall? done (map tg/that (tg/iseq cob 'Precedes :in))))
 
-(defn ^:private check-undone [pg done]
+(defn ^:private check-undone [pg bf done]
   (when-let [undone-vertices (seq (remove done (tg/vseq pg)))]
-    (u/errorf "Some vertices were't reached: %s" undone-vertices)))
+    ;; (funnyqt.visualization/print-model pg :gtk)
+    (u/errorf "Some vertices were't reached: %s\nBinding form so far: %s"
+              undone-vertices bf)))
 
 ;;** Models with first-class edges
 
@@ -673,10 +675,9 @@
               PatternEdge
               (if (anon? cur)
                 (let [av (anon-vec cur done)
-                      target-node (last av)
                       done (conj-done done cur)
                       last-in-av (last av)]
-                  (recur (enqueue-incs target-node (pop queue) done)
+                  (recur (enqueue-incs last-in-av (pop queue) done)
                          (let [done (apply conj-done done cur av)]
                            (if (tg/edge? last-in-av)
                              (conj-done done (tg/that last-in-av))
@@ -691,7 +692,9 @@
                       done (conj-done done cur)
                       av (if (anon? trg) (anon-vec trg done) nil)
                       last-in-av (last av)]
-                  (recur (enqueue-incs trg (pop queue) done)
+                  (recur (if last-in-av
+                           (enqueue-incs last-in-av (pop queue) done)
+                           (enqueue-incs trg (pop queue) done))
                          (let [done (apply conj-done done trg av)]
                            (if (tg/edge? last-in-av)
                              (conj-done done (tg/that last-in-av))
@@ -793,7 +796,7 @@
               Precedes
               (recur (assoc (pop queue) (tg/that cur) 0) (conj-done done cur) bf))))
         (do
-          (check-undone pg done)
+          (check-undone pg bf done)
           bf)))))
 
 ;;** Models with only references/roles
@@ -927,7 +930,7 @@
               Precedes
               (recur (assoc (pop queue) (tg/that cur) 0) (conj-done done cur) bf))))
         (do
-          (check-undone pg done)
+          (check-undone pg bf done)
           bf)))))
 
 ;;*** EMF

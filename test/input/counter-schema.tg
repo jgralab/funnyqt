@@ -1,0 +1,12 @@
+// JGraLab - The Java graph laboratory
+//   Version : Efraasia
+//   Revision: 3528:56c9875e9fe4
+
+TGraph 2;
+Schema de.uni_koblenz.jgralabtest.counterschema.CounterSchema;
+GraphClass CounterGraph;
+VertexClass Digit { val : Integer };
+VertexClass Counter;
+EdgeClass HasNext from Digit (1,1) to Digit (1,1);
+EdgeClass HasPrimaryDigit from Counter (0,1) to Digit (1,1) role primary;
+EdgeClass HasSecondaryDigit from Counter (0,1) to Digit (1,1) role secondary;
