@@ -99,35 +99,53 @@
       (is (== 0 (ecount tree)))
       (is (== 1.65 (value (q/the (vseq tree)) :value))))))
 
-(defn ^:private counter-graph []
+(defn ^:private counter-graph [digits]
   (let [s (load-schema "test/input/counter-schema.tg")
         g (new-graph s)]
-    (dotimes [i 5]
-      (let [h (tg/create-vertex! g 'Digit {:val (inc i)})]
+    (dotimes [i digits]
+      (println i)
+      (let [h (tg/create-vertex! g 'Digit {:val i})]
         (when-not (zero? i)
-          (create-edge! g 'HasNext (tg/vertex g i) h))))
-    (create-edge! g 'HasNext (tg/vertex g 5) (tg/vertex g 1))
+          (create-edge! g 'HasNext (tg/prev-vertex h) h))))
+    (create-edge! g 'HasNext (tg/last-vertex g) (tg/first-vertex g))
     (let [c (tg/create-vertex! g 'Counter)]
-      (create-edge! g 'HasPrimaryDigit c (tg/vertex g 12))
-      (create-edge! g 'HasSecondaryDigit c (tg/vertex g 12)))
+      (create-edge! g 'HasPrimaryDigit c (tg/vertex g 1))
+      (create-edge! g 'HasSecondaryDigit c (tg/vertex g 1)))
     g))
-
-(defn max-digit-val [g]
-  (reduce max (map #(tg/value % :val))))
 
 (defrule tick-forward [g]
   [c<Counter> -sec<:secondary>-> <> -<HasNext>-> n
-   :alternative [[:when (not= (tg/value n :val) (max-digit-val g))]
-                 [c -prim<:primary>-> <> -<HasNext>-> n2]]]
-  (tg/set-omega! sec n)
+   :alternative [[:when (not (zero? (tg/value n :val)))]
+                 [:when (zero? (tg/value n :val))
+                  c -prim<:primary>-> <> -<HasNext>-> n2]]]
   (when prim
-    (tg/set-omega! prim n2)))
+    (tg/set-omega! prim n2))
+  (tg/set-omega! sec n))
+
+(defrule tick-backward [g]
+  [c<Counter> -sec<:secondary>-> cur<> <-<HasNext>- p
+   :alternative [[:when (not (zero? (tg/value cur :val)))]
+                 [:when (zero? (tg/value cur :val))
+                  c -prim<:primary>-> <> <-<HasNext>- p2]]]
+  (when prim
+    (tg/set-omega! prim p2))
+  (tg/set-omega! sec p))
+
+(defrule reset-counter [g]
+  [c<Counter> -<:secondary>-> d1
+   c<Counter>  -<:primary>->  d2
+   :when (or (not (zero? (tg/value d1 :val)))
+             (not (zero? (tg/value d2 :val))))]
+  (let [digit-zero (q/the #(zero? (tg/value % :val))
+                          (tg/vseq g 'Digit))]
+    (g/set-adj! c :secondary digit-zero)
+    (g/set-adj! c :primary digit-zero)))
 
 (defn test-explore-state-space []
-  (let [g (counter-graph)]
+  (let [g (counter-graph 3)]
     (explore-state-space
      g
      #(g/equal-models? %1 %2 false)
-     [tick-forward]
+     [tick-forward tick-backward reset-counter]
      []
      [])))
