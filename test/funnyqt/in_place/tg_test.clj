@@ -163,6 +163,6 @@
      g
      #(g/equal-models? %1 %2 false)
      [tick-forward tick-backward reset-counter]
-     []
-     {}
-     [])))
+     {:state-preds []
+      :transition-preds {}
+      :state-space-preds []})))

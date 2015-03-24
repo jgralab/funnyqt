@@ -508,7 +508,9 @@
 
 (defn state-space-step-fn
   "Creates and returns a function for step-wise state space creation.
-  The state space exploration uses `init-model` as initial model.
+  The state space exploration uses `init-model` as initial model/state, applies
+  `rules` in each state, and compares the models corresponding to states using
+  `comparefn` (usually `funnyqt.generic/equal-models?` is a good `comparefn`).
 
   The returned step-function is overloaded on arity and accepts these
   arguments:
@@ -519,35 +521,55 @@
 
   `select-state-fn` is a function that receives the sequence of undone states
   in the state space graph and returns the one to which `rules` should be
-  applied next.  If omitted, the default is clojure.core/first.
+  applied next.  If omitted, the default is `clojure.core/first`.
 
-  `rules` is a sequence of rules to be applied in the step.  Of omitted, it
-  defaults to the `rules` given to `state-space-step-fn`.
+  `rules` is a sequence of rules to be applied to the selected state in a step.
+  Of omitted, it defaults to the `rules` given to `state-space-step-fn`.
 
-  Each rule is applied to the current model and `additional-args`.
+  An optional map of further options may be given to `state-space-step-fn`.
 
-  There are three validation possibilities:
+    {:additional-args   <seq of additional args for rule application>
+     :state-preds       <seq of predicates on each state's model>
+     :transition-preds  <map of rule postconditions>
+     :state-space-preds <seq of predicates on the states space graph>}
 
-  - state-preds is a sequence of predicates that receive the current model.  If
-    any predicate returns logical false, the state of that model is an
-    InvalidState.  Else, it is a ValidState.
+  During each step, each rule is applied as
 
-  - transition-preds is a map of the form {rule pred, ...}.  When rule is
-    executed to the model of a state, pred is called like (pred old-model match
-    new-model).  If that returns logical false, the transition from the state of
-    old-model to the state of new-model is an InvalidTransition.  Else, it is a
-    ValidTransition.
+    (apply rule model-of-a-state additional-args)
 
-  - state-space-preds is a sequence of predicates that receive the current
-    state space graph.  Whenever a new state is created, all these predicates are
-    evaluated.
+  so the :additional-args entry is for specifying further arguments to the
+  rules in addition to the model corresponding to a state.
 
-  Thus, `state-preds` checks invariants of the model under transformation,
-  `state-space-preds` checks invariants of the state space graph, and
-  `transition-preds` implements a kind of post-conditions for the rules.
+  The other three entries allow for specifying validation possibilities.
+
+  - The :state-preds value is a sequence of predicates that receive a state's
+    model.  If any predicate returns logical false, the state of that model is
+    an InvalidState.  Else, it is a ValidState.  Thus, use this entry for
+    specifying invariants for the model under transformation.
+
+  - The :transition-preds value is a map of the form {rule [pred1 pred2], ...}.
+    When rule is executed to the model of a state, each predicate of this rule
+    is called like
+
+       (pred old-model match new-model).
+
+    If that returns logical false, the transition from the state of old-model
+    to the state of new-model is an InvalidTransition.  Else, it is a
+    ValidTransition.  Thus, use this entry to specify postconditions of rules.
+
+  - The :state-space-preds value is a sequence of predicates that receive the
+    current state space graph.  Whenever a new state is created, all these
+    predicates are evaluated.  Thus, use this entry to specify invariants of
+    the state space graph itself.  For example, the number of states might
+    be bounded for some transformation, thus an invariant might want to check
+    that (<= (vcount ssg) upper-bound).  If that invariant fails, you
+    probably have a bug in your implementation or you use a too strict
+    `comparefn` which considers models different although they differ only
+    in properties which are not important for the case at hand, e.g., the
+    models might differ only in the order of references.
 
   Applying the step-function returns false if no rule could be applied, i.e.,
-  if the `select-state-fn` couldn't selected some state.  Else, returns a
+  if the `select-state-fn` couldn't selected some state.  Else, it returns a
   vector of the form
 
     [seq-of-invalid-states
@@ -557,7 +579,7 @@
   where seq-of-invalid-states is the sequence of InvalidState vertices in the
   state space graph, seq-of-invalid-transitions is the sequence of
   InvalidTransition edges, and seq-of-failed-state-space-preds is the sequence
-  of `state-space-preds` which failed.
+  of `state-space-preds` which failed for the current state space graph.
 
   The returned step-function has the following metadata:
 
@@ -569,14 +591,16 @@
   dereferenced (e.g., @volatile-state2model-map or using `clojure.core/deref`)
   in orded to obtain its current value."
   ([init-model comparefn rules]
-   (state-space-step-fn init-model comparefn rules nil nil nil nil))
-  ([init-model comparefn rules state-preds]
-   (state-space-step-fn init-model comparefn rules state-preds nil nil nil))
-  ([init-model comparefn rules state-preds transition-preds]
-   (state-space-step-fn init-model comparefn rules state-preds transition-preds nil nil))
-  ([init-model comparefn rules state-preds transition-preds state-space-preds]
-   (state-space-step-fn init-model comparefn rules state-preds transition-preds nil))
-  ([init-model comparefn rules state-preds transition-preds state-space-preds additional-args]
+   (state-space-step-fn init-model comparefn rules {}))
+  ([init-model comparefn rules {:keys [additional-args
+                                       state-preds
+                                       transition-preds
+                                       state-space-preds]
+                                :as options}]
+   (let [unknown-opts (dissoc options :additional-args :state-preds
+                              :transition-preds :state-space-preds)]
+     (when (seq unknown-opts)
+       (u/errorf "Unknown options: %s" unknown-opts)))
    (when (and transition-preds (not (map? transition-preds)))
      (u/errorf "transition-preds must be a map but was %s" transition-preds))
    (let [ssg (tg/new-graph statespace-schema)
@@ -651,47 +675,46 @@
         :state2model-map state2model}))))
 
 (defn create-state-space
-  "Takes the `model` as initial state and applies all `rules` to it (and
-  optionally `additional-args`) generating a state space graph.
+  "Takes the `model` as initial state and applies all `rules` to it generating
+  a state space graph.
 
-  For a description of arguments, see `funnyqt.in-place/state-space-step-fn`.
+  An optional map of options may be given.  For a description of arguments and
+  options except for :recur-pred, see `funnyqt.in-place/state-space-step-fn`.
 
-  By providing a `recur-pred`, one can define not to stop generating the state
-  space when predicates fail.  The `recur-pred` is a predicate of the form
+  If the map of options contains a :recur-pred entry, its value must be a
+  function of three arguments which determines if the state space generation
+  should be resumed.  It's signature should be:
 
     (fn [seq-of-invalid-states seq-of-invalid-transitions seq-of-failed-state-space-preds] ...)
 
-  If it returns logical true, the state space generation is resumed.  By
-  default, i.e., when no `recur-pred` is given, `create-state-space` returns
-  when at least one predicate of `state-preds`, `transition-preds`, or
-  `state-space-preds` fails.
+  If the recur-pred returns logical true, the state space generation is
+  resumed.  By default, i.e., when there is no :recur-pred entry in the map of
+  options, `create-state-space` returns when at least one predicate of
+  `state-preds`, `transition-preds`, or `state-space-preds` fails.
 
-  The return value has the form:
+  The return value has the form
 
-    [state-space-graph
-     state2model-map
-     [invalid-states invalid-transitions failed-state-space-preds]]"
+    [state-space-graph state2model-map step-fn-retval]
+
+  where state-space-graph is the final state space graph, state2model-map is
+  the final map from SSG states to corresponding models, and step-fn-retval
+  is the return value of the underlying `state-space-step-fn`."
   ([model comparefn rules]
-   (create-state-space model comparefn rules nil nil nil nil nil))
-  ([model comparefn rules state-preds]
-   (create-state-space model comparefn rules state-preds nil nil nil nil))
-  ([model comparefn rules state-preds transition-preds]
-   (create-state-space model comparefn rules state-preds transition-preds nil nil nil))
-  ([model comparefn rules state-preds transition-preds state-space-preds]
-   (create-state-space model comparefn rules state-preds transition-preds state-space-preds nil nil))
-  ([model comparefn rules state-preds transition-preds state-space-preds recur-pred]
-   (create-state-space model comparefn rules state-preds transition-preds state-space-preds recur-pred nil))
-  ([model comparefn rules state-preds transition-preds state-space-preds recur-pred additional-args]
-   (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     transition-preds state-space-preds
-                                     additional-args)
+   (create-state-space model comparefn rules {}))
+  ([model comparefn rules {:keys [additional-args
+                                  state-preds
+                                  transition-preds
+                                  state-space-preds
+                                  recur-pred]
+                           :as options}]
+   (let [sss-fn (state-space-step-fn model comparefn rules (dissoc options :recur-pred))
          recur-pred (or recur-pred (fn default-recur-pred [inv-states inv-transitions failed-ssg-preds]
                                      (and (empty? inv-states)
                                           (empty? failed-ssg-preds))))]
      (loop [ret (sss-fn)]
-       ;; Apply as long as sss-fn returns [() #{}], i.e., stop if no new states
-       ;; can be created, or an invalid state has been created, or the state
-       ;; space has become invalid.
+       ;; Apply as long as sss-fn returns [() () #{}], i.e., stop if no new
+       ;; states can be created, or an invalid state or transition has been
+       ;; created, or the state space has become invalid.
        (if (and ret (apply recur-pred ret))
          (recur (sss-fn))
          [(:state-space-graph (meta sss-fn))
@@ -907,15 +930,11 @@
   `funnyqt.generic/equal-models?`), and the given `rules`.  For a description
   of arguments, see `funnyqt.in-place/state-space-step-fn`."
   ([model comparefn rules]
-   (explore-state-space model comparefn rules nil nil nil nil))
-  ([model comparefn rules state-preds]
-   (explore-state-space model comparefn rules state-preds nil nil nil))
-  ([model comparefn rules state-preds transition-preds]
-   (explore-state-space model comparefn rules state-preds transition-preds nil nil))
-  ([model comparefn rules state-preds transition-preds state-space-preds]
-   (explore-state-space model comparefn rules state-preds transition-preds state-space-preds nil))
-  ([model comparefn rules state-preds transition-preds state-space-preds additional-args]
-   (let [sss-fn (state-space-step-fn model comparefn rules state-preds
-                                     transition-preds state-space-preds
-                                     additional-args)]
+   (explore-state-space model comparefn rules {}))
+  ([model comparefn rules {:keys [additional-args
+                                  state-preds
+                                  transition-preds
+                                  state-space-preds]
+                           :as options}]
+   (let [sss-fn (state-space-step-fn model comparefn rules options)]
      (explore-state-space-dialog sss-fn rules))))
