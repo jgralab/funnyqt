@@ -19,16 +19,6 @@
 ;;# Rules
 
 (def ^{:dynamic true
-       :doc "A function that is invoked when a rule matches,
-  mainly for debugging purposes.
-  The function gets the following arguments: [r args match]
-
-    - r is a symbol denoting the current matching rule
-    - args is the vector of the rule's input arguments
-    - match is the current match found by the rule"}
-  *on-matched-rule-fn* nil)
-
-(def ^{:dynamic true
        :doc "Only for internal use.  See `as-pattern' macro."}
   *as-pattern* false)
 
@@ -78,6 +68,9 @@
                           (= x `clojure.core/fn)))))
              form))
 
+;; Refer the private var in pmatch...
+(def ^:private create-recheck-pattern #'pm/create-recheck-pattern)
+
 (defn ^:private convert-spec
   "spec is ([args] [pattern] & body) or ([args] & body)."
   [name spec]
@@ -93,7 +86,9 @@
             pattern     (gensym "pattern")
             matches     (gensym "matches")
             action-fn   (gensym "action-fn")
-            match       (gensym "match")]
+            match       (gensym "match")
+            curmatch-a  (gensym "cur-match-atom")
+            recheck-pattern (gensym "recheck-pattern")]
         (when-not (= custom-as (u/deep-vectorify custom-as))
           (u/errorf "The :as clause in patterns of in-plate rules must be a vector but was %s."
                     custom-as))
@@ -104,20 +99,30 @@
                                      {:eager ~(:forall (meta name))
                                       :sequential ~(:sequential (meta name))}
                                      ~args ~pattern-vector)
+                ~@(when (:recheck (meta name))
+                    [recheck-pattern `(pm/pattern [~(first args) ~@matchsyms]
+                                                  ~(create-recheck-pattern pattern-vector))])
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
                              (let [{:keys ~matchsyms} ~match]
-                               (when *on-matched-rule-fn*
-                                 (*on-matched-rule-fn* '~name ~args ~match))
                                (if *as-test*
-                                 (let [curmatch# (atom ~matchsyms)]
+                                 (let [~curmatch-a (atom ~matchsyms)]
                                    (with-meta (fn []
-                                                (let [~matchsyms @curmatch#]
-                                                  ~@(unrecur name body)))
-                                     {:current-match-atom curmatch#
+                                                ~(if (:recheck (meta name))
+                                                   `(let [~matchsyms (deref ~curmatch-a)]
+                                                      (when (seq (~recheck-pattern ~(first args)
+                                                                                   ~@matchsyms))
+                                                        ~@(unrecur name body)))
+                                                   `(let [~matchsyms (deref ~curmatch-a)]
+                                                      ~@(unrecur name body))))
+                                     {:current-match-atom ~curmatch-a
                                       :args ~args
                                       :all-matches ~matches}))
-                                 (do ~@body))))]
+                                 ~(if (:forall (meta name))
+                                    `(when (seq (~recheck-pattern ~(first args)
+                                                                  ~@matchsyms))
+                                       (do ~@body))
+                                    `(do ~@body)))))]
             (if *as-pattern*
               ~matches
               (when (seq ~matches)
@@ -202,18 +207,26 @@
   finds one, it applies its `body` on the match returning the value of the last
   form in `body`, which should be logical true by convention.
 
-  Rules may have ^:forall metadata attached to their name.  Such a rule first
-  finds all matches eagerly, and then applies the actions to each match in
-  sequence.  The finding of matches is done in parallel (if some constraints
-  hold, and there's no ^:sequential metadata).  The result of a ^:forall rule
-  is the vector of action results (one for each match).  If you're not
-  interested in that and want to save some memory, you can also add
-  ^:no-result-vec metadata.  In that case, applying the ^:forall rule returns
-  only the number of matches.  In any case, if there were no matches at all,
-  nil is returned.
+  Rules may have ^:forall metadata attached to their name or the :forall option
+  set in the attr-map.  Such a rule first finds all matches eagerly, and then
+  applies the actions to each match in sequence.  The finding of matches is
+  done in parallel (if some constraints hold, and there's no ^:sequential
+  metadata).  The result of a ^:forall rule is the vector of action
+  results (one for each match).  If you're not interested in that and want to
+  save some memory, you can also add ^:no-result-vec metadata.  In that case,
+  applying the ^:forall rule returns only the number of matches.  In any case,
+  if there were no matches at all, nil is returned.
 
-  When a rule matches, *on-matched-rule-fn* is invoked which you can use to
-  inspect matches (i.e., for debugging).
+  Note that in a :forall rule, applying the actions on some match might
+  invalidate a later match.  If that is feasible, enable the :recheck option
+  either in attr-map or as metadata.  Then the pattern is rechecked before
+  applying the actions.
+
+  The same holds for applying a rule using `as-test'.  Here, the matching is
+  performed at the call but you might apply the returned action thunk some time
+  in the future when the model has already changed.  If that's the case in your
+  scenario, again :recheck will enable rechecking the match before applying the
+  actions.
 
   Also see `as-pattern` and `as-test`."
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]

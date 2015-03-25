@@ -1,7 +1,7 @@
 (ns funnyqt.pmatch
   "Pattern Matching."
   (:require clojure.set
-            clojure.string
+            [clojure.string            :as str]
             [clojure.tools.macro       :as m]
             [clojure.data.priority-map :as pm]
             [funnyqt.generic           :as g]
@@ -71,6 +71,29 @@
 
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
+
+(defn ^:private create-recheck-pattern [pattern-spec]
+  (when-not (vector? pattern-spec)
+    (u/errorf "Cannot recheck a pattern without pattern spec: %s"
+              pattern-spec))
+  ;; We may drop all typing information from nodes and edges with an identifier
+  ;; since the types cannot have changed.  Attribute and connection constraints
+  ;; still need to be re-checked.
+  (loop [ps pattern-spec, nps []]
+    (if (seq ps)
+      (let [x (first ps)]
+        (cond
+          ;; Vertex symbols with name and type
+          (and (vertex-sym? x)
+               (every? identity (name-and-type x)))
+          (recur (rest ps) (conj nps (first (name-and-type x))))
+          ;; Edge symbols with name and type (no neg edges!)
+          (and (edge-sym? x)
+               (every? identity (name-and-type x))
+               (not (neg-edge-sym? x)))
+          (recur (rest ps) (conj nps (symbol (str/replace (str x) #"<.*?>" "<>"))))
+          :else (recur (rest ps) (conj nps x))))
+      nps)))
 
 (defn ^:private binding-bound-vars
   "Returns the symbols bound by a :for, :let, :nested, or :when-let in pattern
@@ -1083,12 +1106,12 @@
 
 (defn ^:private remove-isomorphic-distinct-and-as-specs [pattern-spec]
   (-> pattern-spec
-    (get-and-remove-key-from-vector :isomorphic false)
-    first
-    (get-and-remove-key-from-vector :distinct false)
-    first
-    (get-and-remove-key-from-vector :as true)
-    first))
+      (get-and-remove-key-from-vector :isomorphic false)
+      first
+      (get-and-remove-key-from-vector :distinct false)
+      first
+      (get-and-remove-key-from-vector :as true)
+      first))
 
 (def ^:dynamic ^:private *letpattern-pattern-specs*
   "A map from letpattern-defined patterns (symbols) to their vector of pattern
