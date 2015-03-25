@@ -839,7 +839,8 @@
                         (if-let [container (tg/value e :container)]
                           (if (= container (tg/enum-constant pg 'Container.FROM))
                             `(~contents-fn ~src ~(get-type e))
-                            `(~container-fn ~src ~(get-type e)))
+                            `(when-let [c# (~container-fn ~src ~(get-type e))]
+                               #{c#}))
                           (if-let [t (get-edge-type e)]
                             `(~role-fn ~src ~t)
                             `(~neighbors-fn ~src))))

@@ -714,10 +714,11 @@
    (.eContainer eo))
   ([^EObject eo rs]
    (let [rm (eref-matcher rs)]
-     (q/the (mapcat (fn [^EReference r] (.eGet eo r))
-                    (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                          :when (and (.isContainer ref) (rm ref))]
-                      ref))))))
+     (first (map (fn [^EReference r] (.eGet eo r))
+                 (for [^EReference ref (seq (.getEAllReferences
+                                             (.eClass eo)))
+                       :when (and (.isContainer ref) (rm ref))]
+                   ref))))))
 
 (extend-protocol g/IContainer
   EObject
