@@ -1,7 +1,6 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
   (:require [clojure.tools.macro   :as m]
-            [clojure.repl          :as repl]
             [funnyqt.generic       :as g]
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
@@ -80,7 +79,6 @@
       ;; pattern vector given
       (let [pattern-vector (first more)
             bf          (@#'pm/transform-pattern-spec name pattern-vector args)
-            custom-as   (:as (meta bf))
             matchsyms   (pm/bindings-to-argvec bf)
             body        (next more)
             pattern     (gensym "pattern")
@@ -88,9 +86,8 @@
             action-fn   (gensym "action-fn")
             match       (gensym "match")
             recheck-pattern (gensym "recheck-pattern")]
-        (when-not (= custom-as (u/deep-vectorify custom-as))
-          (u/errorf "The :as clause in patterns of in-plate rules must be a vector but was %s."
-                    custom-as))
+        (when (:as (meta bf))
+          (u/error "Rule patterns mustn't have :as clause."))
         `(~args
           (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
                                      ;; forall rules can benefit from parallel
@@ -125,7 +122,8 @@
                                    {:match ~match
                                     :args ~args
                                     :all-matches ~matches})
-                                 ~(if (:forall (meta name))
+                                 ~(if (and (:recheck (meta name))
+                                           (:forall (meta name)))
                                     `(when (seq (~recheck-pattern ~(first args)
                                                                   ~@matchsyms))
                                        (do ~@body))
@@ -402,11 +400,6 @@
               v (apply r args)]
           (or v (recur (disj rs r))))))))
 
-(defn ^:private fn-name [r]
-  (let [^String s (repl/demunge (pr-str (class r)))
-        i (.lastIndexOf s (int \/))]
-    (subs s (inc i))))
-
 (defn ^:private action ^Action [name f]
   (proxy [AbstractAction] [name]
     (actionPerformed [ev]
@@ -447,7 +440,7 @@
         (.setEnabled true))
       (set! (.fill gridbagconsts) GridBagConstraints/BOTH)
       (doseq [[rule thunk] rule-var-thunk-tups
-              :let [label (JLabel. (str (fn-name rule) ": "))
+              :let [label (JLabel. (str (u/fn-name rule) ": "))
                     cb (JComboBox. (to-array (:all-matches (meta thunk))))
                     current-match (atom (:match (meta thunk)))
                     flatten-match (fn [m]
@@ -650,14 +643,14 @@
                            (if (seq failed)
                              (tg/create-vertex! ssg 'InvalidState
                                                 {:n (inc (tg/vcount ssg))
-                                                 :failed (set (map fn-name failed))})
+                                                 :failed (set (map u/fn-name failed))})
                              (tg/create-vertex! ssg 'ValidState
                                                 {:n (inc (tg/vcount ssg))}))))
          state2model (volatile! {(create-state! init-model) init-model})
          find-equiv-state (fn [m]
                             (first (filter #(comparefn m (@state2model %))
                                            (tg/vseq ssg 'State))))
-         rule-names (set (map fn-name rules))
+         rule-names (set (map u/fn-name rules))
          invalid-state-tm (g/type-matcher ssg 'InvalidState)
          invalid-transition-tm (g/type-matcher ssg 'InvalidTransition)]
      (with-meta (fn do-step
@@ -671,7 +664,7 @@
                                           ^java.util.Set (tg/value % :done)
                                           (if (identical? rs rules)
                                             rule-names
-                                            (map fn-name rs)))
+                                            (map u/fn-name rs)))
                                         (tg/vseq ssg 'State)))]
                      (do
                        (doseq [r rs
@@ -686,14 +679,14 @@
                                                          (:match (meta thunk))
                                                          m))]
                                (tg/create-edge! ssg 'InvalidTransition st nst
-                                                {:rule (fn-name r)
-                                                 :failed (set (map fn-name failed-posts))})
-                               (tg/create-edge! ssg 'ValidTransition st nst {:rule (fn-name r)}))
+                                                {:rule (u/fn-name r)
+                                                 :failed (set (map u/fn-name failed-posts))})
+                               (tg/create-edge! ssg 'ValidTransition st nst {:rule (u/fn-name r)}))
                              (when-not (contains? @state2model nst)
                                (vswap! state2model assoc nst m)))))
                        (tg/set-value! st :done (.plusAll
                                                 ^org.pcollections.PSet (tg/value st :done)
-                                                ^java.util.Collection (map fn-name rs)))
+                                                ^java.util.Collection (map u/fn-name rs)))
                        [(tg/vseq ssg invalid-state-tm)
                         (tg/eseq ssg invalid-transition-tm)
                         (failed-state-space-preds)])
@@ -800,14 +793,14 @@
                                   (let [undone (map #(tg/value % :n)
                                                     (remove #(.containsAll
                                                               ^java.util.Set (tg/value % :done)
-                                                              (map fn-name (@selected-rules-promise)))
+                                                              (map u/fn-name (@selected-rules-promise)))
                                                             (tg/vseq ssg 'State)))]
                                     (doseq [n undone]
                                       (.addItem undone-states-cb n))
                                     (.setEnabled ^JButton @apply-rules-button-promise
                                                  (pos? (count undone)))))
         rule-check-boxes (for [r rules]
-                           (let [cb (JCheckBox. (let [a (action (fn-name r)
+                           (let [cb (JCheckBox. (let [a (action (u/fn-name r)
                                                                 reset-undone-states-cb!)]
                                                   (.putValue a "rule" r)
                                                   a))]
@@ -838,7 +831,7 @@
                                              (.setIcon CROSS16)
                                              (.setToolTipText
                                               (str "Failed SSG predicates: "
-                                                   (list* (map fn-name failed-ssg-preds)))))
+                                                   (list* (map u/fn-name failed-ssg-preds)))))
                                            (doto state-space-valid-label
                                              (.setText "yes")
                                              (.setIcon CHECK16)

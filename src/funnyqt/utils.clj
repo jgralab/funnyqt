@@ -1,7 +1,8 @@
 (ns funnyqt.utils
   "Generic utility functions."
   (:require clojure.pprint
-            [clojure.string :as str]
+            [clojure.repl         :as repl]
+            [clojure.string       :as str]
             [flatland.ordered.set :as os]))
 
 ;;# Conversion to OrderedSet
@@ -29,9 +30,9 @@
 (defn into-oset
   "Returns an ordered-set of all given arguments which must be collections."
   ([to from]
-     (into (oset to) from))
+   (into (oset to) from))
   ([to from & froms]
-     (reduce into (into-oset to from) froms)))
+   (reduce into (into-oset to from) froms)))
 
 (defmacro assert-flat-oset
   "Asserts that obj is an ordered set containing no collections, only flat
@@ -251,16 +252,6 @@
 
 ;;# Misc
 
-(defn deep-vectorify
-  "Convert the collection `coll` to a vector.  If `coll` is a collection
-  containing collections, do it recursively."
-  [coll]
-  (when (map? coll)
-    (errorf "Cannot deep-vectorify map %s." coll))
-  (if (coll? coll)
-    (mapv deep-vectorify coll)
-    coll))
-
 (def ^:private ^java.lang.reflect.Method AbstractElist-isUnique
   (-> (.getDeclaredMethod org.eclipse.emf.common.util.AbstractEList
                           "isUnique" (make-array Class 0))
@@ -336,3 +327,10 @@
   As a special case, (doseq+ [] x) executes x once."
   [seq-exprs & body]
   (apply for+-doseq+-helper `doseq seq-exprs body))
+
+(defn fn-name
+  "Returns the name of the given function f."
+  [f]
+  (let [^String s (repl/demunge (pr-str (class f)))
+        i (.lastIndexOf s (int \/))]
+    (subs s (inc i))))
