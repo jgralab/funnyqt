@@ -504,8 +504,6 @@
 
 ;;# Patter graph to pattern comprehension
 
-(def ^:private ^:dynamic *conversion-opts* nil)
-
 (defn ^:private conj-done [done & elems]
   (into done (mapcat #(if (tg/edge? %)
                         (vector % (tg/inverse-edge %))
@@ -1154,12 +1152,10 @@
         pgraph (pattern-spec-to-pattern-graph name args pattern-spec isomorphic)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
-      (binding [*conversion-opts* (assoc (meta name)
-                                         :distinct distinct)]
-        (with-meta (transform-fn args pgraph)
-          {:distinct      distinct
-           :as            result
-           :pattern-graph pgraph}))
+      (with-meta (transform-fn args pgraph)
+        {:distinct      distinct
+         :as            result
+         :pattern-graph pgraph})
       (u/errorf "The pattern expansion context is not set.\n%s"
                 "See `*pattern-expansion-context*` in the pmatch namespace."))))
 
