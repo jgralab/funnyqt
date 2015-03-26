@@ -87,7 +87,6 @@
             matches     (gensym "matches")
             action-fn   (gensym "action-fn")
             match       (gensym "match")
-            curmatch-a  (gensym "cur-match-atom")
             recheck-pattern (gensym "recheck-pattern")]
         (when-not (= custom-as (u/deep-vectorify custom-as))
           (u/errorf "The :as clause in patterns of in-plate rules must be a vector but was %s."
@@ -106,18 +105,26 @@
                 ~action-fn (fn [~match]
                              (let [{:keys ~matchsyms} ~match]
                                (if *as-test*
-                                 (let [~curmatch-a (atom ~matchsyms)]
-                                   (with-meta (fn []
-                                                ~(if (:recheck (meta name))
-                                                   `(let [~matchsyms (deref ~curmatch-a)]
-                                                      (when (seq (~recheck-pattern ~(first args)
-                                                                                   ~@matchsyms))
-                                                        ~@(unrecur name body)))
-                                                   `(let [~matchsyms (deref ~curmatch-a)]
-                                                      ~@(unrecur name body))))
-                                     {:current-match-atom ~curmatch-a
-                                      :args ~args
-                                      :all-matches ~matches}))
+                                 (with-meta (fn
+                                              ([]
+                                               ~(if (:recheck (meta name))
+                                                  `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
+                                                     ~@(unrecur name body))
+                                                  `(do ~@(unrecur name body))))
+                                              ;; One may also specify a
+                                              ;; different match than what this
+                                              ;; thunk was actually meant for
+                                              ;; (for interactive-rule).
+                                              ([match#]
+                                               (println "Applyuing on" match#)
+                                               (let [{:keys ~matchsyms} match#]
+                                                 ~(if (:recheck (meta name))
+                                                    `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
+                                                       ~@(unrecur name body))
+                                                    `(do ~@(unrecur name body))))))
+                                   {:match ~match
+                                    :args ~args
+                                    :all-matches ~matches})
                                  ~(if (:forall (meta name))
                                     `(when (seq (~recheck-pattern ~(first args)
                                                                   ~@matchsyms))
@@ -442,18 +449,26 @@
       (doseq [[rule thunk] rule-var-thunk-tups
               :let [label (JLabel. (str (fn-name rule) ": "))
                     cb (JComboBox. (to-array (:all-matches (meta thunk))))
+                    current-match (atom (:match (meta thunk)))
+                    flatten-match (fn [m]
+                                    (cond
+                                      (map? m) (vals m)
+                                      (not (instance? java.util.Collection m)) [m]
+                                      :else m))
                     show-match-fn (fn smf
                                     ([] (smf :gtk))
                                     ([file]
                                      (let [els (concat (:args (meta thunk))
-                                                       @(:current-match-atom (meta thunk)))]
+                                                       (flatten-match @current-match))]
                                        (viz/print-model
                                         model file :mark els
                                         :include (let [nodes (filter g/element? els)]
                                                    (concat nodes
                                                            (mapcat g/neighbors nodes)))))))
                     viewb (JButton. (action "Show match" show-match-fn))
-                    applyb (JButton. ^Action (deliver-action "Apply rule" thunk))
+                    applyb (JButton. ^Action (deliver-action "Apply rule"
+                                                             (fn []
+                                                               (thunk @current-match))))
                     tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
                     tooltip! (fn []
                                (show-match-fn (.getPath tmpfile))
@@ -465,8 +480,7 @@
         (.addItemListener cb (reify ItemListener
                                (itemStateChanged [this ev]
                                  (when (== (.getStateChange ev) ItemEvent/SELECTED)
-                                   (reset! (:current-match-atom (meta thunk))
-                                           (.getItem ev))
+                                   (reset! current-match (.getItem ev))
                                    (tooltip!)))))
         (tooltip!)
         (.add rule-panel label)
@@ -669,7 +683,7 @@
                              (if-let [failed-posts (seq (failed-transition-preds
                                                          r
                                                          (@state2model st)
-                                                         @(:current-match-atom (meta thunk))
+                                                         (:match (meta thunk))
                                                          m))]
                                (tg/create-edge! ssg 'InvalidTransition st nst
                                                 {:rule (fn-name r)
