@@ -713,12 +713,16 @@
   ([^EObject eo]
    (.eContainer eo))
   ([^EObject eo rs]
-   (let [rm (eref-matcher rs)]
-     (first (map (fn [^EReference r] (.eGet eo r))
-                 (for [^EReference ref (seq (.getEAllReferences
-                                             (.eClass eo)))
-                       :when (and (.isContainer ref) (rm ref))]
-                   ref))))))
+   (if rs
+     (let [rm (eref-matcher rs)]
+       (first (map (fn [^EReference r] (.eGet eo r))
+                   (for [^EReference ref (seq (.getEAllReferences
+                                               (.eClass eo)))
+                         :when (and (.isContainer ref) (rm ref))]
+                     ref))))
+     ;; We cannot handle the rs = nil case with the above because it is
+     ;; possible that there is no reference at all at the container side.
+     (.eContainer eo))))
 
 (extend-protocol g/IContainer
   EObject
