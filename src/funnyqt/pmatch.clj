@@ -538,7 +538,12 @@
                              (and (not (tg/normal-edge? i))
                                   (keyword? t)))))
                      (tg/iseq cur))]
-    (into queue (map (fn [i] [i (tg/id i)]) incs))))
+    (into queue (map (fn [i]
+                       [i (let [prio (tg/id i)]
+                            (if (neg? prio)
+                              (- prio)
+                              prio))])
+                     incs))))
 
 (defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
   (let [target-node (last av)]
