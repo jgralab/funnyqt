@@ -728,14 +728,6 @@
     ([this rs]
      (econtainer this rs))))
 
-(extend-protocol g/IContents
-  EObject
-  (contents
-    ([this]
-     (econtents this))
-    ([this ts]
-     (econtents this ts))))
-
 (defn ^:private eopposite-refs
   "Returns the seq of `eo`s EClass' references whose opposites match `src-rm`.
 
@@ -811,6 +803,16 @@
                    :when (and (.isContainment ref)
                               (rm ref))]
                ref)))))
+
+(extend-protocol g/IContents
+  EObject
+  (contents
+    ([this]
+     (econtents this))
+    ([this ts-or-role]
+     (if (symbol? ts-or-role)
+       (econtents this ts-or-role)
+       (econtentrefs this ts-or-role)))))
 
 (defn inv-erefs
   "Returns the seq of EOjects that reference EObject `eo` with an EReference

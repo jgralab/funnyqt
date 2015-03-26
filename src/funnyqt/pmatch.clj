@@ -969,7 +969,7 @@
 
 (defn pattern-graph-to-for+-bindings-emf [argvec pg]
   (pattern-graph-to-for+-bindings-only-refs-base
-   argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtents `emf/econtainer))
+   argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtentrefs `emf/econtainer))
 
 ;;*** Generic
 

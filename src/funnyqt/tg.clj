@@ -1197,7 +1197,7 @@ functions `record` and `enum-constant`."
      (sequence contents-transducer (iseq this)))
     ([this ts]
      (sequence
-      (comp contents-transducer (filter (type-matcher-tg this ts)))
+      (comp contents-transducer (filter (type-matcher-from-ts-or-role this ts)))
       (iseq this)))))
 
 ;;## Vertex, edge counts, degree
