@@ -271,9 +271,10 @@
   [qname]
   (let [[eenum elit] (u/split-qname qname)]
     (if-let [^EEnum enum-cls (eclassifier eenum)]
-      (or (.getEEnumLiteral enum-cls ^String elit)
-          (u/errorf "%s has no EEnumLiteral with name %s."
-                    (print-str enum-cls) elit))
+      (if-let [^EEnumLiteral lit (.getEEnumLiteral enum-cls ^String elit)]
+        (or (.getInstance lit) lit)
+        (u/errorf "%s has no EEnumLiteral with name %s."
+                  (print-str enum-cls) elit))
       (u/errorf "No such EEnum %s." eenum))))
 
 (extend-protocol g/IMMAllSubclasses
