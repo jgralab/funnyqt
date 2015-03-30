@@ -144,11 +144,11 @@
   "The lazy seq of all registered EPackages and their subpackages."
   []
   (with-system-class-loader
-    (mapcat (fn [uri]
-              (if-let [p (.getEPackage *epackage-registry* uri)]
-                (into [p] (eallsubpackages p))
-                (u/errorf "No such EPackage nsURI: %s" uri)))
-            (or *ns-uris* (keys *epackage-registry*)))))
+    (map (fn [uri]
+           (if-let [p (.getEPackage *epackage-registry* uri)]
+             p
+             (u/errorf "No such EPackage nsURI: %s" uri)))
+         (or *ns-uris* (keys *epackage-registry*)))))
 
 (defn ^:private ns-uris-and-type-spec [name]
   (if (map? name)
