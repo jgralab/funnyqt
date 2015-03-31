@@ -42,7 +42,7 @@
   "Transforms a family model to a genealogy model."
   [[in] [out]]
   (first-name [m]
-   (emf/eget m :firstName))
+              (emf/eget m :firstName))
   (make-address
    :from [street town]
    :to [adr 'Address]
@@ -65,8 +65,8 @@
    :from [m 'Member]
    ;; Just for testing purposes, use the full name as identity rather than the
    ;; Member element itself.
-   :identity [id (str (emf/eget m :firstName) " "
-                      (emf/eget (family m) :lastName))]
+   :id   [id (str (emf/eget m :firstName) " "
+                  (emf/eget (family m) :lastName))]
    :when (male? m)
    :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}])
   (member2female

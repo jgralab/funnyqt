@@ -37,11 +37,11 @@
              (or (vector? (:to m))
                  (u/errorf ":to must be a vector: %s" form))
              true)
-           (if (contains? m :identity)
-             (or (and (vector? (:identity m))
-                      (= 2 (count (:identity m)))
-                      (symbol? (first (:identity m))))
-                 (u/errorf ":identity must have form [id id-exp]: %s" form))
+           (if (contains? m :id)
+             (or (and (vector? (:id m))
+                      (= 2 (count (:id m)))
+                      (symbol? (first (:id m))))
+                 (u/errorf ":id must have form [id id-exp]: %s" form))
              true)
            (if (and (contains? (meta name) :top)
                     (not= (count (keys (args-types-map (:from m)))) 1))
@@ -144,16 +144,16 @@
                  created)
         wl-vars (map first (partition 2 (:when-let rule-map)))
         existing (gensym "existing")
-        [id id-exp] (:identity rule-map)
+        [id id-exp] (:id rule-map)
         id-form (fn [body]
                   (if id
                     `(let [~id ~id-exp] ~body)
-                      body))
+                    body))
         creation-form (if (seq created)
                         `(let ~(vec (concat (:let rule-map) create-vec))
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
                                   assoc ~trace-src ~retval)
-                           ~@(when (:identity rule-map)
+                           ~@(when (:id rule-map)
                                `[(swap! *trace* update-in [~(keyword (:name rule-map))]
                                         assoc ~id ~retval)])
                            ~@(:body rule-map)
@@ -161,7 +161,7 @@
                         `(let [ret# (do ~@(:body rule-map))]
                            (swap! *trace* update-in [~(keyword (:name rule-map))]
                                   assoc ~trace-src ret#)
-                           ~@(when (:identity rule-map)
+                           ~@(when (:id rule-map)
                                `[(swap! *trace* update-in [~(keyword (:name rule-map))]
                                         assoc ~id ~retval)])
                            ret#))
@@ -177,7 +177,7 @@
                                   ~when-let-form)
                                when-let-form))]
     (when-let [uks (seq (disj (set (keys rule-map))
-                              :name :from :let :to :when :when-let :body :disjuncts :identity
+                              :name :from :let :to :when :when-let :body :disjuncts :id
                               :dup-identity-eval))]
       (u/errorf "Unknown keys in rule: %s" uks))
     `(~(:name rule-map) ~arg-vec
@@ -200,9 +200,9 @@
                      ~disj-calls-and-body)
                   disj-calls-and-body)))
           `(let [~existing (resolve-in ~(keyword (:name rule-map))
-                                       ~(if (:identity rule-map)
+                                       ~(if (:id rule-map)
                                           id trace-src))]
-             ~(if (and (:identity rule-map)
+             ~(if (and (:id rule-map)
                        (:dup-identity-eval rule-map))
                 `(if (and ~existing (not (contains? @*trace* ~trace-src)))
                    ~(when-when-let-form
@@ -238,15 +238,15 @@
 
     (a2b
       :from [a 'InClass, x]
-      :identity [id [(aval a :name) x]]
+      :id   [id [(aval a :name) x]]
       :dup-identity-eval true
       :when (some-predicate? a)
       :when-let [v (some-fn a)]
       :let  [y (some-other-fn a x)
              z (some-other-fn2 a x y)]
-      :to [b 'OutClass
-           c 'OutClass2
-           d (a2d a)]
+      :to   [b 'OutClass
+             c 'OutClass2
+             d (a2d a)]
       (do-stuff-with a x v b y z b c d))
 
   :from declares the number and types of elements for which this rule is
@@ -255,23 +255,22 @@
   with 2 arguments a and x, and the first one needs to be of metamodel type
   InClass.
 
-  :identity is a var-expression tuple.  The expression should compute an
-  identity of the rule's input elements.  Traceability links are managed also
-  from the elements' identity to the elements created in that rule.  :identity
-  is optional.  By default, if the rule is called again with different elements
-  that have the same identity, the results of the first evaluation are
-  immediately returned.  If :dup-identity-eval is true and the rule is called
-  with different elements that have the same identity, then the constraints are
-  checked again, :let-bindings are established, the existing output elements
-  are retrieved and bound to the vars in :to (without creating new elements),
-  and then the body is evaluated again (with the new similar input elements and
-  the old existing output elements).  This can be used to merge duplicate
-  elements in the source to one canonical output element that subsumes the
-  properties of all input elements.  To distinguish if body is evaluated the
-  first time or an additional time for a similar element, check
-  if (resolve-in :rule-name id) returns nil.  If so, it's the first time.
-  Else, it's an additional time and you might want to use only add!-operations
-  and no set!-operations.
+  :id is a var-expression tuple.  The expression should compute an identity of
+  the rule's input elements.  Traceability links are managed also from the
+  elements' identity to the elements created in that rule.  :id is optional.
+  By default, if the rule is called again with different elements that have the
+  same identity, the results of the first evaluation are immediately returned.
+  If :dup-identity-eval is true and the rule is called with different elements
+  that have the same identity, then the constraints are checked
+  again, :let-bindings are established, the existing output elements are
+  retrieved and bound to the vars in :to (without creating new elements), and
+  then the body is evaluated again (with the new similar input elements and the
+  old existing output elements).  This can be used to merge duplicate elements
+  in the source to one canonical output element that subsumes the properties of
+  all input elements.  To distinguish if body is evaluated the first time or an
+  additional time for a similar element, check if (resolve-in :rule-name id)
+  returns nil.  If so, it's the first time.  Else, it's an additional time and
+  you might want to use only add!-operations and no set!-operations.
 
   :when constrains the input elements to those satisfying some predicate.
   The :when clause is optional.
