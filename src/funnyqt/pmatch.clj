@@ -553,16 +553,6 @@
                       (first xforms)
                       `(comp ~@xforms)))]
     (cond
-      ;; Handle the special case of a pattern like [x -e-> <>].  Here, e is
-      ;; already bound by an iseq-call and we don't have to do anything except
-      ;; for checking the type of the that-vertex.
-      ;;
-      ;; (and (anon? target-node)
-      ;;      (= 1 (count av))
-      ;;      (tg/edge? start-v-or-e))
-      ;; (when-let [t (get-type target-node)]
-      ;;   [:when `(~t (tg/that ~(get-name start-v-or-e)))])
-      ;;---
       (anon? target-node)
       [:when `(seq ~(if (seq xforms)
                       `(sequence ~(make-comp xforms) ~start-coll)
@@ -585,9 +575,9 @@
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(seq ~(if (seq xforms)
-                `(sequence ~(make-comp (conj xforms `(q/no-dups))) ~start-coll)
-                (q/no-dups start-coll)))]
+       (if (seq xforms)
+         `(sequence ~(make-comp (conj xforms `(q/no-dups))) ~start-coll)
+         (q/no-dups start-coll))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -617,27 +607,26 @@
                        nil
                        ec)))
         inc-iteration (fn ii
-                        ([e] (ii e nil))
-                        ([e src]
-                         (let [src2 (or src (gensym "src"))
-                               exp (if-let [container (tg/value e :container)]
-                                     `(filter
-                                       ~(cond
-                                          (or (and (= container (tg/enum-constant pg 'Container.FROM))
-                                                   (tg/normal-edge? e))
-                                              (and (= container (tg/enum-constant pg 'Container.TO))
-                                                   (not (tg/normal-edge? e))))
-                                          `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
-                                          ;;---
-                                          (or (and (= container (tg/enum-constant pg 'Container.TO))
-                                                   (tg/normal-edge? e))
-                                              (and (= container (tg/enum-constant pg 'Container.FROM))
-                                                   (not (tg/normal-edge? e))))
-                                          `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
-                                          ;;---
-                                          :else (u/errorf "Must not happen!"))
-                                       (tg/iseq ~src2 ~(get-type e)))
-                                     `(tg/iseq ~src2 ~(inc-type e)
+                        ([e]
+                         ;; Returns xforms that already mapcat and filter
+                         (if-let [container (tg/value e :container)]
+                           [`(mapcat #(tg/iseq % ~(get-type e)))
+                            `(filter
+                              ~(cond
+                                 (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                          (tg/normal-edge? e))
+                                     (and (= container (tg/enum-constant pg 'Container.TO))
+                                          (not (tg/normal-edge? e))))
+                                 `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
+                                 ;;---
+                                 (or (and (= container (tg/enum-constant pg 'Container.TO))
+                                          (tg/normal-edge? e))
+                                     (and (= container (tg/enum-constant pg 'Container.FROM))
+                                          (not (tg/normal-edge? e))))
+                                 `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
+                                 ;;---
+                                 :else (u/errorf "Must not happen!")))]
+                           `[(mapcat #(tg/iseq % ~(inc-type e)
                                                ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
                                                ;; --> and -<:role>-> do not in order to stay compatible with
                                                ;; the generic version.
@@ -645,8 +634,35 @@
                                                   (nil? (get-type e))     nil
                                                   (keyword? (get-type e)) nil
                                                   (tg/normal-edge? e)     :out
-                                                  :else                   :in)))]
-                           (if src exp `(fn [~src2] ~exp)))))
+                                                  :else                   :in)))]))
+                        ([e src]
+                         ;; Returns an expression to be mapcatted
+                         (if-let [container (tg/value e :container)]
+                           `(filter
+                             ~(cond
+                                (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                         (tg/normal-edge? e))
+                                    (and (= container (tg/enum-constant pg 'Container.TO))
+                                         (not (tg/normal-edge? e))))
+                                `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
+                                ;;---
+                                (or (and (= container (tg/enum-constant pg 'Container.TO))
+                                         (tg/normal-edge? e))
+                                    (and (= container (tg/enum-constant pg 'Container.FROM))
+                                         (not (tg/normal-edge? e))))
+                                `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
+                                ;;---
+                                :else (u/errorf "Must not happen!"))
+                             (tg/iseq ~src ~(get-type e)))
+                           `(tg/iseq ~src ~(inc-type e)
+                                     ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
+                                     ;; --> and -<:role>-> do not in order to stay compatible with
+                                     ;; the generic version.
+                                     ~(cond
+                                        (nil? (get-type e))     nil
+                                        (keyword? (get-type e)) nil
+                                        (tg/normal-edge? e)     :out
+                                        :else                   :in)))))
         anon-vec-conv (fn [start-v-or-e av done]
                         (let [start-sym (gensym "start")
                               el (first av)
@@ -676,7 +692,7 @@
                                                             ;; named like the
                                                             ;; type.
                                                             [`(filter ~t)])])
-                                              (into r [`(mapcat ~(inc-iteration el))])))
+                                              (into r (inc-iteration el))))
                                            r)))]
                           [start-coll xforms]))]
     (loop [queue (init-queue pg)
@@ -862,18 +878,24 @@
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
         inc-iteration (fn ii
-                        ([e] (ii e nil))
+                        ([e]
+                         (if-let [container (tg/value e :container)]
+                           (if (= container (tg/enum-constant pg 'Container.FROM))
+                             `#(~contents-fn % ~(get-type e))
+                             `#(when-let [c# (~container-fn % ~(get-type e))]
+                                 #{c#}))
+                           (if-let [t (get-edge-type e)]
+                             `#(~role-fn % ~t)
+                             neighbors-fn)))
                         ([e src]
-                         (let [src2 (or src (gensym "src"))
-                               exp (if-let [container (tg/value e :container)]
-                                     (if (= container (tg/enum-constant pg 'Container.FROM))
-                                       `(~contents-fn ~src2 ~(get-type e))
-                                       `(when-let [c# (~container-fn ~src2 ~(get-type e))]
-                                          #{c#}))
-                                     (if-let [t (get-edge-type e)]
-                                       `(~role-fn ~src2 ~t)
-                                       `(~neighbors-fn ~src2)))]
-                           (if src exp `(fn [~src2] ~exp)))))
+                         (if-let [container (tg/value e :container)]
+                           (if (= container (tg/enum-constant pg 'Container.FROM))
+                             `(~contents-fn ~src ~(get-type e))
+                             `(when-let [c# (~container-fn ~src ~(get-type e))]
+                                #{c#}))
+                           (if-let [t (get-edge-type e)]
+                             `(~role-fn ~src ~t)
+                             `(~neighbors-fn ~src)))))
         anon-vec-conv (fn [start-v av done]
                         (let [start-coll (inc-iteration (first av) (get-name start-v))
                               xforms (loop [av (rest av), r []]
