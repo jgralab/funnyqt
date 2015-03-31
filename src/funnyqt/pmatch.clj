@@ -546,34 +546,48 @@
                      incs))))
 
 (defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
-  (let [target-node (last av)]
+  (let [target-node (last av)
+        [start-coll xforms] (anon-vec-transformer-fn start-v-or-e av done)
+        make-comp (fn [xforms]
+                    (if (= (count xforms) 1)
+                      (first xforms)
+                      `(comp ~@xforms)))]
     (cond
       ;; Handle the special case of a pattern like [x -e-> <>].  Here, e is
       ;; already bound by an iseq-call and we don't have to do anything except
       ;; for checking the type of the that-vertex.
-      (and (anon? target-node)
-           (= 1 (count av))
-           (tg/edge? start-v-or-e))
-      (when-let [t (get-type target-node)]
-        [:when `(~t (tg/that ~(get-name start-v-or-e)))])
+      ;;
+      ;; (and (anon? target-node)
+      ;;      (= 1 (count av))
+      ;;      (tg/edge? start-v-or-e))
+      ;; (when-let [t (get-type target-node)]
+      ;;   [:when `(~t (tg/that ~(get-name start-v-or-e)))])
       ;;---
       (anon? target-node)
-      [:when `(seq ~(anon-vec-transformer-fn start-v-or-e av done))]
+      [:when `(seq ~(if (seq xforms)
+                      `(sequence ~(make-comp xforms) ~start-coll)
+                      start-coll))]
       ;;---
       (done target-node)
       `[:when (q/member? ~(get-name target-node)
-                         (q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done)))]
+                         (seq ~(if (seq xforms)
+                                 `(sequence ~(make-comp xforms) ~start-coll)
+                                 start-coll)))]
       ;;---
       (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
                    (and ~(get-name target-node)
                         (q/member? ~(get-name target-node)
-                                   (q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done)))
+                                   (seq ~(if (seq xforms)
+                                           `(sequence ~(make-comp xforms) ~start-coll)
+                                           start-coll)))
                         ~(get-name target-node))]]
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(q/no-dups ~(anon-vec-transformer-fn start-v-or-e av done))]
+       `(seq ~(if (seq xforms)
+                `(sequence ~(make-comp (conj xforms `(q/no-dups))) ~start-coll)
+                (q/no-dups start-coll)))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -633,68 +647,38 @@
                                                   (tg/normal-edge? e)     :out
                                                   :else                   :in)))]
                            (if src exp `(fn [~src2] ~exp)))))
-        anon-vec-to-for (fn [start-v-or-e av done]
-                          (println start-v-or-e av)
-                          (let [start-sym (gensym "start")
-                                el (first av)
-                                start-coll (if (tg/vertex? el)
-                                             `(let [~start-sym (tg/that ~(get-name start-v-or-e))]
-                                                ~(if-let [t (and (not (done el))
-                                                                 (get-type el))]
-                                                   `(when (~t ~start-sym) [~start-sym])
-                                                   `[~start-sym]))
-                                             (inc-iteration el (get-name start-v-or-e)))
-                                xforms (loop [av (rest av), r []]
-                                         (let [el (first av)]
-                                           (if (seq av)
-                                             (recur
-                                              (rest av)
-                                              (if (tg/vertex? el)
-                                                ;; When el is already
-                                                ;; done, its type is
-                                                ;; already checked, too.
-                                                (into r `[(map tg/that)
-                                                          ~@(when-let [t (and (not (done el))
-                                                                              (get-type el))]
-                                                              ;; We assume
-                                                              ;; there's
-                                                              ;; already a
-                                                              ;; type-matcher
-                                                              ;; named like the
-                                                              ;; type.
-                                                              [`(filter ~t)])])
-                                                (into r [`(mapcat ~(inc-iteration el))])))
-                                             r)))]
-                            ;; TODO: We want to do that in do-anons so that
-                            ;; the no-dups can also be added to xforms.
-                            (if (seq xforms)
-                              `(sequence (comp ~@xforms) ~start-coll)
-                              start-coll))
-                          #_(let [[v r]
-                                  (loop [cs (get-name start-v-or-e), av av, r []]
-                                    (if (seq av)
-                                      (let [el (first av)
-                                            ncs (gensym)]
-                                        (recur ncs
-                                               (rest av)
-                                               (if (tg/vertex? el)
-                                                 (into r `[:let [~ncs (tg/that ~cs)]
-                                                           ;; When el is already
-                                                           ;; done, its type is
-                                                           ;; already checked,
-                                                           ;; too.
-                                                           ~@(when-let [t (and (not (done el))
-                                                                               (get-type el))]
-                                                               ;; We assume
-                                                               ;; there's already
-                                                               ;; a type-matcher
-                                                               ;; named t
-                                                               [:when `(~t ~ncs)])])
-                                                 (into r `[~ncs ~(inc-iteration el cs)]))))
-                                      [cs r]))]
-                              (if (== 2 (count r))
-                                (second r) ;; only one binding [G_NNNN exp]
-                                `(u/for+ ~r ~v))))]
+        anon-vec-conv (fn [start-v-or-e av done]
+                        (let [start-sym (gensym "start")
+                              el (first av)
+                              start-coll (if (tg/vertex? el)
+                                           `(let [~start-sym (tg/that ~(get-name start-v-or-e))]
+                                              ~(if-let [t (and (not (done el))
+                                                               (get-type el))]
+                                                 `(when (~t ~start-sym) [~start-sym])
+                                                 `[~start-sym]))
+                                           (inc-iteration el (get-name start-v-or-e)))
+                              xforms (loop [av (rest av), r []]
+                                       (let [el (first av)]
+                                         (if (seq av)
+                                           (recur
+                                            (rest av)
+                                            (if (tg/vertex? el)
+                                              ;; When el is already
+                                              ;; done, its type is
+                                              ;; already checked, too.
+                                              (into r `[(map tg/that)
+                                                        ~@(when-let [t (and (not (done el))
+                                                                            (get-type el))]
+                                                            ;; We assume
+                                                            ;; there's
+                                                            ;; already a
+                                                            ;; type-matcher
+                                                            ;; named like the
+                                                            ;; type.
+                                                            [`(filter ~t)])])
+                                              (into r [`(mapcat ~(inc-iteration el))])))
+                                           r)))]
+                          [start-coll xforms]))]
     (loop [queue (init-queue pg)
            done #{}
            bf []]
@@ -747,7 +731,7 @@
                            (if (tg/edge? last-in-av)
                              (conj-done done (tg/that last-in-av))
                              done))
-                         (into bf (let [bindings (do-anons anon-vec-to-for (tg/this cur) av done)]
+                         (into bf (let [bindings (do-anons anon-vec-conv (tg/this cur) av done)]
                                     (if (tg/edge? last-in-av)
                                       (conj bindings :let
                                             [(get-name (tg/that last-in-av))
@@ -768,7 +752,7 @@
                                 (inc-iteration cur (get-name (tg/this cur)))
                                 (cond
                                   (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                  (anon? trg) (let [bindings (do-anons anon-vec-to-for
+                                  (anon? trg) (let [bindings (do-anons anon-vec-conv
                                                                        cur av done)]
                                                 (if (tg/edge? last-in-av)
                                                   (into bindings
@@ -890,31 +874,27 @@
                                        `(~role-fn ~src2 ~t)
                                        `(~neighbors-fn ~src2)))]
                            (if src exp `(fn [~src2] ~exp)))))
-        anon-vec-to-for (fn [start-v av done]
-                          (let [start-coll (inc-iteration (first av) (get-name start-v))
-                                xforms (loop [av (rest av), r []]
-                                         (let [el (first av)]
-                                           (if (seq av)
-                                             (recur
-                                              (rest av)
-                                              (if (tg/vertex? el)
-                                                ;; When el is already
-                                                ;; done, its type is
-                                                ;; already checked, too.
-                                                (into r (when-let [t (and (not (done el))
-                                                                          (get-type el))]
-                                                          ;; We assume there's
-                                                          ;; already a
-                                                          ;; type-matcher named
-                                                          ;; like the type.
-                                                          [`(filter ~t)]))
-                                                (into r [`(mapcat ~(inc-iteration el))])))
-                                             r)))]
-                            ;; TODO: We want to do that in do-anons so that
-                            ;; the no-dups can also be added to xforms.
-                            (if (seq xforms)
-                              `(sequence (comp ~@xforms) ~start-coll)
-                              start-coll)))]
+        anon-vec-conv (fn [start-v av done]
+                        (let [start-coll (inc-iteration (first av) (get-name start-v))
+                              xforms (loop [av (rest av), r []]
+                                       (let [el (first av)]
+                                         (if (seq av)
+                                           (recur
+                                            (rest av)
+                                            (if (tg/vertex? el)
+                                              ;; When el is already
+                                              ;; done, its type is
+                                              ;; already checked, too.
+                                              (into r (when-let [t (and (not (done el))
+                                                                        (get-type el))]
+                                                        ;; We assume there's
+                                                        ;; already a
+                                                        ;; type-matcher named
+                                                        ;; like the type.
+                                                        [`(filter ~t)]))
+                                              (into r [`(mapcat ~(inc-iteration el))])))
+                                           r)))]
+                          [start-coll xforms]))]
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named with models with only refs: %s"
@@ -968,7 +948,7 @@
                       done (conj-done done cur)]
                   (recur (enqueue-incs target-node (pop queue) (apply conj-done done av))
                          (apply conj-done done cur av)
-                         (into bf (do-anons anon-vec-to-for
+                         (into bf (do-anons anon-vec-conv
                                             (tg/this cur) av done))))
                 (u/errorf "Edges cannot be match-bound with models with just refs: %s" (g/describe cur)))
               NegPatternEdge
