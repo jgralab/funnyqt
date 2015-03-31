@@ -31,8 +31,8 @@
   "Returns an ordered-set of all given arguments which must be collections."
   ([to from]
    (into (oset to) from))
-  ([to from & froms]
-   (reduce into (into-oset to from) froms)))
+  ([to xform from]
+   (into (oset to) xform from)))
 
 (defmacro assert-flat-oset
   "Asserts that obj is an ordered set containing no collections, only flat

@@ -1,7 +1,6 @@
 (ns funnyqt.query
   "Generic functions like quantified expressions."
-  (:require [clojure.core.reducers :as r]
-            [flatland.ordered.set  :as os]
+  (:require [flatland.ordered.set  :as os]
             [funnyqt.utils         :as u]
             [funnyqt.generic       :as g]))
 
@@ -338,44 +337,44 @@ If `coll` is a unique collection (e.g., a Set), simply returns that again."
 (extend-protocol ISimpleRegularPathExpression
   java.util.Collection
   (-->
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat -->                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(--> % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(--> % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat -->) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(--> % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(--> % spec pred)) n)))
   (--->
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat --->                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(---> % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(---> % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat --->) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(---> % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(---> % spec pred)) n)))
   (<--
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <--                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<-- % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-- % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat <--) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(<-- % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(<-- % spec pred)) n)))
   (<---
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <---                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<--- % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--- % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat <---) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(<--- % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(<--- % spec pred)) n)))
   (<->
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <->                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<-> % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<-> % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat <->) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(<-> % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(<-> % spec pred)) n)))
   (<-->
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <-->                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<--> % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<--> % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat <-->) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(<--> % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(<--> % spec pred)) n)))
   (<>--
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat <>--                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(<>-- % spec pred) n))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat <>--) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(<>-- % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(<>-- % spec pred)) n)))
   (--<>
-    ([n]           (u/into-oset (os/ordered-set) (r/mapcat --<>                n)))
-    ([n spec]      (u/into-oset (os/ordered-set) (r/mapcat #(--<> % spec)      n)))
-    ([n spec pred] (u/into-oset (os/ordered-set) (r/mapcat #(--<> % spec pred) n)))))
+    ([n]           (u/into-oset (os/ordered-set) (mapcat --<>) n))
+    ([n spec]      (u/into-oset (os/ordered-set) (mapcat #(--<> % spec)) n))
+    ([n spec pred] (u/into-oset (os/ordered-set) (mapcat #(--<> % spec pred)) n))))
 
 (defn p-seq
   "Path sequence starting at `n` and traversing `ps`.
   `n` may be a node or a collection of nodes.
   `ps` is a varargs seq of regular path expressions."
   [n & ps]
-  (u/oset (r/reduce p-apply n ps)))
+  (u/oset (reduce p-apply n ps)))
 
 (defn p-opt
   "Path option starting at `n` and maybe traversing `p`.
@@ -390,12 +389,14 @@ If `coll` is a unique collection (e.g., a Set), simply returns that again."
   `ps` is a varags seq of the alternative path expressions."
   [n & ps]
   (into (flatland.ordered.set/ordered-set)
-        (r/mapcat #(p-apply (u/oset n) %) ps)))
+        (mapcat #(p-apply (u/oset n) %))
+        ps))
 
 (defn ^:private p-*-or-+
   [n p ret]
   (let [n (into (flatland.ordered.set/ordered-set)
-                (r/remove ret (u/oset (p-apply n p))))]
+                (remove ret)
+                (u/oset (p-apply n p)))]
     (if (seq n)
       (recur n p (u/into-oset ret n))
       ret)))
@@ -440,11 +441,12 @@ If `coll` is a unique collection (e.g., a Set), simply returns that again."
   `ts` is a type specification (see `funnyqt.generic/type-matcher`), `pred` a
   predicate on nodes."
   ([n spec]
-     (p-restr n spec identity))
+   (p-restr n spec identity))
   ([n spec pred]
-     (let [n (u/oset n)]
-       (if (seq n)
-         (let [tm (g/type-matcher (first n) spec)]
-           (into (os/ordered-set)
-                 (r/filter (every-pred tm pred) n)))
-         n))))
+   (let [n (u/oset n)]
+     (if (seq n)
+       (let [tm (g/type-matcher (first n) spec)]
+         (into (os/ordered-set)
+               (filter (every-pred tm pred))
+               n))
+       n))))
