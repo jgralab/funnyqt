@@ -847,29 +847,41 @@
                           (if-let [t (get-edge-type e)]
                             `(~role-fn ~src ~t)
                             `(~neighbors-fn ~src))))
-        anon-vec-to-for (fn [start-v-or-e av done]
-                          (let [[v r]
-                                (loop [cs (get-name start-v-or-e), av av, r []]
-                                  (if (seq av)
-                                    (let [el (first av)
-                                          ncs (if (tg/vertex? el) cs (gensym))]
-                                      (recur ncs
-                                             (rest av)
-                                             (if (tg/vertex? el)
-                                               ;; When el is already done, its
-                                               ;; type is already checked, too.
-                                               (into r (when-let [t (and (not (done el))
-                                                                         (get-type el))]
-                                                         ;; We assume there's
-                                                         ;; already a
-                                                         ;; type-matcher named
-                                                         ;; like the type.
-                                                         `[:when (~t ~ncs)]))
-                                               (into r `[~ncs ~(inc-iteration el cs)]))))
-                                    [cs r]))]
-                            (if (== 2 (count r))
-                              (second r) ;; only one binding [G_NNNN exp]
-                              `(u/for+ ~r ~v))))]
+        inc-iteration-fn (fn [e]
+                           (if-let [container (tg/value e :container)]
+                             (if (= container (tg/enum-constant pg 'Container.FROM))
+                               `#(~contents-fn % ~(get-type e))
+                               `#(when-let [c# (~container-fn % ~(get-type e))]
+                                   #{c#}))
+                             (if-let [t (get-edge-type e)]
+                               `#(~role-fn % ~t)
+                               neighbors-fn)))
+        anon-vec-to-for (fn [start-v av done]
+                          (let [start-coll (inc-iteration (first av) (get-name start-v))
+                                xforms (loop [av (rest av), r []]
+                                         (let [el (first av)]
+                                           (if (seq av)
+                                             (recur (rest av)
+                                                    (if (tg/vertex? el)
+                                                      ;; When el is already
+                                                      ;; done, its type is
+                                                      ;; already checked, too.
+                                                      (into r (when-let [t (and (not (done el))
+                                                                                (get-type el))]
+                                                                ;; We assume
+                                                                ;; there's
+                                                                ;; already a
+                                                                ;; type-matcher
+                                                                ;; named like
+                                                                ;; the type.
+                                                                [`(filter ~t)]))
+                                                      (into r [`(mapcat ~(inc-iteration-fn el))])))
+                                             r)))]
+                            ;; TODO: We want to do that in do-anons so that
+                            ;; the no-dups can also be added to xforms.
+                            (if (seq xforms)
+                              `(sequence (comp ~@xforms) ~start-coll)
+                              start-coll)))]
     ;; Check there are only anonymous edges.
     (when-not (every? anon? (tg/eseq pg 'APatternEdge))
       (u/errorf "Edges mustn't be named with models with only refs: %s"
