@@ -257,6 +257,8 @@
                           "isUnique" (make-array Class 0))
       (doto (.setAccessible true))))
 
+(def ^:private empty-object-array (make-array Object 0))
+
 (defn unique-coll?
   "Returns true if `l` is a unique collection, i.e., any element may occur at
   most once."
@@ -264,7 +266,7 @@
   (or (instance? java.util.Set l)
       (instance? org.eclipse.emf.common.util.UniqueEList l)
       (and (instance? org.eclipse.emf.common.util.AbstractEList l)
-           (.invoke AbstractElist-isUnique l (make-array Object 0)))))
+           (.invoke AbstractElist-isUnique l empty-object-array))))
 
 (defn ^:private shortcut-when-let-vector [lv]
   (letfn [(whenify [s]

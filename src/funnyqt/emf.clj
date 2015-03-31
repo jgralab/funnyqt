@@ -707,6 +707,17 @@
                        identity)
     :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
 
+(defn ^:private get-eref ^EReference [^EClass ec n pred]
+  (if-let [^EStructuralFeature sf (.getEStructuralFeature ec (name n))]
+    (do
+      (when-not (instance? EReference sf)
+        (u/errorf "%s is no EReference." sf))
+      (if pred
+        (when (pred sf)
+          sf)
+        sf))
+    (u/errorf "No such EReference %s." n)))
+
 (defn econtainer
   "Returns the EObject containing `eo` (if any).
   If a reference spec `rs` is given, return only `eo`s container if it's
@@ -715,12 +726,16 @@
    (.eContainer eo))
   ([^EObject eo rs]
    (if rs
-     (let [rm (eref-matcher rs)]
-       (first (map (fn [^EReference r] (.eGet eo r))
-                   (for [^EReference ref (seq (.getEAllReferences
-                                               (.eClass eo)))
-                         :when (and (.isContainer ref) (rm ref))]
-                     ref))))
+     (if (keyword? rs)
+       (when-let [ref (get-eref (.eClass eo) rs (fn [^EReference ref]
+                                                  (.isContainer ref)))]
+         (.eGet eo ref))
+       (let [rm (eref-matcher rs)]
+         (first (map (fn [^EReference r] (.eGet eo r))
+                     (for [^EReference ref (seq (.getEAllReferences
+                                                 (.eClass eo)))
+                           :when (and (.isContainer ref) (rm ref))]
+                       ref)))))
      ;; We cannot handle the rs = nil case with the above because it is
      ;; possible that there is no reference at all at the container side.
      (.eContainer eo))))
@@ -761,53 +776,70 @@
           (if (coll? container) container (eallcontents container))))
 
 (defn erefs
-  "Returns a seq of EObjects referenced by EObject `eo`, possibly restricted by
+  "Returns a set of EObjects referenced by EObject `eo`, possibly restricted by
   the reference spec `rs`.  For the syntax and semantics of `rs`, see
   `eref-matcher`.  In contrast to `ecrossrefs`, this function doesn't ignore
   containment refs."
   ([eo]
    (erefs eo nil))
   ([^EObject eo rs]
-   (let [rm (eref-matcher rs)]
-     (mapcat (fn [^EReference r]
-               (when-let [x (.eGet eo r)]
-                 (if (.isMany r) x [x])))
-             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                   :when (rm ref)]
-               ref)))))
+   (if (keyword? rs)
+     (when-let [ref (get-eref (.eClass eo) rs nil)]
+       (when-let [x (.eGet eo ref)]
+         (if (.isMany ref) x #{x})))
+     (let [rm (eref-matcher rs)]
+       (into []
+             (comp (filter rm)
+                   (mapcat (fn [^EReference r]
+                             (when-let [x (.eGet eo r)]
+                               (if (.isMany r) x [x])))))
+             (seq (-> eo .eClass .getEAllReferences)))))))
 
 (defn ecrossrefs
-  "Returns a seq of EObjects cross-referenced by EObject`eo`, possibly
+  "Returns a collection of EObjects cross-referenced by EObject`eo`, possibly
   restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
   see `eref-matcher`.  In EMF, crossrefs are all non-containment refs."
   ([eo]
    (ecrossrefs eo nil))
   ([^EObject eo rs]
-   (let [rm (eref-matcher rs)]
-     (mapcat (fn [^EReference r]
-               (when-let [x (.eGet eo r)]
-                 (if (.isMany r) x [x])))
-             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                   :when (and (not (.isContainment ref))
-                              (not (.isContainer ref))
-                              (rm ref))]
-               ref)))))
+   (if (keyword? rs)
+     (when-let [ref (get-eref (.eClass eo) rs (fn [^EReference ref]
+                                                (and (not (.isContainment ref))
+                                                     (not (.isContainer ref)))))]
+       (when-let [x (.eGet eo ref)]
+         (if (.isMany ref) x #{x})))
+     (let [rm (eref-matcher rs)]
+       (into []
+             (comp (filter (fn [^EReference r]
+                             (and (not (.isContainment r))
+                                  (not (.isContainer r))
+                                  (rm r))))
+                   (mapcat (fn [^EReference r]
+                             (when-let [x (.eGet eo r)]
+                               (if (.isMany r) x [x])))))
+             (seq (-> eo .eClass .getEAllReferences)))))))
 
 (defn econtentrefs
-  "Returns a seq of EObjects contained by EObject`eo`, possibly
-  restricted by the reference spec `rs`.  For the syntax and semantics
-  of `rs`, see `eref-matcher`."
+  "Returns a collection of EObjects contained by EObject`eo`, possibly
+  restricted by the reference spec `rs`.  For the syntax and semantics of `rs`,
+  see `eref-matcher`."
   ([eo]
    (econtentrefs eo nil))
   ([^EObject eo rs]
-   (let [rm (eref-matcher rs)]
-     (mapcat (fn [^EReference r]
-               (when-let [x (.eGet eo r)]
-                 (if (.isMany r) x [x])))
-             (for [^EReference ref (seq (-> eo .eClass .getEAllReferences))
-                   :when (and (.isContainment ref)
-                              (rm ref))]
-               ref)))))
+   (if (keyword? rs)
+     (when-let [ref (get-eref (.eClass eo) rs (fn [^EReference ref]
+                                                (.isContainment ref)))]
+       (when-let [x (.eGet eo ref)]
+         (if (.isMany ref) x #{x})))
+     (let [rm (eref-matcher rs)]
+       (into []
+             (comp (filter (fn [^EReference r]
+                             (and (.isContainment r)
+                                  (rm r))))
+                   (mapcat (fn [^EReference r]
+                             (when-let [x (.eGet eo r)]
+                               (if (.isMany r) x [x])))))
+             (seq (-> eo .eClass .getEAllReferences)))))))
 
 (extend-protocol g/IContents
   EObject

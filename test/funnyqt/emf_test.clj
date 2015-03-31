@@ -201,7 +201,7 @@
          :families
          :members)
     (are [x] (= (let [r (eget fsmith x)]
-                  (if (coll? r) r [r]))
+                  (if (coll? r) r #{r}))
                 (erefs fsmith x)
                 (ecrossrefs fsmith x))
          :father
