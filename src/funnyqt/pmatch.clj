@@ -602,61 +602,99 @@
                      (if (= ec '_)
                        nil
                        ec)))
-        inc-iteration (fn [e src]
-                        (if-let [container (tg/value e :container)]
-                          (do
-                            `(filter
-                              ~(cond
-                                 (or (and (= container (tg/enum-constant pg 'Container.FROM))
-                                          (tg/normal-edge? e))
-                                     (and (= container (tg/enum-constant pg 'Container.TO))
-                                          (not (tg/normal-edge? e))))
-                                 `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
-                                 ;;---
-                                 (or (and (= container (tg/enum-constant pg 'Container.TO))
-                                          (tg/normal-edge? e))
-                                     (and (= container (tg/enum-constant pg 'Container.FROM))
-                                          (not (tg/normal-edge? e))))
-                                 `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
-                                 ;;---
-                                 :else (u/errorf "Must not happen! container = %s, src = %s, al = %s, om = %s"
-                                                 container src (get-name (tg/alpha e)) (get-name (tg/omega e))))
-                              (tg/iseq ~src ~(get-type e))))
-                          `(tg/iseq ~src ~(inc-type e)
-                                    ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
-                                    ;; --> and -<:role>-> do not in order to stay compatible with
-                                    ;; the generic version.
-                                    ~(cond
-                                       (nil? (get-type e))     nil
-                                       (keyword? (get-type e)) nil
-                                       (tg/normal-edge? e)     :out
-                                       :else                   :in))))
+        inc-iteration (fn ii
+                        ([e] (ii e nil))
+                        ([e src]
+                         (let [src2 (or src (gensym "src"))
+                               exp (if-let [container (tg/value e :container)]
+                                     `(filter
+                                       ~(cond
+                                          (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                                   (tg/normal-edge? e))
+                                              (and (= container (tg/enum-constant pg 'Container.TO))
+                                                   (not (tg/normal-edge? e))))
+                                          `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
+                                          ;;---
+                                          (or (and (= container (tg/enum-constant pg 'Container.TO))
+                                                   (tg/normal-edge? e))
+                                              (and (= container (tg/enum-constant pg 'Container.FROM))
+                                                   (not (tg/normal-edge? e))))
+                                          `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
+                                          ;;---
+                                          :else (u/errorf "Must not happen!"))
+                                       (tg/iseq ~src2 ~(get-type e)))
+                                     `(tg/iseq ~src2 ~(inc-type e)
+                                               ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
+                                               ;; --> and -<:role>-> do not in order to stay compatible with
+                                               ;; the generic version.
+                                               ~(cond
+                                                  (nil? (get-type e))     nil
+                                                  (keyword? (get-type e)) nil
+                                                  (tg/normal-edge? e)     :out
+                                                  :else                   :in)))]
+                           (if src exp `(fn [~src2] ~exp)))))
         anon-vec-to-for (fn [start-v-or-e av done]
-                          (let [[v r]
-                                (loop [cs (get-name start-v-or-e), av av, r []]
-                                  (if (seq av)
-                                    (let [el (first av)
-                                          ncs (gensym)]
-                                      (recur ncs
-                                             (rest av)
-                                             (if (tg/vertex? el)
-                                               (into r `[:let [~ncs (tg/that ~cs)]
-                                                         ;; When el is already
-                                                         ;; done, its type is
-                                                         ;; already checked,
-                                                         ;; too.
-                                                         ~@(when-let [t (and (not (done el))
-                                                                             (get-type el))]
-                                                             ;; We assume
-                                                             ;; there's already
-                                                             ;; a type-matcher
-                                                             ;; named t
-                                                             [:when `(~t ~ncs)])])
-                                               (into r `[~ncs ~(inc-iteration el cs)]))))
-                                    [cs r]))]
-                            (if (== 2 (count r))
-                              (second r) ;; only one binding [G_NNNN exp]
-                              `(u/for+ ~r ~v))))]
+                          (println start-v-or-e av)
+                          (let [start-sym (gensym "start")
+                                el (first av)
+                                start-coll (if (tg/vertex? el)
+                                             `(let [~start-sym (tg/that ~(get-name start-v-or-e))]
+                                                ~(if-let [t (and (not (done el))
+                                                                 (get-type el))]
+                                                   `(when (~t ~start-sym) [~start-sym])
+                                                   `[~start-sym]))
+                                             (inc-iteration el (get-name start-v-or-e)))
+                                xforms (loop [av (rest av), r []]
+                                         (let [el (first av)]
+                                           (if (seq av)
+                                             (recur
+                                              (rest av)
+                                              (if (tg/vertex? el)
+                                                ;; When el is already
+                                                ;; done, its type is
+                                                ;; already checked, too.
+                                                (into r `[(map tg/that)
+                                                          ~@(when-let [t (and (not (done el))
+                                                                              (get-type el))]
+                                                              ;; We assume
+                                                              ;; there's
+                                                              ;; already a
+                                                              ;; type-matcher
+                                                              ;; named like the
+                                                              ;; type.
+                                                              [`(filter ~t)])])
+                                                (into r [`(mapcat ~(inc-iteration el))])))
+                                             r)))]
+                            ;; TODO: We want to do that in do-anons so that
+                            ;; the no-dups can also be added to xforms.
+                            (if (seq xforms)
+                              `(sequence (comp ~@xforms) ~start-coll)
+                              start-coll))
+                          #_(let [[v r]
+                                  (loop [cs (get-name start-v-or-e), av av, r []]
+                                    (if (seq av)
+                                      (let [el (first av)
+                                            ncs (gensym)]
+                                        (recur ncs
+                                               (rest av)
+                                               (if (tg/vertex? el)
+                                                 (into r `[:let [~ncs (tg/that ~cs)]
+                                                           ;; When el is already
+                                                           ;; done, its type is
+                                                           ;; already checked,
+                                                           ;; too.
+                                                           ~@(when-let [t (and (not (done el))
+                                                                               (get-type el))]
+                                                               ;; We assume
+                                                               ;; there's already
+                                                               ;; a type-matcher
+                                                               ;; named t
+                                                               [:when `(~t ~ncs)])])
+                                                 (into r `[~ncs ~(inc-iteration el cs)]))))
+                                      [cs r]))]
+                              (if (== 2 (count r))
+                                (second r) ;; only one binding [G_NNNN exp]
+                                `(u/for+ ~r ~v))))]
     (loop [queue (init-queue pg)
            done #{}
            bf []]
@@ -839,44 +877,38 @@
                           (if (keyword? t)
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
-        inc-iteration (fn [e src]
-                        (if-let [container (tg/value e :container)]
-                          (if (= container (tg/enum-constant pg 'Container.FROM))
-                            `(~contents-fn ~src ~(get-type e))
-                            `(when-let [c# (~container-fn ~src ~(get-type e))]
-                               #{c#}))
-                          (if-let [t (get-edge-type e)]
-                            `(~role-fn ~src ~t)
-                            `(~neighbors-fn ~src))))
-        inc-iteration-fn (fn [e]
-                           (if-let [container (tg/value e :container)]
-                             (if (= container (tg/enum-constant pg 'Container.FROM))
-                               `#(~contents-fn % ~(get-type e))
-                               `#(when-let [c# (~container-fn % ~(get-type e))]
-                                   #{c#}))
-                             (if-let [t (get-edge-type e)]
-                               `#(~role-fn % ~t)
-                               neighbors-fn)))
+        inc-iteration (fn ii
+                        ([e] (ii e nil))
+                        ([e src]
+                         (let [src2 (or src (gensym "src"))
+                               exp (if-let [container (tg/value e :container)]
+                                     (if (= container (tg/enum-constant pg 'Container.FROM))
+                                       `(~contents-fn ~src2 ~(get-type e))
+                                       `(when-let [c# (~container-fn ~src2 ~(get-type e))]
+                                          #{c#}))
+                                     (if-let [t (get-edge-type e)]
+                                       `(~role-fn ~src2 ~t)
+                                       `(~neighbors-fn ~src2)))]
+                           (if src exp `(fn [~src2] ~exp)))))
         anon-vec-to-for (fn [start-v av done]
                           (let [start-coll (inc-iteration (first av) (get-name start-v))
                                 xforms (loop [av (rest av), r []]
                                          (let [el (first av)]
                                            (if (seq av)
-                                             (recur (rest av)
-                                                    (if (tg/vertex? el)
-                                                      ;; When el is already
-                                                      ;; done, its type is
-                                                      ;; already checked, too.
-                                                      (into r (when-let [t (and (not (done el))
-                                                                                (get-type el))]
-                                                                ;; We assume
-                                                                ;; there's
-                                                                ;; already a
-                                                                ;; type-matcher
-                                                                ;; named like
-                                                                ;; the type.
-                                                                [`(filter ~t)]))
-                                                      (into r [`(mapcat ~(inc-iteration-fn el))])))
+                                             (recur
+                                              (rest av)
+                                              (if (tg/vertex? el)
+                                                ;; When el is already
+                                                ;; done, its type is
+                                                ;; already checked, too.
+                                                (into r (when-let [t (and (not (done el))
+                                                                          (get-type el))]
+                                                          ;; We assume there's
+                                                          ;; already a
+                                                          ;; type-matcher named
+                                                          ;; like the type.
+                                                          [`(filter ~t)]))
+                                                (into r [`(mapcat ~(inc-iteration el))])))
                                              r)))]
                             ;; TODO: We want to do that in do-anons so that
                             ;; the no-dups can also be added to xforms.
