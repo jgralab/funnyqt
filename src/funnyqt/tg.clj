@@ -37,7 +37,6 @@ converted to JGraLab's pcollections.  In case of RecordDomains and EnumDomains,
 whose values are instances of generated classes, there are the constructor
 functions `record` and `enum-constant`."
   (:require [clojure.core.cache         :as cache]
-            [clojure.core.reducers      :as r]
             [clojure.string             :as str]
             [flatland.ordered.set       :as os]
             [funnyqt.query              :as q]
@@ -1603,9 +1602,9 @@ functions `record` and `enum-constant`."
                              #(q/member? (.getThatAggregationKind ^Edge %) that-aks)
                              identity))]
         (into (os/ordered-set)
-              (r/mapcat (fn [sv]
-                          (r/map that (iseq-internal sv complete-pred)))
-                        vs)))
+              (comp (mapcat #(iseq-internal % complete-pred))
+                    (map that))
+              vs))
       (os/ordered-set))))
 
 (extend-protocol q/ISimpleRegularPathExpression
