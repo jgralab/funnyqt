@@ -636,6 +636,8 @@
                                                   (tg/normal-edge? e)     :out
                                                   :else                   :in)))]))
                         ([e src]
+                         (when-not src
+                           (u/errorf "Can't create edge iteration for %s cause src has no name" e))
                          ;; Returns an expression to be mapcatted
                          (if-let [container (tg/value e :container)]
                            `(filter
@@ -877,7 +879,7 @@
                           (if (keyword? t)
                             t
                             (u/errorf "Reference name must be a keyword but was %s." t))))
-        inc-iteration (fn ii
+        inc-iteration (fn
                         ([e]
                          (if-let [container (tg/value e :container)]
                            (if (= container (tg/enum-constant pg 'Container.FROM))
@@ -888,6 +890,8 @@
                              `#(~role-fn % ~t)
                              neighbors-fn)))
                         ([e src]
+                         (when-not src
+                           (u/errorf "Can't create edge iteration for %s cause src has no name" e))
                          (if-let [container (tg/value e :container)]
                            (if (= container (tg/enum-constant pg 'Container.FROM))
                              `(~contents-fn ~src ~(get-type e))

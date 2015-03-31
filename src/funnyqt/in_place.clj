@@ -113,7 +113,6 @@
                                               ;; thunk was actually meant for
                                               ;; (for interactive-rule).
                                               ([match#]
-                                               (println "Applyuing on" match#)
                                                (let [{:keys ~matchsyms} match#]
                                                  ~(if (:recheck (meta name))
                                                     `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
