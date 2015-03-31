@@ -604,23 +604,24 @@
                        ec)))
         inc-iteration (fn [e src]
                         (if-let [container (tg/value e :container)]
-                          `(filter
-                            ~(cond
-                               (or (and (= container (tg/enum-constant pg 'Container.FROM))
-                                        (= src (get-name (tg/alpha e))))
-                                   (and (= container (tg/enum-constant pg 'Container.TO))
-                                        (= src (get-name (tg/omega e)))))
-                               `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
-                               ;;---
-                               (or (and (= container (tg/enum-constant pg 'Container.TO))
-                                        (= src (get-name (tg/alpha e))))
-                                   (and (= container (tg/enum-constant pg 'Container.FROM))
-                                        (= src (get-name (tg/omega e)))))
-                               `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
-                               ;;---
-                               :else (u/errorf "Must not happen! container = %s, src = %s, al = %s, om = %s"
-                                               container src (get-name (tg/alpha e)) (get-name (tg/omega e))))
-                            (tg/iseq ~src ~(get-type e)))
+                          (do
+                            `(filter
+                              ~(cond
+                                 (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                          (tg/normal-edge? e))
+                                     (and (= container (tg/enum-constant pg 'Container.TO))
+                                          (not (tg/normal-edge? e))))
+                                 `#(= AggregationKind/COMPOSITE (.getThatAggregationKind ^Edge %))
+                                 ;;---
+                                 (or (and (= container (tg/enum-constant pg 'Container.TO))
+                                          (tg/normal-edge? e))
+                                     (and (= container (tg/enum-constant pg 'Container.FROM))
+                                          (not (tg/normal-edge? e))))
+                                 `#(= AggregationKind/COMPOSITE (.getThisAggregationKind ^Edge %))
+                                 ;;---
+                                 :else (u/errorf "Must not happen! container = %s, src = %s, al = %s, om = %s"
+                                                 container src (get-name (tg/alpha e)) (get-name (tg/omega e))))
+                              (tg/iseq ~src ~(get-type e))))
                           `(tg/iseq ~src ~(inc-type e)
                                     ;; -<SomeEC>-> and <-<SomeEC>- consider edge direction, but
                                     ;; --> and -<:role>-> do not in order to stay compatible with

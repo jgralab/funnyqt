@@ -1145,6 +1145,7 @@
              :fam (tg/vertex fg 12)}]
            (p2 fg)))))
 
+
 ;;# EMF
 
 (emf/load-ecore-resource "test/input/Families.ecore")
@@ -1426,3 +1427,13 @@
              (set (map #(-> % second tg/normal-edge) rrkw))))
       (doseq [[src ^Edge e trg] r]
         (is (= AggregationKind/COMPOSITE (.getAggregationKind e)))))))
+
+(deftest test-composition-edges-tg2
+  (letpattern [(strange [g]
+                        [c<County> <>-- <> <>-- <> --<> <> --<> x
+                         :as [c x]])]
+    {:pattern-expansion-context :tg}
+    (let [r (strange tt/rg)]
+      (is (= 2 (count r)))
+      (doseq [m r]
+        (is (apply = (first r)))))))
