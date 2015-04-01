@@ -454,19 +454,20 @@ functions `record` and `enum-constant`."
 (extend-protocol g/IMMAttributes
   AttributedElementClass
   (mm-attributes [aec]
-    (map (fn [^Attribute attr]
-           (keyword (.getName attr)))
-         (.getOwnAttributeList aec))))
+    (sequence (map (fn [^Attribute attr]
+                     (keyword (.getName attr))))
+              (.getOwnAttributeList aec))))
 
 (extend-protocol g/IMMReferences
   VertexClass
   (mm-references [vc]
-    (mapcat (fn [^IncidenceClass ic]
-              (let [role (.getRolename ic)]
-                (when (seq role)
-                  [(keyword role)])))
-            (concat (.getValidToFarIncidenceClasses vc)
-                    (.getValidFromFarIncidenceClasses vc)))))
+    (sequence (comp cat
+                    (mapcat (fn [^IncidenceClass ic]
+                              (let [role (.getRolename ic)]
+                                (when (seq role)
+                                  [(keyword role)])))))
+              [(.getValidToFarIncidenceClasses vc)
+               (.getValidFromFarIncidenceClasses vc)])))
 
 (extend-protocol g/IMMReferencedElementClass
   VertexClass
@@ -1179,9 +1180,9 @@ functions `record` and `enum-constant`."
     ([v]
      (g/container v nil))
     ([v ts-or-role]
-     (when-let [inc (first (filter #(= AggregationKind/COMPOSITE
-                                       (.getThisAggregationKind ^Edge %))
-                                   (iseq v ts-or-role)))]
+     (when-let [inc (first (sequence (filter #(= AggregationKind/COMPOSITE
+                                                 (.getThisAggregationKind ^Edge %)))
+                                     (iseq v ts-or-role)))]
        (that inc)))))
 
 (def ^:private contents-transducer
@@ -1409,10 +1410,12 @@ functions `record` and `enum-constant`."
                      (-> ec .getTo .getMax)
                      (-> ec .getFrom .getMax))]
             (if (== ub 1)
-              (map that (iseq this role))
+              (eduction (map that)
+                        (iseq this role))
               (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
                         role ec ub)))
-          (map that (iseq this role)))
+          (eduction (map that)
+                    (iseq this role)))
         (when-not allow-unknown-role
           (u/errorf "No %s role at vertex %s" role this))))))
 

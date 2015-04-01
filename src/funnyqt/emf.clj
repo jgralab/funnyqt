@@ -195,9 +195,9 @@
   "Returns the lazy seq of EClassifiers known by *epackage-registry*.
   Also see: `with-ns-uris` and `with-epackage-registry`."
   []
-  (mapcat (fn [^EPackage ep]
-            (.getEClassifiers ep))
-          (epackages)))
+  (sequence (mapcat (fn [^EPackage ep]
+                      (.getEClassifiers ep)))
+            (epackages)))
 
 (defn eclass
   "Returns the EClass of the given EObject `eo`."
@@ -614,21 +614,21 @@
 (extend-protocol IEContents
   EObject
   (econtents-internal [this ts]
-    (filter (g/type-matcher this ts)
-            (seq (.eContents this))))
+    (sequence (filter (g/type-matcher this ts))
+              (seq (.eContents this))))
   (eallcontents-internal [this ts]
-    (filter (g/type-matcher this ts)
-            (iterator-seq
-             (EcoreUtil/getAllProperContents this true))))
+    (sequence (filter (g/type-matcher this ts))
+              (iterator-seq
+               (EcoreUtil/getAllProperContents this true))))
 
   Resource
   (econtents-internal [this ts]
-    (filter (g/type-matcher this ts)
-            (seq (.getContents this))))
+    (sequence (filter (g/type-matcher this ts))
+              (seq (.getContents this))))
   (eallcontents-internal [this ts]
-    (filter (g/type-matcher this ts)
-            (iterator-seq
-             (EcoreUtil/getAllProperContents this true))))
+    (sequence (filter (g/type-matcher this ts))
+              (iterator-seq
+               (EcoreUtil/getAllProperContents this true))))
 
   ResourceSet
   (eallcontents-internal [this ts]
@@ -639,9 +639,11 @@
 
   clojure.lang.IPersistentCollection
   (econtents-internal [this tm]
-    (mapcat #(econtents-internal % tm) this))
+    (sequence (mapcat #(econtents-internal % tm))
+              this))
   (eallcontents-internal [this tm]
-    (mapcat #(eallcontents-internal % tm) this)))
+    (sequence (mapcat #(eallcontents-internal % tm))
+              this)))
 
 (defn eallcontents
   "Returns a lazy seq of `container`s direct and indirect contents
@@ -731,11 +733,10 @@
                                                   (.isContainer ref)))]
          (.eGet eo ref))
        (let [rm (eref-matcher rs)]
-         (first (map (fn [^EReference r] (.eGet eo r))
-                     (for [^EReference ref (seq (.getEAllReferences
-                                                 (.eClass eo)))
-                           :when (and (.isContainer ref) (rm ref))]
-                       ref)))))
+         (first (eduction (comp (filter (and (.isContainer ^EReference ref)
+                                             (rm ref)))
+                                (map (fn [^EReference r] (.eGet eo r))))
+                          (seq (.getEAllReferences (.eClass eo)))))))
      ;; We cannot handle the rs = nil case with the above because it is
      ;; possible that there is no reference at all at the container side.
      (.eContainer eo))))
@@ -763,10 +764,11 @@
   constructed by (eref-matcher fERef) and not (eref-matcher :f), then only b
   or c (exclusive) is returned.."
   [^EObject eo src-rm]
-  (seq (remove nil? (map (fn [^EReference r]
-                           (when-let [o (.getEOpposite r)]
-                             (when (src-rm o) r)))
-                         (seq (-> eo .eClass .getEAllReferences))))))
+  (seq (eduction (comp (map (fn [^EReference r]
+                              (when-let [o (.getEOpposite r)]
+                                (when (src-rm o) r))))
+                       (remove nil?))
+                 (seq (-> eo .eClass .getEAllReferences)))))
 
 (defn ^:private search-ereferencers
   "Returns the seq of objects referencing `refed` by a reference matching `rm`
@@ -1389,27 +1391,27 @@
      :interface (.isInterface this)
      :superclasses (seq (.getESuperTypes this))
      :attributes (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
-                              [(keyword (.getName attr)) (.getEType attr)])
-                            (seq (.getEAttributes this))))
+                       (map (fn [^EAttribute attr]
+                              [(keyword (.getName attr)) (.getEType attr)]))
+                       (seq (.getEAttributes this)))
      :references (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EReference ref]
-                              [(keyword (.getName ref)) (.getEReferenceType ref)])
-                            (seq (.getEReferences this))))})
+                       (map (fn [^EReference ref]
+                              [(keyword (.getName ref)) (.getEReferenceType ref)]))
+                       (seq (.getEReferences this)))})
   EObject
   (describe [this]
     {:eclass (g/qname this)
      :container (econtainer this)
      :attr-slots (into {}
-                       (map (fn [^org.eclipse.emf.ecore.EAttribute attr]
+                       (map (fn [^EAttribute attr]
                               (let [kw (keyword (.getName attr))]
-                                [kw (eget this kw)]))
-                            (seq (.getEAllAttributes (.eClass this)))))
+                                [kw (eget this kw)])))
+                       (seq (.getEAllAttributes (.eClass this))))
      :ref-slots (into {}
-                      (map (fn [^org.eclipse.emf.ecore.EReference ref]
+                      (map (fn [^EReference ref]
                              (let [kw (keyword (.getName ref))]
-                               [kw (eget this kw)]))
-                           (seq (.getEAllReferences (.eClass this)))))}))
+                               [kw (eget this kw)])))
+                      (seq (.getEAllReferences (.eClass this))))}))
 
 ;;# Printing
 
@@ -1465,9 +1467,9 @@
                (let [m (into {}
                              (map (fn [[v k]]
                                     (when v
-                                      [k v]))
-                                  [[(.getNsPrefix ep) :nsPrefix]
-                                   [(.getNsURI ep)    :nsURI]]))]
+                                      [k v])))
+                             [[(.getNsPrefix ep) :nsPrefix]
+                              [(.getNsURI ep)    :nsURI]])]
                  (when (seq m)
                    (str " " m)))
                ">")))
