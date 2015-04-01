@@ -1410,11 +1410,11 @@ functions `record` and `enum-constant`."
                      (-> ec .getTo .getMax)
                      (-> ec .getFrom .getMax))]
             (if (== ub 1)
-              (eduction (map that)
+              (sequence (map that)
                         (iseq this role))
               (u/errorf "Must not call adj on role '%s' (EdgeClass %s) with upper bound %s."
                         role ec ub)))
-          (eduction (map that)
+          (sequence (map that)
                     (iseq this role)))
         (when-not allow-unknown-role
           (u/errorf "No %s role at vertex %s" role this))))))

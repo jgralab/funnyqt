@@ -733,7 +733,7 @@
                                                   (.isContainer ref)))]
          (.eGet eo ref))
        (let [rm (eref-matcher rs)]
-         (first (eduction (comp (filter (and (.isContainer ^EReference ref)
+         (first (sequence (comp (filter (and (.isContainer ^EReference ref)
                                              (rm ref)))
                                 (map (fn [^EReference r] (.eGet eo r))))
                           (seq (.getEAllReferences (.eClass eo)))))))
@@ -764,7 +764,7 @@
   constructed by (eref-matcher fERef) and not (eref-matcher :f), then only b
   or c (exclusive) is returned.."
   [^EObject eo src-rm]
-  (seq (eduction (comp (map (fn [^EReference r]
+  (seq (sequence (comp (map (fn [^EReference r]
                               (when-let [o (.getEOpposite r)]
                                 (when (src-rm o) r))))
                        (remove nil?))
