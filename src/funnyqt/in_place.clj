@@ -92,11 +92,15 @@
           (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
                                      ;; forall rules can benefit from parallel
                                      ;; pattern evaluation.
-                                     {:eager ~(:forall (meta name))
-                                      :sequential ~(:sequential (meta name))}
+                                     ~(if (:forall (meta name))
+                                        (assoc (meta name) :eager true)
+                                        (or (meta name) {}))
                                      ~args ~pattern-vector)
                 ~@(when (:recheck (meta name))
-                    [recheck-pattern `(pm/pattern [~(first args) ~@matchsyms]
+                    [recheck-pattern `(pm/pattern ~(gensym "recheck-pattern")
+                                                  ;; A recheck pattern is never eager
+                                                  (assoc (meta name) :eager false)
+                                                  [~(first args) ~@matchsyms]
                                                   ~(create-recheck-pattern pattern-vector))])
                 ~matches (apply ~pattern ~args)
                 ~action-fn (fn [~match]
@@ -211,15 +215,18 @@
   finds one, it applies its `body` on the match returning the value of the last
   form in `body`, which should be logical true by convention.
 
+  In general, rules consider the same options as patterns.
+
   Rules may have ^:forall metadata attached to their name or the :forall option
-  set in the attr-map.  Such a rule first finds all matches eagerly, and then
-  applies the actions to each match in sequence.  The finding of matches is
-  done in parallel (if some constraints hold, and there's no ^:sequential
-  metadata).  The result of a ^:forall rule is the vector of action
-  results (one for each match).  If you're not interested in that and want to
-  save some memory, you can also add ^:no-result-vec metadata.  In that case,
-  applying the ^:forall rule returns only the number of matches.  In any case,
-  if there were no matches at all, nil is returned.
+  set in the attr-map.  Such a rule first finds all matches eagerly (i.e., the
+  underlying pattern has the :eager option set automatically), and then applies
+  the actions to each match in sequence.  The finding of matches is done in
+  parallel (if some constraints hold, and there's no ^:sequential metadata).
+  The result of a ^:forall rule is the vector of action results (one for each
+  match).  If you're not interested in that and want to save some memory, you
+  can also add ^:no-result-vec metadata.  In that case, applying the ^:forall
+  rule returns only the number of matches.  In any case, if there were no
+  matches at all, nil is returned.
 
   Note that in a :forall rule, applying the actions on some match might
   invalidate a later match.  If that is feasible, enable the :recheck option

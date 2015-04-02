@@ -1431,9 +1431,15 @@
 (deftest test-composition-edges-tg2
   (letpattern [(strange [g]
                         [c<County> <>-- <> <>-- <> --<> <> --<> x
-                         :as [c x]])]
+                         :as [c x]])
+               (strange2 {:transducers true}
+                         [g]
+                         [c<County> <>-- <> <>-- <> --<> <> --<> x
+                          :as [c x]])]
     {:pattern-expansion-context :tg}
-    (let [r (strange tt/rg)]
-      (is (= 2 (count r)))
+    (let [r  (strange tt/rg)
+          r2 (strange2 tt/rg)]
+      (is (= 2 (count r) (count r2)))
+      (is (= r r2))
       (doseq [m r]
-        (is (apply = (first r)))))))
+        (is (apply = m))))))

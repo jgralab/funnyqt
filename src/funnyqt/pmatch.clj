@@ -15,6 +15,8 @@
 
 ;;# Pattern to pattern graph
 
+(def ^:dynamic *pattern-meta* {})
+
 (defn ^:private vertex-sym?
   "Returns [match id type] if sym is a vertex symbol."
   [sym]
@@ -548,36 +550,33 @@
 (defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
   (let [target-node (last av)
         [start-coll xforms] (anon-vec-transformer-fn start-v-or-e av done)
-        make-comp (fn [xforms]
-                    (if (= (count xforms) 1)
-                      (first xforms)
-                      `(comp ~@xforms)))]
+        ;; make-comp (fn [xforms]
+        ;;             (if (= (count xforms) 1)
+        ;;               (first xforms)
+        ;;               `(comp ~@xforms)))
+        seq-form (if (seq xforms)
+                   (if (:transducers *pattern-meta*)
+                     `(eduction ~@xforms ~start-coll)
+                     `(->> ~start-coll ~@xforms))
+                   start-coll)]
     (cond
       (anon? target-node)
-      [:when `(seq ~(if (seq xforms)
-                      `(sequence ~(make-comp xforms) ~start-coll)
-                      start-coll))]
+      [:when `(seq ~seq-form)]
       ;;---
       (done target-node)
       `[:when (q/member? ~(get-name target-node)
-                         (seq ~(if (seq xforms)
-                                 `(sequence ~(make-comp xforms) ~start-coll)
-                                 start-coll)))]
+                         ~seq-form)]
       ;;---
       (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
                    (and ~(get-name target-node)
                         (q/member? ~(get-name target-node)
-                                   (seq ~(if (seq xforms)
-                                           `(sequence ~(make-comp xforms) ~start-coll)
-                                           start-coll)))
+                                   ~seq-form)
                         ~(get-name target-node))]]
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       (if (seq xforms)
-         `(sequence ~(make-comp (conj xforms `(q/no-dups))) ~start-coll)
-         (q/no-dups start-coll))]
+       `(q/no-dups ~seq-form)]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -666,7 +665,8 @@
                                         (tg/normal-edge? e)     :out
                                         :else                   :in)))))
         anon-vec-conv (fn [start-v-or-e av done]
-                        (let [el (first av)
+                        (let [start-sym (gensym "start")
+                              el (first av)
                               start-coll (if (tg/vertex? el)
                                            `(let [~start-sym (tg/that ~(get-name start-v-or-e))]
                                               ~(if-let [t (and (not (done el))
@@ -1755,7 +1755,17 @@
   `:pattern-expansion-context` metadata to the namespace defining patterns, in
   which case that expansion context is used for all patterns in that namespace.
   Finally, it is also possible to bind `*pattern-expansion-context*` otherwise.
-  Note that this binding has to be available at compile-time."
+  Note that this binding has to be available at compile-time.
+
+  The :transducers option
+  -----------------------
+
+  If this option is enabled, transducers are used in some parts of pattern
+  evaluation (concretely, when evaluating sequences with anonymous elements
+  such as in [a --> <> --> b]) instead of traditional lazy sequence functions.
+  This can be faster in some cases and slower in other cases.  So it's best to
+  measure with and without this option and then use whatever performs better in
+  a concrete scenario."
 
   {:arglists '([name doc-string? attr-map? [args] [pattern]]
                [name doc-string? attr-map? ([args] [pattern])+])}
@@ -1766,7 +1776,8 @@
                                                         (vec (map fnext more))))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*)
+              *pattern-meta* (meta name)]
       `(defn ~name ~(meta name)
          ~@(if (vector? (first more))
              (convert-spec name more)
@@ -1810,7 +1821,8 @@
                                     (or (:pattern-expansion-context (meta n))
                                         (:pattern-expansion-context attr-map)
                                         (:pattern-expansion-context (meta *ns*))
-                                        *pattern-expansion-context*)]
+                                        *pattern-expansion-context*)
+                                    *pattern-meta* (meta n)]
                             `(~n
                               ~@(if (vector? (first more))
                                   (convert-spec n more)
@@ -1848,7 +1860,8 @@
                       (with-meta (gensym "anon-pattern-") attr-map))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
+                                              *pattern-expansion-context*)
+              *pattern-meta* (meta name)]
       `(fn ~@(when name [name])
          ~@(if (vector? (first more))
              (convert-spec name more)
