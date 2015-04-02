@@ -99,7 +99,7 @@
                 ~@(when (:recheck (meta name))
                     [recheck-pattern `(pm/pattern ~(gensym "recheck-pattern")
                                                   ;; A recheck pattern is never eager
-                                                  (assoc (meta name) :eager false)
+                                                  ~(assoc (meta name) :eager false)
                                                   [~(first args) ~@matchsyms]
                                                   ~(create-recheck-pattern pattern-vector))])
                 ~matches (apply ~pattern ~args)
