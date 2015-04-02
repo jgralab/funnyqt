@@ -550,13 +550,13 @@
 (defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
   (let [target-node (last av)
         [start-coll xforms] (anon-vec-transformer-fn start-v-or-e av done)
-        ;; make-comp (fn [xforms]
-        ;;             (if (= (count xforms) 1)
-        ;;               (first xforms)
-        ;;               `(comp ~@xforms)))
+        make-comp (fn [xforms]
+                    (if (= (count xforms) 1)
+                      (first xforms)
+                      `(comp ~@xforms)))
         seq-form (if (seq xforms)
                    (if (:transducers *pattern-meta*)
-                     `(eduction ~@xforms ~start-coll)
+                     `(sequence ~(make-comp xforms) ~start-coll)
                      `(->> ~start-coll ~@xforms))
                    start-coll)]
     (cond
