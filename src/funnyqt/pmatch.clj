@@ -666,8 +666,7 @@
                                         (tg/normal-edge? e)     :out
                                         :else                   :in)))))
         anon-vec-conv (fn [start-v-or-e av done]
-                        (let [start-sym (gensym "start")
-                              el (first av)
+                        (let [el (first av)
                               start-coll (if (tg/vertex? el)
                                            `(let [~start-sym (tg/that ~(get-name start-v-or-e))]
                                               ~(if-let [t (and (not (done el))
