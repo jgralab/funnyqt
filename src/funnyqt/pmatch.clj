@@ -569,15 +569,15 @@
       ;;---
       (g/has-type? target-node 'ArgumentVertex)
       `[:when-let [~(get-name target-node)
-                   (and ~(get-name target-node)
-                        (q/member? ~(get-name target-node)
-                                   ~seq-form)
-                        ~(get-name target-node))]]
+                   (if ~(get-name target-node)
+                     (if (q/member? ~(get-name target-node) ~seq-form)
+                       ~(get-name target-node)))]]
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
        (if (and (:eager *pattern-meta*)
-                (:transducers *pattern-meta*))
+                (:transducers *pattern-meta*)
+                (seq xforms))
          ;; In the eager transducers case, we can eagerly transform into a set
          ;; and save the no-dups call.  That's a bit faster than (sequence
          ;; xform start-coll) which needs to be fully realized here anyway.
