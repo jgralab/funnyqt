@@ -536,18 +536,33 @@
 (defn ^:private init-queue [pg]
   (pm/priority-map (q/the (tg/vseq pg 'Anchor)) 0))
 
+(defn ^:private maybe-increase-prio
+  "Increases the prio of i if i is a containment incidence with the direction
+  that traversal would be from container to contents, and not the other way
+  round."
+  [i prio]
+  (if (g/has-type? i 'APatternEdge)
+    (if-let [c (tg/value i :container)]
+      (if (or (and (= c (tg/enum-constant i 'Container.FROM))
+                   (tg/normal-edge? i))
+              (and (= c (tg/enum-constant i 'Container.TO))
+                   (not (tg/normal-edge? i))))
+        (+ prio 0.1)
+        prio))
+    prio))
+
 (defn ^:private enqueue-incs [cur queue done]
   (let [incs (remove (fn [i]
                        (or (done i)
                            (when-let [t (get-type i)]
-                             (and (not (tg/normal-edge? i))
-                                  (keyword? t)))))
+                             (and (keyword? t)
+                                  (not (tg/normal-edge? i))))))
                      (tg/iseq cur))]
     (into queue (map (fn [i]
                        [i (let [prio (tg/id i)]
-                            (if (neg? prio)
-                              (- prio)
-                              prio))])
+                            (maybe-increase-prio i (if (neg? prio)
+                                                     (- prio)
+                                                     prio)))])
                      incs))))
 
 (defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
@@ -890,7 +905,10 @@
         inc-iteration (fn
                         ([e]
                          (if-let [container (tg/value e :container)]
-                           (if (= container (tg/enum-constant pg 'Container.FROM))
+                           (if (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                        (tg/normal-edge? e))
+                                   (and (= container (tg/enum-constant pg 'Container.TO))
+                                        (not (tg/normal-edge? e))))
                              `#(~contents-fn % ~(get-type e))
                              `#(u/array-pset (~container-fn % ~(get-type e))))
                            (if-let [t (get-edge-type e)]
@@ -900,7 +918,10 @@
                          (when-not src
                            (u/errorf "Can't create edge iteration for %s cause src has no name" e))
                          (if-let [container (tg/value e :container)]
-                           (if (= container (tg/enum-constant pg 'Container.FROM))
+                           (if (or (and (= container (tg/enum-constant pg 'Container.FROM))
+                                        (tg/normal-edge? e))
+                                   (and (= container (tg/enum-constant pg 'Container.TO))
+                                        (not (tg/normal-edge? e))))
                              `(~contents-fn ~src ~(get-type e))
                              `(u/array-pset (~container-fn ~src ~(get-type e))))
                            (if-let [t (get-edge-type e)]
