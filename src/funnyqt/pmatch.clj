@@ -548,7 +548,8 @@
               (and (= c (tg/enum-constant i 'Container.TO))
                    (not (tg/normal-edge? i))))
         (+ prio 0.1)
-        prio))
+        prio)
+      prio)
     prio))
 
 (defn ^:private enqueue-incs [cur queue done]
