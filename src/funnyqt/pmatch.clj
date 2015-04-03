@@ -74,29 +74,6 @@
 (def ^:private pattern-schema
   (tg/load-schema (clojure.java.io/resource "pattern-schema.tg")))
 
-(defn ^:private create-recheck-pattern [pattern-spec]
-  (when-not (vector? pattern-spec)
-    (u/errorf "Cannot recheck a pattern without pattern spec: %s"
-              pattern-spec))
-  ;; We may drop all typing information from nodes and edges with an identifier
-  ;; since the types cannot have changed.  Attribute and connection constraints
-  ;; still need to be re-checked.
-  (loop [ps pattern-spec, nps []]
-    (if (seq ps)
-      (let [x (first ps)]
-        (cond
-          ;; Vertex symbols with name and type
-          (and (vertex-sym? x)
-               (every? identity (name-and-type x)))
-          (recur (rest ps) (conj nps (first (name-and-type x))))
-          ;; Edge symbols with name and type (no neg edges!)
-          (and (edge-sym? x)
-               (every? identity (name-and-type x))
-               (not (neg-edge-sym? x)))
-          (recur (rest ps) (conj nps (symbol (str/replace (str x) #"<.*?>" "<>"))))
-          :else (recur (rest ps) (conj nps x))))
-      nps)))
-
 (defn ^:private binding-bound-vars
   "Returns the symbols bound by a :for, :let, :nested, or :when-let in pattern
   `p`.  Does not recurse into the expressions of the binding forms.  The
@@ -251,6 +228,32 @@
           [(vec (concat nv (next ov))) (first ov)])
         (recur (conj nv (first ov)) (rest ov)))
       [nv nil])))
+
+(defn ^:private create-recheck-pattern [pattern-spec]
+  (when-not (vector? pattern-spec)
+    (u/errorf "Cannot recheck a pattern without pattern spec: %s"
+              pattern-spec))
+  ;; We may drop all typing information from nodes and edges with an identifier
+  ;; since the types cannot have changed.  Attribute and connection constraints
+  ;; still need to be re-checked.  Additionally, we add an :as-clause (or
+  ;; replace an existing one) which just says true in order to save a map
+  ;; creation.
+  (loop [ps (into (first (get-and-remove-key-from-vector pattern-spec :as true))
+                  [:as true]), nps []]
+    (if (seq ps)
+      (let [x (first ps)]
+        (cond
+          ;; Vertex symbols with name and type
+          (and (vertex-sym? x)
+               (every? identity (name-and-type x)))
+          (recur (rest ps) (conj nps (first (name-and-type x))))
+          ;; Edge symbols with name and type (no neg edges!)
+          (and (edge-sym? x)
+               (every? identity (name-and-type x))
+               (not (neg-edge-sym? x)))
+          (recur (rest ps) (conj nps (symbol (str/replace (str x) #"<.*?>" "<>"))))
+          :else (recur (rest ps) (conj nps x))))
+      nps)))
 
 (defn ^:private build-nested-pattern [pattern model-sym binding-var-set pattern-var-set]
   (let [pattern-meta (meta pattern)
