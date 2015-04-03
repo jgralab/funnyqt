@@ -3,7 +3,8 @@
   (:require clojure.pprint
             [clojure.repl         :as repl]
             [clojure.string       :as str]
-            [flatland.ordered.set :as os]))
+            [flatland.ordered.set :as os])
+  (import (org.pcollections PCollection ArrayPSet)))
 
 ;;# Conversion to OrderedSet
 
@@ -267,6 +268,28 @@
       (instance? org.eclipse.emf.common.util.UniqueEList l)
       (and (instance? org.eclipse.emf.common.util.AbstractEList l)
            (.invoke AbstractElist-isUnique l empty-object-array))))
+
+(defn array-pset
+  "Returns an ArrayPSet containing the given args.  ArrayPSets cannot contain
+  nil, so nil args are not considered, e.g., (array-pset nil) returns the empty
+  ArrayPSet."
+  {:inline-arities #{0 1}
+   :inline (fn
+             ([] `(ArrayPSet/empty))
+             ([x] `(if-let [x# ~x]
+                     (.plus (ArrayPSet/empty) x#)
+                     (ArrayPSet/empty))))}
+  ([] (ArrayPSet/empty))
+  ([x] (if x
+         (.plus (ArrayPSet/empty) x)
+         (ArrayPSet/empty)))
+  ([x y & more]
+   (loop [m more, s (-> (ArrayPSet/empty) (.plus x) (.plus y))]
+     (if (seq more)
+       (recur (rest more) (if-let [x (first more)]
+                            (.plus s x)
+                            s))
+       s))))
 
 (defn ^:private shortcut-when-let-vector [lv]
   (letfn [(whenify [s]

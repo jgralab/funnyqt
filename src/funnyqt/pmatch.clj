@@ -883,8 +883,7 @@
                          (if-let [container (tg/value e :container)]
                            (if (= container (tg/enum-constant pg 'Container.FROM))
                              `#(~contents-fn % ~(get-type e))
-                             `#(when-let [c# (~container-fn % ~(get-type e))]
-                                 #{c#}))
+                             `#(u/array-pset (~container-fn % ~(get-type e))))
                            (if-let [t (get-edge-type e)]
                              `#(~role-fn % ~t)
                              neighbors-fn)))
@@ -894,8 +893,7 @@
                          (if-let [container (tg/value e :container)]
                            (if (= container (tg/enum-constant pg 'Container.FROM))
                              `(~contents-fn ~src ~(get-type e))
-                             `(when-let [c# (~container-fn ~src ~(get-type e))]
-                                #{c#}))
+                             `(u/array-pset (~container-fn ~src ~(get-type e))))
                            (if-let [t (get-edge-type e)]
                              `(~role-fn ~src ~t)
                              `(~neighbors-fn ~src)))))
@@ -1019,8 +1017,9 @@
     (if (instance? java.util.Collection x)
       x
       ;; Use set literal so that the resulting coll is unique according to
-      ;; utils/unique-coll?.
-      #{x})))
+      ;; utils/unique-coll? and thus no-dups is a no-op.  ArrayPSets seem to be
+      ;; the fastest Set when it comes to creation time.
+      (u/array-pset x))))
 
 (defn pattern-graph-to-for+-bindings-emf [argvec pg]
   (pattern-graph-to-for+-bindings-only-refs-base
