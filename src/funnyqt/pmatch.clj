@@ -576,7 +576,13 @@
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       `(q/no-dups ~seq-form)]
+       (if (and (:eager *pattern-meta*)
+                (:transducers *pattern-meta*))
+         ;; In the eager transducers case, we can eagerly transform into a set
+         ;; and save the no-dups call.  That's a bit faster than (sequence
+         ;; xform start-coll) which needs to be fully realized here anyway.
+         `(into #{} ~(make-comp xforms) ~start-coll)
+         `(q/no-dups ~seq-form))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
