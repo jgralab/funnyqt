@@ -113,22 +113,32 @@
     g))
 
 (defrule tick-forward [g]
-  [c<Counter> -sec<:secondary>-> <> -<HasNext>-> n
-   :alternative [[:when (not (zero? (tg/value n :val)))]
-                 [:when (zero? (tg/value n :val))
-                  c -prim<:primary>-> <> -<HasNext>-> n2]]]
+  [c<Counter> -sec<:secondary>-> <> -<HasNext>-> next
+   :alternative [[:when (not (zero? (tg/value next :val)))]
+                 [:when (zero? (tg/value next :val))
+                  c -prim<:primary>-> <> -<HasNext>-> next2]]]
   (when prim
-    (tg/set-omega! prim n2))
-  (tg/set-omega! sec n))
+    (tg/set-omega! prim next2))
+  (tg/set-omega! sec next))
 
 (defrule tick-backward [g]
-  [c<Counter> -sec<:secondary>-> cur<> <-<HasNext>- p
+  [c<Counter> -sec<:secondary>-> cur <-<HasNext>- prev
    :alternative [[:when (not (zero? (tg/value cur :val)))]
                  [:when (zero? (tg/value cur :val))
-                  c -prim<:primary>-> <> <-<HasNext>- p2]]]
+                  c -prim<:primary>-> <> <-<HasNext>- prev2]]]
   (when prim
-    (tg/set-omega! prim p2))
-  (tg/set-omega! sec p))
+    (tg/set-omega! prim prev2))
+  (tg/set-omega! sec prev))
+
+(defrule reset-counter [g]
+  [c<Counter> -<:secondary>-> d1
+   c          -<:primary>->   d2
+   :when (or (not (zero? (tg/value d1 :val)))
+             (not (zero? (tg/value d2 :val))))]
+  (let [digit-zero (q/the #(zero? (tg/value % :val))
+                          (tg/vseq g 'Digit))]
+    (g/set-adj! c :secondary digit-zero)
+    (g/set-adj! c :primary digit-zero)))
 
 (deftest test-create-state-space-1
   (let [g (counter-graph 3)
@@ -137,16 +147,6 @@
                                         [tick-forward tick-backward])]
     (is (= 9 (vcount ssg 'State)))
     (is (= 18 (ecount ssg 'Transition)))))
-
-(defrule reset-counter [g]
-  [c<Counter> -<:secondary>-> d1
-   c<Counter>  -<:primary>->  d2
-   :when (or (not (zero? (tg/value d1 :val)))
-             (not (zero? (tg/value d2 :val))))]
-  (let [digit-zero (q/the #(zero? (tg/value % :val))
-                          (tg/vseq g 'Digit))]
-    (g/set-adj! c :secondary digit-zero)
-    (g/set-adj! c :primary digit-zero)))
 
 (deftest test-create-state-space-2
   (let [g (counter-graph 3)

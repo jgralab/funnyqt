@@ -584,9 +584,8 @@
     ValidTransition.  Thus, use this entry to specify postconditions of rules.
 
   - The :state-space-preds value is a sequence of predicates that receive the
-    current state space graph.  Whenever a new state is created, all these
-    predicates are evaluated.  Thus, use this entry to specify invariants of
-    the state space graph itself.  For example, the number of states might
+    current state space graph.  Use this entry to specify invariants of the
+    state space graph itself.  For example, the number of states might
     be bounded for some transformation, thus an invariant might want to check
     that (<= (vcount ssg) upper-bound).  If that invariant fails, you
     probably have a bug in your implementation or you use a too strict
@@ -708,14 +707,16 @@
   options except for :recur-pred, see `funnyqt.in-place/state-space-step-fn`.
 
   If the map of options contains a :recur-pred entry, its value must be a
-  function of three arguments which determines if the state space generation
+  function of five arguments which determines if the state space generation
   should be resumed.  It's signature should be:
 
-    (fn [seq-of-invalid-states seq-of-invalid-transitions seq-of-failed-state-space-preds] ...)
+    (fn [ssg state2model-map
+         invalid-states invalid-transitions failed-state-space-preds]
+      ...)
 
   If the recur-pred returns logical true, the state space generation is
   resumed.  By default, i.e., when there is no :recur-pred entry in the map of
-  options, `create-state-space` returns when at least one predicate of
+  options, `create-state-space` returns as soon as at least one predicate of
   `state-preds`, `transition-preds`, or `state-space-preds` fails.
 
   The return value has the form
@@ -734,18 +735,21 @@
                                   recur-pred]
                            :as options}]
    (let [sss-fn (state-space-step-fn model comparefn rules (dissoc options :recur-pred))
-         recur-pred (or recur-pred (fn default-recur-pred [inv-states inv-transitions failed-ssg-preds]
-                                     (and (empty? inv-states)
-                                          (empty? failed-ssg-preds))))]
+         recur-pred (or recur-pred
+                        (fn default-recur-pred [ssg s2m-map inv-states inv-transitions failed-ssg-preds]
+                          ;; Apply as long as sss-fn returns [() () #{}], i.e.,
+                          ;; stop if no new states can be created, or an
+                          ;; invalid state or transition has been created, or
+                          ;; the state space has become invalid.
+                          (and (empty? inv-states)
+                               (empty? inv-transitions)
+                               (empty? failed-ssg-preds))))
+         ssg (:state-space-graph (meta sss-fn))
+         s2m-map-v (:state2model-map (meta sss-fn))]
      (loop [ret (sss-fn)]
-       ;; Apply as long as sss-fn returns [() () #{}], i.e., stop if no new
-       ;; states can be created, or an invalid state or transition has been
-       ;; created, or the state space has become invalid.
-       (if (and ret (apply recur-pred ret))
+       (if (and ret (apply recur-pred ssg @s2m-map-v ret))
          (recur (sss-fn))
-         [(:state-space-graph (meta sss-fn))
-          @(:state2model-map (meta sss-fn))
-          ret])))))
+         [ssg s2m-map-v ret])))))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
