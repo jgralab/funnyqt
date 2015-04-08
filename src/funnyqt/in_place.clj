@@ -725,7 +725,12 @@
 
   where state-space-graph is the final state space graph, state2model-map is
   the final map from SSG states to corresponding models, and step-fn-retval
-  is the return value of the underlying `state-space-step-fn`."
+  is the return value of the underlying `state-space-step-fn`.
+
+  This vector also has :state-space-step-fn metadata which is the state space
+  step function used internally by create-state-space.  This allows for driving
+  the state space generation further after create-state-space has returned
+  because of a failed predicate or a user-defined recur-pred."
   ([model comparefn rules]
    (create-state-space model comparefn rules {}))
   ([model comparefn rules {:keys [additional-args
@@ -749,7 +754,8 @@
      (loop [ret (sss-fn)]
        (if (and ret (apply recur-pred ssg @s2m-map-v ret))
          (recur (sss-fn))
-         [ssg s2m-map-v ret])))))
+         (with-meta [ssg s2m-map-v ret]
+           {:state-space-step-fn sss-fn}))))))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
   (let [ssg (:state-space-graph (meta sss-fn))
