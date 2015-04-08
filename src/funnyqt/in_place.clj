@@ -786,7 +786,7 @@
                                     (.setIcon default CROSS16)
                                     (.setToolTipText default
                                                      (str "Failed state predicates: "
-                                                          (list* (tg/value v :failed))))))
+                                                          (vec (tg/value v :failed))))))
                           default)))
         content-pane (let [^JComponent cp(.getContentPane d)]
                        (doto cp (.setBorder (BorderFactory/createEmptyBorder 3 3 3 3))))
@@ -847,7 +847,7 @@
                                              (.setIcon CROSS16)
                                              (.setToolTipText
                                               (str "Failed SSG predicates: "
-                                                   (list* (map u/fn-name failed-ssg-preds)))))
+                                                   (mapv u/fn-name failed-ssg-preds))))
                                            (doto state-space-valid-label
                                              (.setText "yes")
                                              (.setIcon CHECK16)
@@ -964,7 +964,12 @@
   "Fires up a GUI that allows for creating and inspecting the state space by
   starting with initial model `model`, the given `comparefn` (see, e.g.,
   `funnyqt.generic/equal-models?`), and the given `rules`.  For a description
-  of arguments, see `funnyqt.in-place/state-space-step-fn`."
+  of arguments, see `funnyqt.in-place/state-space-step-fn`.
+  explore-state-space returns a vector of the form [ssg s2m-map] where ssg is
+  the state space graph which has been built interactively, and s2m-map is the
+  map from State vertices to the corresponding models.  This vector
+  has :state-space-step-fn metadata attached whose value is the step-wise state
+  space generation function used internally."
   ([model comparefn rules]
    (explore-state-space model comparefn rules {}))
   ([model comparefn rules {:keys [additional-args
@@ -972,5 +977,9 @@
                                   transition-preds
                                   state-space-preds]
                            :as options}]
-   (let [sss-fn (state-space-step-fn model comparefn rules options)]
-     (explore-state-space-dialog sss-fn rules))))
+   (let [sss-fn (state-space-step-fn model comparefn rules options)
+         ssg (:state-space-graph (meta sss-fn))
+         s2m-map-v (:state2model-map (meta sss-fn))]
+     (explore-state-space-dialog sss-fn rules)
+     (with-meta [ssg @s2m-map-v]
+       {:state-space-step-fn sss-fn}))))

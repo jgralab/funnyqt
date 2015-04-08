@@ -140,29 +140,57 @@
     (g/set-adj! c :secondary digit-zero)
     (g/set-adj! c :primary digit-zero)))
 
+(defrule erase-clock-hands [g]
+  [c<Counter> -p<:primary>-> <>
+   c          -s<:secondary>-> <>]
+  (g/delete! p)
+  (g/delete! s))
+
+(defn exactly-two-clock-hands? [cg]
+  (and (= 1 (tg/ecount cg 'HasPrimaryDigit))
+       (= 1 (tg/ecount cg 'HasSecondaryDigit))))
+
+(defn counter-at-0:0? [old-model match new-model]
+  (let [val-of (fn [ec]
+                 (tg/value (tg/omega (q/the (tg/eseq new-model ec)))
+                           :val))]
+    (and (= 0 (val-of 'HasPrimaryDigit))
+         (= 0 (val-of 'HasSecondaryDigit)))))
+
+(defn at-most-9-states? [ssg]
+  (<= (vcount ssg) 9))
+
 (deftest test-create-state-space-1
   (let [g (counter-graph 3)
-        [ssg s2m _] (create-state-space g
-                                        #(g/equal-models? %1 %2 false)
-                                        [tick-forward tick-backward])]
+        [ssg s2m ret] (create-state-space g
+                                          #(g/equal-models? %1 %2 false)
+                                          [tick-forward tick-backward]
+                                          {:state-preds [exactly-two-clock-hands?]
+                                           :state-space-preds [at-most-9-states?]})]
     (is (= 9 (vcount ssg 'State)))
-    (is (= 18 (ecount ssg 'Transition)))))
+    (is (= 18 (ecount ssg 'Transition)))
+    (is (false? ret))))
 
 (deftest test-create-state-space-2
   (let [g (counter-graph 3)
-        [ssg s2m _] (create-state-space g
-                                        #(g/equal-models? %1 %2 false)
-                                        [tick-forward tick-backward reset-counter])]
+        [ssg s2m ret] (create-state-space
+                       g
+                       #(g/equal-models? %1 %2 false)
+                       [tick-forward tick-backward reset-counter]
+                       {:state-preds [exactly-two-clock-hands?]
+                        :transition-preds {reset-counter [counter-at-0:0?]}
+                        :state-space-preds [at-most-9-states?]})]
     (is (= 9 (vcount ssg 'State)))
     ;; 26, not 27, because reset-counter doesn't match in the 0:0 case.
-    (is (= 26 (ecount ssg 'Transition)))))
+    (is (= 26 (ecount ssg 'Transition)))
+    (is (false? ret))))
 
 (defn test-explore-state-space []
   (let [g (counter-graph 3)]
     (explore-state-space
      g
      #(g/equal-models? %1 %2 false)
-     [tick-forward tick-backward reset-counter]
-     {:state-preds []
-      :transition-preds {}
-      :state-space-preds []})))
+     [tick-forward tick-backward reset-counter erase-clock-hands]
+     {:state-preds [exactly-two-clock-hands?]
+      :transition-preds {reset-counter [counter-at-0:0?]}
+      :state-space-preds [at-most-9-states?]})))
