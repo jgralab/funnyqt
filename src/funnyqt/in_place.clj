@@ -79,7 +79,7 @@
       ;; pattern vector given
       (let [pattern-vector (first more)
             bf          (@#'pm/transform-pattern-spec name pattern-vector args)
-            matchsyms   (pm/bindings-to-argvec bf)
+            matchsyms   (@#'pm/bindings-to-argvec bf)
             body        (next more)
             pattern     (gensym "pattern")
             matches     (gensym "matches")

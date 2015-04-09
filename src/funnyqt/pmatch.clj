@@ -1070,7 +1070,7 @@
   (zipmap (map #(keyword (name %)) argvec)
           argvec))
 
-(defn bindings-to-argvec
+(defn ^:private bindings-to-argvec
   "Rips out the symbols declared in `bindings`.
   `bindings` is a binding vector with the syntax of `for`."
   [bindings]
