@@ -754,7 +754,7 @@
      (loop [ret (sss-fn)]
        (if (and ret (apply recur-pred ssg @s2m-map-v ret))
          (recur (sss-fn))
-         (with-meta [ssg s2m-map-v ret]
+         (with-meta [ssg @s2m-map-v ret]
            {:state-space-step-fn sss-fn}))))))
 
 (defn ^:private explore-state-space-dialog [sss-fn rules]
