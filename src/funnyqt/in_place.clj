@@ -538,35 +538,43 @@
   `rules` in each state, and compares the models corresponding to states using
   `comparefn` (usually `funnyqt.generic/equal-models?` is a good `comparefn`).
 
-  The returned step-function is overloaded on arity and accepts these
-  arguments:
-
-    []                        ;; arity zero
-    [select-state-fn]         ;; arity one
-    [select-state-fn rules]   ;; arity two
-
-  `select-state-fn` is a function that receives the sequence of undone states
-  in the state space graph and returns the one to which `rules` should be
-  applied next.  If omitted, the default is `clojure.core/first`.
-
-  `rules` is a sequence of rules to be applied to the selected state in a step.
-  Of omitted, it defaults to the `rules` given to `state-space-step-fn`.
-
   An optional map of further options may be given to `state-space-step-fn`.
 
     {:additional-args   <seq of additional args for rule application>
+     :select-rules-fn   (fn [rules] ...)
+     :select-state-fn   (fn [undone-states] ...)
      :state-preds       <seq of predicates on each state's model>
      :transition-preds  <map of rule postconditions>
      :state-space-preds <seq of predicates on the states space graph>}
 
-  During each step, each rule is applied as
+  The returned step-function is overloaded on arity and accepts these
+  arguments:
+
+    []                                  ;; arity zero
+    [select-rules-fn]                   ;; arity one
+    [select-rules-fn select-state-fn]   ;; arity two
+
+  The two arguments may override the values given in the map of options.
+
+  During each step, first the rules to be applied in this step are computed
+  using (select-rules-fn rules).  The default select-rules-fn is
+  clojure.core/identity.  If rules should be applied in a random order, use
+  clojure.core/shuffle as select-rules-fn.
+
+  Then, the state to whose corresponding model the rules are going to be
+  applied is selected by calling (select-state-fn undone-states) where
+  undone-states is the sequence of states to which not all rules have been
+  applied yet.  The default select-state-fn is clojure.core/first.
+
+  Then, each selected rule is applied using
 
     (apply rule model-of-a-state additional-args)
 
   so the :additional-args entry is for specifying further arguments to the
   rules in addition to the model corresponding to a state.
 
-  The other three entries allow for specifying validation possibilities.
+  The other three entries in the map of options allow for specifying validation
+  predicates.
 
   - The :state-preds value is a sequence of predicates that receive a state's
     model.  If any predicate returns logical false, the state of that model is
@@ -618,9 +626,13 @@
   ([init-model comparefn rules]
    (state-space-step-fn init-model comparefn rules {}))
   ([init-model comparefn rules {:keys [additional-args
+                                       select-state-fn
+                                       select-rules-fn
                                        state-preds
                                        transition-preds
                                        state-space-preds]
+                                :or {select-state-fn first
+                                     select-rules-fn identity}
                                 :as options}]
    (let [unknown-opts (dissoc options :additional-args :state-preds
                               :transition-preds :state-space-preds)]
@@ -655,47 +667,45 @@
          find-equiv-state (fn [m]
                             (first (filter #(comparefn m (@state2model %))
                                            (tg/vseq ssg 'State))))
-         rule-names (set (map u/fn-name rules))
          invalid-state-tm (g/type-matcher ssg 'InvalidState)
          invalid-transition-tm (g/type-matcher ssg 'InvalidTransition)]
      (with-meta (fn do-step
                   ([]
-                   (do-step first rules))
-                  ([select-state-fn]
-                   (do-step select-state-fn rules))
-                  ([select-state-fn rs]
-                   (if-let [st (select-state-fn
-                                (remove #(.containsAll
-                                          ^java.util.Set (tg/value % :done)
-                                          (if (identical? rs rules)
-                                            rule-names
-                                            (map u/fn-name rs)))
-                                        (tg/vseq ssg 'State)))]
-                     (do
-                       (doseq [r rs
-                               :let [m (g/copy-model (@state2model st))]]
-                         (when-let [thunk (as-test (apply r m additional-args))]
-                           (thunk)
-                           (let [nst (or (find-equiv-state m)
-                                         (create-state! m))]
-                             (if-let [failed-posts (seq (failed-transition-preds
-                                                         r
-                                                         (@state2model st)
-                                                         (:match (meta thunk))
-                                                         m))]
-                               (tg/create-edge! ssg 'InvalidTransition st nst
-                                                {:rule (u/fn-name r)
-                                                 :failed (set (map u/fn-name failed-posts))})
-                               (tg/create-edge! ssg 'ValidTransition st nst {:rule (u/fn-name r)}))
-                             (when-not (contains? @state2model nst)
-                               (vswap! state2model assoc nst m)))))
-                       (tg/set-value! st :done (.plusAll
-                                                ^org.pcollections.PSet (tg/value st :done)
-                                                ^java.util.Collection (map u/fn-name rs)))
-                       [(tg/vseq ssg invalid-state-tm)
-                        (tg/eseq ssg invalid-transition-tm)
-                        (failed-state-space-preds)])
-                     false)))
+                   (do-step select-rules-fn select-state-fn))
+                  ([select-rules-fn]
+                   (do-step select-rules-fn select-state-fn))
+                  ([select-rules-fn select-state-fn]
+                   (let [rules (select-rules-fn rules)]
+                     (if-let [st (select-state-fn
+                                  (remove #(.containsAll
+                                            ^java.util.Set (tg/value % :done)
+                                            (map u/fn-name rules))
+                                          (tg/vseq ssg 'State)))]
+                       (do
+                         (doseq [r rules
+                                 :let [m (g/copy-model (@state2model st))]]
+                           (when-let [thunk (as-test (apply r m additional-args))]
+                             (thunk)
+                             (let [nst (or (find-equiv-state m)
+                                           (create-state! m))]
+                               (if-let [failed-posts (seq (failed-transition-preds
+                                                           r
+                                                           (@state2model st)
+                                                           (:match (meta thunk))
+                                                           m))]
+                                 (tg/create-edge! ssg 'InvalidTransition st nst
+                                                  {:rule (u/fn-name r)
+                                                   :failed (set (map u/fn-name failed-posts))})
+                                 (tg/create-edge! ssg 'ValidTransition st nst {:rule (u/fn-name r)}))
+                               (when-not (contains? @state2model nst)
+                                 (vswap! state2model assoc nst m))))
+                           (tg/set-value! st :done (.plus
+                                                    ^org.pcollections.PSet (tg/value st :done)
+                                                    (u/fn-name r))))
+                         [(tg/vseq ssg invalid-state-tm)
+                          (tg/eseq ssg invalid-transition-tm)
+                          (failed-state-space-preds)])
+                       false))))
        {:state-space-graph ssg
         :state2model-map state2model}))))
 
@@ -733,14 +743,9 @@
   because of a failed predicate or a user-defined recur-pred."
   ([model comparefn rules]
    (create-state-space model comparefn rules {}))
-  ([model comparefn rules {:keys [additional-args
-                                  state-preds
-                                  transition-preds
-                                  state-space-preds
-                                  recur-pred]
-                           :as options}]
+  ([model comparefn rules options]
    (let [sss-fn (state-space-step-fn model comparefn rules (dissoc options :recur-pred))
-         recur-pred (or recur-pred
+         recur-pred (or (:recur-pred options)
                         (fn default-recur-pred [ssg s2m-map inv-states inv-transitions failed-ssg-preds]
                           ;; Apply as long as sss-fn returns [() () #{}], i.e.,
                           ;; stop if no new states can be created, or an
@@ -802,14 +807,15 @@
         undone-states-cb (doto (JComboBox.)
                            (.setRenderer cb-renderer))
         button-panel (Box. BoxLayout/X_AXIS)
-        selected-rules-promise (promise)
+        select-rules-fn-promise (promise)
         apply-rules-button-promise (promise)
         reset-undone-states-cb! (fn reset-undone-states-cb! []
                                   (.removeAllItems undone-states-cb)
                                   (let [undone (map #(tg/value % :n)
                                                     (remove #(.containsAll
                                                               ^java.util.Set (tg/value % :done)
-                                                              (map u/fn-name (@selected-rules-promise)))
+                                                              (map u/fn-name
+                                                                   (@select-rules-fn-promise :ignored)))
                                                             (tg/vseq ssg 'State)))]
                                     (doseq [n undone]
                                       (.addItem undone-states-cb n))
@@ -862,16 +868,16 @@
                                        (.setText no-of-valid-transitions-label (str vt))
                                        (.setText no-of-invalid-transitions-label (str it))
                                        (.setText no-of-invalid-states-label (str is))))]
-    (deliver selected-rules-promise (fn []
-                                      (for [^JCheckBox cb rule-check-boxes
-                                            :when (.isSelected cb)]
-                                        (.getValue (.getAction cb) "rule"))))
+    (deliver select-rules-fn-promise (fn select-rules-fn [_]
+                                       (for [^JCheckBox cb rule-check-boxes
+                                             :when (.isSelected cb)]
+                                         (.getValue (.getAction cb) "rule"))))
     (deliver apply-rules-button-promise
              (JButton. (action "Apply"
                                (fn []
                                  (let [n (.getSelectedItem undone-states-cb)
-                                       ret (sss-fn (constantly (state n))
-                                                   (@selected-rules-promise))]
+                                       ret (sss-fn @select-rules-fn-promise
+                                                   (constantly (state n)))]
                                    (when ret
                                      (let [[_ _ failed-ssg-preds] ret]
                                        (reset-state-space-valid-label! failed-ssg-preds)))
@@ -972,11 +978,7 @@
   space generation function used internally."
   ([model comparefn rules]
    (explore-state-space model comparefn rules {}))
-  ([model comparefn rules {:keys [additional-args
-                                  state-preds
-                                  transition-preds
-                                  state-space-preds]
-                           :as options}]
+  ([model comparefn rules options]
    (let [sss-fn (state-space-step-fn model comparefn rules options)
          ssg (:state-space-graph (meta sss-fn))
          s2m-map-v (:state2model-map (meta sss-fn))]
