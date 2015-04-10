@@ -1,7 +1,7 @@
 (defproject funnyqt "0.45.22"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies."
-  :dependencies [[org.clojure/clojure "1.7.0-alpha6"]
+  :dependencies [[org.clojure/clojure "1.7.0-beta1"]
                  [org.clojure/core.cache "0.6.4"]
                  [org.clojure/data.priority-map "0.0.7"]
                  [de.uni-koblenz.ist/jgralab "8.0.8"]
