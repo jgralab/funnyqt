@@ -66,9 +66,8 @@
   ([g] [r<Resource> -hb<HeldBy>-> p -!<Request>-> <>]
    (release-rule g r hb p))
   ([g r hb p]
-   (when (empty? (iseq p 'Request))
-     (g/delete! hb)
-     [r (create-edge! g 'Release r p) p])))
+   (g/delete! hb)
+   [r (create-edge! g 'Release r p) p]))
 
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource

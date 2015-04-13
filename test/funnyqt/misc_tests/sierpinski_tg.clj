@@ -45,26 +45,26 @@
 (defrule triangulate-recursively
   "triangulate all recursively"
   ([g] [:for [tv (filter #(empty? (iseq % 'B)) (vseq g))]]
-     (triangulate-recursively g tv))
+   (triangulate-recursively g tv))
   ([g tv] [tv -l<L>-> lv
            tv -r<R>-> rv
            lv -b<B>-> rv]
-     (let [nlv (create-vertex! g 'V)
-           nrv (create-vertex! g 'V)
-           nbv (create-vertex! g 'V)]
-       (set-omega! l nlv)
-       (set-omega! r nrv)
-       (set-omega! b nbv)
+   (let [nlv (create-vertex! g 'V)
+         nrv (create-vertex! g 'V)
+         nbv (create-vertex! g 'V)]
+     (set-omega! l nlv)
+     (set-omega! r nrv)
+     (set-omega! b nbv)
 
-       (create-edge! g 'L nlv lv)
-       (create-edge! g 'R nrv rv)
-       (create-edge! g 'B nbv rv)
+     (create-edge! g 'L nlv lv)
+     (create-edge! g 'R nrv rv)
+     (create-edge! g 'B nbv rv)
 
-       (create-edge! g 'L nrv nbv)
-       (create-edge! g 'R nlv nbv)
-       (create-edge! g 'B nlv nrv)
-       (triangulate-recursively g lv)
-       (triangulate-recursively g rv))))
+     (create-edge! g 'L nrv nbv)
+     (create-edge! g 'R nlv nbv)
+     (create-edge! g 'B nlv nrv)
+     (triangulate-recursively g lv)
+     (triangulate-recursively g rv))))
 
 (defrule triangulate-trampolined
   "triangulate all recursively"

@@ -74,10 +74,9 @@
   ([model] [r<Resource> -<:holder>-> p -!<:requested>-> <>]
    (release-rule model r p))
   ([model r p]
-   (when (empty? (eget p :requested))
-     (eunset! r :holder)
-     (eset! r :releaser p)
-     [r p])))
+   (eunset! r :holder)
+   (eset! r :releaser p)
+   [r p]))
 
 (defrule give-rule
   "Matches a process releasing a resource, and gives the token to that resource
