@@ -172,17 +172,25 @@
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
   Also see `rule` and `defrule`."
-  {:arglists '([[rspecs] & body])}
-  [rspecs & body]
+  {:arglists '([[rspecs] attr-map? & body])}
+  [rspecs & attr-map-body]
   (when-not (vector? rspecs)
-    (u/errorf "No rspec vector in letmapping!"))
-  (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                               (:pattern-expansion-context (meta *ns*))
-                                               pm/*pattern-expansion-context*)]
+    (u/errorf "No rspecs vector in letrule!"))
+  (let [[attr-map body] (if (map? (first attr-map-body))
+                          [(first attr-map-body) (next attr-map-body)]
+                          [{} attr-map-body])]
     `(letfn [~@(map (fn [[n & more]]
-                      `(~n ~@(if (vector? (first more))
-                               (convert-spec n more)
-                               (mapv (partial convert-spec n) more))))
+                      (let [[n more] (if (map? (first more))
+                                       [(vary-meta n merge attr-map (first more)) (next more)]
+                                       [n more])]
+                        (binding [pm/*pattern-expansion-context*
+                                  (or (:pattern-expansion-context (meta n))
+                                      (:pattern-expansion-context attr-map)
+                                      (:pattern-expansion-context (meta *ns*))
+                                      pm/*pattern-expansion-context*)]
+                          `(~n ~@(if (vector? (first more))
+                                   (convert-spec n more)
+                                   (mapv (partial convert-spec n) more))))))
                  rspecs)]
        ~@body)))
 
