@@ -83,9 +83,37 @@
             body        (next more)
             pattern     (gensym "pattern")
             matches     (gensym "matches")
-            action-fn   (gensym "action-fn")
             match       (gensym "match")
-            recheck-pattern (gensym "recheck-pattern")]
+            recheck-pattern (gensym "recheck-pattern")
+            as-test-thunk-name (symbol (str name "-as-test-thunk"))
+            emit-actions (fn emit-actions [match]
+                           `(let [{:keys ~matchsyms} ~match]
+                              (if *as-test*
+                                (with-meta (fn ~as-test-thunk-name
+                                             ([]
+                                              ~(if (:recheck (meta name))
+                                                 `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
+                                                    ~@(unrecur name body))
+                                                 `(do ~@(unrecur name body))))
+                                             ;; One may also specify a
+                                             ;; different match than what this
+                                             ;; thunk was actually meant for
+                                             ;; (for interactive-rule).
+                                             ([match#]
+                                              (let [{:keys ~matchsyms} match#]
+                                                ~(if (:recheck (meta name))
+                                                   `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
+                                                      ~@(unrecur name body))
+                                                   `(do ~@(unrecur name body))))))
+                                  {:match ~match
+                                   :args ~args
+                                   :all-matches ~matches})
+                                ~(if (and (:recheck (meta name))
+                                          (:forall (meta name)))
+                                   `(when (seq (~recheck-pattern ~(first args)
+                                                                 ~@matchsyms))
+                                      (do ~@body))
+                                   `(do ~@body)))))]
         (when (:as (meta bf))
           (u/error "Rule patterns mustn't have :as clause."))
         `(~args
@@ -102,47 +130,19 @@
                                                   ~(assoc (meta name) :eager false)
                                                   [~(first args) ~@matchsyms]
                                                   ~(create-recheck-pattern pattern-vector))])
-                ~matches (apply ~pattern ~args)
-                ~action-fn (fn [~match]
-                             (let [{:keys ~matchsyms} ~match]
-                               (if *as-test*
-                                 (with-meta (fn
-                                              ([]
-                                               ~(if (:recheck (meta name))
-                                                  `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
-                                                     ~@(unrecur name body))
-                                                  `(do ~@(unrecur name body))))
-                                              ;; One may also specify a
-                                              ;; different match than what this
-                                              ;; thunk was actually meant for
-                                              ;; (for interactive-rule).
-                                              ([match#]
-                                               (let [{:keys ~matchsyms} match#]
-                                                 ~(if (:recheck (meta name))
-                                                    `(when (seq (~recheck-pattern ~(first args) ~@matchsyms))
-                                                       ~@(unrecur name body))
-                                                    `(do ~@(unrecur name body))))))
-                                   {:match ~match
-                                    :args ~args
-                                    :all-matches ~matches})
-                                 ~(if (and (:recheck (meta name))
-                                           (:forall (meta name)))
-                                    `(when (seq (~recheck-pattern ~(first args)
-                                                                  ~@matchsyms))
-                                       (do ~@body))
-                                    `(do ~@body)))))]
+                ~matches (apply ~pattern ~args)]
             (if *as-pattern*
               ~matches
               (when (seq ~matches)
                 ~(if (:forall (meta name))
                    (if (:no-result-vec (meta name))
-                     `(loop [i# 0, matches# ~matches]
-                        (if (seq matches#)
-                          (do (~action-fn (first matches#))
-                              (recur (inc i#) (rest matches#)))
+                     `(loop [i# 0, ~matches ~matches]
+                        (if (seq ~matches)
+                          (do ~(emit-actions `(first ~matches))
+                              (recur (inc i#) (rest ~matches)))
                           i#))
-                     `(mapv ~action-fn ~matches))
-                   `(~action-fn (first ~matches))))))))
+                     `(mapv (fn [~match] ~(emit-actions ~match)) ~matches))
+                   (emit-actions `(first ~matches))))))))
       ;; No pattern given
       `(~args
         (cond
