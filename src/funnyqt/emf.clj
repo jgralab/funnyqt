@@ -1189,7 +1189,9 @@
      (doseq [ceo (.eContents eo)]
        (edelete! ceo)))
    (when-let [^EReference cf (.eContainmentFeature eo)]
-     (eremove! (.eContainer eo) cf eo))
+     (if (.isMany cf)
+       (eremove! (.eContainer eo) cf eo)
+       (eunset! (.eContainer eo) cf)))
    (doseq [ref (.getEAllReferences (.eClass eo))]
      (eunset! eo ref))
    (when-let [^Resource res (.eResource eo)]
