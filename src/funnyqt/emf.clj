@@ -11,10 +11,11 @@
             [flatland.ordered.map  :as om]
             inflections.core)
   (:import
-   (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl)
+   (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl)
    (org.eclipse.emf.ecore.util EcoreUtil)
    (org.eclipse.emf.common.util URI EList UniqueEList EMap)
-   (org.eclipse.emf.ecore.resource Resource ResourceSet)
+   (org.eclipse.emf.ecore.resource Resource ResourceSet Resource$Factory$Registry)
+   (org.eclipse.emf.ecore.resource.impl ResourceSetImpl ResourceFactoryRegistryImpl)
    (org.eclipse.emf.ecore
     EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier
     EClass EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation
@@ -436,12 +437,6 @@
 
 ;;## EMF Resources
 
-(defn new-resource
-  "Creates and returns a new, empty Resource."
-  ^org.eclipse.emf.ecore.resource.Resource
-  []
-  (XMIResourceImpl.))
-
 (defn ^:private create-uri [f]
   (cond
     (instance? URI f)
@@ -461,6 +456,38 @@
     (URI/createURI (.toString (clojure.java.io/resource f)))
 
     :else (u/errorf "Cannot load %s." f)))
+
+(defn new-resource
+  "Creates and returns a new, empty Resource.
+  If ResourceSet `rs` and `uri` are given, then create a new Resource with that
+  URI in the ResourceSet."
+  (^org.eclipse.emf.ecore.resource.Resource
+   [] (XMIResourceImpl.))
+  (^org.eclipse.emf.ecore.resource.Resource
+   [^ResourceSet rs uri]
+   (.createResource rs (create-uri uri))))
+
+(defn get-resource
+  "Returns the Resource with the given `uri` contained in ResourceSet `rs`.
+  See ResourceSet.getResource(URI, boolean)"
+  ^org.eclipse.emf.ecore.resource.Resource
+  [^ResourceSet rs uri load-on-demand]
+  (.getResource rs (create-uri uri) load-on-demand))
+
+(defn new-resource-set
+  "Creates and returns a new ResourceSet.
+  This resource set assumes any resources in it are XMIResources."
+  ^org.eclipse.emf.ecore.resource.ResourceSet
+  []
+  (doto (ResourceSetImpl.)
+    (.setResourceFactoryRegistry
+     (let [rfr (ResourceFactoryRegistryImpl.)
+           extmap (.getExtensionToFactoryMap rfr)
+           cntmap (.getContentTypeToFactoryMap rfr)
+           rf (XMIResourceFactoryImpl.)]
+       (.put extmap Resource$Factory$Registry/DEFAULT_EXTENSION rf)
+       (.put cntmap Resource$Factory$Registry/DEFAULT_CONTENT_TYPE_IDENTIFIER rf)
+       rfr))))
 
 (defn load-resource
   "Loads an EMF resource from the XMI file `f`.
@@ -1627,8 +1654,8 @@
 
 (defn ^:private generate-emf-extensions [ecore-mm]
   (vec
-   (for [enum (eallcontents ecore-mm 'EEnum)
-         lit  (.getELiterals enum)]
+   (for [^EEnum enum (eallcontents ecore-mm 'EEnum)
+         ^EEnumLiteral lit (.getELiterals enum)]
      `(defn ~(symbol (str "eenum-" (.getName enum)
                           "-" (.getName lit)))
         []
