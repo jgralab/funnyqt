@@ -89,6 +89,18 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
+(defmacro ^:private with-system-class-loader [& body]
+  `(let [^Thread curt# (Thread/currentThread)
+         curcl# (.getContextClassLoader curt#)
+         syscl# (ClassLoader/getSystemClassLoader)]
+     (if (= curcl# syscl#)
+       ~@body
+       (do
+         (.setContextClassLoader curt# syscl#)
+         (try
+           ~@body
+           (finally (.setContextClassLoader curt# curcl#)))))))
+
 ;; Caches
 
 (defrecord ^:private CacheEntry [ns-uris spec])
@@ -131,11 +143,12 @@
 (defn epackages
   "The lazy seq of all registered EPackages and their subpackages."
   []
-  (map (fn [uri]
-         (if-let [p (.getEPackage *epackage-registry* uri)]
-           p
-           (u/errorf "No such EPackage nsURI: %s" uri)))
-       (or *ns-uris* (.keySet *epackage-registry*))))
+  (with-system-class-loader
+    (map (fn [uri]
+           (if-let [p (.getEPackage *epackage-registry* uri)]
+             p
+             (u/errorf "No such EPackage nsURI: %s" uri)))
+         (or *ns-uris* (keys *epackage-registry*)))))
 
 (defn ^:private ns-uris-and-type-spec [name]
   (if (map? name)
@@ -462,11 +475,12 @@
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
   [pkgs]
-  (doseq [^EPackage p pkgs]
-    (when-let [uri (.getNsURI p)]
-      (when (seq uri)
-        (when-not (.containsKey *epackage-registry* uri)
-          (.put *epackage-registry* uri p))))))
+  (with-system-class-loader
+    (doseq [^EPackage p pkgs]
+      (when-let [uri (.getNsURI p)]
+        (when (seq uri)
+          (when-not (.containsKey *epackage-registry* uri)
+            (.put *epackage-registry* uri p)))))))
 
 (defn ^:private all-epackages-in-resource [^Resource r]
   (let [ps (filter #(instance? EPackage %) (.getContents r))]
