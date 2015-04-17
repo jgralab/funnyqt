@@ -121,7 +121,7 @@ types is provided:
                      `[(u/errorf "No %s polyfn implementation defined for type %s"
                                  '~name (g/qname ~(first argvec)))])))
           `(let [~type-var  (g/mm-class ~(first argvec))
-                 call-impl# (fn [dispatch-map# ~type-var]
+                 call-impl# (fn ~'call-polyfn-impl [dispatch-map# ~type-var]
                               (if-let [f# (dispatch-map# ~type-var)]
                                 (f# ~@argvec)
                                 (do
@@ -144,7 +144,7 @@ types is provided:
   to match the one of the corresponding `declare-polyfn`."
 
   {:arglists '([name type [model-elem & more] & body]
-                 [name (type1 type2 ...) [model-elem & more] & body])}
+               [name (type1 type2 ...) [model-elem & more] & body])}
   [name & more]
   (let [[name more]   (tm/name-with-attributes name more)
         [types more]   [(first more) (next more)]
@@ -168,7 +168,7 @@ types is provided:
                          type))
              ;; Update the specs
              `(swap! (::polyfn-spec-table (meta #'~name))
-                     assoc '~type (fn ~argvec ~@body))))
+                     assoc '~type (fn ~(symbol (str name "--" n)) ~argvec ~@body))))
        ;; Reset the dispatch table if it's a polyfn without :no-dispatch-table
        ;; metadata
        (when-not (:no-dispatch-table (meta #'~name))
