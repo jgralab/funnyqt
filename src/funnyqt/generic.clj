@@ -481,72 +481,82 @@
   return a valid definition-form.
 
   The functions are called with all classes/attributes/references of the
-  metamodel."
-  [mm-file nssym alias prefix element-class-fn relationship-class-fn attr-fn ref-fn]
-  (let [metamodel (mm-load mm-file)
-        atts (atom {}) ;; map from attribute kws to set of eclasses that have it
-        refs (atom {}) ;; map from reference kws to set of eclasses that have it
-        old-ns *ns*]
-    `(do
-       ~@(when nssym
-           `[(ns ~nssym
-               ;; Don't refer anything from clojure.core so that we don't get
-               ;; warnings about redefinitions.
-               (:refer-clojure :only []))
-             ;; Remove all java.lang imports so that clashes with generated
-             ;; vars cannot occur.
-             (doseq [[sym# cls#] (ns-imports *ns*)]
-               (ns-unmap *ns* sym#))])
-       ~@(concat
-          (no-nils
-           (for [mm-cls (and (u/satisfies-protocol?
-                              metamodel IMMElementClasses
-                              "Generating no element class functions.")
-                             (mm-element-classes metamodel))]
-             (do
-               (doseq [a (and (u/satisfies-protocol?
-                               mm-cls IMMAttributes
-                               "Generating no attribute functions.")
-                              (mm-attributes mm-cls))]
-                 (swap! atts
-                        #(update-in %1 [%2] conj mm-cls)
-                        a))
-               (doseq [r (and (u/satisfies-protocol?
-                               mm-cls IMMReferences
-                               "Generating no reference functions.")
-                              (mm-references mm-cls))]
-                 (swap! refs
-                        #(update-in %1 [%2] conj mm-cls)
-                        r))
-               (when element-class-fn
-                 ((resolve element-class-fn) mm-cls prefix)))))
-          (no-nils
-           (for [rel-cls (and (u/satisfies-protocol?
-                               metamodel IMMRelationshipClasses
-                               "Generating no relationship class functions.")
-                              (mm-relationship-classes metamodel))]
-             (do
-               ;; Collect attributes
-               (doseq [a (and (u/satisfies-protocol?
-                               rel-cls IMMAttributes
-                               "Generating to relationship attribute functions.")
-                              (mm-attributes rel-cls))]
-                 (swap! atts
-                        #(update-in %1 [%2] conj rel-cls)
-                        a))
-               (when relationship-class-fn
-                 ((resolve relationship-class-fn) rel-cls prefix)))))
-          (no-nils
-           (when attr-fn
-             (for [[a owners] @atts]
-               ((resolve attr-fn) a owners prefix))))
-          (no-nils
-           (when ref-fn
-             (for [[r owners] @refs]
-               ((resolve ref-fn) r owners prefix)))))
-       (in-ns '~(ns-name old-ns))
-       ~@(when alias
-           [`(alias '~alias '~nssym)]))))
+  metamodel.
+
+  Lastly, an optional `extension-hook` may be given.  This is a function that
+  gets the loaded metamodel and should return a seq of extension code which
+  will be spliced in.  You can use that for example to generate accessor for
+  enum literals or other custom data types."
+  ([mm-file nssym alias prefix element-class-fn relationship-class-fn attr-fn ref-fn]
+   `(metamodel-api-generator ~mm-file ~nssym ~alias ~prefix
+                             ~element-class-fn ~relationship-class-fn ~attr-fn ~ref-fn nil))
+  ([mm-file nssym alias prefix element-class-fn relationship-class-fn attr-fn ref-fn extension-hook]
+   (let [metamodel (mm-load mm-file)
+         atts (atom {}) ;; map from attribute kws to set of eclasses that have it
+         refs (atom {}) ;; map from reference kws to set of eclasses that have it
+         old-ns *ns*]
+     `(do
+        ~@(when nssym
+            `[(ns ~nssym
+                ;; Don't refer anything from clojure.core so that we don't get
+                ;; warnings about redefinitions.
+                (:refer-clojure :only []))
+              ;; Remove all java.lang imports so that clashes with generated
+              ;; vars cannot occur.
+              (doseq [[sym# cls#] (ns-imports *ns*)]
+                (ns-unmap *ns* sym#))])
+        ~@(concat
+           (no-nils
+            (for [mm-cls (and (u/satisfies-protocol?
+                               metamodel IMMElementClasses
+                               "Generating no element class functions.")
+                              (mm-element-classes metamodel))]
+              (do
+                (doseq [a (and (u/satisfies-protocol?
+                                mm-cls IMMAttributes
+                                "Generating no attribute functions.")
+                               (mm-attributes mm-cls))]
+                  (swap! atts
+                         #(update-in %1 [%2] conj mm-cls)
+                         a))
+                (doseq [r (and (u/satisfies-protocol?
+                                mm-cls IMMReferences
+                                "Generating no reference functions.")
+                               (mm-references mm-cls))]
+                  (swap! refs
+                         #(update-in %1 [%2] conj mm-cls)
+                         r))
+                (when element-class-fn
+                  ((resolve element-class-fn) mm-cls prefix)))))
+           (no-nils
+            (for [rel-cls (and (u/satisfies-protocol?
+                                metamodel IMMRelationshipClasses
+                                "Generating no relationship class functions.")
+                               (mm-relationship-classes metamodel))]
+              (do
+                ;; Collect attributes
+                (doseq [a (and (u/satisfies-protocol?
+                                rel-cls IMMAttributes
+                                "Generating to relationship attribute functions.")
+                               (mm-attributes rel-cls))]
+                  (swap! atts
+                         #(update-in %1 [%2] conj rel-cls)
+                         a))
+                (when relationship-class-fn
+                  ((resolve relationship-class-fn) rel-cls prefix)))))
+           (no-nils
+            (when attr-fn
+              (for [[a owners] @atts]
+                ((resolve attr-fn) a owners prefix))))
+           (no-nils
+            (when ref-fn
+              (for [[r owners] @refs]
+                ((resolve ref-fn) r owners prefix))))
+           (when extension-hook
+             ((resolve extension-hook) metamodel)))
+        (in-ns '~(ns-name old-ns))
+        ~@(when alias
+            [`(alias '~alias '~nssym)])))))
 
 ;;# Metamodel-specific functional API
 

@@ -1625,6 +1625,16 @@
                [~'eo ~'eobjs]
                (eaddall! ~'eo ~ref ~'eobjs))]))))
 
+(defn ^:private generate-emf-extensions [ecore-mm]
+  (vec
+   (for [enum (eallcontents ecore-mm 'EEnum)
+         lit  (.getELiterals enum)]
+     `(defn ~(symbol (str "eenum-" (.getName enum)
+                          "-" (.getName lit)))
+        []
+        (eenum-literal '~(symbol (str (.getName enum)
+                                      "." (.getName lit))))))))
+
 (defmacro generate-ecore-model-functions
   "Generates a Ecore-model-specific API consisting of functions for creating
   EObjects and functions for accessing properties (attributes and references).
@@ -1662,9 +1672,14 @@
     (->add-ref! eo r1 r2 r3...) ;; Adds r1, r2, and r3 to eo's ref reference
     (->addall-ref! eo rs) ;; Adds all objects in rs to eo's ref reference
 
- The add-* functions are only generated if ref occurs as a multi-valued
- reference.  If eo's ref-reference is multi-valued, then the setter wants a
- collection of eobjects, else a single eobject."
+  The add-* functions are only generated if ref occurs as a multi-valued
+  reference.  If eo's ref-reference is multi-valued, then the setter wants a
+  collection of eobjects, else a single eobject.
+
+  Lastly, for any EEnumLiteral in the ecore file, a function of zero args
+  returning this literal is created, e.g.:
+
+    (eenum-TheEnumName-LITERAL)"
   ([ecore-file]
    `(generate-ecore-model-functions ~ecore-file nil nil nil))
   ([ecore-file nssym]
@@ -1679,4 +1694,5 @@
                                create-eclass-fns
                                nil
                                create-eattribute-fns
-                               create-ereference-fns)))
+                               create-ereference-fns
+                               generate-emf-extensions)))
