@@ -89,14 +89,20 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
-(defmacro ^:private with-system-class-loader [& body]
+(def ^:private registry-access-classloader (ClassLoader/getSystemClassLoader))
+
+(defn set-registry-access-classloader! [cl]
+  (if (instance? ClassLoader cl)
+    (alter-var-root #'registry-access-classloader (constantly cl))
+    (u/errorf "Can't set registry-access-classloader to non ClassLoader value %s" cl)))
+
+(defmacro ^:private with-registry-access-classloader [& body]
   `(let [^Thread curt# (Thread/currentThread)
-         curcl# (.getContextClassLoader curt#)
-         syscl# (ClassLoader/getSystemClassLoader)]
-     (if (= curcl# syscl#)
-       ~@body
+         curcl# (.getContextClassLoader curt#)]
+     (if (= curcl# registry-access-classloader)
+       (do ~@body)
        (do
-         (.setContextClassLoader curt# syscl#)
+         (.setContextClassLoader curt# registry-access-classloader)
          (try
            ~@body
            (finally (.setContextClassLoader curt# curcl#)))))))
@@ -143,12 +149,12 @@
 (defn epackages
   "The lazy seq of all registered EPackages and their subpackages."
   []
-  (with-system-class-loader
+  (with-registry-access-classloader
     (map (fn [uri]
            (if-let [p (.getEPackage *epackage-registry* uri)]
              p
              (u/errorf "No such EPackage nsURI: %s" uri)))
-         (or *ns-uris* (keys *epackage-registry*)))))
+         (or *ns-uris* (.keySet *epackage-registry*)))))
 
 (defn ^:private ns-uris-and-type-spec [name]
   (if (map? name)
@@ -475,7 +481,7 @@
   "Registeres the given packages at the EPackage$Registry by their nsURI.
   Skips packages that are already registered."
   [pkgs]
-  (with-system-class-loader
+  (with-registry-access-classloader
     (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
