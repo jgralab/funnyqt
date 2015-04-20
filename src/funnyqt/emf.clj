@@ -57,6 +57,12 @@
   [ea]
   (instance? EAttribute ea))
 
+(defn eproxy?
+  "Returns true if `eo` is a proxy EObject."
+  [eo]
+  (and (eobject? eo)
+       (.eIsProxy ^EObject eo)))
+
 ;;# Metamodel Access
 
 (def ^:dynamic ^EPackage$Registry *epackage-registry*
@@ -438,24 +444,25 @@
 ;;## EMF Resources
 
 (defn ^:private create-uri [f]
+  ;; We always use createFileURI because proxy resolution doesn't work if we
+  ;; just use createURI.
   (cond
     (instance? URI f)
     f
 
     (instance? java.io.File f)
-    (URI/createURI (.getPath ^java.io.File f))
+    (URI/createFileURI (.getAbsolutePath ^java.io.File f))
 
     (instance? java.net.URL f)
-    (URI/createURI (.toString ^java.net.URL f))
-
-    (and (string? f)
-         (.exists (clojure.java.io/file f)))
-    (URI/createURI f)
+    (URI/createFileURI (.getPath ^java.net.URL f))
 
     (clojure.java.io/resource f)
-    (URI/createURI (.toString (clojure.java.io/resource f)))
+    (create-uri (clojure.java.io/resource f))
 
-    :else (u/errorf "Cannot load %s." f)))
+    (string? f)
+    (URI/createFileURI (.getAbsolutePath (clojure.java.io/file f)))
+
+    :else (u/errorf "Cannot create URI for %s." f)))
 
 (defn new-resource
   "Creates and returns a new, empty Resource.
@@ -466,13 +473,6 @@
   (^org.eclipse.emf.ecore.resource.Resource
    [^ResourceSet rs uri]
    (.createResource rs (create-uri uri))))
-
-(defn get-resource
-  "Returns the Resource with the given `uri` contained in ResourceSet `rs`.
-  See ResourceSet.getResource(URI, boolean)"
-  ^org.eclipse.emf.ecore.resource.Resource
-  [^ResourceSet rs uri load-on-demand]
-  (.getResource rs (create-uri uri) load-on-demand))
 
 (defn new-resource-set
   "Creates and returns a new ResourceSet.
@@ -503,6 +503,13 @@
       (.put opts opt val))
     (.load res opts)
     res))
+
+(defn get-resource
+  "Returns the Resource with the given `uri` contained in ResourceSet `rs`.
+  See ResourceSet.getResource(URI, boolean)"
+  ^org.eclipse.emf.ecore.resource.Resource
+  [^ResourceSet rs uri load-on-demand]
+  (.getResource rs (create-uri uri) load-on-demand))
 
 (defn ^:private register-epackages
   "Registeres the given packages at the EPackage$Registry by their nsURI.
