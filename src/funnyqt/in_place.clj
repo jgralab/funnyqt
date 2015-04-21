@@ -141,7 +141,7 @@
                           (do ~(emit-actions `(first ~matches))
                               (recur (inc i#) (rest ~matches)))
                           i#))
-                     `(mapv (fn [~match] ~(emit-actions ~match)) ~matches))
+                     `(mapv (fn [~match] ~(emit-actions match)) ~matches))
                    (emit-actions `(first ~matches))))))))
       ;; No pattern given
       `(~args
