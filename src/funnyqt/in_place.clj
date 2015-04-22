@@ -453,37 +453,37 @@
       (doto (javax.swing.ToolTipManager/sharedInstance)
         (.setEnabled true))
       (set! (.fill gridbagconsts) GridBagConstraints/BOTH)
-      (doseq [[rule thunk] rule-var-thunk-tups
-              :let [label (JLabel. (str (u/fn-name rule) ": "))
-                    cb (JComboBox. (to-array (:all-matches (meta thunk))))
-                    current-match (atom (:match (meta thunk)))
-                    flatten-match (fn [m]
-                                    (cond
-                                      (map? m) (vals m)
-                                      (not (instance? java.util.Collection m)) [m]
-                                      :else m))
-                    show-match-fn (fn smf
-                                    ([] (smf :gtk))
-                                    ([file]
-                                     (let [els (concat (:args (meta thunk))
-                                                       (flatten-match @current-match))]
-                                       (viz/print-model
-                                        model file :mark els
-                                        :include (let [nodes (filter g/element? els)]
-                                                   (concat nodes
-                                                           (mapcat g/neighbors nodes)))))))
-                    viewb (JButton. (action "Show match" show-match-fn))
-                    applyb (JButton. ^Action (deliver-action "Apply rule"
-                                                             (fn []
-                                                               (thunk @current-match))))
-                    tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
-                    tooltip! (fn []
-                               (show-match-fn (.getPath tmpfile))
-                               (.setToolTipText
-                                cb
-                                (str "<html><img src=\"file://"
-                                     (.getPath tmpfile)
-                                     "\"></html>")))]]
+      (u/doseq+ [[rule thunk] rule-var-thunk-tups
+                 :let [label (JLabel. (str (u/fn-name rule) ": "))
+                       cb (JComboBox. (to-array (:all-matches (meta thunk))))
+                       current-match (atom (:match (meta thunk)))
+                       flatten-match (fn [m]
+                                       (cond
+                                         (map? m) (vals m)
+                                         (not (instance? java.util.Collection m)) [m]
+                                         :else m))
+                       show-match-fn (fn smf
+                                       ([] (smf :gtk))
+                                       ([file]
+                                        (let [els (concat (:args (meta thunk))
+                                                          (flatten-match @current-match))]
+                                          (viz/print-model
+                                           model file :mark els
+                                           :include (let [nodes (filter g/element? els)]
+                                                      (concat nodes
+                                                              (mapcat g/neighbors nodes)))))))
+                       viewb (JButton. (action "Show match" show-match-fn))
+                       applyb (JButton. ^Action (deliver-action "Apply rule"
+                                                                (fn []
+                                                                  (thunk @current-match))))
+                       tmpfile (java.io.File/createTempFile "funnyqt-match-tooltip" ".png")
+                       tooltip! (fn []
+                                  (show-match-fn (.getPath tmpfile))
+                                  (.setToolTipText
+                                   cb
+                                   (str "<html><img src=\"file://"
+                                        (.getPath tmpfile)
+                                        "\"></html>")))]]
         (.addItemListener cb (reify ItemListener
                                (itemStateChanged [this ev]
                                  (when (== (.getStateChange ev) ItemEvent/SELECTED)
@@ -690,7 +690,7 @@
                                             (map u/fn-name rules))
                                           (tg/vseq ssg 'State)))]
                        (do
-                         (doseq [r rules
+                         (u/doseq+ [r rules
                                  :let [m (g/copy-model (@state2model st))]]
                            (when-let [thunk (as-test (apply r m additional-args))]
                              (thunk)
@@ -809,7 +809,7 @@
                         (.setRenderer cb-renderer))
         reset-all-states-cb! (fn []
                                (.removeAllItems all-states-cb)
-                               (doseq [n (map #(tg/value % :n)
+                               (u/doseq+ [n (map #(tg/value % :n)
                                               (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
         undone-states-cb (doto (JComboBox.)
@@ -825,7 +825,7 @@
                                                               (map u/fn-name
                                                                    (@select-rules-fn-promise :ignored)))
                                                             (tg/vseq ssg 'State)))]
-                                    (doseq [n undone]
+                                    (u/doseq+ [n undone]
                                       (.addItem undone-states-cb n))
                                     (.setEnabled ^JButton @apply-rules-button-promise
                                                  (pos? (count undone)))))
@@ -944,7 +944,7 @@
                                                    (quot rc 2)))
                                                2))
     (.setBorder rule-select-panel (BorderFactory/createTitledBorder "Rule Selection"))
-    (doseq [^JCheckBox rcb rule-check-boxes]
+    (u/doseq+ [^JCheckBox rcb rule-check-boxes]
       (.add rule-select-panel rcb))
 
     (.add button-panel (Box/createHorizontalStrut 15))

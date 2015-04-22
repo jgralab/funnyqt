@@ -264,10 +264,11 @@
   "Returns true if `l` is a unique collection, i.e., any element may occur at
   most once."
   [l]
-  (or (instance? java.util.Set l)
+  (or (and (instance? org.eclipse.emf.common.util.AbstractEList l)
+           (.invoke AbstractElist-isUnique l empty-object-array))
+      (instance? java.util.Set l)
       (instance? org.eclipse.emf.common.util.UniqueEList l)
-      (and (instance? org.eclipse.emf.common.util.AbstractEList l)
-           (.invoke AbstractElist-isUnique l empty-object-array))))
+      (instance? java.util.Map l)))
 
 (defn array-pset
   "Returns an ArrayPSet containing the given args.  ArrayPSets cannot contain
@@ -333,6 +334,17 @@
   [seq-exprs body-expr]
   (for+-doseq+-helper `for seq-exprs body-expr))
 
+(defn iterator
+  "Returns a java.util.Iterator for the given coll which may also be nil or a
+  map."
+  ^java.util.Iterator [coll]
+  (cond
+    (nil? coll) (.iterator clojure.lang.PersistentList/EMPTY)
+    (instance? java.util.Collection coll) (.iterator ^java.util.Collection coll)
+    (instance? java.util.Map coll) (.iterator (.entrySet ^java.util.Map coll))
+    :else (errorf "Don't know how to create iterator for instance of class %s"
+                  (class coll))))
+
 (defmacro doseq+
   "An enhanced version of clojure.core/doseq with the following additional
   features.
@@ -350,17 +362,28 @@
           [key val & remainder] seq-exprs
           remainder (vec remainder)]
       (cond
-        (symbol? key) `(let [^java.util.Iterator it# (.iterator ~(with-meta val
-                                                                   {:tag 'java.util.Collection}))]
-                         (while (.hasNext it#)
-                           (let [~key (.next it#)]
-                             (doseq+ ~remainder ~@body))))
+        ;; Normal bindings possibly with destructuring forms
+        (or (symbol? key)
+            (vector? key)
+            (map? key))
+        `(let [it# (iterator ~val)]
+           (while (.hasNext it#)
+             (let [~key (.next it#)]
+               (doseq+ ~remainder ~@body))))
+        ;;---
         (= :when key) `(when ~val
                          (doseq+ ~remainder ~@body))
+        ;;---
         (= :let key)  `(let ~val
                          (doseq+ ~remainder ~@body))
         :default      (errorf "%s %s is currently unsupported in doseq+." key val)))
     `(do ~@body)))
+
+(definline mapc
+  "Like map but for side-effects only.  Returns nil."
+  [f coll]
+  `(doseq+ [x# ~coll]
+     (~f x#)))
 
 (defn fn-name
   "Returns the name of the given function f."

@@ -448,14 +448,14 @@
                                 (when (and n (not (g/has-type? e 'NegPatternEdge)))
                                   (tg/set-value! e :name (name n))
                                   (when isomorphic
-                                    (doseq [other (tg/eseq pg '[:and APatternEdge !NegPatternEdge])
-                                            :when (not= e other)
-                                            :when (get-name other)
-                                            :let [constr (tg/create-vertex!
-                                                          pg 'Constraint
-                                                          {:form (pr-str `[:when (not (identical?
-                                                                                       ~n
-                                                                                       ~(get-name other)))])})]]
+                                    (u/doseq+ [other (tg/eseq pg '[:and APatternEdge !NegPatternEdge])
+                                               :when (not= e other)
+                                               :when (get-name other)
+                                               :let [constr (tg/create-vertex!
+                                                             pg 'Constraint
+                                                             {:form (pr-str `[:when (not (identical?
+                                                                                          ~n
+                                                                                          ~(get-name other)))])})]]
                                       (tg/create-edge! pg 'Precedes nv constr))))
                                 (when t (tg/set-value! e :type (str t)))
                                 (when (= larrow "<>")
@@ -480,15 +480,15 @@
             :else (u/errorf "Don't know how to handle pattern-spec part: %s" cur)))))
     ;; Remove Precedes edges which are parallel to APatternEdges.  Those are
     ;; the result of specs like [a<A> b<B> a --> b]
-    (doseq [pv (tg/vseq pg 'APatternVertex)
-            :let [target-incs-map (reduce (fn [m i]
-                                            (update m (tg/that i) conj i))
-                                          {} (tg/iseq pv nil :out))]]
-      (doseq [[target incs] target-incs-map
-              :let [ps (filter (g/type-matcher pg 'Precedes) incs)]]
-        (doseq [p (if (= (count incs) (count ps))
-                    (next ps)
-                    ps)]
+    (u/doseq+ [pv (tg/vseq pg 'APatternVertex)
+               :let [target-incs-map (reduce (fn [m i]
+                                               (update m (tg/that i) conj i))
+                                             {} (tg/iseq pv nil :out))]]
+      (u/doseq+ [[target incs] target-incs-map
+                 :let [ps (filter (g/type-matcher pg 'Precedes) incs)]]
+        (u/doseq+ [p (if (= (count incs) (count ps))
+                       (next ps)
+                       ps)]
           (g/delete! p))))
     ;; Check for disconnected components.
     (let [vset (u/oset (tg/vseq pg))

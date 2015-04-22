@@ -235,9 +235,9 @@ If the XML file has no DTD, you can influence the resolution by providing an
 (defn ^:private resolve-emf-fragment-paths []
   (when (seq *emf-fragment-path-attrs*)
     (let [r (get-root-element *graph*)]
-      (doseq [a *emf-fragment-path-attrs*
-              :let [fe (tg/value a :value)]]
-        (doseq [exp (str/split fe #" ")]
+      (u/doseq+ [a *emf-fragment-path-attrs*
+                 :let [fe (tg/value a :value)]]
+        (u/doseq+ [exp (str/split fe #" ")]
           (if-let [t (eval-emf-fragment r exp)]
             (tg/create-edge! *graph* 'References a t)
             (binding [*out* *err*]
@@ -292,7 +292,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
         (tg/set-value! e :nsPrefix p))
       (when (seq u)
         (tg/set-value! e :nsURI u)))
-    (doseq [a (iterator-seq (.getAttributes ev))]
+    (u/doseq+ [a (iterator-seq (.getAttributes ev))]
       (handle-attribute e a))
     (let [nsmap (reduce (fn [m ^Namespace n]
                           (assoc m
@@ -330,7 +330,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                (.setProperty "javax.xml.stream.isCoalescing" true))
              (io/input-stream f))
         conts (iterator-seq xer)]
-    (doseq [^XMLEvent ev conts]
+    (u/doseq+ [^XMLEvent ev conts]
       (condp = (.getEventType ev)
         XMLStreamConstants/START_DOCUMENT (handle-start-document ev)
         XMLStreamConstants/END_DOCUMENT   (handle-end-document ev)
@@ -446,7 +446,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
                                "" "\n")))
     (when has-contents
       (binding [*indent-level* (inc *indent-level*)]
-        (doseq [c (g/adjs elem :contents)]
+        (u/doseq+ [c (g/adjs elem :contents)]
           (if (g/has-type? c 'CharContent)
             (emit-text c)
             (emit-element c))))
@@ -465,6 +465,6 @@ If the XML file has no DTD, you can influence the resolution by providing an
               *indent-level* 0
               *last-node-was-text* false]
       (.write *writer* "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-      (doseq [re (tg/vseq g 'RootElement)]
+      (u/doseq+ [re (tg/vseq g 'RootElement)]
         (emit-element re))
       (.flush *writer*))))

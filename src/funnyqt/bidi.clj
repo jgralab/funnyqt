@@ -31,8 +31,8 @@
   "Only for internal use.
   Manifests the temporary and wrapper elements in `match`."
   [match]
-  (doseq [el (vals match)
-          :when (tmp/tmp-or-wrapper-element? el)]
+  (u/doseq+ [el (vals match)
+             :when (tmp/tmp-or-wrapper-element? el)]
     ;;(println "Enforcing" (tmp/as-map el))
     (tmp/manifest el)))
 
@@ -119,11 +119,11 @@
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
         etm (gensym "enforced-trg-match")]
-    (doseq [kw [:when :left :right]]
+    (u/doseq+ [kw [:when :left :right]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of goals but was %s."
                   relsym kw (kw map))))
-    (doseq [kw [:where :extends]]
+    (u/doseq+ [kw [:where :extends]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
                   relsym kw (kw map))))
@@ -163,7 +163,7 @@
                     (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
                     ~@(insert-debug (:debug-enforced map))
                     (fn [] ~@(:where map)))))))]
-       (doseq [wfn# wfns#]
+       (u/doseq+ [wfn# wfns#]
          (wfn#)))))
 
 (defn ^:private adapt-subst-map

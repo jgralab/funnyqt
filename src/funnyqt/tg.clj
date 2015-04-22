@@ -323,9 +323,9 @@ functions `record` and `enum-constant`."
    (fn [^Schema s]
      (let [m (atom {})
            gc (.getGraphClass s)]
-       (doseq [^NamedElement ne (concat (.getVertexClasses gc)
-                                        (.getEdgeClasses gc)
-                                        (.getDomains s))]
+       (u/doseq+ [^NamedElement ne (concat (.getVertexClasses gc)
+                                           (.getEdgeClasses gc)
+                                           (.getDomains s))]
          (swap! m update-in [(.getSimpleName ne)] conj (.getQualifiedName ne)))
        (apply hash-map (mapcat (fn [[k v]]
                                  (if (> (count v) 1)
@@ -1246,7 +1246,7 @@ functions `record` and `enum-constant`."
                       (attributed-element-class g cls))))
   ([^Graph g cls prop-map]
    (let [v (create-vertex! g cls)]
-     (doseq [[prop val] prop-map]
+     (u/doseq+ [[prop val] prop-map]
        (if (.getAttribute (attributed-element-class v) (name prop))
          (set-value! v prop val)
          (g/set-adjs! v prop (if (or (nil? val) (coll? val))
@@ -1274,7 +1274,7 @@ functions `record` and `enum-constant`."
                 from to))
   ([^Graph g cls ^Vertex from ^Vertex to attr-map]
    (let [e (create-edge! g cls from to)]
-     (doseq [[attr val] attr-map]
+     (u/doseq+ [[attr val] attr-map]
        (set-value! e attr val))
      e)))
 
@@ -1329,7 +1329,7 @@ functions `record` and `enum-constant`."
           ec (.getEdgeClass dec)
           ed (.getDirection dec)]
       (unlink! v #(g/is-instance? % ec) ed))
-    (doseq [av vs]
+    (u/doseq+ [av vs]
       (.addAdjacence v (name role) av))
     v)
   (set-adj! [v1 role v2]
@@ -1338,7 +1338,7 @@ functions `record` and `enum-constant`."
   (add-adjs! [v role vs]
     (if (g/mm-multi-valued-property? (attributed-element-class v) role)
       (do
-        (doseq [av vs]
+        (u/doseq+ [av vs]
           (.addAdjacence v (name role) av))
         v)
       (u/errorf "Can't add to the single-value role %s of %s."
@@ -1355,7 +1355,7 @@ functions `record` and `enum-constant`."
     v1)
   (remove-adjs! [v role vs]
     (let [role (name role)]
-      (doseq [vx vs]
+      (u/doseq+ [vx vs]
         (.removeAdjacence v role vx)))
     v))
 
@@ -1512,9 +1512,9 @@ functions `record` and `enum-constant`."
                           (vp (omega %))))]
     (if precalc
       (let [^SubGraphMarker sgm (SubGraphMarker. g)]
-        (doseq [^Vertex v (filter vp (vseq g))]
+        (u/doseq+ [^Vertex v (filter vp (vseq g))]
           (.mark sgm v))
-        (doseq [^Edge e (filter #(and (.containsVertex sgm (alpha %))
+        (u/doseq+ [^Edge e (filter #(and (.containsVertex sgm (alpha %))
                                       (.containsVertex sgm (omega %)))
                                 (eseq g))]
           (.mark sgm e))
@@ -1556,7 +1556,7 @@ functions `record` and `enum-constant`."
         vp #(boolean (some ep (iseq %)))]
     (if precalc
       (let [^SubGraphMarker sgm (SubGraphMarker. g)]
-        (doseq [^Edge e (filter ep (eseq g))]
+        (u/doseq+ [^Edge e (filter ep (eseq g))]
           (.mark sgm e))
         sgm)
       (reify TraversalContext

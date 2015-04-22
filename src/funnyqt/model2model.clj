@@ -432,11 +432,11 @@
                       (u/errorf "Error: arg vector missing!"))
         [ins outs aa] (let [[i o & aa] args]
                         (cond
-                         (nil? i) (u/errorf "No input models given.")
-                         (nil? o) (u/errorf "No output models given.")
-                         (not (vector? i)) (u/errorf "input models must be a vector.")
-                         (not (vector? o)) (u/errorf "output models must be a vector.")
-                         :else [i o aa]))
+                          (nil? i) (u/errorf "No input models given.")
+                          (nil? o) (u/errorf "No output models given.")
+                          (not (vector? i)) (u/errorf "input models must be a vector.")
+                          (not (vector? o)) (u/errorf "output models must be a vector.")
+                          :else [i o aa]))
         [extended more] (if (= :extends (first more))
                           [(fnext more) (nnext more)]
                           [nil          more])
@@ -460,7 +460,7 @@
                            (apply merge (conj (mapv #(::fns   (meta (resolve %)))
                                                     extended)
                                               fns))]))
-                              [rules fns])
+                      [rules fns])
         top-rules   (filter #(:top (meta (first %))) rules)
         rule-by-name (fn [n]
                        (or (get rules n) (u/errorf "No such rule: %s" n)))
@@ -496,7 +496,7 @@
            ~@(if main-fn
                `[(~'main)]
                (for [m ins]
-                 `(doseq [~elem-var (g/elements ~m ~type-spec)]
+                 `(u/doseq+ [~elem-var (g/elements ~m ~type-spec)]
                     ~@(for [r (keys top-rules)]
                         `(~r ~elem-var)))))
            @*trace*)))))

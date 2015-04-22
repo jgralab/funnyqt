@@ -83,7 +83,7 @@
   [g qname comp-doms]
   (with-open-schema g
     (let [rd (.createRecordDomain ^Schema (tg/schema g) (name qname))]
-      (doseq [[comp dom] comp-doms]
+      (u/doseq+ [[comp dom] comp-doms]
         (.addComponent rd (name comp) (tg/domain (tg/schema g) dom)))
       rd)))
 
@@ -148,12 +148,12 @@
         (with-open-schema g
           (.delete ^GraphElementClass aec))
         (when e/*arch*
-          (doseq [sub all-subs]
+          (u/doseq+ [sub all-subs]
             (swap! e/*arch* dissoc sub)))
         (when e/*img*
-          (doseq [sub all-subs]
+          (u/doseq+ [sub all-subs]
             (swap! e/*img* dissoc sub)))
-        (doseq [el els]
+        (u/doseq+ [el els]
           (g/delete! el)))
       (u/errorf "Don't know how to delete %s." aec))))
 
@@ -360,10 +360,10 @@
                            (aset new-ary idx (aget ary (- idx posinc)))
                            (recur (rest atts) posinc))))
                      new-ary)))))]
-    (doseq [^InternalAttributesArrayAccess e elems
+    (u/doseq+ [^InternalAttributesArrayAccess e elems
             :let [new-attrs (aec2new-attrs-map (tg/attributed-element-class e))]]
       (.invokeOnAttributesArray e oaf)
-      (doseq [^Attribute a new-attrs
+      (u/doseq+ [^Attribute a new-attrs
               :when (.getDefaultValueAsString a)]
         (.setDefaultValue a e)))))
 
@@ -395,7 +395,7 @@
                            (aset new-ary idx (aget ary (+ idx posdec)))
                            (recur (rest atts) posdec))))
                      new-ary)))))]
-    (doseq [^InternalAttributesArrayAccess e elems]
+    (u/doseq+ [^InternalAttributesArrayAccess e elems]
       (.invokeOnAttributesArray e oaf))))
 
 (defn ^:private create-attr!
@@ -408,7 +408,7 @@
                        [aec]
                        (cons aec (seq (.getAllSubClasses ^GraphElementClass aec))))]
     ;; Check that there's no such attribute yet
-    (doseq [sub aec-and-subs]
+    (u/doseq+ [sub aec-and-subs]
       (check sub))
     (with-open-schema g
       (let [attr (.createAttribute aec (name attr) (tg/domain g domain) default)]
@@ -468,7 +468,7 @@
     (when (.containsAttribute aec (name newname))
       (u/errorf "%s already has a %s attribute" aec newname))
     (when (tg/graph-element-class? aec)
-      (doseq [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
+      (u/doseq+ [^GraphElementClass sub (.getAllSubClasses ^GraphElementClass aec)]
         (when (.containsAttribute sub (name newname))
           (u/errorf "%s subclass %s already has a %s attribute"
                     aec sub newname))))
@@ -486,7 +486,7 @@
                                          :else (aget ary old-idx)))))))]
       (with-open-schema g
         (.setName attribute (name newname)))
-      (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
+      (u/doseq+ [^InternalAttributesArrayAccess ae (element-seq g aec)]
         (.invokeOnAttributesArray ae oaf)))))
 
 ;;### Deleting
@@ -507,7 +507,7 @@
                  new-ary)))]
     (with-open-schema g
       (.delete attribute))
-    (doseq [^InternalAttributesArrayAccess ae (element-seq g aec)]
+    (u/doseq+ [^InternalAttributesArrayAccess ae (element-seq g aec)]
       (.invokeOnAttributesArray ae oaf))))
 
 ;;## Type Hierarchies
@@ -526,13 +526,13 @@
         ;; We need to check for clashes also in sub's subclasses.
         all-subs (conj (seq (.getAllSubClasses sub)) sub)
         gec2new-attrs-map (atom {})]
-    (doseq [^GraphElementClass sub all-subs
+    (u/doseq+ [^GraphElementClass sub all-subs
             :let [submap (attr-name-dom-map sub)
                   isect  (clojure.set/intersection (set (keys supermap))
                                                    (set (keys submap)))
                   new-attrs (clojure.set/difference (set (keys supermap))
                                                     (set (keys submap)))]]
-      (doseq [a isect]
+      (u/doseq+ [a isect]
         (cond
           ;; The same attribute is inherited (maybe via different paths).
           ;; That's ok.
@@ -559,7 +559,7 @@
   [^GraphElementClass super all-subs]
   (let [supermap (attr-name-dom-map super)
         gec2obs-attrs-map (atom {})]
-    (doseq [^GraphElementClass sub all-subs
+    (u/doseq+ [^GraphElementClass sub all-subs
             :let [submap (attr-name-dom-map sub)
                   obs-attrs (clojure.set/difference (set (keys supermap))
                                                     (set (keys submap)))]]

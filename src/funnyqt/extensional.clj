@@ -319,9 +319,9 @@
   been created for the given archetype."
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
-    (doseq [[elem val] (binding [element-image (fn [arch]
-                                                 (image-internal :error mm-cls arch))]
-                         (doall (valfn)))]
+    (u/doseq+ [[elem val] (binding [element-image (fn [arch]
+                                                    (image-internal :error mm-cls arch))]
+                            (doall (valfn)))]
       (g/set-aval! elem attr val))))
 
 (defn set-adjs!
@@ -347,7 +347,7 @@
         resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
+    (u/doseq+ [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
                                  target-image      resolve-target-fn
                                  target-images resolve-all-targets-fn]
                          (doall (reffn)))]
@@ -376,7 +376,7 @@
         resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
+    (u/doseq+ [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
                                  target-image      resolve-target-fn
                                  target-images resolve-all-targets-fn]
                          (doall (reffn)))]

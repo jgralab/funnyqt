@@ -167,13 +167,13 @@
         wrapped-element
         (do
           (set! manifested true)
-          (doseq [[at val] attrs]
+          (u/doseq+ [[at val] attrs]
             (g/set-aval! wrapped-element at val))
-          (doseq [[role rs] refs
+          (u/doseq+ [[role rs] refs
                   :let [multi-valued (g/mm-multi-valued-property?
                                       (g/mm-class wrapped-element) role)
                         cur-refed (set (g/adjs wrapped-element role))]]
-            (doseq [r rs]
+            (u/doseq+ [r rs]
               (let [mr (manifest r)]
                 (when-not (q/member? mr cur-refed)
                   (if multi-valued
@@ -245,16 +245,16 @@
               ;; The current type is a superclass of mm-class, so set to the more
               ;; specific.
               (g/mm-superclass? type mm-class) (do (set! type mm-class) true)
-         :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
+              :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
   (add-attr [this attr val _] ;; The may-override param is ignored for new elements.
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond
-     (nil? (get attrs attr)) (do (set! attrs (assoc attrs attr val)) true)
-     (= (get attrs attr) val) true
-     :else (u/errorf "Cannot reset attribute %s from %s to %s."
-                     attr (get attrs attr) val)))
+      (nil? (get attrs attr)) (do (set! attrs (assoc attrs attr val)) true)
+      (= (get attrs attr) val) true
+      :else (u/errorf "Cannot reset attribute %s from %s to %s."
+                      attr (get attrs attr) val)))
   (check-attr-validity [this subst]
     true)
   (finalize-attrs [this subst]
@@ -281,17 +281,17 @@
     (when-not (= kind :relationship)
       (u/errorf "Can't set alpha of non-edge %s." this))
     (cond
-     (= alpha a) true
-     (nil? alpha) (set! alpha a)
-     :else (u/errorf "Can't reset alpha of %s." this)))
+      (= alpha a) true
+      (nil? alpha) (set! alpha a)
+      :else (u/errorf "Can't reset alpha of %s." this)))
   (set-omega [this o]
     ;; o is either fresh or a wrapper or tmp element
     (when-not (= kind :relationship)
       (u/errorf "Can't set omega of non-edge %s." this))
     (cond
-     (= omega o) true
-     (nil? omega) (set! omega o)
-     :else (u/errorf "Can't reset omega of %s." this)))
+      (= omega o) true
+      (nil? omega) (set! omega o)
+      :else (u/errorf "Can't reset omega of %s." this)))
   (finalize-alpha-and-omega [this subst]
     (set! alpha (cclp/walk subst alpha))
     (set! omega (cclp/walk subst omega))
@@ -308,18 +308,18 @@
             (when-not type
               (u/errorf "Can't manifest: type is nil in %s." this))
             (set! manifested-element (cond
-                                      (= kind :element) (g/create-element! model type)
-                                      (= kind :relationship) (g/create-relationship!
-                                                              model type
-                                                              (manifest alpha)
-                                                              (manifest omega))
-                                      :else (u/errorf "Unknown kind %s." kind)))
-            (doseq [[at val] attrs]
+                                       (= kind :element) (g/create-element! model type)
+                                       (= kind :relationship) (g/create-relationship!
+                                                               model type
+                                                               (manifest alpha)
+                                                               (manifest omega))
+                                       :else (u/errorf "Unknown kind %s." kind)))
+            (u/doseq+ [[at val] attrs]
               (g/set-aval! manifested-element at val))
-            (doseq [[role rs] refs
-                    :let [multi-valued (g/mm-multi-valued-property?
-                                        (g/mm-class manifested-element) role)]]
-              (doseq [r rs]
+            (u/doseq+ [[role rs] refs
+                       :let [multi-valued (g/mm-multi-valued-property?
+                                           (g/mm-class manifested-element) role)]]
+              (u/doseq+ [r rs]
                 (let [mr (manifest r)]
                   (if multi-valued
                     (g/add-adj! manifested-element role mr)
@@ -333,11 +333,11 @@
 
 (defn make-tmp-element
   ([model kind]
-     (doto (->TmpElement model nil nil {} {} nil nil nil)
-       (set-kind kind)))
+   (doto (->TmpElement model nil nil {} {} nil nil nil)
+     (set-kind kind)))
   ([model kind type]
-     (doto (make-tmp-element model kind)
-       (set-type type))))
+   (doto (make-tmp-element model kind)
+     (set-type type))))
 
 ;;# Helpers
 
@@ -430,7 +430,7 @@
                            (check-ref-validity % a))
                      tw-els)
         (do
-          (doseq [el tw-els]
+          (u/doseq+ [el tw-els]
             (finalize-attrs el a)
             (finalize-refs  el a)
             (finalize-alpha-and-omega el a))
