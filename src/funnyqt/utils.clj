@@ -291,16 +291,6 @@
                             s))
        s))))
 
-(defn ^:private shortcut-when-let-vector [lv]
-  (letfn [(whenify [s]
-            (if (coll? s)
-              (mapcat (fn [v] [:when v]) s)
-              [:when s]))]
-    (mapcat (fn [[s v]]
-              (concat [:let [s v]]
-                      (whenify s)))
-            (partition 2 lv))))
-
 (defn ^:private shortcut-when-let-bindings
   "Converts :when-let [y (foo x)] to :let [y (foo x)] :when y."
   [bindings]
@@ -321,8 +311,9 @@
     (condp = bind
       :let `(let ~exp
               ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body))
-      :when `(when ~exp
-               ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body))
+      :when `(if ~exp
+               ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body)
+               (sequence nil))
       ;; default
       (if (seq seq-exprs)
         `(~what ~seq-exprs ~@body)
@@ -351,7 +342,25 @@
   - :when-let [var expr]  bindings
   As a special case, (doseq+ [] x) executes x once."
   [seq-exprs & body]
-  (apply for+-doseq+-helper `doseq seq-exprs body))
+  (if (seq seq-exprs)
+    (let [code (apply for+-doseq+-helper 'xxx seq-exprs body)
+          seq-exprs (if (= 'xxx (first code))
+                      (second code)
+                      seq-exprs)
+          [key val & remainder] seq-exprs
+          remainder (vec remainder)]
+      (cond
+        (symbol? key) `(let [^java.util.Iterator it# (.iterator ~(with-meta val
+                                                                   {:tag 'java.util.Collection}))]
+                         (while (.hasNext it#)
+                           (let [~key (.next it#)]
+                             (doseq+ ~remainder ~@body))))
+        (= :when key) `(when ~val
+                         (doseq+ ~remainder ~@body))
+        (= :let key)  `(let ~val
+                         (doseq+ ~remainder ~@body))
+        :default      (errorf "%s %s is currently unsupported in doseq+." key val)))
+    `(do ~@body)))
 
 (defn fn-name
   "Returns the name of the given function f."

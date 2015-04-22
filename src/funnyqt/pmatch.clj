@@ -4,6 +4,7 @@
             [clojure.string            :as str]
             [clojure.tools.macro       :as m]
             [clojure.data.priority-map :as pm]
+            [clojure.core.reducers     :as r]
             [funnyqt.generic           :as g]
             [funnyqt.query             :as q]
             [funnyqt.query.tg          :as qtg]
@@ -1340,26 +1341,34 @@
                                   0.75 (.availableProcessors (Runtime/getRuntime)))])
                       ~combinevar ~(if (:distinct (meta bf))
                                      `(constantly ~chm)
-                                     `clojure.core.reducers/cat)
+                                     `r/cat)
                       reduce!# ~(if (:distinct (meta bf))
                                   `(fn [_# ~sym]
                                      (u/doseq+ ~rbf (.putIfAbsent ~chm ~result-form Boolean/TRUE))
                                      ~chm)
                                   `(fn [coll# ~sym]
-                                     (~combinevar coll# (u/for+ ~rbf ~result-form))))
+                                     (u/doseq+ ~rbf
+                                       (r/append! coll# ~result-form))
+                                     coll#))
                       finalize# ~(if (:distinct (meta bf))
-                                   `(fn [~chm] (sequence (.keySet ~chm)))
-                                   `sequence)]
+                                   `(fn [~chm] (.keySet ~chm))
+                                   `identity)]
                   (finalize#
-                   (clojure.core.reducers/fold n# ~combinevar reduce!# ~vectorvar))))
-             ;; Lazy Case
-             (let [code `(u/for+ ~bf ~result-form)
-                   code (if (:distinct (meta bf))
-                          `(q/no-dups ~code)
-                          code)]
-               (if (:eager (meta name))
-                 `(doall ~code)
-                 `(sequence ~code)))))))))
+                   (r/fold n# ~combinevar reduce!# ~vectorvar))))
+             ;; Lazy or Sequential Eager Case
+             (if (:eager (meta name))
+               ;; Sequential Eager Case
+               `(let [pattern-result# ~(if (:distinct (meta bf))
+                                         `(java.util.LinkedHashSet.)
+                                         `(java.util.LinkedList.))]
+                  (u/doseq+ ~bf
+                    (.add pattern-result# ~result-form))
+                  pattern-result#)
+               ;; Lazy Case
+               (let [code `(u/for+ ~bf ~result-form)]
+                 (if (:distinct (meta bf))
+                   `(q/no-dups ~code)
+                   code)))))))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
