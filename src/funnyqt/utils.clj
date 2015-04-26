@@ -336,11 +336,11 @@
 
 (defn iterator
   "Returns a java.util.Iterator for the given coll which may also be nil or a
-  map."
+  map.  Anything implementing Iterable will do."
   ^java.util.Iterator [coll]
   (cond
     (nil? coll) (.iterator clojure.lang.PersistentList/EMPTY)
-    (instance? java.util.Collection coll) (.iterator ^java.util.Collection coll)
+    (instance? Iterable coll) (.iterator ^Iterable coll)
     (instance? java.util.Map coll) (.iterator (.entrySet ^java.util.Map coll))
     :else (errorf "Don't know how to create iterator for instance of class %s"
                   (class coll))))
