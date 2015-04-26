@@ -1624,7 +1624,7 @@
                   (name ref)
                   owner-string)
          [~'eo]
-         (eget ~'eo ~ref))
+         (eget-raw ~'eo ~ref))
 
        ;; SETTER
        (defn ~(symbol (str prefix "->set-" (name ref) "!"))
