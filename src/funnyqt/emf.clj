@@ -454,13 +454,13 @@
     (URI/createFileURI (.getAbsolutePath ^java.io.File f))
 
     (instance? java.net.URL f)
-    (URI/createFileURI (.getPath ^java.net.URL f))
+    (URI/createURI (.toString ^java.net.URI (.toURI ^java.net.URL f)))
 
     (clojure.java.io/resource f)
     (create-uri (clojure.java.io/resource f))
 
     (string? f)
-    (URI/createFileURI (.getAbsolutePath (clojure.java.io/file f)))
+    (create-uri (clojure.java.io/file f))
 
     :else (u/errorf "Cannot create URI for %s." f)))
 
