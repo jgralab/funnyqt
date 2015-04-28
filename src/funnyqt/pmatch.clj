@@ -1157,7 +1157,7 @@
     [name num replace-map]))
 
 (declare get-extended-pattern)
-(defn ^:private rename-extended [pattern rmap]
+(defn ^:private rename-extended [pname pattern rmap]
   ;; rmap is {:oldId newId, ...}
   (loop [p pattern, r []]
     (if (seq p)
@@ -1183,7 +1183,7 @@
                  (into r [cur (replace-ids-in-bindings (fnext p) rmap)]))
           ;; Transitive :extends
           (= :extends cur)
-          (recur (vec (concat (mapcat get-extended-pattern (fnext p)) (nnext p)))
+          (recur (vec (concat (mapcat (partial get-extended-pattern pname) (fnext p)) (nnext p)))
                  r)
           ;; Else
           :else (recur (next p) (conj r cur))))
@@ -1203,24 +1203,28 @@
   specifications.  Bound during compilation to expand :extends clauses."
   {})
 
-(defn ^:private get-extended-pattern [extended]
+(defn ^:private get-extended-pattern [pname extended]
   (let [[name num replace-map] (normalize-extended extended)]
-    (if-let [pattern-specs-or-var (or (get *letpattern-pattern-specs* name)
+    (if-let [pattern-specs-or-var (or (when (= name pname)
+                                        ;; second because ::pattern-specs is (quote pspecs)
+                                        (or (::pattern-specs (meta pname))
+                                            (u/errorf "No ::pattern-specs meta at %s" pname)))
+                                      (get *letpattern-pattern-specs* name)
                                       (resolve name))]
       (if-let [pattern-specs (if (var? pattern-specs-or-var)
                                (::pattern-specs (meta pattern-specs-or-var))
                                pattern-specs-or-var)]
         (if-let [pattern-spec (get pattern-specs num)]
-          (rename-extended (remove-isomorphic-distinct-and-as-specs pattern-spec) replace-map)
-          (u/errorf "No %. pattern spec for extended pattern %s." num name))
+          (rename-extended pname (remove-isomorphic-distinct-and-as-specs pattern-spec) replace-map)
+          (u/errorf "No %s pattern spec for extended pattern %s." num name))
         (u/errorf "No pattern specs for extended pattern %s." name))
       (u/errorf "Cannot resolve extended pattern %s." name))))
 
-(defn ^:private merge-extends [pattern]
+(defn ^:private merge-extends [pname pattern]
   (loop [p pattern, r []]
     (if (seq p)
       (if (= :extends (first p))
-        (recur (nnext p) (vec (concat r (mapcat get-extended-pattern (fnext p)))))
+        (recur (nnext p) (vec (concat r (mapcat (partial get-extended-pattern pname) (fnext p)))))
         (recur (next p) (conj r (first p))))
       r)))
 
@@ -1234,7 +1238,7 @@
   (let [[pattern-spec distinct]   (get-and-remove-key-from-vector pattern-spec :distinct false)
         [pattern-spec result]     (get-and-remove-key-from-vector pattern-spec :as       true)
         [pattern-spec isomorphic] (get-and-remove-key-from-vector pattern-spec :isomorphic false)
-        pattern-spec (merge-extends pattern-spec)
+        pattern-spec (merge-extends name pattern-spec)
         pgraph (pattern-spec-to-pattern-graph name args pattern-spec isomorphic)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
@@ -1369,6 +1373,21 @@
                  (if (:distinct (meta bf))
                    `(q/no-dups ~code)
                    code)))))))))
+
+(defn ^:private extract-pattern-specs
+  "more is everything after the name of a pattern or rule, e.g. either
+
+  (args pattern ...)
+  ((args pattern1 ...) (args pattern2 ...)
+  (attr-map args pattern ...)
+  (attr-map (args pattern1 ...) (args pattern2 ...))"
+  [more]
+  (let [more (if (map? (first more))
+               (next more)
+               more)]
+    (if (vector? (first more))
+      [(fnext more)]
+      (vec (map fnext more)))))
 
 (defmacro defpattern
   "Defines a pattern with `name`, optional `doc-string`, optional `attr-map`,
@@ -1532,6 +1551,12 @@
   specify which pattern to take using [:extends [(some-pattern 1)]] where the 1
   denotes the pattern of the second version.  0, i.e., the first version, is
   the default.  After this index, the renamings follow.
+
+  A pattern may also extend a different arity of itself like so:
+
+    (defpattern p
+      ([m] [cur<B> :extends [(p 1)]])
+      ([m cur] [cur -<:t>-> next<C>]))
 
   The modifier keywords :isomorphic and :distinct as well as :as-clauses are
   not propagated from extended to extending patterns, thus it is up to the
@@ -1810,14 +1835,14 @@
                [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
-        name (vary-meta name assoc ::pattern-specs `'~(if (vector? (first more))
-                                                        [(fnext more)]
-                                                        (vec (map fnext more))))]
+        pspecs (extract-pattern-specs more)
+        attr-map (assoc (meta name) ::pattern-specs `'~pspecs)
+        name (vary-meta name assoc ::pattern-specs pspecs)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
                                               *pattern-expansion-context*)
               *pattern-meta* (meta name)]
-      `(defn ~name ~(meta name)
+      `(defn ~name ~attr-map
          ~@(if (vector? (first more))
              (convert-spec name more)
              (mapv (partial convert-spec name) more))))))
@@ -1843,19 +1868,15 @@
                           [(first attr-map-body) (next attr-map-body)]
                           [{} attr-map-body])
         names-with-specs (apply hash-map (mapcat (fn [[n & more]]
-                                                   (let [more (if (map? (first more))
-                                                                (next more)
-                                                                more)]
-                                                     [n (if (vector? (first more))
-                                                          [(fnext more)]
-                                                          (vec (map fnext more)))]))
+                                                   [n (extract-pattern-specs more)])
                                                  patterns))]
     (binding [*letpattern-pattern-specs* (merge *letpattern-pattern-specs*
                                                 names-with-specs)]
       `(letfn [~@(map (fn [[n & more]]
                         (let [[n more] (if (map? (first more))
                                          [(vary-meta n merge attr-map (first more)) (next more)]
-                                         [n more])]
+                                         [n more])
+                              n (vary-meta n assoc ::pattern-specs (get names-with-specs n))]
                           (binding [*pattern-expansion-context*
                                     (or (:pattern-expansion-context (meta n))
                                         (:pattern-expansion-context attr-map)
@@ -1896,7 +1917,8 @@
                       [name more])
         name        (if name
                       (vary-meta name merge attr-map)
-                      (with-meta (gensym "anon-pattern-") attr-map))]
+                      (with-meta (gensym "anon-pattern-") attr-map))
+        name        (vary-meta name assoc ::pattern-specs (extract-pattern-specs more))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
                                               *pattern-expansion-context*)

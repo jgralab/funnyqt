@@ -544,6 +544,33 @@
                   2
                   (pmt-matches-fn {:a1 ['C 1], :a2 ['A 1], :d ['D 1]}
                                   {:a1 ['C 1], :a2 ['C 1], :d ['D 1]}))))
+  (testing "Testing pattern extending an arity of themselves (pattern)"
+    (pmt-assert (pattern p {:pattern-expansion-context :generic}
+                         ([m] [cur<B> :extends [(p 1)]])
+                         ([m cur] [cur -<:t>-> next<C>]))
+                (pattern p {:pattern-expansion-context :emf}
+                         ([m] [cur<B> :extends [(p 1)]])
+                         ([m cur] [cur -<:t>-> next<C>]))
+                (pattern p {:pattern-expansion-context :tg}
+                         ([m] [cur<B> :extends [(p 1)]])
+                         ([m cur] [cur -<:t>-> next<C>]))
+                2
+                (pmt-matches-fn {:cur ['B 1] :next ['C 1]}
+                                {:cur ['B 1] :next ['C 2]})))
+  (testing "Testing pattern extending an arity of themselves (letpattern)"
+    (letpattern [(p-gen {:pattern-expansion-context :generic}
+                        ([m] [cur<B> :extends [(p-gen 1)]])
+                        ([m cur] [cur -<:t>-> next<C>]))
+                 (p-emf {:pattern-expansion-context :emf}
+                        ([m] [cur<B> :extends [(p-emf 1)]])
+                        ([m cur] [cur -<:t>-> next<C>]))
+                 (p-tg {:pattern-expansion-context :tg}
+                       ([m] [cur<B> :extends [(p-tg 1)]])
+                       ([m cur] [cur -<:t>-> next<C>]))]
+      (pmt-assert p-gen p-emf p-tg
+                  2
+                  (pmt-matches-fn {:cur ['B 1] :next ['C 1]}
+                                  {:cur ['B 1] :next ['C 2]}))))
   (testing "Testing patterns with arguments."
     (pmt-assert (fn [m]
                   ((pattern
