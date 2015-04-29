@@ -538,6 +538,7 @@
                   [:extends [(a-having-d-tg 0 :a a1)
                              (a-having-d-tg :a a2)]
                    a1 -<:t>-> a2])]
+      {:pattern-expansion-context :generic}
       (pmt-assert a-with-a-having-d-generic
                   a-with-a-having-d-emf
                   a-with-a-having-d-tg
@@ -1302,11 +1303,13 @@
 
 ;;# Generic
 
-(defpattern families-with-fathers-simple-generic
+(defpattern ^{:pattern-expansion-context :generic}
+  families-with-fathers-simple-generic
   [g]
   [f<Family> -<:father>-> m<Member>])
 
 (defpattern families-with-fathers-simple-kw-generic
+  {:pattern-expansion-context :generic}
   [g]
   [f<Family> -<:father>-> m<Member>])
 
@@ -1318,6 +1321,7 @@
          (families-with-fathers-simple-kw-generic fm))))
 
 (defpattern families-with-fathers-generic
+  {:pattern-expansion-context :generic}
   ([g]
    [f<Family> -<:father>-> m<Member>])
   ([g famconst]
@@ -1330,12 +1334,14 @@
   (is (= 2 (count (families-with-fathers-generic fm #(= "Smith" (emf/eget % :lastName)))))))
 
 (defpattern same-family-generic
+  {:pattern-expansion-context :generic}
   [g]
   [f<Family> --> m1<Member>
    f --> m2<Member>
    :when (not= m1 m2)])
 
 (defpattern same-family-distinct-generic
+  {:pattern-expansion-context :generic}
   [g]
   [f<Family> --> m1<Member>
    f --> m2<Member>
@@ -1349,6 +1355,7 @@
          (count (same-family-generic fm)))))
 
 (defpattern given-fam-with-all-members-generic
+  {:pattern-expansion-context :generic}
   [g fam]
   [fam --> mem<Member>
    ;; Test that the special :map result form works
@@ -1363,6 +1370,7 @@
     (is (forall? #(= fsmith (:fam %)) r))))
 
 (defpattern long-anon-pattern-generic
+  {:pattern-expansion-context :generic}
   [g fam]
   [fam --> <Member> --> <Family> -<:sons>-> <> --> x<Family>
    :when (not= fam x)
@@ -1390,14 +1398,17 @@
                  [f<Family> -<:father>-> m<Member>
                   :when (famconst f)
                   :as [f m]]))]
+    {:pattern-expansion-context :generic}
     (is (= 3 (count (families-with-fathers-simple fm))))
     (is (= 3 (count (families-with-fathers fm))))
     (is (= 3 (count (families-with-fathers fm (constantly true)))))
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (g/aval % :lastName))))))))
 
 (deftest test-pattern-generic
-  (let [families-with-fathers-simple (pattern [g] [f<Family> -<:father>-> m<Member>])
-        families-with-fathers (pattern ([g]
+  (let [families-with-fathers-simple (pattern {:pattern-expansion-context :generic}
+                                              [g] [f<Family> -<:father>-> m<Member>])
+        families-with-fathers (pattern {:pattern-expansion-context :generic}
+                                       ([g]
                                         [f<Family> -<:father>-> m<Member>])
                                        ([g famconst]
                                         [f<Family> -<:father>-> m<Member>
@@ -1409,14 +1420,16 @@
     (is (= 2 (count (families-with-fathers fm #(= "Smith" (emf/eget % :lastName))))))))
 
 (deftest test-eager-pattern-generic
-  (let [lazy-pattern1 (pattern [g]
+  (let [lazy-pattern1 (pattern {:pattern-expansion-context :generic}
+                               [g]
                                [f<Family> -<:father>-> m<Member>])
         eager-pattern1 (pattern {:pattern-expansion-context :generic, :eager true} [g]
                                 [f<Family> -<:father>-> m<Member>])
-        lazy-pattern2 (pattern [g] [m1<Member> --> <> --> m2<Member>
+        lazy-pattern2 (pattern {:pattern-expansion-context :generic}
+                               [g] [m1<Member> --> <> --> m2<Member>
                                     :when (distinct? m1 m2)
                                     :as #{m1 m2} :distinct])
-        eager-pattern2 (pattern {:eager true} [g]
+        eager-pattern2 (pattern {:pattern-expansion-context :generic, :eager true} [g]
                                 [m1<Member> --> <> --> m2<Member>
                                  :when (distinct? m1 m2)
                                  :as #{m1 m2} :distinct])]

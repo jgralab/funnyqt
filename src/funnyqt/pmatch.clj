@@ -16,6 +16,10 @@
 
 ;;# Pattern to pattern graph
 
+(defn ^:private pattern-expansion-context [pname]
+  (or (:pattern-expansion-context (meta pname))
+      (:pattern-expansion-context (meta *ns*))))
+
 (defn ^:private vertex-sym?
   "Returns [match id type] if sym is a vertex symbol."
   [sym]
@@ -192,29 +196,6 @@
           (recur (next p) r)))
       r)))
 
-(def ^:dynamic *pattern-expansion-context*
-  "Defines the expansion context of a pattern, i.e., if a pattern expands into
-  a query on a TGraph or an EMF model.  The possible values are :generic
-  (default), :tg and :emf.
-
-  The value :generic makes patterns expand into code that works for both EMF
-  and TGraph models.  More precisely, the code only assumes that the
-  INeighbors, IAdjacenciesInternal, and IElements protocols are extended upon
-  the concrete model representation's classes.
-
-  Note that the expansion of the :emf and :tg expansion context is slightly
-  faster than the expansion of the :generic context.  Furthermore, the :tg
-  expansion context allows for more expressive patterns in that edges may be
-  match-bound (x<X> -e<E>-> y<Y>).  This is forbidden for :emf (since there are
-  no first-class edges) and :generic.
-
-  Usually, you won't bind this variable directly (using `binding`) but instead
-  you specify the expansion context for a given pattern using the `attr-map` of
-  a `defpattern` or `letpattern` form, or you declare the expansion context for
-  a complete namespace using `:pattern-expansion-context` metadata for the
-  namespace."
-  :generic)
-
 (defn ^:private get-and-remove-key-from-vector
   "Removes `key` from `v` and also the element after `key` if `get-val` is true.
   Returns [new-pattern key-or-val]."
@@ -254,9 +235,8 @@
           :else (recur (rest ps) (conj nps x))))
       nps)))
 
-(defn ^:private build-nested-pattern [pattern model-sym binding-var-set pattern-var-set]
-  (let [pattern-meta (meta pattern)
-        new-bindings (binding-bound-vars pattern)
+(defn ^:private build-nested-pattern [pname pattern model-sym binding-var-set pattern-var-set]
+  (let [new-bindings (binding-bound-vars pattern)
         new-pattern-els (pattern-bound-vars pattern)
         argvec (into [model-sym]
                      (clojure.set/intersection
@@ -273,23 +253,22 @@
         result-form (or result-form
                         (zipmap (map keyword new-only-bindings)
                                 new-only-bindings))]
-    `((pattern ~(merge {:pattern-expansion-context *pattern-expansion-context*}
-                       pattern-meta)
+    `((pattern ~(with-meta (gensym "nested-pattern") (meta pname))
                ~argvec ~(conj pattern :as result-form))
       ~@argvec)))
 
-(defn ^:private negative-spec-to-when-empty [negative-spec model-sym binding-var-set pattern-var-set]
+(defn ^:private negative-spec-to-when-empty [pname negative-spec model-sym binding-var-set pattern-var-set]
   ;; negative-spec is [...neg-pattern...]
-  [:when `(empty? ~(build-nested-pattern negative-spec model-sym binding-var-set pattern-var-set))])
+  [:when `(empty? ~(build-nested-pattern pname negative-spec model-sym binding-var-set pattern-var-set))])
 
-(defn ^:private positive-spec-to-when-seq [positive-spec model-sym binding-var-set pattern-var-set]
+(defn ^:private positive-spec-to-when-seq [pname positive-spec model-sym binding-var-set pattern-var-set]
   ;; positive-spec is [...pos-pattern...]
-  [:when `(seq ~(build-nested-pattern positive-spec model-sym binding-var-set pattern-var-set))])
+  [:when `(seq ~(build-nested-pattern pname positive-spec model-sym binding-var-set pattern-var-set))])
 
-(defn ^:private logical-operator-spec-to-when-op-seq [operator pattern-specs model-sym binding-var-set pattern-var-set]
+(defn ^:private logical-operator-spec-to-when-op-seq [pname operator pattern-specs model-sym binding-var-set pattern-var-set]
   ;; pattern-specs is [[p1] [p2] [p3]]
   (let [nested-patterns (map (fn [ps]
-                               `(seq ~(build-nested-pattern ps model-sym binding-var-set pattern-var-set)))
+                               `(seq ~(build-nested-pattern pname ps model-sym binding-var-set pattern-var-set)))
                              pattern-specs)]
     [:when (case operator
              :and  `(and    ~@nested-patterns)
@@ -298,7 +277,7 @@
              :nand `(q/nand ~@nested-patterns)
              :nor  `(q/nor  ~@nested-patterns))]))
 
-(defn ^:private alternative-spec-to-for [alternative-specs model-sym binding-var-set pattern-var-set]
+(defn ^:private alternative-spec-to-for [pname alternative-specs model-sym binding-var-set pattern-var-set]
   ;; alternative-specs is [[p1] [p2]...]
   (let [new-bindings (fn [p]
                        (let [new-bindings (set (into (binding-bound-vars p)
@@ -316,15 +295,15 @@
                                 (u/errorf "Alternative patterns mustn't have an :as clause! %s" aspec))
                               (conj aspec :as (interpose-nils-for-undefined (new-bindings aspec)
                                                                             all-syms))))
-        patterns (map #(build-nested-pattern % model-sym binding-var-set pattern-var-set)
+        patterns (map #(build-nested-pattern pname % model-sym binding-var-set pattern-var-set)
                       alternative-specs)]
     `[:for [~all-syms (q/no-dups (concat ~@patterns))]]))
 
-(defn ^:private nested-specs-to-let [nested-specs model-sym binding-var-set pattern-var-set]
+(defn ^:private nested-specs-to-let [pname nested-specs model-sym binding-var-set pattern-var-set]
   ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
   [:let (vec (mapcat
               (fn [[npvar np]]
-                [npvar (build-nested-pattern np model-sym binding-var-set pattern-var-set)])
+                [npvar (build-nested-pattern pname np model-sym binding-var-set pattern-var-set)])
               (partition 2 nested-specs)))])
 
 (defn ^:private get-name [elem]
@@ -401,28 +380,32 @@
                      pattern-var-set))
             ;; Negative patterns: :negative [a --> b]
             (= :negative cur)
-            (recur (vec (concat (negative-spec-to-when-empty (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
+            (recur (vec (concat (negative-spec-to-when-empty
+                                 pname (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
                                 (nnext pattern-spec)))
                    lv binding-var-set pattern-var-set)
             ;; Positive patterns: :positive [a --> b]
             (= :positive cur)
-            (recur (vec (concat (positive-spec-to-when-seq (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
+            (recur (vec (concat (positive-spec-to-when-seq
+                                 pname (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
                                 (nnext pattern-spec)))
                    lv binding-var-set pattern-var-set)
             ;; Patterns with logical ops: :or [[a --> b] [a --> c]]
             (contains? #{:and :or :xor :nand :nor} cur)
             (recur (vec (concat (logical-operator-spec-to-when-op-seq
-                                 cur (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
+                                 pname cur (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
                                 (nnext pattern-spec)))
                    lv binding-var-set pattern-var-set)
             ;; Alternative patterns: :alternative [[a -<:x>-> b] [a -<:y>-> b]]
             (= :alternative cur)
-            (let [translation (alternative-spec-to-for (fnext pattern-spec) model-sym binding-var-set pattern-var-set)]
+            (let [translation (alternative-spec-to-for
+                               pname (fnext pattern-spec) model-sym binding-var-set pattern-var-set)]
               (recur (vec (concat translation (nnext pattern-spec)))
                      lv binding-var-set pattern-var-set))
             ;; Nested patterns: :nested [p1 [a --> b], p2 [a --> c]]
             (= :nested cur)
-            (recur (vec (concat (nested-specs-to-let (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
+            (recur (vec (concat (nested-specs-to-let
+                                 pname (fnext pattern-spec) model-sym binding-var-set pattern-var-set)
                                 (nnext pattern-spec)))
                    lv binding-var-set pattern-var-set)
             ;; Edge symbols ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1232,14 +1215,13 @@
         [pattern-spec isomorphic] (get-and-remove-key-from-vector pattern-spec :isomorphic false)
         pattern-spec (merge-extends name pattern-spec)
         pgraph (pattern-spec-to-pattern-graph name args pattern-spec isomorphic)
-        transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
+        transform-fn (pattern-graph-transform-function-map (pattern-expansion-context name))]
     (if transform-fn
       (with-meta (transform-fn name args pgraph)
         {:distinct      distinct
          :as            result
          :pattern-graph pgraph})
-      (u/errorf "The pattern expansion context is not set.\n%s"
-                "See `*pattern-expansion-context*` in the pmatch namespace."))))
+      (u/errorf "The pattern expansion context is not set for pattern %s" name))))
 
 
 (defn ^:private get-and-remove-constraint-from-vector
@@ -1800,15 +1782,15 @@
 
   The expansion of a pattern, i.e., if it expands into a generic query, a query
   on TGraphs, or a query on EMF models (or something else), is controlled by
-  the option `:pattern-expansion-context` with possible values
-  `:generic` (default), `:tg` or `:emf` which can be specified in the
-  `attr-map` given to `defpattern` or as metadata.
+  the option `:pattern-expansion-context` with possible values `:generic`,
+  `:tg` or `:emf` which can be specified in the `attr-map` given to
+  `defpattern` or as metadata.
 
   Instead of using that option for every rule, you can also set
   `:pattern-expansion-context` metadata to the namespace defining patterns, in
-  which case that expansion context is used for all patterns in that namespace.
-  Finally, it is also possible to bind `*pattern-expansion-context*` otherwise.
-  Note that this binding has to be available at compile-time.
+  which case that expansion context is used as default for all patterns in that
+  namespace.  Individual pattern may still override this namespace-global value
+  with their own attr-maps.
 
   The :transducers option
   -----------------------
@@ -1824,13 +1806,11 @@
                [name doc-string? attr-map? ([args] [pattern])+])}
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
-        pspecs (extract-pattern-specs more)
-        attr-map (assoc (meta name) ::pattern-specs `'~pspecs)
-        name (vary-meta name assoc ::pattern-specs pspecs)]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
-      `(defn ~name ~attr-map
+        pspecs      (extract-pattern-specs more)
+        name        (vary-meta name assoc ::pattern-specs pspecs)
+        name        (vary-meta name assoc :pattern-expansion-context (pattern-expansion-context name))]
+    (binding [*print-meta* true]
+      `(defn ~name ~{::pattern-specs `'~pspecs}
          ~@(if (vector? (first more))
              (convert-spec name more)
              (mapv (partial convert-spec name) more))))))
@@ -1842,12 +1822,10 @@
     (pattern-name attr-map? [args] [pattern])
     (pattern-name attr-map? ([args] [pattern])+)
 
-  For the syntax and semantics of patterns, see the `defpattern` docs.
+  The `attr-map` of the letpattern serves as default for all patterns defined
+  by it which may override the defaults with their own attr-maps.
 
-  Following the patterns vector, an `attr-map` may be given for specifying the
-  `*pattern-expansion-context*` in case it's not bound otherwise (see that
-  var's documentation and `defpattern`).  The attr-maps of the individual
-  patterns may override entries of the letpattern's `attr-map`."
+  For the syntax and semantics of patterns, see the `defpattern` docs."
   {:arglists '([[patterns] attr-map? & body])}
   [patterns & attr-map-body]
   (when-not (vector? patterns)
@@ -1857,38 +1835,30 @@
                           [{} attr-map-body])
         names-with-specs (apply hash-map (mapcat (fn [[n & more]]
                                                    [n (extract-pattern-specs more)])
-                                                 patterns))]
-    `(letfn [~@(map (fn [[n & more]]
-                      (let [[n more] (if (map? (first more))
-                                       [(vary-meta n merge attr-map (first more)) (next more)]
-                                       [n more])
-                            n (vary-meta n assoc
-                                         ::letpattern-pattern-specs names-with-specs
-                                         ::pattern-specs (get names-with-specs n))]
-                        (binding [*pattern-expansion-context*
-                                  (or (:pattern-expansion-context (meta n))
-                                      (:pattern-expansion-context attr-map)
-                                      (:pattern-expansion-context (meta *ns*))
-                                      *pattern-expansion-context*)]
+                                                 patterns))
+        attr-map (assoc attr-map ::letpattern-pattern-specs names-with-specs)
+        attr-map (assoc attr-map :pattern-expansion-context (or (:pattern-expansion-context attr-map)
+                                                                (pattern-expansion-context nil)))]
+    (binding [*print-meta* true]
+      `(letfn [~@(map (fn [[n & more]]
+                        (let [n (vary-meta n merge attr-map (meta n))
+                              [n more] (m/name-with-attributes n more)
+                              n (vary-meta n assoc ::pattern-specs (get names-with-specs n))]
                           `(~n
                             ~@(if (vector? (first more))
                                 (convert-spec n more)
-                                (mapv (partial convert-spec n) more))))))
-                 patterns)]
-       ~@body)))
+                                (mapv (partial convert-spec n) more)))))
+                   patterns)]
+         ~@body))))
 
 (defmacro pattern
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
-  The syntax is
+  The syntax is:
 
     (pattern pattern-name? attr-map? [args] [pattern])
     (pattern pattern-name? attr-map? ([args] [pattern])+)
 
-  For the syntax and semantics of patterns, see the `defpattern` docs.
-
-  The `*pattern-expansion-context*` may be given as metadata to the pattern
-  name in case it's not bound otherwise (see that var's documentation and
-  `defpattern`)."
+  For the syntax and semantics of patterns, see the `defpattern` docs."
 
   {:arglists '([name? attr-map? [args] [pattern]]
                [name? attr-map? ([args] [pattern])+])}
@@ -1905,16 +1875,14 @@
         name        (if name
                       (vary-meta name merge attr-map)
                       (with-meta (gensym "anon-pattern-") attr-map))
+        name        (vary-meta name assoc :pattern-expansion-context (pattern-expansion-context name))
         ;; If name already has ::pattern-specs metadata, then don't touch it.
         ;; In this case, it is an anonymous pattern used by a
         ;; defrule/letrule/rule from funnyqt.in-place.
-        name        (if (::pattern-specs (meta name))
-                      name
-                      (vary-meta name assoc ::pattern-specs (extract-pattern-specs more)))]
-    (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                              (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)]
-      `(fn ~@(when name [name])
+        name        (vary-meta name assoc ::pattern-specs (or (::pattern-specs (meta name))
+                                                              (extract-pattern-specs more)))]
+    (binding [*print-meta* true]
+      `(fn ~name
          ~@(if (vector? (first more))
              (convert-spec name more)
              (mapv (partial convert-spec name) more))))))

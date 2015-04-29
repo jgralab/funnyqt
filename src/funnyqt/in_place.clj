@@ -162,15 +162,13 @@
                       [(first more) (next more)]
                       [nil more])
         [name more] (m/name-with-attributes (or name (gensym "anon-rule")) more)
-        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs (@#'pm/extract-pattern-specs more))]
-    (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                                 (:pattern-expansion-context (meta *ns*))
-                                                 pm/*pattern-expansion-context*)]
-      `(fn ~name
-         ~@(if (vector? (first more))
-             ;; starts with argvec, so just one def
-             (convert-spec name more)
-             (mapv (partial convert-spec name) more))))))
+        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs (@#'pm/extract-pattern-specs more))
+        name (vary-meta name assoc :pattern-expansion-context (@#'pm/pattern-expansion-context name))]
+    `(fn ~name
+       ~@(if (vector? (first more))
+           ;; starts with argvec, so just one def
+           (convert-spec name more)
+           (mapv (partial convert-spec name) more)))))
 
 (defmacro letrule
   "Establishes local rules just like `letfn` establishes local fns.
@@ -184,22 +182,17 @@
                           [{} attr-map-body])
         names-with-specs (apply hash-map (mapcat (fn [[n & more]]
                                                    [n (@#'pm/extract-pattern-specs more)])
-                                                 rspecs))]
+                                                 rspecs))
+        attr-map (assoc attr-map :funnyqt.pmatch/letpattern-pattern-specs names-with-specs)
+        attr-map (assoc attr-map :pattern-expansion-context (or (:pattern-expansion-context attr-map)
+                                                                (@#'pm/pattern-expansion-context nil)))]
     `(letfn [~@(map (fn [[n & more]]
-                      (let [[n more] (if (map? (first more))
-                                       [(vary-meta n merge attr-map (first more)) (next more)]
-                                       [n more])
-                            n (vary-meta n assoc
-                                         :funnyqt.pmatch/letpattern-pattern-specs names-with-specs
-                                         :funnyqt.pmatch/pattern-specs (get names-with-specs n))]
-                        (binding [pm/*pattern-expansion-context*
-                                  (or (:pattern-expansion-context (meta n))
-                                      (:pattern-expansion-context attr-map)
-                                      (:pattern-expansion-context (meta *ns*))
-                                      pm/*pattern-expansion-context*)]
-                          `(~n ~@(if (vector? (first more))
-                                   (convert-spec n more)
-                                   (mapv (partial convert-spec n) more))))))
+                      (let [n (vary-meta n merge attr-map (meta n))
+                            [n more] (m/name-with-attributes n more)
+                            n (vary-meta n assoc :funnyqt.pmatch/pattern-specs (get names-with-specs n))]
+                        `(~n ~@(if (vector? (first more))
+                                 (convert-spec n more)
+                                 (mapv (partial convert-spec n) more)))))
                  rspecs)]
        ~@body)))
 
@@ -268,15 +261,12 @@
   [name & more]
   (let [[name more] (m/name-with-attributes name more)
         pspecs (@#'pm/extract-pattern-specs more)
-        attr-map (assoc (meta name) :funnyqt.pmatch/pattern-specs `'~pspecs)
-        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs pspecs)]
-    (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
-                                                 (:pattern-expansion-context (meta *ns*))
-                                                 pm/*pattern-expansion-context*)]
-      `(defn ~name ~attr-map
-         ~@(if (vector? (first more))
-             (convert-spec name more)
-             (mapv (partial convert-spec name) more))))))
+        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs pspecs)
+        name (vary-meta name assoc :pattern-expansion-context (@#'pm/pattern-expansion-context name))]
+    `(defn ~name ~{:funnyqt.pmatch/pattern-specs `'~pspecs}
+       ~@(if (vector? (first more))
+           (convert-spec name more)
+           (mapv (partial convert-spec name) more)))))
 
 ;;# Higher order rule combinators
 
