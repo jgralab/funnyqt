@@ -16,8 +16,6 @@
 
 ;;# Pattern to pattern graph
 
-(def ^:dynamic *pattern-meta* {})
-
 (defn ^:private vertex-sym?
   "Returns [match id type] if sym is a vertex symbol."
   [sym]
@@ -567,7 +565,7 @@
                                                      prio)))])
                      incs))))
 
-(defn ^:private do-anons [anon-vec-transformer-fn start-v-or-e av done]
+(defn ^:private do-anons [pname anon-vec-transformer-fn start-v-or-e av done]
   (let [target-node (last av)
         [start-coll xforms] (anon-vec-transformer-fn start-v-or-e av done)
         make-comp (fn [xforms]
@@ -575,7 +573,7 @@
                       (first xforms)
                       `(comp ~@xforms)))
         seq-form (if (seq xforms)
-                   (if (:transducers *pattern-meta*)
+                   (if (:transducers (meta pname))
                      `(sequence ~(make-comp xforms) ~start-coll)
                      `(->> ~start-coll ~@xforms))
                    start-coll)]
@@ -595,8 +593,8 @@
       ;;---
       (g/has-type? target-node '[:or PatternVertex PatternEdge])
       [(get-name target-node)
-       (if (and (:eager *pattern-meta*)
-                (:transducers *pattern-meta*)
+       (if (and (:eager (meta pname))
+                (:transducers (meta pname))
                 (seq xforms))
          ;; In the eager transducers case, we can eagerly transform into a set
          ;; and save the no-dups call.  That's a bit faster than (sequence
@@ -621,7 +619,7 @@
 
 ;;*** TG
 
-(defn pattern-graph-to-for+-bindings-tg [argvec pg]
+(defn pattern-graph-to-for+-bindings-tg [pname argvec pg]
   (let [gsym (first argvec)
         inc-type (fn [e]
                    ;; -<_>-> accepts all edges of all ECs, and since an "edge
@@ -774,7 +772,7 @@
                            (if (tg/edge? last-in-av)
                              (conj-done done (tg/that last-in-av))
                              done))
-                         (into bf (let [bindings (do-anons anon-vec-conv (tg/this cur) av done)]
+                         (into bf (let [bindings (do-anons pname anon-vec-conv (tg/this cur) av done)]
                                     (if (tg/edge? last-in-av)
                                       (conj bindings :let
                                             [(get-name (tg/that last-in-av))
@@ -795,7 +793,7 @@
                                 (inc-iteration cur (get-name (tg/this cur)))
                                 (cond
                                   (done trg) `[:when (= ~(get-name trg) (tg/that ~(get-name cur)))]
-                                  (anon? trg) (let [bindings (do-anons anon-vec-conv
+                                  (anon? trg) (let [bindings (do-anons pname anon-vec-conv
                                                                        cur av done)]
                                                 (if (tg/edge? last-in-av)
                                                   (into bindings
@@ -897,7 +895,7 @@
   "Internal transformer function that given a pattern argument vector `argvec`,
   a pattern graph `pg` and an `elements-fn`, a `role-fn` and a `neighbors-fn`
   transforms the pattern graph to a comprehension binding form."
-  [argvec pg elements-fn role-fn neighbors-fn contents-fn container-fn]
+  [pname argvec pg elements-fn role-fn neighbors-fn contents-fn container-fn]
   (let [gsym (first argvec)
         get-edge-type (fn [e]
                         (when-let [t (get-type e)]
@@ -1003,7 +1001,7 @@
                       done (conj-done done cur)]
                   (recur (enqueue-incs target-node (pop queue) (apply conj-done done av))
                          (apply conj-done done cur av)
-                         (into bf (do-anons anon-vec-conv
+                         (into bf (do-anons pname anon-vec-conv
                                             (tg/this cur) av done))))
                 (u/errorf "Edges cannot be match-bound with models with just refs: %s" (g/describe cur)))
               NegPatternEdge
@@ -1053,15 +1051,15 @@
       ;; the fastest Set when it comes to creation time.
       (u/array-pset x))))
 
-(defn pattern-graph-to-for+-bindings-emf [argvec pg]
+(defn pattern-graph-to-for+-bindings-emf [pname argvec pg]
   (pattern-graph-to-for+-bindings-only-refs-base
-   argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtentrefs `emf/econtainer))
+   pname argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtentrefs `emf/econtainer))
 
 ;;*** Generic
 
-(defn pattern-graph-to-for+-bindings-generic [argvec pg]
+(defn pattern-graph-to-for+-bindings-generic [pname argvec pg]
   (pattern-graph-to-for+-bindings-only-refs-base
-   argvec pg `g/elements `g/adjs `g/neighbors `g/contents `g/container))
+   pname argvec pg `g/elements `g/adjs `g/neighbors `g/contents `g/container))
 
 ;;** defpattern and friends
 
@@ -1198,17 +1196,12 @@
       (get-and-remove-key-from-vector :as true)
       first))
 
-(def ^:dynamic ^:private *letpattern-pattern-specs*
-  "A map from letpattern-defined patterns (symbols) to their vector of pattern
-  specifications.  Bound during compilation to expand :extends clauses."
-  {})
-
 (defn ^:private get-extended-pattern [pname extended]
   (let [[name num replace-map] (normalize-extended extended)]
     (if-let [pattern-specs-or-var (or (when (= name pname)
                                         (or (::pattern-specs (meta pname))
                                             (u/errorf "No ::pattern-specs meta at %s" pname)))
-                                      (get *letpattern-pattern-specs* name)
+                                      (get (::letpattern-pattern-specs (meta pname)) name)
                                       (resolve name))]
       (if-let [pattern-specs (if (var? pattern-specs-or-var)
                                (::pattern-specs (meta pattern-specs-or-var))
@@ -1241,7 +1234,7 @@
         pgraph (pattern-spec-to-pattern-graph name args pattern-spec isomorphic)
         transform-fn (pattern-graph-transform-function-map *pattern-expansion-context*)]
     (if transform-fn
-      (with-meta (transform-fn args pgraph)
+      (with-meta (transform-fn name args pgraph)
         {:distinct      distinct
          :as            result
          :pattern-graph pgraph})
@@ -1836,8 +1829,7 @@
         name (vary-meta name assoc ::pattern-specs pspecs)]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)
-              *pattern-meta* (meta name)]
+                                              *pattern-expansion-context*)]
       `(defn ~name ~attr-map
          ~@(if (vector? (first more))
              (convert-spec name more)
@@ -1866,25 +1858,24 @@
         names-with-specs (apply hash-map (mapcat (fn [[n & more]]
                                                    [n (extract-pattern-specs more)])
                                                  patterns))]
-    (binding [*letpattern-pattern-specs* (merge *letpattern-pattern-specs*
-                                                names-with-specs)]
-      `(letfn [~@(map (fn [[n & more]]
-                        (let [[n more] (if (map? (first more))
-                                         [(vary-meta n merge attr-map (first more)) (next more)]
-                                         [n more])
-                              n (vary-meta n assoc ::pattern-specs (get names-with-specs n))]
-                          (binding [*pattern-expansion-context*
-                                    (or (:pattern-expansion-context (meta n))
-                                        (:pattern-expansion-context attr-map)
-                                        (:pattern-expansion-context (meta *ns*))
-                                        *pattern-expansion-context*)
-                                    *pattern-meta* (meta n)]
-                            `(~n
-                              ~@(if (vector? (first more))
-                                  (convert-spec n more)
-                                  (mapv (partial convert-spec n) more))))))
-                   patterns)]
-         ~@body))))
+    `(letfn [~@(map (fn [[n & more]]
+                      (let [[n more] (if (map? (first more))
+                                       [(vary-meta n merge attr-map (first more)) (next more)]
+                                       [n more])
+                            n (vary-meta n assoc
+                                         ::letpattern-pattern-specs names-with-specs
+                                         ::pattern-specs (get names-with-specs n))]
+                        (binding [*pattern-expansion-context*
+                                  (or (:pattern-expansion-context (meta n))
+                                      (:pattern-expansion-context attr-map)
+                                      (:pattern-expansion-context (meta *ns*))
+                                      *pattern-expansion-context*)]
+                          `(~n
+                            ~@(if (vector? (first more))
+                                (convert-spec n more)
+                                (mapv (partial convert-spec n) more))))))
+                 patterns)]
+       ~@body)))
 
 (defmacro pattern
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
@@ -1922,8 +1913,7 @@
                       (vary-meta name assoc ::pattern-specs (extract-pattern-specs more)))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
-                                              *pattern-expansion-context*)
-              *pattern-meta* (meta name)]
+                                              *pattern-expansion-context*)]
       `(fn ~@(when name [name])
          ~@(if (vector? (first more))
              (convert-spec name more)

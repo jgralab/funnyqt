@@ -125,7 +125,9 @@
                                         (or (meta name) {}))
                                      ~args ~pattern-vector)
                 ~@(when (:recheck (meta name))
-                    [recheck-pattern `(pm/pattern ~(gensym "recheck-pattern")
+                    [recheck-pattern `(pm/pattern ~(with-meta (gensym (str (or name "anon")
+                                                                           "-recheck-pattern"))
+                                                     (meta name))
                                                   ;; A recheck pattern is never eager
                                                   ~(assoc (meta name) :eager false)
                                                   [~(first args) ~@matchsyms]
@@ -179,11 +181,17 @@
     (u/errorf "No rspecs vector in letrule!"))
   (let [[attr-map body] (if (map? (first attr-map-body))
                           [(first attr-map-body) (next attr-map-body)]
-                          [{} attr-map-body])]
+                          [{} attr-map-body])
+        names-with-specs (apply hash-map (mapcat (fn [[n & more]]
+                                                   [n (@#'pm/extract-pattern-specs more)])
+                                                 rspecs))]
     `(letfn [~@(map (fn [[n & more]]
                       (let [[n more] (if (map? (first more))
                                        [(vary-meta n merge attr-map (first more)) (next more)]
-                                       [n more])]
+                                       [n more])
+                            n (vary-meta n assoc
+                                         :funnyqt.pmatch/letpattern-pattern-specs names-with-specs
+                                         :funnyqt.pmatch/pattern-specs (get names-with-specs n))]
                         (binding [pm/*pattern-expansion-context*
                                   (or (:pattern-expansion-context (meta n))
                                       (:pattern-expansion-context attr-map)
