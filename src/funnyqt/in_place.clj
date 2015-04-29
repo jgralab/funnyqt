@@ -215,6 +215,12 @@
         (action3 c)
         (action4 a c)))
 
+  The `pattern` may include every pattern feature of funnyqt.pmatch/defpattern
+  with the exception of :as clauses.  It may also have :extends clauses
+  extending the patterns of other rules (only the other rule's pattern is
+  extended; not the other rule's actions), or of another arity of the extending
+  rule.
+
   The `body` may contain arbitrary code acting upon `args` and the elements
   matched by `pattern`.
 
@@ -251,11 +257,14 @@
   {:arglists '([name doc-string? attr-map? [args] [pattern] & body]
                [name doc-string? attr-map? ([args] [pattern] & body)+])}
   [name & more]
-  (let [[name more] (m/name-with-attributes name more)]
+  (let [[name more] (m/name-with-attributes name more)
+        pspecs (@#'pm/extract-pattern-specs more)
+        attr-map (assoc (meta name) :funnyqt.pmatch/pattern-specs `'~pspecs)
+        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs pspecs)]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                                  (:pattern-expansion-context (meta *ns*))
                                                  pm/*pattern-expansion-context*)]
-      `(defn ~name ~(meta name)
+      `(defn ~name ~attr-map
          ~@(if (vector? (first more))
              (convert-spec name more)
              (mapv (partial convert-spec name) more))))))

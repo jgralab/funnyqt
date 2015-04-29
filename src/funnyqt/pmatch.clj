@@ -1206,7 +1206,6 @@
 (defn ^:private get-extended-pattern [pname extended]
   (let [[name num replace-map] (normalize-extended extended)]
     (if-let [pattern-specs-or-var (or (when (= name pname)
-                                        ;; second because ::pattern-specs is (quote pspecs)
                                         (or (::pattern-specs (meta pname))
                                             (u/errorf "No ::pattern-specs meta at %s" pname)))
                                       (get *letpattern-pattern-specs* name)
