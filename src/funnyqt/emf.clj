@@ -720,7 +720,7 @@
 
 (defn eresource
   "Returns the Resource containing `eo` directly or indirectly (if any)."
-  [^EObject eo]
+  ^org.eclipse.emf.ecore.resource.Resource [^EObject eo]
   (.eResource eo))
 
 (defn ^:private eref-matcher
@@ -1558,7 +1558,7 @@
             (ecreate! ~'r '~(g/qname ec) ~'prop-map))))
 
      (defn ~(symbol (let [n (g/escaped-uname-str ec)]
-                      (str prefix "eall-" (inflections.core/plural n))))
+                      (str prefix "all-" (inflections.core/plural n))))
        ~(format "Returns the sequence of %s objects in `r`.
   Shorthand for (eallcontents r '%s)."
                 (g/qname ec)
@@ -1663,7 +1663,7 @@
   (vec
    (for [^EEnum enum (eallcontents ecore-mm 'EEnum)
          ^EEnumLiteral lit (.getELiterals enum)]
-     `(defn ~(symbol (str "eenum-" (.getName enum)
+     `(defn ~(symbol (str "enum-" (.getName enum)
                           "-" (.getName lit)))
         []
         (eenum-literal '~(symbol (str (.getName enum)
@@ -1689,7 +1689,7 @@
   The following functions are generated.
 
   For any EClass Foo in the metamodel, a (create-Foo! resource)
-  function, a (eall-Foos resource) function, and a (isa-Foo? eo) type
+  function, a (all-Foos resource) function, and a (isa-Foo? eo) type
   check predicate is generated.
 
   For any EAttribute name attr, the following functions are generated:
@@ -1713,7 +1713,7 @@
   Lastly, for any EEnumLiteral in the ecore file, a function of zero args
   returning this literal is created, e.g.:
 
-    (eenum-TheEnumName-LITERAL)"
+    (enum-TheEnumName-LITERAL)"
   ([ecore-file]
    `(generate-ecore-model-functions ~ecore-file nil nil nil))
   ([ecore-file nssym]
