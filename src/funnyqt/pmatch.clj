@@ -1756,22 +1756,19 @@
   Distinct Matches
   ================
 
-  Finally, a pattern may contain a :distinct modifier.  If there is one, the
-  lazy seq of matches which is the result of a applying the pattern won't
-  contain duplicates (where \"duplicates\" is defined by the :as clause).
-  Let's clarify that with an example.  Consider a model with only two nodes n1
-  and n2.  There are the following four edges: n1 --> n1, n1 --> n2, n1 --> n2,
-  and n2 --> n1.  Then the effects of :distinct (in combination with :as) are
-  as follows:
+  Finally, a pattern may contain a :distinct modifier which allows to omit
+  duplicate matches.  By default, there cannot be duplicate matches anyway
+  because anonymous nodes/edges have existence rather than \"enumerate all\"
+  semantics, but duplicates may occur with custom :as clauses.  E.g., a pattern
+  with spec
 
-    [x --> y]    => 4 matches: [n1 n1], [n1 n2], [n1 n2], [n2 n1]
+    [a --> b --> c :as #{a b c}]
 
-    [x --> y     => 3 matches: [n1 n1], [n1 n2], [n2 n1]
-     :distinct]
+  may have duplicates but
 
-    [x --> y     => 2 matches: #{n1 n1}, #{n1 n2}
-     :as #{x y}
-     :distinct]
+    [a --> b --> c :as #{a b c} :distinct]
+
+  has not.
 
   Available Options
   =================
@@ -1917,7 +1914,12 @@
         name        (if name
                       (vary-meta name merge attr-map)
                       (with-meta (gensym "anon-pattern-") attr-map))
-        name        (vary-meta name assoc ::pattern-specs (extract-pattern-specs more))]
+        ;; If name already has ::pattern-specs metadata, then don't touch it.
+        ;; In this case, it is an anonymous pattern used by a
+        ;; defrule/letrule/rule from funnyqt.in-place.
+        name        (if (::pattern-specs (meta name))
+                      name
+                      (vary-meta name assoc ::pattern-specs (extract-pattern-specs more)))]
     (binding [*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                               (:pattern-expansion-context (meta *ns*))
                                               *pattern-expansion-context*)

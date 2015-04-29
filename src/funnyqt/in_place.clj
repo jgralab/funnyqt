@@ -159,11 +159,12 @@
   (let [[name more] (if (symbol? (first more))
                       [(first more) (next more)]
                       [nil more])
-        [name more] (m/name-with-attributes (or name (gensym "anon-rule")) more)]
+        [name more] (m/name-with-attributes (or name (gensym "anon-rule")) more)
+        name (vary-meta name assoc :funnyqt.pmatch/pattern-specs (@#'pm/extract-pattern-specs more))]
     (binding [pm/*pattern-expansion-context* (or (:pattern-expansion-context (meta name))
                                                  (:pattern-expansion-context (meta *ns*))
                                                  pm/*pattern-expansion-context*)]
-      `(fn ~@(when name [name])
+      `(fn ~name
          ~@(if (vector? (first more))
              ;; starts with argvec, so just one def
              (convert-spec name more)
