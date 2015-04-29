@@ -306,34 +306,6 @@
         (recur (nnext p) (conj nb (first p) (second p))))
       nb)))
 
-(defn ^:private for+-doseq+-helper [what seq-exprs & body]
-  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
-        [bind exp] seq-exprs]
-    (condp = bind
-      :let `(let ~exp
-              ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body))
-      :when `(if ~exp
-               ~(apply for+-doseq+-helper what (vec (nnext seq-exprs)) body)
-               (sequence nil))
-      ;; default
-      (if (seq seq-exprs)
-        `(~what ~seq-exprs ~@body)
-        (if (= what `for)
-          (vec body)
-          `(do ~@body))))))
-
-(defmacro for+
-  "An enhanced version of clojure.core/for with the following additional
-  features.
-
-  - :let [var exp,...]    may occur as first element
-  - :when exp             may occur as first element
-  - :when-let [var expr]  bindings
-
-  As a special case, (for+ [] x) returns [x]."
-  [seq-exprs body-expr]
-  (for+-doseq+-helper `for seq-exprs body-expr))
-
 (defn iterator
   "Returns a java.util.Iterator for the given coll which may also be nil or a
   map.  Anything implementing Iterable will do."
@@ -341,25 +313,38 @@
   (cond
     (nil? coll) (.iterator clojure.lang.PersistentList/EMPTY)
     (instance? Iterable coll) (.iterator ^Iterable coll)
+    (instance? java.util.Iterator coll) coll
     (instance? java.util.Map coll) (.iterator (.entrySet ^java.util.Map coll))
     :else (errorf "Don't know how to create iterator for instance of class %s"
                   (class coll))))
 
-(defmacro doseq+
-  "An enhanced version of clojure.core/doseq with the following additional
-  features.
+(defn ^:private for+-doseq+-helper [what seq-exprs body]
+  (let [seq-exprs (shortcut-when-let-bindings seq-exprs)
+        [bind exp] seq-exprs]
+    (condp = bind
+      :let `(let ~exp
+              ~(for+-doseq+-helper what (vec (nnext seq-exprs)) body))
+      :when `(if ~exp
+               ~(for+-doseq+-helper what (vec (nnext seq-exprs)) body)
+               (sequence nil))
+      ;; default
+      (if (seq seq-exprs)
+        `(~what ~seq-exprs ~@body)
+        (if (or (= what `for-1)
+                (= what `for))
+          (vec body)
+          `(do ~@body))))))
 
-  - :let [var exp,...]    may occur as first element
-  - :when exp             may occur as first element
-  - :when-let [var expr]  bindings
-  As a special case, (doseq+ [] x) executes x once."
+(defmacro doseq-1
+  "Like clojure.core/doseq but based on iterators without support for chunked
+  seqs and :while.  The expressions must all be Iterable, Iterators, or Maps."
   [seq-exprs & body]
-  (if (seq seq-exprs)
-    (let [code (apply for+-doseq+-helper 'xxx seq-exprs body)
-          seq-exprs (if (= 'xxx (first code))
-                      (second code)
-                      seq-exprs)
-          [key val & remainder] seq-exprs
+  (when-not (vector? seq-exprs)
+    (error "doseq-1/doseq+ require a vector for its binding"))
+  (when-not (even? (count seq-exprs))
+    (error "doseq-1/doseq+ require an even number of forms in binding vector"))
+  (when (seq seq-exprs)
+    (let [[key val & remainder] seq-exprs
           remainder (vec remainder)]
       (cond
         ;; Normal bindings possibly with destructuring forms
@@ -376,13 +361,95 @@
         ;;---
         (= :let key)  `(let ~val
                          (doseq+ ~remainder ~@body))
-        :default      (errorf "%s %s is currently unsupported in doseq+." key val)))
-    `(do ~@body)))
+        :default      (errorf "%s %s is currently unsupported in doseq+." key val)))))
+
+(defmacro doseq+
+  "An enhanced version of clojure.core/doseq with the following additional
+  features.
+
+  - :let [var exp,...]    may occur as first element
+  - :when exp             may occur as first element
+  - :when-let [var expr]  bindings
+
+  As a special case, (doseq+ [] x) executes x once."
+  [seq-exprs & body]
+  (for+-doseq+-helper `doseq-1 seq-exprs body))
+
+(defmacro for-1
+  "Like clojure.core/for but based on iterators without support for chunked
+  seqs.  The expressions in seq-exprs must all be Iterable, Iterators, or
+  Maps."
+  [seq-exprs body-expr]
+  (when-not (vector? seq-exprs)
+    (error "for-1/for+ require a vector for its binding"))
+  (when-not (even? (count seq-exprs))
+    (error "for-1/for+ require an even number of forms in binding vector"))
+  (let [to-groups (fn [seq-exprs]
+                    (reduce (fn [groups [k v]]
+                              (if (keyword? k)
+                                (conj (pop groups) (conj (peek groups) [k v]))
+                                (conj groups [k v])))
+                            [] (partition 2 seq-exprs)))
+        err (fn [& msg] (throw (IllegalArgumentException. ^String (apply str msg))))
+        emit-bind (fn emit-bind [[[bind expr & mod-pairs]
+                                  & [[_ next-expr] :as next-groups]]]
+                    (let [giter (gensym "iter__")
+                          gxs (with-meta (gensym "s__")
+                                {:tag 'java.util.Iterator})
+                          do-mod (fn do-mod [[[k v :as pair] & etc]]
+                                   (cond
+                                     (= k :let) `(let ~v ~(do-mod etc))
+                                     (= k :while) `(when ~v ~(do-mod etc))
+                                     (= k :when) `(if ~v
+                                                    ~(do-mod etc)
+                                                    (recur ~gxs))
+                                     (keyword? k) (err "Invalid 'for' keyword " k)
+                                     next-groups
+                                     `(let [iterys# ~(emit-bind next-groups)
+                                            fs# (seq (iterys# (iterator ~next-expr)))]
+                                        (if fs#
+                                          (concat fs# (~giter ~gxs))
+                                          (recur ~gxs)))
+                                     :else `(cons ~body-expr
+                                                  (~giter ~gxs))))]
+                      (if next-groups
+                        #_"not the inner-most loop"
+                        `(fn ~giter [~gxs]
+                           #_(comment "OUTER")
+                           (lazy-seq
+                            (loop [~gxs ~gxs]
+                              (when (.hasNext ~gxs)
+                                (let [~bind (.next ~gxs)]
+                                  ~(do-mod mod-pairs))))))
+                        #_"inner-most loop"
+                        (let [gi (gensym "i__")
+                              gb (gensym "b__")]
+                          `(fn ~giter [~gxs]
+                             #_(comment "INNERMOST")
+                             (lazy-seq
+                              (loop [~gxs ~gxs]
+                                (when (.hasNext ~gxs)
+                                  (let [~bind (.next ~gxs)]
+                                    ~(do-mod mod-pairs))))))))))]
+    `(let [iter# ~(emit-bind (to-groups seq-exprs))]
+       (iter# (iterator ~(second seq-exprs))))))
+
+(defmacro for+
+  "An enhanced version of clojure.core/for with the following additional
+  features.
+
+  - :let [var exp,...]    may occur as first element
+  - :when exp             may occur as first element
+  - :when-let [var expr]  bindings
+
+  As a special case, (for+ [] x) returns [x]."
+  [seq-exprs body-expr]
+  (for+-doseq+-helper `for-1 seq-exprs [body-expr]))
 
 (definline mapc
   "Like map but for side-effects only.  Returns nil."
   [f coll]
-  `(doseq+ [x# ~coll]
+  `(doseq-1 [x# ~coll]
      (~f x#)))
 
 (defn fn-name

@@ -144,10 +144,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
 (defn ^:private emf-dot-attributes [^EObject eo]
   (reduce str
-          (for [^EAttribute attr (.getEAllAttributes (.eClass eo))
-                :let [n (.getName attr)
-                      ex-attrs (excluded-attributes eo)]
-                :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
+          (u/for-1 [^EAttribute attr (.getEAllAttributes (.eClass eo))
+                    :let [n (.getName attr)
+                          ex-attrs (excluded-attributes eo)]
+                    :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
             (str n " = " (dot-escape (try (emf/eget eo (keyword n))
                                           (catch Exception _
                                             (emf/eget eo (keyword n)))))
@@ -172,12 +172,12 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (let [h (emf-dot-id eo)
         dist (atom [2.0 4.0])]
     (reduce str
-            (for [^EReference ref (seq (.getEAllContainments (.eClass eo)))
-                  :let [oref (.getEOpposite ref)
-                        n (.getName ref)]
-                  t (when-let [x (emf/eget eo ref)]
-                      (if (coll? x) x [x]))
-                  :when (dot-included? t)]
+            (u/for-1 [^EReference ref (.getEAllContainments (.eClass eo))
+                      :let [oref (.getEOpposite ref)
+                            n (.getName ref)]
+                      t (when-let [x (emf/eget eo ref)]
+                          (if (coll? x) x [x]))
+                      :when (dot-included? t)]
               (do
                 (swap! dist (fn [[x y]] [y x]))
                 (str "  " h " -> " (emf-dot-id t)
@@ -193,14 +193,14 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (let [h (emf-dot-id eo)
         dist (atom  [2.0 4.0])]
     (reduce str
-            (for [^EReference ref (.getEAllReferences (.eClass eo))
-                  :when (not (q/member? ref @*emf-opposite-refs*))
-                  :when (not (or (.isContainment ref)
-                                 (.isContainer ref)))
-                  :let [oref (.getEOpposite ref)]
-                  t (emf/ecrossrefs eo ref)
-                  :when (dot-included? t)
-                  :let [h2 (emf-dot-id t)]]
+            (u/for-1 [^EReference ref (.getEAllReferences (.eClass eo))
+                      :when (not (q/member? ref @*emf-opposite-refs*))
+                      :when (not (or (.isContainment ref)
+                                     (.isContainer ref)))
+                      :let [oref (.getEOpposite ref)]
+                      t (emf/ecrossrefs eo ref)
+                      :when (dot-included? t)
+                      :let [h2 (emf-dot-id t)]]
               (do
                 (when oref
                   (swap! *emf-opposite-refs* conj oref))
@@ -235,10 +235,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
 (defn ^:private tg-dot-attributes [^AttributedElement elem]
   (reduce str
-          (for [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
-                :let [n (.getName attr)
-                      ex-attrs (excluded-attributes elem)]
-                :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
+          (u/for-1 [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
+                    :let [n (.getName attr)
+                          ex-attrs (excluded-attributes elem)]
+                    :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
             (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
 
 (defn ^:private tg-dot-vertex [^Vertex v]

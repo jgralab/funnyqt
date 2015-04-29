@@ -1789,14 +1789,14 @@ functions `record` and `enum-constant`."
   "Returns a map of aec's own attributes as name-domain pairs."
   [^AttributedElementClass aec]
   (into (sorted-map)
-        (for [^Attribute attr (.getOwnAttributeList aec)]
+        (u/for-1 [^Attribute attr (.getOwnAttributeList aec)]
           [(keyword (.getName attr)) (g/describe (.getDomain attr))])))
 
 (defn ^:private slot-desc
   [^AttributedElement e]
   (let [aec (.getAttributedElementClass e)]
     (into (sorted-map)
-          (for [^Attribute attr (.getAttributeList aec)]
+          (u/for-1 [^Attribute attr (.getAttributeList aec)]
             (let [n (.getName attr)]
               [(keyword n) (value e n)])))))
 
