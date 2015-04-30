@@ -1,6 +1,7 @@
 (ns funnyqt.in-place
   "In-place transformation stuff."
   (:require [clojure.tools.macro   :as m]
+            [clojure.string        :as str]
             [funnyqt.generic       :as g]
             [funnyqt.visualization :as viz]
             [funnyqt.utils         :as u]
@@ -10,7 +11,7 @@
   (:import
    (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
                 JPanel JLabel JScrollPane JComboBox Action JCheckBox
-                Box BorderFactory ImageIcon JComponent)
+                Box BorderFactory ImageIcon JComponent DefaultListCellRenderer)
    (java.awt.event ActionEvent ItemEvent ItemListener)
    (java.awt Color GridLayout GridBagLayout GridBagConstraints)))
 
@@ -430,6 +431,27 @@
         (catch Exception e
           (.printStackTrace e))))))
 
+(defn match-list-cell-renderer []
+  (proxy [DefaultListCellRenderer] []
+    (getListCellRendererComponent [list value index isSelected cellHasFocus]
+      (let [^DefaultListCellRenderer this this]
+        (proxy-super getListCellRendererComponent list value index isSelected cellHasFocus)
+        ;; value is a match, i.e., a map from keywords to model objects
+        (.setText this (str "<html><table>"
+                            (str/join "<br> "
+                                      (map (fn [[k v]]
+                                             (str "<tr><td><u>"
+                                                  (name k)
+                                                  "</u></td>"
+                                                  "<td>" (-> (pr-str v)
+                                                             (str/replace #"&" "&amp;")
+                                                             (str/replace #"<" "&lt;")
+                                                             (str/replace #">" "&gt;"))
+                                                  "</td></tr>"))
+                                           value))
+                            "</table></html>"))
+        this))))
+
 (defn ^:private select-rule-dialog [model rule-var-thunk-tups thunkp pos posp]
   (let [d  (javax.swing.JDialog.)
         content-pane (let [^JComponent cp(.getContentPane d)]
@@ -463,7 +485,8 @@
       (set! (.fill gridbagconsts) GridBagConstraints/BOTH)
       (u/doseq+ [[rule thunk] rule-var-thunk-tups
                  :let [label (JLabel. (str (u/fn-name rule) ": "))
-                       cb (JComboBox. (to-array (:all-matches (meta thunk))))
+                       cb (doto (JComboBox. (to-array (:all-matches (meta thunk))))
+                            (.setRenderer (match-list-cell-renderer)))
                        current-match (atom (:match (meta thunk)))
                        flatten-match (fn [m]
                                        (cond
@@ -520,8 +543,8 @@
       (.setVisible d true))))
 
 (defn interactive-rule
-  "Returns a function which interactively applies the given `rules` to `model`
-  and the returned function's arguments."
+  "Returns a function which interactively applies the given `rules` to the
+  returned function's arguments."
   [& rules]
   (fn [& args]
     (let [model (first args)]
@@ -699,7 +722,7 @@
                                           (tg/vseq ssg 'State)))]
                        (do
                          (u/doseq+ [r rules
-                                 :let [m (g/copy-model (@state2model st))]]
+                                    :let [m (g/copy-model (@state2model st))]]
                            (when-let [thunk (as-test (apply r m additional-args))]
                              (thunk)
                              (let [nst (or (find-equiv-state m)
@@ -818,7 +841,7 @@
         reset-all-states-cb! (fn []
                                (.removeAllItems all-states-cb)
                                (u/doseq+ [n (map #(tg/value % :n)
-                                              (tg/vseq ssg 'State))]
+                                                 (tg/vseq ssg 'State))]
                                  (.addItem all-states-cb n)))
         undone-states-cb (doto (JComboBox.)
                            (.setRenderer cb-renderer))
