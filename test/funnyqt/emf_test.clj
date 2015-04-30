@@ -407,13 +407,13 @@
            (gfams/->members root)))
 
     (is (= (eallcontents m 'FamilyModel)
-           (fams/eall-FamilyModels m)
+           (fams/all-FamilyModels m)
            (gfams/all-FamilyModels m)))
     (is (= (eallcontents m 'Member)
-           (fams/eall-Members m)
+           (fams/all-Members m)
            (gfams/all-Members m)))
     (is (= (eallcontents m 'Family)
-           (fams/eall-Families m)
+           (fams/all-Families m)
            (gfams/all-Families m)))))
 
 (load-ecore-resource "test/input/AddressBook.ecore")
