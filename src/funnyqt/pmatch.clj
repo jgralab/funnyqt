@@ -1808,12 +1808,12 @@
   (let [[name more] (m/name-with-attributes name more)
         pspecs      (extract-pattern-specs more)
         name        (vary-meta name assoc ::pattern-specs pspecs)
-        name        (vary-meta name assoc :pattern-expansion-context (pattern-expansion-context name))]
-    (binding [*print-meta* true]
-      `(defn ~name ~{::pattern-specs `'~pspecs}
-         ~@(if (vector? (first more))
-             (convert-spec name more)
-             (mapv (partial convert-spec name) more))))))
+        name        (vary-meta name assoc :pattern-expansion-context
+                               (pattern-expansion-context name))]
+    `(defn ~name ~{::pattern-specs `'~pspecs}
+       ~@(if (vector? (first more))
+           (convert-spec name more)
+           (mapv (partial convert-spec name) more)))))
 
 (defmacro letpattern
   "Establishes local patterns just like `letfn` establishes local functions.
@@ -1837,19 +1837,19 @@
                                                    [n (extract-pattern-specs more)])
                                                  patterns))
         attr-map (assoc attr-map ::letpattern-pattern-specs names-with-specs)
-        attr-map (assoc attr-map :pattern-expansion-context (or (:pattern-expansion-context attr-map)
-                                                                (pattern-expansion-context nil)))]
-    (binding [*print-meta* true]
-      `(letfn [~@(map (fn [[n & more]]
-                        (let [n (vary-meta n merge attr-map (meta n))
-                              [n more] (m/name-with-attributes n more)
-                              n (vary-meta n assoc ::pattern-specs (get names-with-specs n))]
-                          `(~n
-                            ~@(if (vector? (first more))
-                                (convert-spec n more)
-                                (mapv (partial convert-spec n) more)))))
-                   patterns)]
-         ~@body))))
+        attr-map (assoc attr-map :pattern-expansion-context
+                        (or (:pattern-expansion-context attr-map)
+                            (pattern-expansion-context nil)))]
+    `(letfn [~@(map (fn [[n & more]]
+                      (let [n (vary-meta n merge attr-map (meta n))
+                            [n more] (m/name-with-attributes n more)
+                            n (vary-meta n assoc ::pattern-specs (get names-with-specs n))]
+                        `(~n
+                          ~@(if (vector? (first more))
+                              (convert-spec n more)
+                              (mapv (partial convert-spec n) more)))))
+                 patterns)]
+       ~@body)))
 
 (defmacro pattern
   "Creates an anonymous patterns just like `fn` creates an anonymous functions.
@@ -1875,14 +1875,15 @@
         name        (if name
                       (vary-meta name merge attr-map)
                       (with-meta (gensym "anon-pattern-") attr-map))
-        name        (vary-meta name assoc :pattern-expansion-context (pattern-expansion-context name))
+        name        (vary-meta name assoc :pattern-expansion-context
+                               (pattern-expansion-context name))
         ;; If name already has ::pattern-specs metadata, then don't touch it.
         ;; In this case, it is an anonymous pattern used by a
         ;; defrule/letrule/rule from funnyqt.in-place.
-        name        (vary-meta name assoc ::pattern-specs (or (::pattern-specs (meta name))
-                                                              (extract-pattern-specs more)))]
-    (binding [*print-meta* true]
-      `(fn ~name
-         ~@(if (vector? (first more))
-             (convert-spec name more)
-             (mapv (partial convert-spec name) more))))))
+        name        (vary-meta name assoc ::pattern-specs
+                               (or (::pattern-specs (meta name))
+                                   (extract-pattern-specs more)))]
+    `(fn ~name
+       ~@(if (vector? (first more))
+           (convert-spec name more)
+           (mapv (partial convert-spec name) more)))))
