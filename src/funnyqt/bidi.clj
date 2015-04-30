@@ -31,8 +31,8 @@
   "Only for internal use.
   Manifests the temporary and wrapper elements in `match`."
   [match]
-  (u/doseq+ [el (vals match)
-             :when (tmp/tmp-or-wrapper-element? el)]
+  (doseq [el (vals match)
+          :when (tmp/tmp-or-wrapper-element? el)]
     ;;(println "Enforcing" (tmp/as-map el))
     (tmp/manifest el)))
 
@@ -105,13 +105,13 @@
                              src-val  (get src-match lv-kw ::unknown)
                              args-val (get args-map  lv-kw ::unknown)]
                          (cond
-                          (not= src-val  ::unknown)
-                          (maybe-wrap lv src-val)
+                           (not= src-val  ::unknown)
+                           (maybe-wrap lv src-val)
 
-                          (not= args-val ::unknown)
-                          (maybe-wrap lv args-val)
+                           (not= args-val ::unknown)
+                           (maybe-wrap lv args-val)
 
-                          :else lv)))
+                           :else lv)))
                      lvars))))
 
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
@@ -119,11 +119,11 @@
         sm  (gensym "src-match")
         tm  (gensym "trg-match")
         etm (gensym "enforced-trg-match")]
-    (u/doseq+ [kw [:when :left :right]]
+    (doseq [kw [:when :left :right]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of goals but was %s."
                   relsym kw (kw map))))
-    (u/doseq+ [kw [:where :extends]]
+    (doseq [kw [:where :extends]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
                   relsym kw (kw map))))
@@ -163,7 +163,7 @@
                     (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
                     ~@(insert-debug (:debug-enforced map))
                     (fn [] ~@(:where map)))))))]
-       (u/doseq+ [wfn# wfns#]
+       (doseq [wfn# wfns#]
          (wfn#)))))
 
 (defn ^:private adapt-subst-map

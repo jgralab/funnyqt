@@ -499,7 +499,7 @@
   (let [uri (create-uri f)
         res (XMIResourceImpl. uri)
         opts (.getDefaultLoadOptions res)]
-    (u/doseq+ [[opt val] (apply hash-map additional-opts)]
+    (doseq [[opt val] (apply hash-map additional-opts)]
       (.put opts opt val))
     (.load res opts)
     res))
@@ -516,7 +516,7 @@
   Skips packages that are already registered."
   [pkgs]
   (with-registry-access-classloader
-    (u/doseq+ [^EPackage p pkgs]
+    (doseq [^EPackage p pkgs]
       (when-let [uri (.getNsURI p)]
         (when (seq uri)
           (when-not (.containsKey *epackage-registry* uri)
@@ -1184,7 +1184,7 @@
      eo))
   ([resource ec prop-map]
    (let [eo (ecreate! resource ec)]
-     (u/doseq+ [[prop val] prop-map]
+     (doseq [[prop val] prop-map]
        (eset! eo prop val))
      eo)))
 
@@ -1226,13 +1226,13 @@
    (edelete! eo true))
   ([^EObject eo recursively]
    (when recursively
-     (u/doseq+ [ceo (.eContents eo)]
-       (edelete! ceo)))
+     (doseq [ceo (.eContents eo)]
+       (edelete! ceo true)))
    (when-let [^EReference cf (.eContainmentFeature eo)]
      (if (.isMany cf)
        (eremove! (.eContainer eo) cf eo)
        (eunset! (.eContainer eo) cf)))
-   (u/doseq+ [ref (.getEAllReferences (.eClass eo))]
+   (doseq [ref (.getEAllReferences (.eClass eo))]
      (eunset! eo ref))
    (when-let [^Resource res (.eResource eo)]
      (.remove (.getContents res) eo))

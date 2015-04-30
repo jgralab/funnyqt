@@ -167,13 +167,13 @@
         wrapped-element
         (do
           (set! manifested true)
-          (u/doseq+ [[at val] attrs]
+          (doseq [[at val] attrs]
             (g/set-aval! wrapped-element at val))
-          (u/doseq+ [[role rs] refs
+          (doseq [[role rs] refs
                   :let [multi-valued (g/mm-multi-valued-property?
                                       (g/mm-class wrapped-element) role)
                         cur-refed (set (g/adjs wrapped-element role))]]
-            (u/doseq+ [r rs]
+            (doseq [r rs]
               (let [mr (manifest r)]
                 (when-not (q/member? mr cur-refed)
                   (if multi-valued
@@ -314,12 +314,12 @@
                                                                (manifest alpha)
                                                                (manifest omega))
                                        :else (u/errorf "Unknown kind %s." kind)))
-            (u/doseq+ [[at val] attrs]
+            (doseq [[at val] attrs]
               (g/set-aval! manifested-element at val))
-            (u/doseq+ [[role rs] refs
-                       :let [multi-valued (g/mm-multi-valued-property?
-                                           (g/mm-class manifested-element) role)]]
-              (u/doseq+ [r rs]
+            (doseq [[role rs] refs
+                    :let [multi-valued (g/mm-multi-valued-property?
+                                        (g/mm-class manifested-element) role)]]
+              (doseq [r rs]
                 (let [mr (manifest r)]
                   (if multi-valued
                     (g/add-adj! manifested-element role mr)
@@ -394,32 +394,32 @@
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
                    (cond
-                    (wrapper-element? target)
-                    (let [container (g/container (.wrapped-element ^WrapperElement target))]
-                      (or (nil? container)
-                          (and (wrapper-element? el)
-                               (identical? (.wrapped-element ^WrapperElement el)
-                                           container))))
-                    (tmp-element? target)
-                    true
-                    :else (u/error "Shouldn't happen!"))))))
+                     (wrapper-element? target)
+                     (let [container (g/container (.wrapped-element ^WrapperElement target))]
+                       (or (nil? container)
+                           (and (wrapper-element? el)
+                                (identical? (.wrapped-element ^WrapperElement el)
+                                            container))))
+                     (tmp-element? target)
+                     true
+                     :else (u/error "Shouldn't happen!"))))))
 
 (defn single-valued-refs-are-single? [el type overridable-props subst]
   (ref-checker el type subst (complement g/mm-multi-valued-property?)
                (fn [ref target]
                  (let [target (cclp/walk subst target)]
                    (cond
-                    (wrapper-element? el)
-                    (let [cur (g/adj (.wrapped-element ^WrapperElement el) ref)]
-                      (or (nil? cur)
-                          (and (wrapper-element? target)
-                               (identical? (.wrapped-element ^WrapperElement target)
-                                           cur))
-                          (and overridable-props (overridable-props ref))))
-                    (tmp-element? el)
-                    (== 1 (count (set (map #(cclp/walk subst %)
-                                           (get (get-refs el) ref)))))
-                    :else (u/error "Shouldn't happen!"))))))
+                     (wrapper-element? el)
+                     (let [cur (g/adj (.wrapped-element ^WrapperElement el) ref)]
+                       (or (nil? cur)
+                           (and (wrapper-element? target)
+                                (identical? (.wrapped-element ^WrapperElement target)
+                                            cur))
+                           (and overridable-props (overridable-props ref))))
+                     (tmp-element? el)
+                     (== 1 (count (set (map #(cclp/walk subst %)
+                                            (get (get-refs el) ref)))))
+                     :else (u/error "Shouldn't happen!"))))))
 
 ;;# Finalization
 
@@ -430,10 +430,10 @@
                            (check-ref-validity % a))
                      tw-els)
         (do
-          (u/doseq+ [el tw-els]
-            (finalize-attrs el a)
-            (finalize-refs  el a)
-            (finalize-alpha-and-omega el a))
+          (doseq [el tw-els]
+                   (finalize-attrs el a)
+                   (finalize-refs  el a)
+                   (finalize-alpha-and-omega el a))
           (ccl/succeed a))
         (do
           #_(println (format "invalid: %s" (vec (map (partial cclp/walk a) els))))

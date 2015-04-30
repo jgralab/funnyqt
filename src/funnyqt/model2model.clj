@@ -496,7 +496,7 @@
            ~@(if main-fn
                `[(~'main)]
                (for [m ins]
-                 `(u/doseq+ [~elem-var (g/elements ~m ~type-spec)]
+                 `(doseq [~elem-var (g/elements ~m ~type-spec)]
                     ~@(for [r (keys top-rules)]
                         `(~r ~elem-var)))))
            @*trace*)))))

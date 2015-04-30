@@ -461,15 +461,15 @@
             :else (u/errorf "Don't know how to handle pattern-spec part: %s" cur)))))
     ;; Remove Precedes edges which are parallel to APatternEdges.  Those are
     ;; the result of specs like [a<A> b<B> a --> b]
-    (u/doseq+ [pv (tg/vseq pg 'APatternVertex)
-               :let [target-incs-map (reduce (fn [m i]
-                                               (update m (tg/that i) conj i))
-                                             {} (tg/iseq pv nil :out))]]
-      (u/doseq+ [[target incs] target-incs-map
-                 :let [ps (filter (g/type-matcher pg 'Precedes) incs)]]
-        (u/doseq+ [p (if (= (count incs) (count ps))
-                       (next ps)
-                       ps)]
+    (doseq [pv (tg/vseq pg 'APatternVertex)
+            :let [target-incs-map (reduce (fn [m i]
+                                            (update m (tg/that i) conj i))
+                                          {} (tg/iseq pv nil :out))]]
+      (doseq [[target incs] target-incs-map
+              :let [ps (filter (g/type-matcher pg 'Precedes) incs)]]
+        (doseq [p (if (= (count incs) (count ps))
+                    (next ps)
+                    ps)]
           (g/delete! p))))
     ;; Check for disconnected components.
     (let [vset (u/oset (tg/vseq pg))

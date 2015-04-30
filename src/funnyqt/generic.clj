@@ -219,11 +219,11 @@
   java.util.Collection
   (delete!
     ([this]
-     (u/doseq+ [x this]
+     (doseq [x this]
        (delete! x))
      this)
     ([this recursive]
-     (u/doseq+ [x this]
+     (doseq [x this]
        (delete! x recursive))
      this)))
 
@@ -503,7 +503,7 @@
                 (:refer-clojure :only []))
               ;; Remove all java.lang imports so that clashes with generated
               ;; vars cannot occur.
-              (u/doseq+ [[sym# cls#] (ns-imports *ns*)]
+              (doseq [[sym# cls#] (ns-imports *ns*)]
                 (ns-unmap *ns* sym#))])
         ~@(concat
            (no-nils
@@ -512,14 +512,14 @@
                                "Generating no element class functions.")
                               (mm-element-classes metamodel))]
               (do
-                (u/doseq+ [a (and (u/satisfies-protocol?
+                (doseq [a (and (u/satisfies-protocol?
                                 mm-cls IMMAttributes
                                 "Generating no attribute functions.")
                                (mm-attributes mm-cls))]
                   (swap! atts
                          #(update-in %1 [%2] conj mm-cls)
                          a))
-                (u/doseq+ [r (and (u/satisfies-protocol?
+                (doseq [r (and (u/satisfies-protocol?
                                 mm-cls IMMReferences
                                 "Generating no reference functions.")
                                (mm-references mm-cls))]
@@ -535,7 +535,7 @@
                                (mm-relationship-classes metamodel))]
               (do
                 ;; Collect attributes
-                (u/doseq+ [a (and (u/satisfies-protocol?
+                (doseq [a (and (u/satisfies-protocol?
                                 rel-cls IMMAttributes
                                 "Generating to relationship attribute functions.")
                                (mm-attributes rel-cls))]
@@ -711,7 +711,7 @@
                         owner-string)
                [~'el ~'obj ~'& ~'more]
                (add-adj! ~'el ~ref ~'obj)
-               (u/doseq+ [o# ~'more]
+               (doseq [o# ~'more]
                  (add-adj! ~'el ~ref o#))
                ~'el)
              (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
