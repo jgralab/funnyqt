@@ -1642,7 +1642,7 @@
          [~'eo ~'refed]
          (eset! ~'eo ~ref ~'refed))
 
-       ;; ADDER
+       ;; ADDER/REMOVER
        ~@(when (multi? true)
            `[(defn ~(symbol (str prefix "->add-" (name ref) "!"))
                ~(format "Adds `eobj` and `more` eobjects to `eo`s %s reference.
@@ -1651,6 +1651,13 @@
                         owner-string)
                [~'eo ~'eobj ~'& ~'more]
                (apply eadd! ~'eo ~ref ~'eobj ~'more))
+             (defn ~(symbol (str prefix "->remove-" (name ref) "!"))
+               ~(format "Removes `eobj` and `more` eobjects from `eo`s %s reference.
+  Possible types for `eo`: %s"
+                        (name ref)
+                        owner-string)
+               [~'eo ~'eobj ~'& ~'more]
+               (apply eremove! ~'eo ~ref ~'eobj ~'more))
              (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
                ~(format "Adds all `eobjs` to `eo`s %s reference.
   Possible types for `eo`: %s"
@@ -1659,7 +1666,7 @@
                [~'eo ~'eobjs]
                (eaddall! ~'eo ~ref ~'eobjs))]))))
 
-(defn ^:private generate-emf-extensions [ecore-mm]
+(defn ^:private create-emf-extensions [ecore-mm]
   (vec
    (for [^EEnum enum (eallcontents ecore-mm 'EEnum)
          ^EEnumLiteral lit (.getELiterals enum)]
@@ -1729,4 +1736,4 @@
                                nil
                                create-eattribute-fns
                                create-ereference-fns
-                               generate-emf-extensions)))
+                               create-emf-extensions)))
