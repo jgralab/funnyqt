@@ -17,6 +17,8 @@
 (remf/generate-ecore-model-relations "test/input/AddressBook.ecore"
                                      test.relational.addressbook.emf ab-emf)
 
+(emf/load-ecore-resource "test/input/AddressBook.ecore")
+
 ;;## Example AddressBook Graph
 
 (defn make-example-addressbook-tg []
@@ -444,6 +446,9 @@
                                      test.relational.classdiagram.emf cd)
 (remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
                                      test.relational.database.emf db)
+
+(emf/load-ecore-resource "test/input/uml-rdbms-bidi/classdiagram.ecore")
+(emf/load-ecore-resource "test/input/uml-rdbms-bidi/database.ecore")
 
 (def cd1 (emf/load-resource "test/input/uml-rdbms-bidi/m1/classdiagram01.xmi"))
 (def db1 (emf/load-resource "test/input/uml-rdbms-bidi/m2/database01.xmi"))
