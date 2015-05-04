@@ -540,7 +540,7 @@
      (all-epackages-in-resource res))
     res))
 
-(alter-var-root #'g/mm-load-handlers assoc #".*\.ecore$" load-ecore-resource)
+(alter-var-root #'g/mm-load-handlers assoc #".*\.ecore$" load-resource)
 
 ;; FIXME: That's actual a workaround for a misfeature of EMF.  See
 ;; http://www.eclipse.org/forums/index.php/m/405881/
