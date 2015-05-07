@@ -121,9 +121,7 @@
           (let [~pattern (pm/pattern ~(or name (gensym "anon-pattern"))
                                      ;; forall rules can benefit from parallel
                                      ;; pattern evaluation.
-                                     ~(if (:forall (meta name))
-                                        (assoc (meta name) :eager true)
-                                        (or (meta name) {}))
+                                     ~(assoc (meta name) :eager (:forall (meta name)))
                                      ~args ~pattern-vector)
                 ~@(when (:recheck (meta name))
                     [recheck-pattern `(pm/pattern ~(with-meta (gensym (str (or name "anon")

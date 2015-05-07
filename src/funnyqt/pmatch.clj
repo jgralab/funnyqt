@@ -1274,7 +1274,7 @@
                     (>= (count (bindings-to-argvec bf)) 2))
              ;; Eager, Parallel Case
              (let [[sym expr & rbf] bf
-                   default-min-partition-size 16
+                   default-min-partition-size 32
                    default-partitions-per-cpu 32
                    [MIN-PARTITION-SIZE PARTITIONS-PER-CPU] (cond
                                                              (vector? (:eager (meta name)))
@@ -1757,18 +1757,18 @@
   computed sequentially and put into a vector.  This vector is then partitioned
   and the remaining pattern matching process is performed in parallel on the
   individual partitions.  By default, the vector of matches of the first node
-  in the pattern is partitioned so that there are at most 32 partitions to be
-  processed per CPU (keep CPUs busy!), however, every partition has at least 16
-  elements (not too much contention!).  This seems to be a good heuristic, but
-  of course it cannot be optimal in every situation.
+  in the pattern is partitioned so that there are approximately 32 partitions
+  to be processed per CPU (keep CPUs busy!), however, every partition must have
+  at least 32 elements (not too much contention!).  This seems to be a good
+  heuristic, but of course it cannot be optimal in every situation.
 
   Therefore, the :eager option may also be set to a vector of the form
 
-    [MIN-PARTITION-SIZE MAX-PARTITIONS-PER-CPU]
+    [MIN-PARTITION-SIZE PARTITIONS-PER-CPU]
 
   where MIN-PARTITION-SIZE denotes the minimal number of elements in a
-  partition, and MAX-PARTITIONS-PER-CPU denotes the maximum number of
-  partitions to be processed per CPU.
+  partition, and PARTITIONS-PER-CPU denotes the maximum number of partitions to
+  be processed per CPU.
 
   The :sequential option
   ----------------------
