@@ -221,7 +221,7 @@
   "Creates a model-to-model transformation named `name` with the declared
  `in-models`, `out-models`, and optional additional `args`.  For example,
 
-    (deftransformation foo2bar [[in1 in2] [out] x y z]
+    (deftransformation foo2bar [^:in in1 ^:in in2 ^:out out x y z]
       ...)
 
   declares a transformation named foo2bar that receives 2 input models in1 and
@@ -406,7 +406,7 @@
 
     (deftransformation foo2bar
      \"Transforms a foo model to a bar model.\"
-      [[foo] [bar]]
+      [^:in foo ^:out bar]
       :extends foo2bar-base
      ...)
 
@@ -421,8 +421,9 @@
   in any way.  If a base transformation uses an argument vector [src trg] but
   the extending transformation uses [s t], you'll get a compile error if
   inherited/non-overridden rules use either one of them.  So in general, it is
-  advisable that extending transformations have the very same parameters as the
-  extended transformations, plus optionally some more parameters."
+  advisable that extending transformations declare the very same parameters in
+  the same order as the extended transformations, plus optionally some more
+  parameters."
 
   {:arglists '([name [[& in-models] [& out-models] & args] extends-clause? & rules-and-fns])}
   [name & more]
@@ -430,13 +431,15 @@
         [args more] (if (vector? (first more))
                       [(first more) (next more)]
                       (u/errorf "Error: arg vector missing!"))
-        [ins outs aa] (let [[i o & aa] args]
-                        (cond
-                          (nil? i) (u/errorf "No input models given.")
-                          (nil? o) (u/errorf "No output models given.")
-                          (not (vector? i)) (u/errorf "input models must be a vector.")
-                          (not (vector? o)) (u/errorf "output models must be a vector.")
-                          :else [i o aa]))
+        [ins outs other-args] [(filter #(let [m (meta %)]
+                                          (or (:in m) (:inout m)))
+                                       args)
+                               (filter #(let [m (meta %)]
+                                          (or (:out m) (:inout m)))
+                                       args)
+                               (remove #(let [m (meta %)]
+                                          (or (:in m) (:out m) (:inout m)))
+                                       args)]
         [extended more] (if (= :extends (first more))
                           [(fnext more) (nnext more)]
                           [nil          more])
@@ -487,9 +490,15 @@
                     " top-level rules.  Top-level rules are only applied "
                     "automatically if there's no main function.")))
     `(defn ~name ~(merge (meta name)
-                         {::rules (list 'quote rules)
+                         {;; The argument entries aren't actually used but just
+                          ;; serve documentation and debugging purposes.
+                          ::input-models `'~ins
+                          ::output-models `'~outs
+                          ::additional-args `'~other-args
+                          ;; Those are used by transformation inheritance.
+                          ::rules (list 'quote rules)
                           ::fns   (list 'quote fns)})
-       [~@ins ~@outs ~@aa]
+       [~@args]
        (binding [*trace* (atom {})]
          (letfn [~@(vals fns)
                  ~@rule-specs]

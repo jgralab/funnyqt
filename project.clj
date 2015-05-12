@@ -1,4 +1,4 @@
-(defproject funnyqt "0.47.7"
+(defproject funnyqt "0.48.0"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies."
   :dependencies [[org.clojure/clojure "1.7.0-beta2"]
@@ -9,7 +9,7 @@
                  [org.flatland/ordered "1.5.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
-                 [inflections "0.9.13" :exclusions [org.clojure/clojure]]]
+                 [inflections "0.9.14" :exclusions [org.clojure/clojure]]]
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[im.chit/vinyasa "0.3.4"]]
                    ;; Don't omit stack traces

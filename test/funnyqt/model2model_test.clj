@@ -40,14 +40,14 @@
 
 (deftransformation families2genealogy
   "Transforms a family model to a genealogy model."
-  [[in] [out]]
-  (first-name [m]
-              (emf/eget m :firstName))
+  [^:in in ^:out out]
+  (first-name
+   [m]
+   (emf/eget m :firstName))
   (make-address
    :from [street town]
-   :to [adr 'Address]
-   (gen-tg/set-street! adr street)
-   (gen-tg/set-town! adr town))
+   :to [adr 'Address {:street street
+                      :town town}])
   (^:top member2person
          :from [m]
          :disjuncts [member2male member2female :result p]
@@ -91,7 +91,7 @@
 
 (deftransformation families2genealogy-ext
   "Like families2genealogy, but prepends Mr./Mrs. to first names."
-  [[in] [out]]
+  [^:in in ^:out out]
   :extends families2genealogy
   (first-name [m]
    (str (if (male? m) "Mr. " "Mrs. ")
@@ -114,7 +114,7 @@
 
 (deftransformation families2genealogy-explicit-main
   "Transforms a family model to a genealogy model."
-  [[in] [out]]
+  [^:in in ^:out out]
   (first-name [m]
    (emf/eget m :firstName))
   (make-address
@@ -165,7 +165,8 @@
     #_(clojure.pprint/pprint trace)))
 
 (deftest test-valid-to-bindings
-  (is (var? (eval '(funnyqt.model2model/deftransformation complex-to-bindings [[in] [out1 out2]]
+  (is (var? (eval '(funnyqt.model2model/deftransformation
+                     complex-to-bindings [^:in in ^:out out1 ^:out out2]
                      (^:top rule1
                             :from [x 'X]
                             :to   [a 'A
