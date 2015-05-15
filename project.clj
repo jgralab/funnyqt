@@ -1,7 +1,7 @@
-(defproject funnyqt "0.48.0"
+(defproject funnyqt "0.48.1"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies."
-  :dependencies [[org.clojure/clojure "1.7.0-beta2"]
+  :dependencies [[org.clojure/clojure "1.7.0-beta3"]
                  [org.clojure/core.cache "0.6.4"]
                  [org.clojure/data.priority-map "0.0.7"]
                  [de.uni-koblenz.ist/jgralab "8.0.8"]
@@ -18,7 +18,7 @@
   :jar-exclusions [#"(?:^|/).(svn|hg|git)/"]
   :resource-paths ["resources"]
   :global-vars {*warn-on-reflection* true}
-  :jvm-opts ^:replace ["-Xmx1G"]
+  :jvm-opts ^:replace ["-server" "-XX:+AggressiveOpts" "-Xmx1G"]
   :license {:name "GNU General Public License, Version 3 (or later)"
             :url "http://www.gnu.org/licenses/gpl.html"
             :distribution :repo}
