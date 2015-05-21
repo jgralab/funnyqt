@@ -50,8 +50,12 @@
     (u/errorf "neither helper nor rule: %s" form)))
 
 (def ^{:dynamic true
-       :doc "A map {rule {input output}}."}
+       :doc "An atom holding a map {rule {input output}}. Used internally."}
   *trace*)
+
+(def ^{:dynamic true
+       :doc "A map {rule {input output}} used for initializing *trace* if bound."}
+  *initial-trace* nil)
 
 (defn resolve-in
   "Resolve the inputs `ins` of `rule` (given as keyword) in the transformation trace."
@@ -499,7 +503,7 @@
                           ::rules (list 'quote rules)
                           ::fns   (list 'quote fns)})
        [~@args]
-       (binding [*trace* (atom {})]
+       (binding [*trace* (atom (or *initial-trace* {}))]
          (letfn [~@(vals fns)
                  ~@rule-specs]
            ~@(if main-fn

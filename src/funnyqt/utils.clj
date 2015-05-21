@@ -458,3 +458,12 @@
   (let [^String s (repl/demunge (pr-str (class f)))
         i (.lastIndexOf s (int \/))]
     (subs s (inc i))))
+
+(defn map-nn
+  "map non-nil: Like `map` but return only the seq of values for which (f x) is
+  non-nil.  Thus, the resulting sequence may be shorter than `coll`.  This is
+  actually a transducer variant of (remove nil? (map f coll))."
+  [f coll]
+  (sequence (comp (map f)
+                  (remove nil?))
+            coll))
