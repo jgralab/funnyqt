@@ -28,7 +28,7 @@
               (or (vector? (:disjuncts m))
                   (u/errorf ":disjuncts must be a vector: %s" form))
               (if (contains? m :to)
-                (u/errorf (str ":disjuncts rules may have a :when/:when-let clause "
+                (u/errorf (str ":disjuncts rules may have a :let/:when/:when-let clause "
                                "and a body, but no :to: %s")
                           form)
                 true))
@@ -64,13 +64,31 @@
 
 (defn ^:private rule-as-map [rule]
   (let [[name & body] rule]
-    (assoc (loop [b body, v []]
+    (assoc (loop [b body, v [], constrs-and-bindings []]
              (if (seq b)
-               (if (keyword? (first b))
-                 (recur (nnext b) (conj v (first b) (second b)))
-                 (apply hash-map (conj v :body b)))
-               (apply hash-map v)))
-      :name name)))
+               (do
+                 (when (and (keyword? (first b))
+                            (not (#{:from :let :to :when :when-let :body :disjuncts :id
+                                    :dup-id-eval}
+                                  (first b))))
+                   (u/errorf "Unknown clause in rule %s: %s %s" name (first b) (second b)))
+                 (cond
+                   (#{:let :when-let :when} (first b))
+                   (recur (nnext b)
+                          v
+                          (conj constrs-and-bindings (first b) (second b)))
+                   ;;---
+                   (keyword? (first b))
+                   (recur (nnext b)
+                          (conj v (first b) (second b))
+                          constrs-and-bindings)
+                   ;;---
+                   :else (recur nil (conj v :body b) constrs-and-bindings)))
+               (let [m (apply hash-map v)]
+                 (if (seq constrs-and-bindings)
+                   (assoc m :cs-and-bs constrs-and-bindings)
+                   m))))
+           :name name)))
 
 (defn ^:private make-disjunct-rule-calls [arg-vec gens]
   (map (fn [w] `(apply ~w ~arg-vec)) gens))
@@ -146,7 +164,6 @@
         retval (if (= (count created) 1)
                  (first created)
                  created)
-        wl-vars (map first (partition 2 (:when-let rule-map)))
         existing (gensym "existing")
         [id id-exp] (:id rule-map)
         id-form (fn [body]
@@ -169,57 +186,55 @@
                                `[(swap! *trace* update-in [~(keyword (:name rule-map))]
                                         assoc ~id ~retval)])
                            ret#))
-        when-let-form (fn [body]
-                        (if (:when-let rule-map)
-                          `(let ~(vec (:when-let rule-map))
-                             (when (and ~@wl-vars)
-                               ~body))
-                          body))
-        when-when-let-form (fn [body]
-                             (if (:when rule-map)
-                               `(when ~(or (:when rule-map) true)
-                                  ~(when-let-form body))
-                               (when-let-form body)))]
-    (when-let [uks (seq (disj (set (keys rule-map))
-                              :name :from :let :to :when :when-let :body :disjuncts :id
-                              :dup-identity-eval))]
-      (u/errorf "Unknown keys in rule: %s" uks))
+        handle-cs-and-bs (fn [body]
+                           (loop [cab (reverse (partition 2 (:cs-and-bs rule-map)))
+                                  form body]
+                             (if (seq cab)
+                               (let [[k v] (first cab)]
+                                 (recur (next cab)
+                                        (condp = k
+                                          :let `(let ~v ~form)
+                                          :when-let `(let ~v
+                                                       (when (and ~@(map first (partition 2 v)))
+                                                         ~form))
+                                          :when `(when ~v
+                                                   ~form))))
+                               form)))
+        handle-type-constrs (fn [body]
+                              `(when (and ~@(type-constrs a-t-m false))
+                                 ~body))]
     `(~(:name rule-map) ~arg-vec
       ~(id-form
         (if-let [d (:disjuncts rule-map)]
           (let [drs (disjunct-rules rule-map)
-                d (take-last 2 d)
-                result-spec (if (= :result (first d))
-                              (second d)
-                              (gensym "disj-rule-result"))
-                disj-calls-and-body `(let [r# (or ~@(make-disjunct-rule-calls arg-vec drs))]
-                                       (when-let [~result-spec r#]
-                                         (let ~(vec (:let rule-map))
-                                           ~@(:body rule-map)
-                                           r#)))]
-            `(when (and ~@(type-constrs a-t-m false)
-                        ~(or (:when rule-map) true))
-               ~(if (:when-let rule-map)
-                  `(when-let ~(:when-let rule-map)
-                     ~disj-calls-and-body)
-                  disj-calls-and-body)))
+                result-spec (let [r (take-last 2 d)]
+                              (if (= :result (first r))
+                                (second r)
+                                (gensym "disj-rule-result")))
+                handle-disj-calls (fn [body]
+                                    `(when-let [~result-spec (or ~@(make-disjunct-rule-calls
+                                                                    arg-vec drs))]
+                                       ~@body
+                                       ~result-spec))]
+            (handle-type-constrs
+             (handle-cs-and-bs
+              (handle-disj-calls (:body rule-map)))))
           `(let [~existing (resolve-in ~(keyword (:name rule-map))
-                                       ~(if (:id rule-map)
-                                          id trace-src))]
+                                       ~(if (:id rule-map) id trace-src))]
              ~(if (and (:id rule-map)
-                       (:dup-identity-eval rule-map))
+                       (:dup-id-eval rule-map))
                 `(if (and ~existing (not (contains? @*trace* ~trace-src)))
-                   ~(when-when-let-form
+                   ~(handle-cs-and-bs
                      (if (seq created)
-                       `(let ~(vec (concat (:let rule-map)
-                                           [retval existing]))
+                       `(let ~[retval existing]
+                          ~@(:body rule-map)
                           ~retval)
                        `(do ~@(:body rule-map))))
                    (when ~(type-constrs a-t-m true)
-                     ~(when-when-let-form creation-form)))
+                     ~(handle-cs-and-bs creation-form)))
                 `(or ~existing
-                     (when ~(type-constrs a-t-m true)
-                       ~(when-when-let-form creation-form))))))))))
+                     ~(handle-type-constrs
+                       (handle-cs-and-bs creation-form))))))))))
 
 (defmacro deftransformation
   "Creates a model-to-model transformation named `name` with the declared
@@ -244,7 +259,7 @@
     (a2b
       :from [a 'InClass, x]
       :id   [id [(aval a :name) x]]
-      :dup-identity-eval true
+      :dup-id-eval true
       :when (some-predicate? a)
       :when-let [v (some-fn a)]
       :let  [y (some-other-fn a x)
@@ -265,17 +280,18 @@
   elements' identity to the elements created in that rule.  :id is optional.
   By default, if the rule is called again with different elements that have the
   same identity, the results of the first evaluation are immediately returned.
-  If :dup-identity-eval is true and the rule is called with different elements
-  that have the same identity, then the constraints are checked
-  again, :let-bindings are established, the existing output elements are
-  retrieved and bound to the vars in :to (without creating new elements), and
-  then the body is evaluated again (with the new similar input elements and the
-  old existing output elements).  This can be used to merge duplicate elements
-  in the source to one canonical output element that subsumes the properties of
-  all input elements.  To distinguish if body is evaluated the first time or an
-  additional time for a similar element, check if (resolve-in :rule-name id)
-  returns nil.  If so, it's the first time.  Else, it's an additional time and
-  you might want to use only add!-operations and no set!-operations.
+  If :dup-id-eval is true and the rule is called with different elements that
+  have the same identity, then the constraints are checked again, :let-bindings
+  are established, the existing output elements are retrieved and bound to the
+  vars in :to (without creating new elements nor setting properties as
+  specified by the output elements' prop-maps), and then the body is evaluated
+  again (with the new similar input elements and the old existing output
+  elements).  This can be used to merge duplicate elements in the source to one
+  canonical output element that subsumes the properties of all input elements.
+  To distinguish if body is evaluated the first time or an additional time for
+  a similar element, check if (resolve-in :rule-name id) returns nil.  If so,
+  it's the first time.  Else, it's an additional time and you might want to use
+  only add!-operations and no set!-operations.
 
   :when constrains the input elements to those satisfying some predicate.
   The :when clause is optional.
@@ -400,7 +416,8 @@
   In that example, it is obvious that rule1 creates just one target element for
   two given input elements, whereas rule2 creates two output elements for one
   given input element.  In other words, rule1 has 2 elements declared in :from
-  and 2 elements in :to, and for rule2 it's the other way round.
+  and 1 element in :to, and for rule2 it's the other way round.  (Actually,
+  rule1 could also have no :to clause but returned out1.)
 
   Transformation Inheritance
   ==========================
@@ -475,14 +492,21 @@
         main-fn (get fns 'main)
         collect-type-specs (fn ct [rule-map]
                              (if-let [disj-rules (disjunct-rules rule-map)]
-                               (let [specs (set (map (comp ct rule-by-name) disj-rules))]
-                                 (if (= 1 (count specs))
-                                   (first specs)
-                                   (vec specs)))
-                               ;; `the` is ok cause top-level rules have just one arg.
-                               (q/the (remove nil? (vals (args-types-map (:from rule-map)))))))
-        type-spec (vec (cons :or (distinct (remove nil? (map collect-type-specs
-                                                             (vals top-rules))))))
+                               (let [own-spec (q/the (vals (args-types-map
+                                                            (:from rule-map))))
+                                     specs (set (map (comp ct rule-by-name) disj-rules))]
+                                 (or own-spec
+                                     (if (= 1 (count specs))
+                                       (first specs)
+                                       (cons :or (vec specs)))))
+                               ;; `the` is ok cause top-level rules have only one input element
+                               (q/the (vals (args-types-map (:from rule-map))))))
+        type-spec (let [specs (distinct (map collect-type-specs
+                                             (vals top-rules)))]
+                    (if (q/member? specs nil)
+                      nil ;; Some rule is applicable to any elements, so we
+                          ;; cannot restrict on type
+                      (vec (cons :or specs))))
         rule-specs (map (partial convert-rule outs) (vals rules))
         elem-var (gensym "elem")]
     (when-not (or main-fn (seq top-rules))

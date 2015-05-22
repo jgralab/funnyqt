@@ -67,14 +67,16 @@ With no args, returns a transducer."
     false))
 
 (defn the
-  "Returns the only element of seq `s` (which satisfies `pred`) and errors if
-  `s` contains more or less elements."
+  "Returns the only element of sequable `s` (which satisfies `pred`) and errors
+  if `s` contains more or less elements."
   ([s]
-     (if-let [f (first s)]
-       (if (next s)
-         (u/errorf "seq contains more than one element: %s" (print-str s))
-         f)
-       (u/error "seq contains zero elements!")))
+   (let [s (seq s)
+         f (nth s 0 ::not-found)]
+     (if (= f ::not-found)
+       (u/errorf "Seq contains zero elements!")
+       (if (= ::not-found (nth (rest s) 0 ::not-found))
+         f
+         (u/errorf "Seq contains more than one element!")))))
   ([pred s]
      (the (filter pred s))))
 
@@ -130,13 +132,13 @@ With no args, returns a transducer."
   ([] false)
   ([x] x)
   ([x y & more]
-     (if (seq more)
-       `(xor ~(last more)
-             (xor ~@(butlast more) ~x ~y))
-       `(let [x# ~x, y# ~y]
-          (if x#
-            (if y# false x#)
-            (if y# y# false))))))
+   (if (seq more)
+     `(xor ~(last more)
+           (xor ~@(butlast more) ~x ~y))
+     `(let [x# ~x, y# ~y]
+        (if x#
+          (if y# false x#)
+          (if y# y# false))))))
 
 (defn xor*
   "Logical XOR: returns true iff an odd number of arguments is true.
