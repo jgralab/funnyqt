@@ -169,17 +169,17 @@
                                `[(swap! *trace* update-in [~(keyword (:name rule-map))]
                                         assoc ~id ~retval)])
                            ret#))
-        when-let-form (fn [creation-form]
+        when-let-form (fn [body]
                         (if (:when-let rule-map)
                           `(let ~(vec (:when-let rule-map))
                              (when (and ~@wl-vars)
-                               ~creation-form))
-                          creation-form))
-        when-when-let-form (fn [when-let-form]
+                               ~body))
+                          body))
+        when-when-let-form (fn [body]
                              (if (:when rule-map)
                                `(when ~(or (:when rule-map) true)
-                                  ~when-let-form)
-                               when-let-form))]
+                                  ~(when-let-form body))
+                               (when-let-form body)))]
     (when-let [uks (seq (disj (set (keys rule-map))
                               :name :from :let :to :when :when-let :body :disjuncts :id
                               :dup-identity-eval))]
@@ -223,7 +223,8 @@
 
 (defmacro deftransformation
   "Creates a model-to-model transformation named `name` with the declared
- `in-models`, `out-models`, and optional additional `args`.  For example,
+  input, output, input-output models, and further arguments in `args`.  For
+  example,
 
     (deftransformation foo2bar [^:in in1 ^:in in2 ^:out out x y z]
       ...)
