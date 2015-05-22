@@ -429,7 +429,7 @@
   the same order as the extended transformations, plus optionally some more
   parameters."
 
-  {:arglists '([name [[& in-models] [& out-models] & args] extends-clause? & rules-and-fns])}
+  {:arglists '([name [args] extends-clause? & rules-and-fns])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [args more] (if (vector? (first more))
