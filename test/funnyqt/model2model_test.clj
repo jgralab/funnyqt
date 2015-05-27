@@ -70,7 +70,15 @@
    :id   [id (str (emf/eget m :firstName) " "
                   (emf/eget (family m) :lastName))]
    :when (male? m)
-   :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}]
+   ;; This nonsense is just here to test that there may be multiple
+   ;; :let/:when/:when-let clauses.
+   :let [x m]
+   :when (male? x)
+   :let [y x]
+   :when [y]
+   :when-let [z y
+              foo z]
+   :to   [p 'Male :in out {:wife (when-let [w (wife z)] (member2female w))}]
    (is (= p (resolve-in :member2male m))))
   (member2female
    :from [m 'Member]
