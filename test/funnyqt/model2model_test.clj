@@ -47,7 +47,8 @@
   (make-address
    :from [street town]
    :to [adr 'Address {:street street
-                      :town town}])
+                      :town town}]
+   (is (= adr (resolve-in :make-address [street town]))))
   (^:top member2person
          :from [m]
          :disjuncts [member2male member2female :result p]
@@ -60,7 +61,9 @@
          (gen-tg/->set-address! p (make-address (emf/eget (family m) :street)
                                                 (emf/eget (family m) :town)))
          (when-let [ps (seq (parents-of m))]
-           (gen-tg/->set-parents! p (map member2person ps))))
+           (gen-tg/->set-parents! p (map member2person ps)))
+         (is (= p (or (resolve-in :member2male m)
+                      (resolve-in :member2female m)))))
   (member2male
    :from [m 'Member]
    ;; Just for testing purposes, use the full name as identity rather than the
@@ -68,11 +71,13 @@
    :id   [id (str (emf/eget m :firstName) " "
                   (emf/eget (family m) :lastName))]
    :when (male? m)
-   :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}])
+   :to   [p 'Male :in out {:wife (when-let [w (wife m)] (member2female w))}]
+   (is (= p (resolve-in :member2male m))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))
-   :to   [p 'Female]))
+   :to   [p 'Female]
+   (is (= p (resolve-in :member2female m)))))
 
 (deftest test-families2genealogy
   (let [in (emf/load-resource "test/input/example.families")
@@ -121,18 +126,18 @@
    :from [street town]
    :to [adr 'Address {:street street, :town town}])
   (member2person
-         :from [m]
-         :disjuncts [member2male member2female :result p]
-         (set-value! p :fullName
-                     (str (first-name m) " "
-                          (emf/eget (family m) :lastName)))
-         (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
-                                                    'AgeGroup.CHILD
-                                                    'AgeGroup.ADULT)))
-         (g/set-adj! p :address (make-address (emf/eget (family m) :street)
-                                              (emf/eget (family m) :town)))
-         (when-let [ps (seq (parents-of m))]
-           (g/set-adjs! p :parents (map member2person ps))))
+   :from [m]
+   :disjuncts [member2male member2female :result p]
+   (set-value! p :fullName
+               (str (first-name m) " "
+                    (emf/eget (family m) :lastName)))
+   (set-value! p :ageGroup (enum-constant p (if (< (emf/eget m :age) 18)
+                                              'AgeGroup.CHILD
+                                              'AgeGroup.ADULT)))
+   (g/set-adj! p :address (make-address (emf/eget (family m) :street)
+                                        (emf/eget (family m) :town)))
+   (when-let [ps (seq (parents-of m))]
+     (g/set-adjs! p :parents (map member2person ps))))
   (member2male
    :from [m 'Member]
    :when (male? m)

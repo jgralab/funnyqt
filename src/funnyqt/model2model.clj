@@ -58,9 +58,25 @@
   *initial-trace* nil)
 
 (defn resolve-in
-  "Resolve the inputs `ins` of `rule` (given as keyword) in the transformation trace."
-  [rule ins]
-  (get-in @*trace* [rule ins]))
+  "Resolve the input `in` of `rule` (given as keyword) in the transformation
+  trace.  If the `rule` has only one input element, that has to be provided.
+  If it has multiple input elements, a vector containing all of them in the
+  order of the rule's :from clause has to be provided.  The return value is
+  either the single output element of `rule` or a vector of output elements in
+  the order of the rule's :to clause if the rule creates many output elements.
+  If the rule has no :to clause at all, then the value of the rule's body is
+  returned.
+
+  Note that resolve-in doesn't work for disjunctive rules because those have no
+  trace mappings themselves and just delegate to the disjunct rules.
+
+  Also note that resolve-in is seldomly useful because (some-rule in) either
+  transforms `in` or resolves it if it has been transformed already.  The only
+  place where resolve-in is really needed is with rules with :id
+  and :dup-id-eval clauses where one wants to test in the body if the current
+  in elements have already been transformed."
+  [rule in]
+  (get-in @*trace* [rule in]))
 
 (defn ^:private rule-as-map [rule]
   (let [[name & body] rule]
@@ -201,8 +217,11 @@
                                                    ~form))))
                                form)))
         handle-type-constrs (fn [body]
-                              `(when (and ~@(type-constrs a-t-m false))
-                                 ~body))]
+                              (let [tcs (type-constrs a-t-m false)]
+                                (if (seq tcs)
+                                  `(when (and ~@tcs)
+                                     ~body)
+                                  body)))]
     `(~(:name rule-map) ~arg-vec
       ~(id-form
         (if-let [d (:disjuncts rule-map)]
@@ -410,14 +429,15 @@
   of the form:
 
     {:rule1 {[in1 in2] out1, ...}
-     :rule2 {[in] [out1 out2], ...}
+     :rule2 {in [out1 out2], ...}
      ...}
 
   In that example, it is obvious that rule1 creates just one target element for
   two given input elements, whereas rule2 creates two output elements for one
   given input element.  In other words, rule1 has 2 elements declared in :from
-  and 1 element in :to, and for rule2 it's the other way round.  (Actually,
-  rule1 could also have no :to clause but returned out1.)
+  and 1 element in :to, and for rule2 it's the other way round.  (Actually, the
+  rules could also have no :to clauses but returned out1 or [out1 out2],
+  respectively.)
 
   Transformation Inheritance
   ==========================
