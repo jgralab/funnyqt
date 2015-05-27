@@ -51,10 +51,9 @@
    (is (= adr (resolve-in :make-address [street town]))))
   (^:top member2person
          :from [m]
-         :disjuncts [member2male member2female :result p]
-         (gen-tg/set-fullName! p
-                               (str (first-name m) " "
-                                    (emf/eget (family m) :lastName)))
+         :disjuncts [member2male member2female :as p]
+         (gen-tg/set-fullName! p (str (first-name m) " "
+                                      (emf/eget (family m) :lastName)))
          (gen-tg/set-ageGroup! p (enum-constant p (if (< (emf/eget m :age) 18)
                                                     'AgeGroup.CHILD
                                                     'AgeGroup.ADULT)))
@@ -127,7 +126,7 @@
    :to [adr 'Address {:street street, :town town}])
   (member2person
    :from [m]
-   :disjuncts [member2male member2female :result p]
+   :disjuncts [member2male member2female :as p]
    (set-value! p :fullName
                (str (first-name m) " "
                     (emf/eget (family m) :lastName)))

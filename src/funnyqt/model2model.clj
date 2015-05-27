@@ -23,6 +23,9 @@
            (if-not (contains? m :from)
              (u/errorf "Rules must contain a :from clause: %s" form)
              true)
+           (if-not (or (contains? m :to) (contains? m :disjuncts))
+             (u/errorf "Rules must contain either a :to or a :disjuncts clause: %s" form)
+             true)
            (if (contains? m :disjuncts)
              (and
               (or (vector? (:disjuncts m))
@@ -84,8 +87,7 @@
              (if (seq b)
                (do
                  (when (and (keyword? (first b))
-                            (not (#{:from :let :to :when :when-let :body :disjuncts :id
-                                    :dup-id-eval}
+                            (not (#{:from :let :to :when :when-let :disjuncts :id :dup-id-eval}
                                   (first b))))
                    (u/errorf "Unknown clause in rule %s: %s %s" name (first b) (second b)))
                  (cond
@@ -167,7 +169,12 @@
                    v)))))
 
 (defn ^:private disjunct-rules [rule-map]
-  (seq (take-while #(not= :result %) (:disjuncts rule-map))))
+  (seq (take-while (fn [x]
+                     (when-not (or (symbol? x)
+                                   (= x :as))
+                       (u/errorf "Invalid :disjuncts spec (%s): %s" x (:disjuncts rule-map)))
+                     (not= :as x))
+                   (:disjuncts rule-map))))
 
 (defn ^:private convert-rule [outs rule-map]
   (let [a-t-m (args-types-map (:from rule-map))
@@ -186,22 +193,14 @@
                   (if id
                     `(let [~id ~id-exp] ~body)
                     body))
-        creation-form (if (seq created)
-                        `(let ~(vec (concat (:let rule-map) create-vec))
-                           (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~trace-src ~retval)
-                           ~@(when (:id rule-map)
-                               `[(swap! *trace* update-in [~(keyword (:name rule-map))]
-                                        assoc ~id ~retval)])
-                           ~@(:body rule-map)
-                           ~retval)
-                        `(let [ret# (do ~@(:body rule-map))]
-                           (swap! *trace* update-in [~(keyword (:name rule-map))]
-                                  assoc ~trace-src ret#)
-                           ~@(when (:id rule-map)
-                               `[(swap! *trace* update-in [~(keyword (:name rule-map))]
-                                        assoc ~id ~retval)])
-                           ret#))
+        creation-form `(let ~create-vec
+                         (swap! *trace* update-in [~(keyword (:name rule-map))]
+                                assoc ~trace-src ~retval)
+                         ~@(when (:id rule-map)
+                             `[(swap! *trace* update-in [~(keyword (:name rule-map))]
+                                      assoc ~id ~retval)])
+                         ~@(:body rule-map)
+                         ~retval)
         handle-cs-and-bs (fn [body]
                            (loop [cab (reverse (partition 2 (:cs-and-bs rule-map)))
                                   form body]
@@ -227,7 +226,7 @@
         (if-let [d (:disjuncts rule-map)]
           (let [drs (disjunct-rules rule-map)
                 result-spec (let [r (take-last 2 d)]
-                              (if (= :result (first r))
+                              (if (= :as (first r))
                                 (second r)
                                 (gensym "disj-rule-result")))
                 handle-disj-calls (fn [body]
@@ -364,8 +363,7 @@
   called rule's :to clause creates only one object, the result of a call is
   this object.  If its :to clause creates multiple objects, the result of a
   call is a vector of the created objects in the order of their declaration
-  in :to.  The :to clause is optional, though.  If omitted, the last expression
-  in the rule's body is treated as its return value.
+  in :to.
 
   Disjunctive Rules
   =================
@@ -375,28 +373,28 @@
 
     (x2y
       :from [x]
-      :disjuncts [a2b c2d ... :result y]
+      :disjuncts [a2b c2d ... :as y]
       (optional-body-using y))
 
-  Disjunctive rules mustn't have a :to clause, but :when/:when-let are
+  Disjunctive rules mustn't have a :to clause, but :let/:when/:when-let are
   supported.  When a disjunctive rule is applied, it tries the given disjunct
   rules in the declared order.  The first one whose constraints and :from type
-  match gets applied.  An optional :result spec may be the last thing in
+  match gets applied.  An optional :as clause may be the last thing in
   the :disjuncts vector.  If a disjunct rule could be applied, the result is
-  bound to that spec and can be used in the optional body.  The spec may be a
-  symbol or any destructuring form supported by let.
+  bound to that clause's var and can be used in the optional body.  The spec
+  may be a symbol or any destructuring form supported by let.
 
   Top-level Rules
   ===============
 
-  At least one rule has to be declared top-level using ^:top metadata:
+  A rule can be declared as top-level rule using ^:top metadata:
 
     (^:top a2b
        :from [a 'A]
        ;; same as above
        ...)
 
-  When the transformation gets executed, top-level rules are applied to
+  When the transformation gets executed, all top-level rules are applied to
   matching elements automatically (unless there's a main function; see below).
   All other rules have to be called from the top-level rules explicitly.
   Top-level rules must have exactly one element declared in their :from clause.
@@ -417,10 +415,8 @@
 
   So you usually have either top-level rules or a `main` function.  The former
   is simpler and usually suffices while the latter provides more control to the
-  user.  For example, there may be cases where some entry rule has to be called
-  with model elements that are sorted topologically, or your transformation
-  needs to bind additional dynamic vars.  In such cases, defining a `main`
-  function allows you to do so.
+  user.  For example, a transformation needs to bind additional dynamic vars.
+  In this case, defining a `main` function allows you to do so.
 
   Transformation Trace
   ====================
@@ -435,9 +431,7 @@
   In that example, it is obvious that rule1 creates just one target element for
   two given input elements, whereas rule2 creates two output elements for one
   given input element.  In other words, rule1 has 2 elements declared in :from
-  and 1 element in :to, and for rule2 it's the other way round.  (Actually, the
-  rules could also have no :to clauses but returned out1 or [out1 out2],
-  respectively.)
+  and 1 element in :to, and for rule2 it's the other way round.
 
   Transformation Inheritance
   ==========================
