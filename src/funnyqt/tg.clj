@@ -618,7 +618,8 @@ functions `record` and `enum-constant`."
 ;;## Access by ID
 
 (defn id
-  "Returns this element's ID."
+  "Returns this element's ID.
+For a Graph it is a string, for vertices and edges its an integer."
   [elem]
   (condp instance? elem
     GraphElement (.getId ^GraphElement elem)
