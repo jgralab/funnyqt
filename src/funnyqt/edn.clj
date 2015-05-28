@@ -10,11 +10,32 @@
             [funnyqt.emf :as emf]
             [funnyqt.tg  :as tg])
   (:import (org.eclipse.emf.ecore.resource Resource ResourceSet)
-           (org.eclipse.emf.ecore EObject)))
+           (org.eclipse.emf.ecore EObject)
+           (org.eclipse.emf.common.util URI)))
 
 ;;# Writing EDN
 
 ;;## Public API
+
+(def ^:dynamic *edn-emf-store-resources-by-simple-name*
+  "If true, store references to EMF resources as simple names only.
+  If false, store such references as URIs.
+
+  Storing as simple names makes the EDN representation agnostic from the actual
+  paths where the resources reside, i.e., even after a resource has been moved,
+  the EDN data is still readable.  However, you can't have links to different
+  resources with have the same simple name but are located in different
+  directories.
+
+  Storing as URIs considers the complete path (including file name).  Thus, you
+  can store references to resources with the same simple name residing in
+  different folders.  However, moving a resource will make the EDN unreadable.
+
+  In both cases, renaming a resource makes the EDN unreadable.  In an ideal
+  world, resources would have a unique identifier that gets intialized when a
+  resource is created and then never changes afterwards, but that's just
+  dreaming."
+  true)
 
 (defprotocol IWriteEDN
   "Protocol for writing data as EDN.
@@ -133,10 +154,18 @@
     (.write out "#funnyqt.tg/Edge ")
     (write-edn [(tg/graph e) (tg/id e)] out))
   ;; EMF Resources and EObjects
+  URI
+  (write-edn [uri ^java.io.Writer out]
+    (.write out "#funnyqt.emf/URI ")
+    (write-edn (.toString uri) out))
   Resource
   (write-edn [r ^java.io.Writer out]
     (.write out "#funnyqt.emf/Resource ")
-    (write-edn (.toString (.getURI r)) out))
+    (let [uri (.getURI r)]
+      (write-edn (if *edn-emf-store-resources-by-simple-name*
+                   (.lastSegment uri)
+                   uri)
+                 out)))
   ResourceSet
   (write-edn [rs ^java.io.Writer out]
     (.write out "#funnyqt.emf/ResourceSet ")
@@ -168,11 +197,13 @@
 (defn ^:private edn-tg-edge-reader [[g eid]]
   (tg/edge g eid))
 
-(defn ^:private edn-emf-resource-reader [uri]
-  (let [uri (org.eclipse.emf.common.util.URI/createURI uri)
+(defn ^:private edn-emf-resource-reader [uri-or-filename]
+  (let [matches? (if (instance? URI uri-or-filename)
+                   #(= uri-or-filename %)
+                   #(= uri-or-filename (.lastSegment ^URI %)))
         rs (filter (fn [m]
                      (and (instance? Resource m)
-                          (= uri (.getURI ^Resource m))))
+                          (matches? (.getURI ^Resource m))))
                    (concat *models*
                            (sequence (comp (filter #(instance? ResourceSet %))
                                            (mapcat (fn [^ResourceSet rs]
@@ -180,7 +211,7 @@
                                      *models*)))]
     (if (seq rs)
       (first rs)
-      (u/errorf "No Resource for URI %s" uri))))
+      (u/errorf "No Resource for URI %s" uri-or-filename))))
 
 (defn ^:private edn-emf-resource-set-reader [set-of-resources]
   (q/the (fn [m]
@@ -191,6 +222,9 @@
 
 (defn ^:private edn-emf-eobject-reader [[^Resource resource fragment]]
   (.getEObject resource fragment))
+
+(defn ^:private edn-emf-uri-reader [uri]
+  (URI/createURI uri))
 
 ;;## Public API
 
@@ -205,7 +239,8 @@
    'funnyqt.tg/Edge         #'edn-tg-edge-reader
    'funnyqt.emf/Resource    #'edn-emf-resource-reader
    'funnyqt.emf/ResourceSet #'edn-emf-resource-set-reader
-   'funnyqt.emf/EObject     #'edn-emf-eobject-reader})
+   'funnyqt.emf/EObject     #'edn-emf-eobject-reader
+   'funnyqt.emf/URI         #'edn-emf-uri-reader})
 
 (defn read
   "Read and return one object from `stream` and consider references into/to `models`.

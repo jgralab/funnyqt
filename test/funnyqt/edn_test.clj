@@ -93,7 +93,7 @@
     (is (= vs rvs))
     (is (= es res))))
 
-(deftest test-edn-emf
+(defn emf-edn-test []
   (let [r test-resource
         rr1 (edn-roundtrip r test-resource)
         ;; We can also retrieve a resourse out of a resource set
@@ -110,3 +110,11 @@
     (is (= rs rrs))
     (is (= eos-r reos-r))
     (is (= eos-rs reos-rs))))
+
+(deftest test-edn-emf-simple-name
+  (binding [edn/*edn-emf-store-resources-by-simple-name* true]
+    (emf-edn-test)))
+
+(deftest test-edn-emf-uri
+  (binding [edn/*edn-emf-store-resources-by-simple-name* false]
+    (emf-edn-test)))
