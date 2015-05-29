@@ -6,7 +6,7 @@
                  [org.clojure/data.priority-map "0.0.7"]
                  [de.uni-koblenz.ist/jgralab "8.0.8"]
                  [org.clojure/core.logic "0.8.10"]
-                 [org.flatland/ordered "1.5.2"]
+                 [org.flatland/ordered "1.5.3"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.10.1"]
                  [inflections "0.9.14" :exclusions [org.clojure/clojure]]]
