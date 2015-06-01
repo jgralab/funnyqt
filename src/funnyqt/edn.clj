@@ -181,8 +181,7 @@
 
 (def ^:dynamic *models*
   "Bound to a set of models during calls to `read-edn`, `read-string`, and
-  `read-edn-file`."
-  nil)
+  `slurp`."  nil)
 
 ;;## Internals and Implementation
 
