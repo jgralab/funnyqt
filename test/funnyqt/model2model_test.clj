@@ -52,8 +52,6 @@
   (^:top member2person
          :from [m]
          :disjuncts [member2male member2female :as p]
-         (gen-tg/set-fullName! p (str (first-name m) " "
-                                      (emf/eget (family m) :lastName)))
          (gen-tg/set-ageGroup! p (enum-constant p (if (< (emf/eget m :age) 18)
                                                     'AgeGroup.CHILD
                                                     'AgeGroup.ADULT)))
@@ -79,12 +77,14 @@
    :when [y]
    :when-let [z y
               foo z]
-   :to   [p 'Male :in out {:wife (when-let [w (wife z)] (member2female w))}]
+   :to   [p 'Male :in out {:wife (when-let [w (wife z)] (member2female w))
+                           :fullName id}]
    (is (= p (resolve-in :member2male m))))
   (member2female
    :from [m 'Member]
    :when (not (male? m))
-   :to   [p 'Female]
+   :to   [p 'Female {:fullName (str (emf/eget m :firstName) " "
+                                    (emf/eget (family m) :lastName))}]
    (is (= p (resolve-in :member2female m)))))
 
 (deftest test-families2genealogy
