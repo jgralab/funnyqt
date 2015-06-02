@@ -247,18 +247,22 @@
                                        ~(if (:id rule-map) id trace-src))]
              ~(if (and (:id rule-map)
                        (:dup-id-eval rule-map))
-                `(if (and ~existing (not (contains? @*trace* ~trace-src)))
-                   ~(handle-cs-and-bs
-                     (if (seq created)
-                       `(let ~[retval existing]
-                          ~@(:body rule-map)
-                          ~retval)
-                       `(do ~@(:body rule-map))))
-                   (when ~(type-constrs a-t-m true)
-                     ~(handle-cs-and-bs creation-form)))
-                `(or ~existing
-                     ~(handle-type-constrs
-                       (handle-cs-and-bs creation-form))))))))))
+                `(if (and ~existing (not (resolve-in ~(keyword (:name rule-map)) ~trace-src)))
+                   (let ~[retval existing]
+                     (swap! *trace* update-in [~(keyword (:name rule-map))]
+                            assoc ~trace-src ~retval)
+                     ~@(:body rule-map)
+                     ~retval)
+                   ~(handle-type-constrs
+                     (handle-cs-and-bs creation-form)))
+                `(do
+                   ~@(when (:id rule-map)
+                       `[(when ~existing
+                           (swap! *trace* update-in [~(keyword (:name rule-map))]
+                                  assoc ~trace-src ~existing))])
+                   (or ~existing
+                       ~(handle-type-constrs
+                         (handle-cs-and-bs creation-form)))))))))))
 
 (defmacro deftransformation
   "Creates a model-to-model transformation named `name` with the declared

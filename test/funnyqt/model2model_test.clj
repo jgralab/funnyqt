@@ -69,6 +69,7 @@
    ;; Member element itself.
    :id   [id (str (emf/eget m :firstName) " "
                   (emf/eget (family m) :lastName))]
+   ;;:dup-id-eval true
    :when (male? m)
    ;; This nonsense is just here to test that there may be multiple
    ;; :let/:when/:when-let clauses.
