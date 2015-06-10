@@ -219,7 +219,7 @@
   target-image)
 
 (def ^{:dynamic true
-       :arglists '([archetype])
+       :arglists '([archetypes])
        :doc "Returns the images of the given collection of `archetypes` in the
   image function of the current reference's target class."}
   target-images)
@@ -333,60 +333,81 @@
           ;;---
           :else (u/errorf "Unknown valfn result: %s" valfn))))))
 
-(defn set-adjs!
-  "In model `m` sets the `ref` reference for `cls` elements according to
-  `valfn`, i.e., `valfn` has to return a map {elem refed...} or a seq of
-  tuples ([elem refed]...) where refed is one element if `ref` is single-valued
-  or a seq of elements if `ref` is multi-valued.
+(defn ^:private add-or-set-adjs [m cls ref reffn set-or-add]
+  (let [mm-cls (g/mm-class m cls)
+        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
+        resolve-all-targets-fn (partial map resolve-target-fn)
+        multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
+    (binding [element-image     (fn [arch]
+                                  (image-internal :error mm-cls arch))
+              element-archetype (fn [img]
+                                  (archetype-internal :error mm-cls img))
+              target-image      resolve-target-fn
+              target-images     resolve-all-targets-fn]
+      (let [refs (reffn)]
+        (cond
+          (coll? refs)
+          (doseq [[elem val] refs]
+            ((if multi-valued? (first set-or-add) (second set-or-add))
+             elem ref val))
+          ;;---
+          (fn? refs)
+          (doseq [elem (g/elements m mm-cls)]
+            ((if multi-valued? (first set-or-add) (second set-or-add))
+             elem ref (refs elem))))))))
 
-  In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
+(defn set-adjs!
+  "In model `m`, sets the `ref` reference of `cls` elements according to
+  `reffn`.
+
+  `reffn` must be a function of zero args and has to return either a map {elem
+  refed...}, a collection of tuples ([elem refed]...), or a function of one
+  argument which is applied to every instance of the class declaring the
+  reference and has to return the refed value to be set for the reference of
+  that instance.  In all three cases, refed must be a collection of referenced
+  elements.
+
+  In `reffn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
   returns its image, that is, the instance of the defining class (or subclass)
-  that has been created for the given archetype.  Likewise,
+  that has been created for the given archetype.  The reverse lookup function
+  `funnyqt.extensional/element-archetype` is bound, too.  Likewise,
   `funnyqt.extensional/target-image` is bound to a resolving function for
-  `ref`s target metamodel class, and `funnyqt.extensional/target-images`
-  is bound to a function that resolves all archetypes in a collection according
-  to `ref`s target metamodel class.
+  `ref`s target metamodel class, and `funnyqt.extensional/target-images` is
+  bound to a function that resolves all archetypes in a collection according to
+  `ref`s target metamodel class.
 
   In certain modeling environments, setting adjacencies implies the creation of
   explicit relationships (e.g., in JGraLab).  When using this function, no
   trace mappings are created for those."
   [m cls ref reffn]
-  (let [mm-cls (g/mm-class m cls)
-        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
-        resolve-all-targets-fn (partial map resolve-target-fn)
-        multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
-                                 target-image      resolve-target-fn
-                                 target-images resolve-all-targets-fn]
-                         (doall (reffn)))]
-      ((if multi-valued? g/set-adjs! g/set-adj!) elem ref val))))
+  (add-or-set-adjs m cls ref reffn [g/set-adjs! g/set-adj!]))
 
 (defn add-adjs!
-  "In model `m` adds to the `ref` reference for `cls` elements according to
-  `valfn`, i.e., `valfn` has to return a map {elem refed...} or a seq of
-  tuples ([elem refed]...) where refed is a seq of elements.  `ref` must be
-  multi-valued.
+  "In model `m`, adds to the multi-valued `ref` reference of `cls` elements
+  according to `reffn`.
 
-  In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
+  `reffn` must be a function of zero args and has to return either a map {elem
+  refed...}, a collection of tuples ([elem refed]...), or a function of one
+  argument which is applied to every instance of the class declaring the
+  reference and has to return the refed value to be set for the reference of
+  that instance.  In all three cases, refed must be a collection of referenced
+  elements.
+
+  In `reffn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the metamodel class defining the `ref` (i.e., `cls`)
   returns its image, that is, the instance of the defining class (or subclass)
-  that has been created for the given archetype.  Likewise,
+  that has been created for the given archetype.  The reverse lookup function
+  `funnyqt.extensional/element-archetype` is bound, too.  Likewise,
   `funnyqt.extensional/target-image` is bound to a resolving function for
-  `ref`s target metamodel class, and `funnyqt.extensional/target-images`
-  is bound to a function that resolves all archetypes in a collection according
-  to `ref`s target metamodel class.
+  `ref`s target metamodel class, and `funnyqt.extensional/target-images` is
+  bound to a function that resolves all archetypes in a collection according to
+  `ref`s target metamodel class.
 
   In certain modeling environments, setting adjacencies implies the creation of
   explicit relationships (e.g., in JGraLab).  When using this function, no
   trace mappings are created for those."
   [m cls ref reffn]
-  (let [mm-cls (g/mm-class m cls)
-        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
-        resolve-all-targets-fn (partial map resolve-target-fn)
-        multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
-    (doseq [[elem val] (binding [element-image     (partial image-internal :error mm-cls)
-                                 target-image      resolve-target-fn
-                                 target-images resolve-all-targets-fn]
-                         (doall (reffn)))]
-      (g/add-adjs! elem ref val))))
+  (add-or-set-adjs m cls ref reffn [g/add-adjs!
+                                    (fn [& _]
+                                      (u/errorf "You must not use add-adjs! for single-valued references!"))]))

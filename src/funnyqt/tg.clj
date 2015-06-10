@@ -1342,7 +1342,7 @@ For a Graph it is a string, for vertices and edges its an integer."
       (.addAdjacence v (name role) av))
     v)
   (set-adj! [v1 role v2]
-    (g/set-adjs! v1 role [v2])
+    (g/set-adjs! v1 role (when v2 [v2]))
     v1)
   (add-adjs! [v role vs]
     (if (g/mm-multi-valued-property? (attributed-element-class v) role)

@@ -144,16 +144,16 @@
                            (enum-constant p (if (< (emf/eget mem :age) 18)
                                               'AgeGroup.CHILD
                                               'AgeGroup.ADULT))))))
-    (etg/create-edges! g 'HasSpouse
-                       (fn []
-                         (for [mem (filter wife (emf/eallcontents m 'Member))
-                               :let [w (wife mem)]]
-                           [(family mem) (e/source-image mem) (e/target-image w)])))
-    (etg/create-edges! g 'HasChild
-                       (fn []
-                         (for [child (emf/eallcontents m 'Member)
-                               parent (parents-of child)]
-                           [[child parent] (e/source-image parent) (e/target-image child)])))
+    (etg/set-adjs! g 'Male :wife
+                   (fn []
+                     (fn [male]
+                       (let [mem (e/element-archetype male)]
+                         (e/image g 'Female (wife mem))))))
+    (etg/set-adjs! g 'Person :parents
+                   (fn []
+                     (fn [p]
+                       (let [mem (e/element-archetype p)]
+                         (e/target-images (parents-of mem))))))
     @e/*img*))
 
 (deftest test-families2genealogy-2-extensional
@@ -167,5 +167,5 @@
     (is (= 18 (ecount g 'HasChild)))
     (is (=  3 (ecount g 'HasSpouse)))
     (is (= 21 (ecount g 'HasRelative)))
-    (./print-model g :gtk)
+    #_(./print-model g :gtk)
     ))
