@@ -330,6 +330,10 @@
   (mm-element-classes [rs]
     (eclasses rs)))
 
+(extend-protocol g/IMMElementClass
+  EClass
+  (mm-element-class? [_] true))
+
 (extend-protocol g/IMMClass
   EClass
   (mm-class? [this] true)

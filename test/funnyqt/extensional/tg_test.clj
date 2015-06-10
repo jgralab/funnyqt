@@ -120,3 +120,52 @@
     (is (= 21 (ecount g 'HasRelative)))
     #_(show-graph g)
     ))
+
+(defn families2genealogy-2 [m g]
+  (e/with-trace-mappings
+    (etg/create-vertices! g 'Male
+                          (fn []
+                            (filter male?
+                                    (emf/eallcontents m 'Member))))
+    (etg/create-vertices! g 'Female
+                          (fn []
+                            (filter (complement male?)
+                                    (emf/eallcontents m 'Member))))
+    (etg/set-values! g 'Person :fullName
+                     (fn []
+                       (fn [p]
+                         (let [mem (e/element-archetype p)]
+                           (str (emf/eget mem :firstName) " "
+                                (emf/eget (family mem) :lastName))))))
+    (etg/set-values! g 'Person :ageGroup
+                     (fn []
+                       (fn [p]
+                         (let [mem (e/element-archetype p)]
+                           (enum-constant p (if (< (emf/eget mem :age) 18)
+                                              'AgeGroup.CHILD
+                                              'AgeGroup.ADULT))))))
+    (etg/create-edges! g 'HasSpouse
+                       (fn []
+                         (for [mem (filter wife (emf/eallcontents m 'Member))
+                               :let [w (wife mem)]]
+                           [(family mem) (e/source-image mem) (e/target-image w)])))
+    (etg/create-edges! g 'HasChild
+                       (fn []
+                         (for [child (emf/eallcontents m 'Member)
+                               parent (parents-of child)]
+                           [[child parent] (e/source-image parent) (e/target-image child)])))
+    @e/*img*))
+
+(deftest test-families2genealogy-2-extensional
+  (let [g (new-graph (load-schema "test/input/genealogy-schema.tg"))
+        m (emf/load-resource "test/input/example.families")]
+    #_(clojure.pprint/pprint (families2genealogy-2 m g))
+    (families2genealogy-2 m g)
+    (is (= 13 (vcount g 'Person)))
+    (is (=  7 (vcount g 'Female)))
+    (is (=  6 (vcount g 'Male)))
+    (is (= 18 (ecount g 'HasChild)))
+    (is (=  3 (ecount g 'HasSpouse)))
+    (is (= 21 (ecount g 'HasRelative)))
+    (./print-model g :gtk)
+    ))

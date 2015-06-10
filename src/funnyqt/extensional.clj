@@ -17,6 +17,7 @@
   Don't use that directly but use the special resolving functions
 
     - `funnyqt.extensional/element-image`
+    - `funnyqt.extensional/element-archetype`
     - `funnyqt.extensional/source-image`
     - `funnyqt.extensional/target-image`
     - `funnyqt.extensional/target-images`
@@ -220,31 +221,22 @@
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Returns the images of the given collection of `archetypes` in the
-  image function of the current reference's target class.
-
-  This function is bound in
-
-    - `funnyqt.extensional/set-adjs!`
-    - `funnyqt.extensional/add-adjs!`
-    - `funnyqt.extensional.tg/set-adjs!`
-    - `funnyqt.extensional.tg/add-adjs!`"}
+  image function of the current reference's target class."}
   target-images)
 
 (def ^{:dynamic true
        :arglists '([archetype])
-       :doc "Resolves the image of the given `archetype` in the img function
+       :doc "Resolves the image of the given `archetype` in the image function
   corresponding to the metamodel class for which the current attribute or
-  reference is declared.
-
-  This function is bound in
-
-    - `funnyqt.extensional/set-avals!`
-    - `funnyqt.extensional/set-adjs!`
-    - `funnyqt.extensional/add-adjs!`
-    - `funnyqt.extensional.tg/set-values!`
-    - `funnyqt.extensional.tg/set-adjs!`
-    - `funnyqt.extensional.tg/add-adjs!`"}
+  reference is declared."}
   element-image)
+
+(def ^{:dynamic true
+       :arglists '([image])
+       :doc "Resolves the archetype of the given `image` in the archetype
+  function corresponding to the metamodel class for which the current attribute
+  or reference is declared."}
+  element-archetype)
 
 
 ;;# Creating Elements/Rels & setting Attrs
@@ -310,19 +302,36 @@
 
 (defn set-avals!
   "In model `m` sets the `attr` values for all `cls` elements according to
-  `valfn`, i.e., `valfn` has to return a map {attr-elem attr-value...} or a
-  collection of pairs.
+  `valfn`.  `valfn` is a function of zero arguments which has to return either
+  a map {elem attr-value...}, a collection of pairs [elem attr-value], or a
+  function of one argument which is applied to every instance of the class
+  declaring the attribute and has to return the value to be set for the
+  attribute of that instance.
 
   In `valfn`, `funnyqt.extensional/element-image` is bound to a function that
   given an archetype of the class defining `attr` (i.e., `cls`) returns its
   image, that is, the instance of the defining class (or subclass) that has
-  been created for the given archetype."
+  been created for the given archetype.  Likewise, the reverse function
+  `funnyqt.extensional/element-archetype` is also bound."
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
-    (doseq [[elem val] (binding [element-image (fn [arch]
-                                                 (image-internal :error mm-cls arch))]
-                         (doall (valfn)))]
-      (g/set-aval! elem attr val))))
+    (binding [element-image (fn [arch]
+                              (image-internal :error mm-cls arch))
+              element-archetype (fn [img]
+                                  (archetype-internal :error mm-cls img))]
+      (let [vals (valfn)]
+        (cond
+          (coll? vals)
+          (doseq [[elem val] vals]
+            (g/set-aval! elem attr val))
+          ;;---
+          (fn? vals)
+          (doseq [el (if (g/mm-relationship-class? mm-cls)
+                       (g/relationships m mm-cls)
+                       (g/elements m mm-cls))]
+            (g/set-aval! el attr (vals el)))
+          ;;---
+          :else (u/errorf "Unknown valfn result: %s" valfn))))))
 
 (defn set-adjs!
   "In model `m` sets the `ref` reference for `cls` elements according to

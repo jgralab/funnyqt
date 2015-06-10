@@ -403,6 +403,10 @@ functions `record` and `enum-constant`."
     (let [^GraphClass gc (.getGraphClass schema)]
       (.getVertexClasses gc))))
 
+(extend-protocol g/IMMElementClass
+  VertexClass
+  (mm-element-class? [_] true))
+
 (extend-protocol g/IMMRelationshipClasses
   GraphElementClass
   (mm-relationship-classes [aec]
@@ -412,6 +416,10 @@ functions `record` and `enum-constant`."
   (mm-relationship-classes [schema]
     (let [^GraphClass gc (.getGraphClass schema)]
       (.getEdgeClasses gc))))
+
+(extend-protocol g/IMMRelationshipClass
+  EdgeClass
+  (mm-relationship-class-class? [_] true))
 
 (extend-protocol g/IMMRelationshipClassSourceTarget
   EdgeClass

@@ -379,6 +379,22 @@
     "Returns all relationship classes in the metamodel `mm-or-cls` or in the
     metamodel containing class `mm-or-cls`."))
 
+(defprotocol IMMElementClass
+  (mm-element-class? [obj]
+    "Returns true iff `obj` is an element class."))
+
+(extend-protocol IMMElementClass
+  Object
+  (mm-element-class? [_] false))
+
+(defprotocol IMMRelationshipClass
+  (mm-relationship-class? [obj]
+    "Returns true iff `obj` is a relationship class."))
+
+(extend-protocol IMMRelationshipClass
+  Object
+  (mm-relationship-class? [_] false))
+
 (defprotocol IMMRelationshipClassSourceTarget
   (mm-relationship-class-source [rel-cls]
     "Returns the source element class of the relationship class `rel-cls`.")
