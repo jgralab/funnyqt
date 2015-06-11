@@ -40,6 +40,12 @@
     - `funnyqt.extensional/archetype`"}
   *arch*)
 
+(def ^{:dynamic true
+       :doc "If true, recording of traceability mappings is omitted.  Don't
+  this directly but use the `without-trace-recording` macro."}
+  *omit-trace-recording*
+  false)
+
 ;;# Img/Arch accessors
 
 (defn ^:private image-internal
@@ -141,14 +147,15 @@
   (update-in trace-map [cls] merge new))
 
 (defn ^:private check-trace-mappings [mm-cls new-archs]
-  (when (bound? #'*img*)
+  (if (bound? #'*img*)
     (let [top-classes (top-superclasses mm-cls)]
       (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
                                                        top-classes))
                                    new-archs))]
         (u/errorf
          "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
-         dups (g/qname mm-cls))))))
+         dups (g/qname mm-cls))))
+    (u/errorf "No trace mappings in scope!")))
 
 (defn ^:private check-valid-arch [a]
   (if (nil? a)
@@ -156,9 +163,8 @@
     a))
 
 (defn ^:private add-trace-mappings! [mm-cls img]
-  (when (bound? #'*img*)
-    (swap! *img* into-trace-map mm-cls img))
-  (when (bound? #'*arch*)
+  (when-not *omit-trace-recording*
+    (swap! *img* into-trace-map mm-cls img)
     (swap! *arch* into-trace-map mm-cls (clojure.set/map-invert img))))
 
 ;;# User fns and macros
@@ -183,14 +189,12 @@
        ~@body
        [@*img* @*arch*])))
 
-(defmacro without-trace-mappings
+(defmacro without-trace-recording
   "Executes `body` without recording traceability mappings, then re-establishes
   the previous traceability maps."
   [& body]
-  `(binding [*img*  nil
-             *arch* nil]
-     ~@body
-     [@*img* @*arch*]))
+  `(binding [*omit-trace-recording* true]
+     ~@body))
 
 ;;# Resolution fns
 
