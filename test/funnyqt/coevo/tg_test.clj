@@ -63,8 +63,7 @@
   (coevo/create-vertex-class! g 'Top (fn [] [:t]))
   (coevo/create-vertex-class! g 'Sibling1 (fn [] [:s1]))
   (coevo/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
-  (coevo/create-vertex-class! g 'Bottom (fn [] [:b]))
-  [@e/*arch* @e/*img*])
+  (coevo/create-vertex-class! g 'Bottom (fn [] [:b])))
 
 (deftest test-set-abstract-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -222,9 +221,7 @@
                                                              (e/element-image :b)  "s1-bottom"}))
     (coevo/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/element-image :s2) "s2-s2"
                                                              (e/element-image :b)  "s2-bottom"}))
-    (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/element-image :b)  "b-bottom"}))
-
-    [@e/*arch* @e/*img*]))
+    (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/element-image :b)  "b-bottom"}))))
 
 (deftest test-delete-spec-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -309,8 +306,7 @@
                               (fn []
                                 [[:s12s2 (e/source-image :s1) (e/target-image :s2)]]))
     (coevo/create-specialization! g 'S12T 'S12S2)
-    (coevo/create-specialization! g 'T2S2 'S12S2)
-    [@e/*arch* @e/*img*]))
+    (coevo/create-specialization! g 'T2S2 'S12S2)))
 
 (deftest test-delete-vc-spec-with-conn-ecs-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -366,18 +362,18 @@
 
 (deftest test-aec-renames-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [tvc img arch] (e/with-trace-mappings
-                         (top-sibs-bottom g)
-                         ;; Ensure *img*/*arch* are hash-maps instead of array maps which have no
-                         ;; problem with hash changes in the keys.
-                         (reset! e/*img* (apply hash-map (mapcat identity @e/*img*)))
-                         (reset! e/*arch* (apply hash-map (mapcat identity @e/*arch*)))
-                         (when-not (= clojure.lang.PersistentHashMap
-                                      (class @e/*img*)
-                                      (class @e/*arch*))
-                           (u/errorf "Error during setup of test: *img*/*arch* aren't hash-sets."))
-                         (coevo/rename-attributed-element-class! g 'Top 'T)
-                         [(tg/attributed-element-class g 'T) @e/*img* @e/*arch*])]
+        [img arch] (e/with-trace-mappings
+                     (top-sibs-bottom g)
+                     ;; Ensure *img*/*arch* are hash-maps instead of array maps which have no
+                     ;; problem with hash changes in the keys.
+                     (reset! e/*img* (apply hash-map (mapcat identity @e/*img*)))
+                     (reset! e/*arch* (apply hash-map (mapcat identity @e/*arch*)))
+                     (when-not (= clojure.lang.PersistentHashMap
+                                  (class @e/*img*)
+                                  (class @e/*arch*))
+                       (u/errorf "Error during setup of test: *img*/*arch* aren't hash-sets."))
+                     (coevo/rename-attributed-element-class! g 'Top 'T))
+        tvc (tg/attributed-element-class g 'T)]
     ;; The hash of VC T (formerly Top) changed.  It must still be uplookable in
     ;; *img*/*arch*.
     (is (img tvc))
@@ -389,11 +385,10 @@
 
 (deftest test-ec-delete-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [arch img] (e/with-trace-mappings
+        [img arch] (e/with-merged-trace-mappings
                      (e/with-merged-trace-mappings (delete-vc-ec-spec-base g)
                        ;; Should delete all EdgeClasses and all edges
-                       (coevo/delete-graph-element-class! g 'T2T)
-                       [@e/*arch* @e/*img*]))]
+                       (coevo/delete-graph-element-class! g 'T2T)))]
     (is (= [] (.getEdgeClasses (.getGraphClass (tg/schema g)))))
     (is (= [] (tg/eseq g)))
     (doseq [[k _] arch]
@@ -415,10 +410,9 @@
 
 (deftest test-ec-delete-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [arch img] (e/with-merged-trace-mappings (delete-vc-ec-spec-base g)
+        [img arch] (e/with-merged-trace-mappings (delete-vc-ec-spec-base g)
                      ;; Should delete EdgeClasses T2S2 and S12S2 because that's a subclass.
-                     (coevo/delete-graph-element-class! g 'T2S2)
-                     [@e/*arch* @e/*img*])]
+                     (coevo/delete-graph-element-class! g 'T2S2))]
     (is (= ['T2T 'S12T] (map g/qname (.getEdgeClasses (.getGraphClass (tg/schema g))))))
     (is (q/forall? #(g/has-type? % '[:or T2T S12T]) (tg/eseq g)))
     (doseq [[k _] arch]

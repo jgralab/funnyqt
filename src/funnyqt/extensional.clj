@@ -167,27 +167,30 @@
   "Establishes new, empty traceability maps (`*arch*` and `*img*`), executes
   `body`, and then re-establishes the previous traceability maps."
   [& body]
-  `(binding [*arch* (atom {})
-             *img*  (atom {})]
-     ~@body))
+  `(binding [*img*  (atom {})
+             *arch* (atom {})]
+     ~@body
+     [@*img* @*arch*]))
 
 (defmacro with-merged-trace-mappings
   "Executes `body` with trace mappings being the union of the current and the
-  given `arch-and-img` mappings.  `arch-and-img` must be a vector of the
+  given `img-and-arch` mappings.  `img-and-arch` must be a vector of the
   form [arch img]."
-  [arch-and-img & body]
-  `(let [arch-and-img# ~arch-and-img]
-     (binding [*arch* (atom (merge (if (bound? #'*arch*) @*arch* {}) (first arch-and-img#)))
-               *img*  (atom (merge (if (bound? #'*img*)  @*img*  {}) (second arch-and-img#)))]
-       ~@body)))
+  [img-and-arch & body]
+  `(let [img-and-arch# ~img-and-arch]
+     (binding [*img*  (atom (merge (if (bound? #'*img*)  @*img*  {}) (first img-and-arch#)))
+               *arch* (atom (merge (if (bound? #'*arch*) @*arch* {}) (second img-and-arch#)))]
+       ~@body
+       [@*img* @*arch*])))
 
 (defmacro without-trace-mappings
   "Executes `body` without recording traceability mappings, then re-establishes
   the previous traceability maps."
   [& body]
-  `(binding [*arch* nil
-             *img*  nil]
-     ~@body))
+  `(binding [*img*  nil
+             *arch* nil]
+     ~@body
+     [@*img* @*arch*]))
 
 ;;# Resolution fns
 

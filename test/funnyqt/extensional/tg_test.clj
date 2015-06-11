@@ -102,8 +102,7 @@
                        (fn []
                          (for [child (emf/eallcontents m 'Member)
                                parent (parents-of child)]
-                           [[child parent] (e/source-image parent) (e/target-image child)])))
-    @e/*img*))
+                           [[child parent] (e/source-image parent) (e/target-image child)])))))
 
 (emf/load-ecore-resource "test/input/Families.ecore")
 
@@ -118,8 +117,7 @@
     (is (= 18 (ecount g 'HasChild)))
     (is (=  3 (ecount g 'HasSpouse)))
     (is (= 21 (ecount g 'HasRelative)))
-    #_(show-graph g)
-    ))
+    #_(show-graph g)))
 
 (defn families2genealogy-2 [m g]
   (e/with-trace-mappings
@@ -153,8 +151,7 @@
                    (fn []
                      (fn [p]
                        (let [mem (e/element-archetype p)]
-                         (e/target-images (parents-of mem))))))
-    @e/*img*))
+                         (e/target-images (parents-of mem))))))))
 
 (deftest test-families2genealogy-2-extensional
   (let [g (new-graph (load-schema "test/input/genealogy-schema.tg"))
