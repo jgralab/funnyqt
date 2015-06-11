@@ -169,7 +169,7 @@
 
 ;;# User fns and macros
 
-(defmacro with-trace-mappings
+(defmacro with-new-trace-mappings
   "Establishes new, empty traceability maps (`*arch*` and `*img*`), executes
   `body`, and then re-establishes the previous traceability maps."
   [& body]
@@ -178,16 +178,16 @@
      ~@body
      [@*img* @*arch*]))
 
-(defmacro with-merged-trace-mappings
-  "Executes `body` with trace mappings being the union of the current and the
-  given `img-and-arch` mappings.  `img-and-arch` must be a vector of the
-  form [arch img]."
-  [img-and-arch & body]
-  `(let [img-and-arch# ~img-and-arch]
-     (binding [*img*  (atom (merge (if (bound? #'*img*)  @*img*  {}) (first img-and-arch#)))
-               *arch* (atom (merge (if (bound? #'*arch*) @*arch* {}) (second img-and-arch#)))]
-       ~@body
-       [@*img* @*arch*])))
+(defmacro with-current-trace-mappings
+  "Executes `body` with the current trace mappings in place, i.e., the current
+  ones are altered by `body`.  If there are no mappings in
+  place, (with-current-trace-mappings body) is equivalent
+  to (with-new-trace-mappings body)."
+  [& body]
+  `(if (bound? #'*img*)
+     (do ~@body
+         [@*img* @*arch*])
+     (with-new-trace-mappings ~@body)))
 
 (defmacro without-trace-recording
   "Executes `body` without recording traceability mappings, then re-establishes
@@ -201,28 +201,14 @@
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
-  corresponding to the source element class of the current relationship class.
-
-  This function is bound in
-
-    - `funnyqt.extensional/create-relationships!`
-    - `funnyqt.extensional.tg/create-edges!`"}
+  corresponding to the source element class of the current relationship class."}
   source-image)
 
 (def ^{:dynamic true
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
   corresponding to the target element class of the current relationship class
-  or reference.
-
-  This function is bound in:
-
-    - `funnyqt.extensional/create-relationships!`
-    - `funnyqt.extensional/set-adjs!`
-    - `funnyqt.extensional/add-adjs!`
-    - `funnyqt.extensional.tg/create-edges!`
-    - `funnyqt.extensional.tg/set-adjs!`
-    - `funnyqt.extensional.tg/add-adjs!`"}
+  or reference."}
   target-image)
 
 (def ^{:dynamic true

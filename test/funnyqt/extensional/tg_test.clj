@@ -12,7 +12,7 @@
 
 (deftest test-transformation-1
   (let [g (new-graph (schema rg))]
-    (e/with-trace-mappings
+    (e/with-new-trace-mappings
       (etg/create-vertices! g 'localities.City (fn [] [1 2]))
       (etg/set-values! g 'NamedElement :name
                        (fn []
@@ -35,7 +35,7 @@
   (is (thrown-with-msg?
        Exception #"Bijectivity violation:"
        (let [g (new-graph (schema rg))]
-         (e/with-trace-mappings
+         (e/with-new-trace-mappings
            (etg/create-vertices! g 'localities.City (fn [] [1]))
            ;; This should throw because the archetype 1 is already used.
            (etg/create-vertices! g 'localities.City (fn [] [1])))))))
@@ -44,7 +44,7 @@
   (is (thrown-with-msg?
        Exception #"Bijectivity violation:"
        (let [g (new-graph (schema rg))]
-         (e/with-trace-mappings
+         (e/with-new-trace-mappings
            (etg/create-vertices! g 'City   (fn [] [1 2 3]))
            ;; City and County are both NamedElements, so their archetypes must be
            ;; disjoint.  Thus, the following must fail!
@@ -78,7 +78,7 @@
   (g/adj m :familyFather :mother))
 
 (defn families2genealogy [m g]
-  (e/with-trace-mappings
+  (e/with-new-trace-mappings
     (etg/create-vertices! g 'Male
                           (fn []
                             (filter male?
@@ -120,7 +120,7 @@
     #_(show-graph g)))
 
 (defn families2genealogy-2 [m g]
-  (e/with-trace-mappings
+  (e/with-new-trace-mappings
     (etg/create-vertices! g 'Male
                           (fn []
                             (filter male?
