@@ -169,7 +169,7 @@
 
 ;;# User fns and macros
 
-(defmacro with-new-trace-mappings
+(defmacro with-trace-mappings
   "Establishes new, empty traceability maps (`*arch*` and `*img*`), executes
   `body`, and then re-establishes the previous traceability maps."
   [& body]
@@ -178,16 +178,16 @@
      ~@body
      [@*img* @*arch*]))
 
-(defmacro with-current-trace-mappings
+(defmacro ensure-trace-mappings
   "Executes `body` with the current trace mappings in place, i.e., the current
   ones are altered by `body`.  If there are no mappings in
-  place, (with-current-trace-mappings body) is equivalent
-  to (with-new-trace-mappings body)."
+  place, (ensure-trace-mappings body) is equivalent to (with-trace-mappings
+  body)."
   [& body]
   `(if (bound? #'*img*)
      (do ~@body
          [@*img* @*arch*])
-     (with-new-trace-mappings ~@body)))
+     (with-trace-mappings ~@body)))
 
 (defmacro without-trace-recording
   "Executes `body` without recording traceability mappings, then re-establishes

@@ -33,7 +33,7 @@
   (g/adj m :familyFather :mother))
 
 (defn families2genealogy [m tm]
-  (e/with-new-trace-mappings
+  (e/with-trace-mappings
     (eemf/create-eobjects! tm 'Male
                            (fn []
                              (filter male? (eallcontents m 'Member))))

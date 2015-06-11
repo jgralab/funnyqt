@@ -17,7 +17,7 @@
 
 (deftest test-transformation-0
   (let [g (coevo/empty-graph 'test.transformation2.T2Schema 'T2Graph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (coevo/create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
       (coevo/create-attribute! g 'Person :name 'String "\"Fritz\""
                                (fn [] {(e/element-image 1) "Hugo"
@@ -60,7 +60,7 @@
 (defn ^:private top-sibs-bottom [g]
   (when (seq (.getVertexClasses (.getGraphClass (tg/schema g))))
     (throw (RuntimeException. "BANG")))
-  (e/with-current-trace-mappings
+  (e/ensure-trace-mappings
     (coevo/create-vertex-class! g 'Top (fn [] [:t]))
     (coevo/create-vertex-class! g 'Sibling1 (fn [] [:s1]))
     (coevo/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
@@ -68,7 +68,7 @@
 
 (deftest test-set-abstract-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (top-sibs-bottom g)
       ;; This must fail because Top has a direct instance.
       (is (thrown-with-msg? Exception
@@ -77,7 +77,7 @@
 
 (deftest test-set-abstract-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (top-sibs-bottom g)
       (doseq [t (tg/vseq g 'Top!)]
         (g/delete! t))
@@ -90,7 +90,7 @@
 
 (deftest test-multiple-inheritance-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (top-sibs-bottom g)
       (coevo/create-attribute! g 'Top :name 'String
                                (fn [] {(e/element-image :t) "Top"}))
@@ -111,7 +111,7 @@
     (is (thrown-with-msg?
          Exception
          #"Bottom already has a :name attribute so cannot inherit another one"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Top :name 'String
                                     (fn [] {(e/element-image :t) "Top"}))
@@ -132,7 +132,7 @@
     (is (thrown-with-msg?
          Exception
          #"Bottom tries to inherit two different :name attributes, one from Sibling1 and one from Sibling2"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Sibling1 :name 'String
                                     (fn [] {(e/element-image :s1) "Sib1"}))
@@ -150,7 +150,7 @@
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
     (is (thrown-with-msg?
          Exception #"Sibling1 already has a :name attribute so cannot inherit another one"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-attribute! g 'Top :name 'String
                                     (fn [] {(e/element-image :t) "Top"}))
@@ -167,7 +167,7 @@
     (is (thrown-with-msg?
          Exception
          #"Can't make SubEdge subclass of SuperEdge because SubEdge's source element class Bottom is no subclass of or equal to SuperEdge's source element class Sibling1."
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-edge-class! g 'SuperEdge 'Sibling1 'Sibling2)
            (coevo/create-edge-class! g 'SubEdge 'Bottom 'Sibling2)
@@ -180,7 +180,7 @@
     (is (thrown-with-msg?
          Exception
          #"Can't make SubEdge subclass of SuperEdge because SubEdge's target element class Bottom is no subclass of or equal to SuperEdge's target element class Sibling2."
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (coevo/create-edge-class! g 'SuperEdge 'Sibling1 'Sibling2)
            (coevo/create-edge-class! g 'SubEdge 'Sibling1 'Bottom)
@@ -193,7 +193,7 @@
     (is (thrown-with-msg?
          Exception
          #"Bijectivity violation: can't make SubEdge subclass of SuperEdge because their sets of archetypes are not disjoint. Common archetypes: \(1\)"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (top-sibs-bottom g)
            (etg/create-vertices! g 'Sibling1 (fn [] [1 2 3]))
            (etg/create-vertices! g 'Sibling2 (fn [] [1 2 3]))
@@ -209,7 +209,7 @@
 ;;### Deleting Specializations
 
 (defn delete-vc-spec-base [g]
-  (e/with-current-trace-mappings
+  (e/ensure-trace-mappings
     (top-sibs-bottom g)
     (coevo/create-specialization! g 'Top 'Sibling1)
     (coevo/create-specialization! g 'Top 'Sibling2)
@@ -227,7 +227,7 @@
 
 (deftest test-delete-spec-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (delete-vc-spec-base g)
       (coevo/delete-specialization! g 'Top 'Sibling2))
     (let [s2 (first (tg/vseq g 'Sibling2))
@@ -239,7 +239,7 @@
 
 (deftest test-delete-spec-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (delete-vc-spec-base g)
       (coevo/delete-specialization! g 'Top 'Sibling2)
       (coevo/delete-specialization! g 'Top 'Sibling1))
@@ -272,7 +272,7 @@
     (is (thrown-with-msg?
          SchemaException
          #"Top is no direct superclass of Bottom"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (delete-vc-spec-base g)
            ;; This must fail because Bottom is an indirect subclass of Top.
            (coevo/delete-specialization! g 'Top 'Bottom))))))
@@ -282,14 +282,14 @@
     (is (thrown-with-msg?
          SchemaException
          #"Sibling1 is no direct superclass of Sibling2"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (delete-vc-spec-base g)
            ;; This must fail because Sibling1 and Sibling2 are completely unrelated wrt
            ;; specialization.
            (coevo/delete-specialization! g 'Sibling1 'Sibling2))))))
 
 (defn delete-vc-ec-spec-base [g]
-  (e/with-current-trace-mappings
+  (e/ensure-trace-mappings
     (delete-vc-spec-base g)
     (coevo/create-edge-class! g 'T2T 'Top 'Top
                               (fn []
@@ -316,7 +316,7 @@
     (is (thrown-with-msg?
          SchemaException
          #"Cannot remove superclass Top from Sibling1 because the EdgeClass S12S2 specializes an EdgeClass starting or ending at Sibling1 or one of its superclasses."
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (delete-vc-ec-spec-base g)
            ;; This must fail because Sibling1 has ECs which are derived from an T2T
            ;; from/to Top.
@@ -327,14 +327,14 @@
     (is (thrown-with-msg?
          SchemaException
          #"T2T is no direct superclass of S12S2 so cannot remove it as such."
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (delete-vc-ec-spec-base g)
            ;; This must fail because Bottom is only an indirect subclass of Top
            (coevo/delete-specialization! g 'T2T 'S12S2))))))
 
 (deftest test-delete-ec-spec-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (delete-vc-ec-spec-base g)
       (coevo/delete-specialization! g 'T2T 'T2S2))
     (let [e (first (tg/eseq g 'T2S2))
@@ -346,7 +346,7 @@
 
 (deftest test-aec-renames-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (top-sibs-bottom g)
       (coevo/create-edge-class! g 'Top2Bottom 'Top 'Bottom
                                 (fn []
@@ -365,7 +365,7 @@
 
 (deftest test-aec-renames-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [img arch] (e/with-new-trace-mappings
+        [img arch] (e/with-trace-mappings
                      (top-sibs-bottom g)
                      ;; Ensure *img*/*arch* are hash-maps instead of array maps which have no
                      ;; problem with hash changes in the keys.
@@ -388,7 +388,7 @@
 
 (deftest test-ec-delete-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [img arch] (e/with-current-trace-mappings
+        [img arch] (e/ensure-trace-mappings
                      (delete-vc-ec-spec-base g)
                      ;; Should delete all EdgeClasses and all edges
                      (coevo/delete-graph-element-class! g 'T2T))]
@@ -413,7 +413,7 @@
 
 (deftest test-ec-delete-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
-        [img arch] (e/with-current-trace-mappings
+        [img arch] (e/ensure-trace-mappings
                      (delete-vc-ec-spec-base g)
                      ;; Should delete EdgeClasses T2S2 and S12S2 because that's a subclass.
                      (coevo/delete-graph-element-class! g 'T2S2))]
@@ -442,7 +442,7 @@
          ;; This regex is a bit strange, but I cannot rely on the order on
          ;; which the connected edge classes are reported.
          #"Cannot delete vertex class Top because there are still connected edge classes: \[(S12T|T2S2|T2T), (S12T|T2S2|T2T), (S12T|T2S2|T2T)\]"
-         (e/with-new-trace-mappings
+         (e/with-trace-mappings
            (delete-vc-ec-spec-base g)
            ;; Must not work because there's still the EC T2T connected to Top.
            (coevo/delete-graph-element-class! g 'Top))))))
@@ -454,7 +454,7 @@
                           ;; the order on which the connected edge classes are
                           ;; reported.
                           #"Cannot delete vertex class Sibling1 because there are still connected edge classes: \[(S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2), (S12T|T2S2|T2T|S12S2)\]"
-                          (e/with-new-trace-mappings
+                          (e/with-trace-mappings
                             (delete-vc-ec-spec-base g)
                             ;; Must not work because there's still the ECs S12T S12S2 connected to
                             ;; Sibling1.
@@ -462,7 +462,7 @@
 
 (deftest test-vc-ec-delete-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
-    (e/with-new-trace-mappings
+    (e/with-trace-mappings
       (delete-vc-ec-spec-base g)
       ;; Delete all edge classes
       (coevo/delete-graph-element-class! g 'T2T)
@@ -542,7 +542,7 @@
        (.getAttributeList (tg/attributed-element-class ae))))
 
 (defn delete-attr-1-setup [g]
-  (e/with-new-trace-mappings
+  (e/with-trace-mappings
     (let [abc [:a :b :c :d :e :f :g :h :i :j :k :l :m :n :o :p :q :r :s :t :u :v :w :x :y :z]]
       (coevo/create-vertex-class! g 'Node (fn [] abc))
       (doseq [a abc]
