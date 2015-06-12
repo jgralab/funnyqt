@@ -96,17 +96,19 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
-(def ^:private registry-access-classloader (ClassLoader/getSystemClassLoader))
+(def ^:private registry-access-classloader :current)
 
 (defn set-registry-access-classloader! [cl]
-  (if (instance? ClassLoader cl)
+  (if (or (= cl :current)
+          (instance? ClassLoader cl))
     (alter-var-root #'registry-access-classloader (constantly cl))
     (u/errorf "Can't set registry-access-classloader to non ClassLoader value %s" cl)))
 
 (defmacro ^:private with-registry-access-classloader [& body]
   `(let [^Thread curt# (Thread/currentThread)
          curcl# (.getContextClassLoader curt#)]
-     (if (= curcl# registry-access-classloader)
+     (if (or (= registry-access-classloader :current)
+             (= curcl# registry-access-classloader))
        (do ~@body)
        (do
          (.setContextClassLoader curt# registry-access-classloader)
