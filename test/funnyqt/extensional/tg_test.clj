@@ -8,6 +8,8 @@
   (:use [funnyqt.tg-test :only [rg]])
   (:use clojure.test))
 
+(emf/load-ecore-resource "test/input/Families.ecore")
+
 ;;# Misc tests
 
 (deftest test-transformation-1
@@ -146,7 +148,7 @@
                    (fn []
                      (fn [male]
                        (let [mem (e/element-archetype male)]
-                         (e/image g 'Female (wife mem))))))
+                         (e/target-image (wife mem))))))
     (etg/set-adjs! g 'Person :parents
                    (fn []
                      (fn [p]

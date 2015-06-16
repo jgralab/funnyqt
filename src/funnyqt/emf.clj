@@ -96,7 +96,10 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
-(def ^:private registry-access-classloader :current)
+(def ^:private registry-access-classloader
+  (if 
+      (ClassLoader/getSystemClassLoader)
+    :current))
 
 (defn set-registry-access-classloader! [cl]
   (if (or (= cl :current)
@@ -107,10 +110,16 @@
 (defmacro ^:private with-registry-access-classloader [& body]
   `(let [^Thread curt# (Thread/currentThread)
          curcl# (.getContextClassLoader curt#)]
-     (if (or (= registry-access-classloader :current)
+     (if (or (and (= registry-access-classloader :current)
+                  ;; Cope with Clojure's dynamic CLs you get when recompiling
+                  ;; at the REPL.
+                  (not (instance? clojure.lang.DynamicClassLoader curcl#)))
              (= curcl# registry-access-classloader))
        (do ~@body)
        (do
+         ;; Fall back to system CL when we're at the REPL
+         (when (= :current registry-access-classloader)
+           (set-registry-access-classloader! (ClassLoader/getSystemClassLoader)))
          (.setContextClassLoader curt# registry-access-classloader)
          (try
            ~@body

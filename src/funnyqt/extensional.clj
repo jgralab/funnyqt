@@ -50,7 +50,7 @@
 
 (defn ^:private image-internal
   "Returns the image of `arch` for element or relationship class `cls`."
-  [error-if-not-found cls arch]
+  [cls arch]
   (when-not (bound? #'*img*)
     (u/errorf "No trace mappings in scope!"))
   (let [m (@*img* cls)]
@@ -58,14 +58,11 @@
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*img* (first subs)) arch)
-                (recur (rest subs)))))
-        (when error-if-not-found
-          (u/errorf "No image of %s in image function of %s."
-                    arch (g/qname cls))))))
+                (recur (rest subs))))))))
 
 (defn ^:private archetype-internal
   "Returns the archetype of `img` for element or relationship class `cls`."
-  [error-if-not-found cls img]
+  [cls img]
   (when-not (bound? #'*arch*)
     (u/errorf "No trace mappings in scope!"))
   (let [m (@*arch* cls)]
@@ -73,10 +70,7 @@
         (loop [subs (g/mm-all-subclasses cls)]
           (when (seq subs)
             (or (get (@*arch* (first subs)) img)
-                (recur (rest subs)))))
-        (when error-if-not-found
-          (u/errorf "No archetype of %s in archetype function of %s."
-                    img (g/qname cls))))))
+                (recur (rest subs))))))))
 
 (defn image
   "Returns the image of `arch` for element or relationship class `cls`.
@@ -86,7 +80,7 @@
   ([cls arch]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-3 version of image if `cls` is no metamodel class."))
-   (image-internal false cls arch))
+   (image-internal cls arch))
   ([m cls arch]
    (image (if (g/mm-class? cls) cls (g/mm-class m cls))
           arch)))
@@ -111,7 +105,7 @@
   ([cls img]
    (when-not (g/mm-class? cls)
      (u/errorf "Use the arity-3 version of archetype if `cls` is no metamodel class."))
-   (archetype-internal false cls img))
+   (archetype-internal cls img))
   ([m cls img]
    (archetype (if (g/mm-class? cls) cls (g/mm-class m cls))
               img)))
@@ -150,7 +144,7 @@
   (if (bound? #'*img*)
     (when-not *omit-trace-recording*
       (let [top-classes (top-superclasses mm-cls)]
-        (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal false %)
+        (when-let [dups (seq (filter (apply some-fn (map #(partial image-internal %)
                                                          top-classes))
                                      new-archs))]
           (u/errorf
@@ -278,8 +272,8 @@
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
         trg-elem-cls (g/mm-relationship-class-target rel-cls)
-        archs (binding [source-image (partial image-internal :error src-elem-cls)
-                        target-image (partial image-internal :error trg-elem-cls)]
+        archs (binding [source-image (partial image-internal src-elem-cls)
+                        target-image (partial image-internal trg-elem-cls)]
                 (set (archfn)))]
     (check-trace-mappings rel-cls archs)
     (loop [as archs
@@ -310,9 +304,9 @@
   [m cls attr valfn]
   (let [mm-cls (g/mm-class m cls)]
     (binding [element-image (fn [arch]
-                              (image-internal :error mm-cls arch))
+                              (image-internal mm-cls arch))
               element-archetype (fn [img]
-                                  (archetype-internal :error mm-cls img))]
+                                  (archetype-internal mm-cls img))]
       (let [vals (valfn)]
         (cond
           (coll? vals)
@@ -329,13 +323,13 @@
 
 (defn ^:private add-or-set-adjs [m cls ref reffn set-or-add]
   (let [mm-cls (g/mm-class m cls)
-        resolve-target-fn (partial image-internal :error (g/mm-referenced-element-class mm-cls ref))
+        resolve-target-fn (partial image-internal (g/mm-referenced-element-class mm-cls ref))
         resolve-all-targets-fn (partial map resolve-target-fn)
         multi-valued? (g/mm-multi-valued-property? mm-cls ref)]
     (binding [element-image     (fn [arch]
-                                  (image-internal :error mm-cls arch))
+                                  (image-internal mm-cls arch))
               element-archetype (fn [img]
-                                  (archetype-internal :error mm-cls img))
+                                  (archetype-internal mm-cls img))
               target-image      resolve-target-fn
               target-images     resolve-all-targets-fn]
       (let [refs (reffn)]
