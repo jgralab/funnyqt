@@ -12,14 +12,13 @@
 (defn family
   "Returns the main family of member m."
   [m]
-  (or (emf/eget m :familyFather) (emf/eget m :familyMother)
-      (emf/eget m :familySon)    (emf/eget m :familyDaughter)))
+  (or (g/adj m :familyFather) (g/adj m :familyMother)
+      (g/adj m :familySon)    (g/adj m :familyDaughter)))
 
 (defn male?
   "Returns true, iff member m is male."
   [m]
-  (or (emf/eget m :familyFather)
-      (emf/eget m :familySon)))
+  (or (g/adj m :familyFather) (g/adj m :familySon)))
 
 (defn parents-of
   "Returns the set of parent members of m."
@@ -31,8 +30,7 @@
 (defn wife
   "Returns the wife member of member m."
   [m]
-  (when-let [w (seq (q/p-seq m :familyFather :mother))]
-    (q/the w)))
+  (g/adj* m :familyFather :mother))
 
 (generate-schema-functions "test/input/genealogy-schema.tg"
                            test.functional.genealogy.tg
