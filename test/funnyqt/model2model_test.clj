@@ -177,6 +177,48 @@
     (is (== 3  (count (vseq ng 'Address))))
     #_(clojure.pprint/pprint trace)))
 
+(deftransformation families2genealogy-generic
+  "Transforms a family model to a genealogy model."
+  [^:in in ^:out out]
+  (^:top member2person
+         :from [m]
+         :disjuncts [member2male member2female :as p]
+         (g/set-aval! p :fullName
+                      (str (g/aval m :firstName) " "
+                           (g/aval (family m) :lastName)))
+         (g/set-adj! p :address (family2address (family m)))
+         (g/set-adjs! p :parents (map member2person (parents-of m))))
+  (member2male
+   :from [m 'Member]
+   :when (male? m)
+   :let  [w (wife m)]
+   :to   [p 'Male {:wife (member2female (wife m))}])
+  (member2female
+   :from [m 'Member]
+   :when (not (male? m))
+   :to   [p 'Female])
+  (family2address
+   :from [f 'Family]
+   :id   [id [(g/aval f :street) (g/aval f :town)]]
+   :to   [adr 'Address {:street (first id), :town (second id)}]))
+
+
+(deftest test-families2genealogy-generic
+  (let [in (emf/load-resource "test/input/example.families")
+        out-schema (load-schema "test/input/genealogy-schema.tg")
+        ng (new-graph out-schema)
+        _ (print "families2genealogy-explicit-main (EMF -> TG): ")
+        trace (time (families2genealogy-generic in ng))]
+    #_(viz/print-model ng :gtk)
+    (is (== 13 (vcount ng 'Person)))
+    (is (==  7 (vcount ng 'Female)))
+    (is (==  6 (vcount ng 'Male)))
+    (is (==  3 (ecount ng 'HasSpouse)))
+    (is (== 18 (ecount ng 'HasChild)))
+    (is (== 3  (count (vseq ng 'Address))))
+    #_(clojure.pprint/pprint trace)))
+
+
 (deftest test-valid-to-bindings
   (is (var? (eval '(funnyqt.model2model/deftransformation
                      complex-to-bindings [^:in in ^:out out1 ^:out out2]

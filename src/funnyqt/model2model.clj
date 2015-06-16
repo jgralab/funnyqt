@@ -117,13 +117,10 @@
 (defn ^:private make-disjunct-rule-calls [arg-vec gens]
   (map (fn [w] `(apply ~w ~arg-vec)) gens))
 
-(defn ^:private type-constrs [a-t-m wrap-in-and]
-  (let [form (for [[e t] a-t-m
-                   :when t]
-               `(g/has-type? ~e ~t))]
-    (if wrap-in-and
-      (cons `and form)
-      form)))
+(defn ^:private type-constrs [a-t-m]
+  (for [[e t] a-t-m
+        :when t]
+    `(and ~e (g/has-type? ~e ~t))))
 
 (defn ^:private create-vector [v outs]
   ;; [a 'A
@@ -222,7 +219,7 @@
                                                    ~form))))
                                form)))
         handle-type-constrs (fn [body]
-                              (let [tcs (type-constrs a-t-m false)]
+                              (let [tcs (type-constrs a-t-m)]
                                 (if (seq tcs)
                                   `(when (and ~@tcs)
                                      ~body)
