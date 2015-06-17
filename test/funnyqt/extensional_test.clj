@@ -1,4 +1,5 @@
 (ns funnyqt.extensional-test
+  (:refer-clojure :exclude [parents])
   (:require [funnyqt.emf       :as emf]
             [funnyqt.tg        :as tg]
             [funnyqt.query     :as q]
@@ -20,7 +21,7 @@
   (or (adj m :familyFather)
       (adj m :familySon)))
 
-(defn parents-of
+(defn parents
   "Returns the set of parent members of m."
   [m]
   (q/p-seq m
@@ -33,14 +34,16 @@
   (adj m :familyFather :mother))
 
 
-(defn families2genealogy [m g]
+(defn families2genealogy
+  "Transforms the family model `fs` to the genealogy `g`."
+  [fs g]
   (with-trace-mappings
     (create-elements! g 'Male
                       (fn []
-                        (filter male? (elements m 'Member))))
+                        (filter male? (elements fs 'Member))))
     (create-elements! g 'Female
                       (fn []
-                        (remove male? (elements m 'Member))))
+                        (remove male? (elements fs 'Member))))
     (set-avals! g 'Person :fullName
                 (fn []
                   (fn [p]
@@ -54,16 +57,16 @@
                       (enum-constant p (if (< (emf/eget mem :age) 18)
                                          'AgeGroup.CHILD
                                          'AgeGroup.ADULT))))))
+    (create-relationships! g 'HasChild
+                           (fn []
+                             (for [mem (elements fs 'Member)
+                                   p   (parents mem)]
+                               [[mem p] (source-image mem) (target-image p)])))
     (set-adjs! g 'Male :wife
-                   (fn []
-                     (fn [male]
-                       (let [mem (element-archetype male)]
-                         (target-image (wife mem))))))
-    (set-adjs! g 'Person :parents
-                   (fn []
-                     (fn [p]
-                       (let [mem (element-archetype p)]
-                         (target-images (parents-of mem))))))))
+               (fn []
+                 (fn [male]
+                   (let [mem (element-archetype male)]
+                     (target-image (wife mem))))))))
 
 (deftest test-families2genealogy-2-extensional
   (let [g (tg/new-graph (tg/load-schema "test/input/genealogy-schema.tg"))

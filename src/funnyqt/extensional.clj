@@ -19,6 +19,7 @@
     - `funnyqt.extensional/element-image`
     - `funnyqt.extensional/element-archetype`
     - `funnyqt.extensional/source-image`
+    - `funnyqt.extensional/source-archetype`
     - `funnyqt.extensional/target-image`
     - `funnyqt.extensional/target-images`
 
@@ -200,6 +201,13 @@
   source-image)
 
 (def ^{:dynamic true
+       :arglists '([image])
+       :doc "Resolves the archetype of the given `image` in the archetype
+  function corresponding to the source element class of the current
+  relationship class."}
+  source-archetype)
+
+(def ^{:dynamic true
        :arglists '([archetype])
        :doc "Resolves the image of the given `archetype` in the img function
   corresponding to the target element class of the current relationship class
@@ -262,18 +270,19 @@
   are established implicitly in `funnyqt.extensional/*img*` and
   `funnyqt.extensional/*arch*`.
 
-  In `archfn`, `funnyqt.extensional/source-image` and
-  `funnyqt.extensional/target-image` are bound to functions that return the
-  image of the given archetype in the image-mapping of the new edge's
-  source/target element class.
+  In `archfn`, `funnyqt.extensional/source-image`,
+  `funnyqt.extensional/source-archetype` and `funnyqt.extensional/target-image`
+  are bound to functions that return the image of the given archetype in the
+  image-mapping of the new edge's source/target element class.
 
   Returns the sequence of new relationships."
   [m cls archfn]
   (let [rel-cls (g/mm-class m cls)
         src-elem-cls (g/mm-relationship-class-source rel-cls)
         trg-elem-cls (g/mm-relationship-class-target rel-cls)
-        archs (binding [source-image (partial image-internal src-elem-cls)
-                        target-image (partial image-internal trg-elem-cls)]
+        archs (binding [source-image     (partial image-internal src-elem-cls)
+                        source-archetype (partial archetype-internal src-elem-cls)
+                        target-image     (partial image-internal trg-elem-cls)]
                 (set (archfn)))]
     (check-trace-mappings rel-cls archs)
     (loop [as archs
