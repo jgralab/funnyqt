@@ -14,50 +14,50 @@
 
 (defn tmp-eobjecto
   ([m eo]
-     (fn [a]
-       (let [geo (cclp/walk a eo)]
-         (cond
-          (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
-          (u/errorf "tmp-eobjecto/2: eo must be fresh or a ground Wrapper/TmpElement but was %s."
-                    geo)
+   (fn [a]
+     (let [geo (cclp/walk a eo)]
+       (cond
+         (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+         (u/errorf "tmp-eobjecto/2: eo must be fresh or a ground Wrapper/TmpElement but was %s."
+                   geo)
 
-          (ru/ground? geo)
-          (if (tmp/set-kind geo :element)
-            (ccl/succeed a)
-            (ccl/fail a))
+         (ru/ground? geo)
+         (if (tmp/set-kind geo :element)
+           (ccl/succeed a)
+           (ccl/fail a))
 
-          :else (ccl/to-stream
-                 (->> (map #(ccl/unify a eo %)
-                           (concat
-                            (map (partial tmp/make-wrapper m eo)
-                                 (emf/eallcontents m))
-                            [(tmp/make-tmp-element m :element)]))
-                      (remove not)))))))
+         :else (ccl/to-stream
+                (->> (map #(ccl/unify a eo %)
+                          (concat
+                           (map (partial tmp/make-wrapper m eo)
+                                (emf/eallcontents m))
+                           [(tmp/make-tmp-element m :element)]))
+                     (remove not)))))))
   ([m eo t]
-     (fn [a]
-       (let [geo (cclp/walk a eo)
-             gt  (cclp/walk a t)]
-         (cond
-          (not (ru/ground? gt))
-          (u/errorf "tmp-eobjecto/3: type must be ground.")
+   (fn [a]
+     (let [geo (cclp/walk a eo)
+           gt  (cclp/walk a t)]
+       (cond
+         (not (ru/ground? gt))
+         (u/errorf "tmp-eobjecto/3: type must be ground.")
 
-          (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
-          (u/errorf "tmp-eobjecto/3: eo must be fresh or a ground Wrapper/TmpElement but was %s."
-                    geo)
+         (not (or (ru/fresh? geo) (tmp/tmp-or-wrapper-element? geo)))
+         (u/errorf "tmp-eobjecto/3: eo must be fresh or a ground Wrapper/TmpElement but was %s."
+                   geo)
 
-          (ru/ground? geo) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
-          (if (and (tmp/set-kind geo :element)
-                   (tmp/set-type geo gt))
-            (ccl/succeed a)
-            (ccl/fail a))
+         (ru/ground? geo) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
+         (if (and (tmp/set-kind geo :element)
+                  (tmp/set-type geo gt))
+           (ccl/succeed a)
+           (ccl/fail a))
 
-          :else (ccl/to-stream
-                 (->> (map #(ccl/unify a eo %)
-                           (concat
-                            (map (partial tmp/make-wrapper m eo)
-                                 (emf/eallcontents m gt))
-                            [(tmp/make-tmp-element m :element gt)]))
-                      (remove not))))))))
+         :else (ccl/to-stream
+                (->> (map #(ccl/unify a eo %)
+                          (concat
+                           (map (partial tmp/make-wrapper m eo)
+                                (emf/eallcontents m gt))
+                           [(tmp/make-tmp-element m :element gt)]))
+                     (remove not))))))))
 
 (defn eobjecto
   "A relation where EObject `e` has the type `t`, an EClass name in Resouce or
