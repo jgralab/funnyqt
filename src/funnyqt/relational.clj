@@ -679,7 +679,7 @@
   When used in a bidirectional transformation executed in the direction of `g`
   the attribute value may be overridden." attr)
          [~'m ~'el ~'val]
-         (valueo ~'m ~'el ~attr ~'val true)))))
+         (avalo ~'m ~'el ~attr ~'val true)))))
 
 (defn ^:private create-reference-relations
   "Creates a relation for the given role name."
