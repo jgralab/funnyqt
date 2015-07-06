@@ -36,9 +36,9 @@
   (manifest [this])
   (manifestation [this]))
 
-(defprotocol IAlphaOmega
-  (set-alpha [this a])
-  (set-omega [this o])
+(defprotocol ISourceTarget
+  (set-source [this a])
+  (set-target [this o])
   (finalize-alpha-and-omega [this subst]))
 
 (defprotocol IWrappedRelationship
@@ -141,8 +141,8 @@
   (finalize-refs [this subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (set! refs (groundify-refs refs subst)))
-  IAlphaOmega
-  (set-alpha [this a]
+  ISourceTarget
+  (set-source [this a]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; a is either fresh or a wrapper or tmp element
     (when-not (instance-of-any? relationship-types wrapped-element)
@@ -150,7 +150,7 @@
     (cond
       (tmp-element? a)     false
       :else                true))
-  (set-omega [this o]
+  (set-target [this o]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; o is either fresh or a wrapper or tmp element
     (when-not (instance-of-any? relationship-types wrapped-element)
@@ -275,8 +275,8 @@
          (single-valued-refs-are-single? this type nil subst)))
   (finalize-refs [this subst]
     (set! refs (groundify-refs refs subst)))
-  IAlphaOmega
-  (set-alpha [this a]
+  ISourceTarget
+  (set-source [this a]
     ;; a is either fresh or a wrapper or tmp element
     (when-not (= kind :relationship)
       (u/errorf "Can't set alpha of non-edge %s." this))
@@ -284,7 +284,7 @@
       (= alpha a) true
       (nil? alpha) (set! alpha a)
       :else (u/errorf "Can't reset alpha of %s." this)))
-  (set-omega [this o]
+  (set-target [this o]
     ;; o is either fresh or a wrapper or tmp element
     (when-not (= kind :relationship)
       (u/errorf "Can't set omega of non-edge %s." this))

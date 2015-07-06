@@ -160,7 +160,7 @@
                            [(tmp/make-tmp-element m :element gt)]))
                      (remove not))))))))
 
-(defn element
+(defn elemento
   "A relation where the element `el` has the type `t` in model `m`.  In fact,
   `t` may be any type specification (see `funnyqt.generic/type-matcher`)."
   ([m el]
@@ -239,13 +239,13 @@
                           #(= (.wrapped-element ^WrapperElement gtrg) (g/target %))
                           (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out)))
                     [(doto (tmp/make-tmp-element m :relationship)
-                       (tmp/set-alpha src)
-                       (tmp/set-omega trg))]))
+                       (tmp/set-source src)
+                       (tmp/set-target trg))]))
               (remove not)))
 
         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
-        (if (and (tmp/set-alpha grel src)
-                 (tmp/set-omega grel trg))
+        (if (and (tmp/set-source grel src)
+                 (tmp/set-target grel trg))
           (ccl/succeed a)
           (ccl/fail a))
 
@@ -259,14 +259,14 @@
                             (tmp/make-wrapper m trg (g/target ed))])
                          (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out))
                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                       (tmp/set-alpha ed src)
-                       (tmp/set-omega ed trg)
+                       (tmp/set-source ed src)
+                       (tmp/set-target ed trg)
                        [ed gtrg])]))
               (remove not)))
 
         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc))
-        (if (and (tmp/set-alpha grel src)
-                 (tmp/set-omega grel trg))
+        (if (and (tmp/set-source grel src)
+                 (tmp/set-target grel trg))
           (ccl/succeed a)
           (ccl/fail a))
 
@@ -280,14 +280,14 @@
                             (tmp/make-wrapper m src (g/source ed))])
                          (g/incident-relationships (.wrapped-element ^WrapperElement gtrg) nil :in))
                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                       (tmp/set-alpha ed src)
-                       (tmp/set-omega ed trg)
+                       (tmp/set-source ed src)
+                       (tmp/set-target ed trg)
                        [ed gsrc])]))
               (remove not)))
 
         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gtrg))
-        (if (and (tmp/set-alpha grel src)
-                 (tmp/set-omega grel trg))
+        (if (and (tmp/set-source grel src)
+                 (tmp/set-target grel trg))
           (ccl/succeed a)
           (ccl/fail a))
 
@@ -474,3 +474,96 @@
                              refed (funnyqt.generic/adjs* elem rn)]
                          (ccl/unify a [el ref refed] [elem rn refed]))
                        (remove not)))))))))
+
+;;## Metamodel Relation Generator
+
+(defn ^:private u-or-qname [c]
+  ((if (satisfies? g/IUniqueName c)
+     g/uname g/qname) c))
+
+(defn ^:private class->rel-symbols
+  "Returns a relation symbol for the class `c`."
+  [c prefix]
+  (let [n (u-or-qname c)]
+    (mapv (fn [s]
+            (with-meta (symbol s)
+              {:relation-name
+               (symbol (str prefix (clojure.string/replace
+                                    s #"([!])?.*[.]" #(or (nth % 1) ""))))}))
+          [n (str n "!") (str "!" n) (str "!" n "!")])))
+
+(defn ^:private create-element-relations
+  "Creates relations for the given element class."
+  [elc prefix]
+  `(do
+     ~@(for [na (class->rel-symbols elc prefix)]
+         `(defn ~(:relation-name (meta na))
+            ~(format "A relation where `el` is a %s element of model `m`." na)
+            [~'m ~'el]
+            (elemento ~'m ~'el '~na)))))
+
+(defn ^:private create-relationship-relations
+  "Creates relations for the given relationship class."
+  [relc prefix]
+  `(do
+     ~@(for [na (class->rel-symbols relc prefix)]
+         `(defn ~(:relation-name (meta na))
+            ~(format "A relation where `rel` is a %s relationship from `src` to `trg` in model `m`." na)
+            [~'m ~'rel ~'src ~'trg]
+            (relationshipo ~'m ~'rel ~'src ~'trg)))))
+
+(defn ^:private create-attr-relations
+  "Creates relations for the given attribute."
+  [attr classes prefix]
+  ;; attr is an attr name keyword, classes the set of classes having such an attr
+  (let [ts (mapv #(u-or-qname %) classes)]
+    `(do
+       (defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-")))
+         ~(format "A relation where `el` has value `val` for its %s attribute in model `m`." attr)
+         [~'m ~'el ~'val]
+         (avalo ~'m ~'el ~attr ~'val false))
+       (defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-") "*"))
+         ~(format "A relation where `el` has value `val` for its %s attribute in model `m`.
+  When used in a bidirectional transformation executed in the direction of `g`
+  the attribute value may be overridden." attr)
+         [~'m ~'el ~'val]
+         (valueo ~'m ~'el ~attr ~'val true)))))
+
+(defn ^:private create-reference-relations
+  "Creates a relation for the given role name."
+  [role vcs prefix]
+  (let [ts (mapv #(u-or-qname %) vcs)]
+    `(do
+       (defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-")))
+         ~(format "A relation where `el` references `refed` with its `%s` role in model `m`." (name role))
+         [~'m ~'el ~'refed]
+         (adjo ~'m ~'el ~role ~'refed false))
+       ~(when (some #(not (g/mm-multi-valued-property? % role)) vcs)
+          `(defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-") "*"))
+             ~(format "A relation where `el` references `refed` with its `%s` role in model `m`.
+  When used in a bidirectional transformation executed in the direction of `m`
+  the element in that single-valued role may be overridden." (name role))
+             [~'m ~'el ~'refed]
+             (adjo ~'m ~'el ~role ~'refed true))))))
+
+(defmacro generate-metamodel-relations
+  "Generates schema-specific relations in the namespace denoted by `nssym`.
+  `mm-file` is the file defining the metamodel, i.e., a TG or Ecore file.
+
+  If `nssym` is nil (or not given), generate them in the current namespace.
+  If `nssym` was given, require that namespace as `alias`."
+  ([mm-file]
+   `(generate-metamodel-relations ~mm-file nil nil nil))
+  ([mm-file nssym]
+   `(generate-metamodel-relations ~mm-file ~nssym nil nil))
+  ([mm-file nssym alias]
+   `(generate-metamodel-relations ~mm-file ~nssym ~alias nil))
+  ([mm-file nssym alias prefix]
+   `(g/metamodel-api-generator ~mm-file
+                               ~nssym
+                               ~alias
+                               ~prefix
+                               create-element-relations
+                               create-relationship-relations
+                               create-attr-relations
+                               create-reference-relations)))

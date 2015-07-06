@@ -185,13 +185,13 @@
                          #(= (.wrapped-element ^WrapperElement gomega) (tg/omega %))
                          (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out)))
                    [(doto (tmp/make-tmp-element g :relationship)
-                      (tmp/set-alpha alpha)
-                      (tmp/set-omega omega))]))
+                      (tmp/set-source alpha)
+                      (tmp/set-target omega))]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-alpha ge alpha)
-                (tmp/set-omega ge omega))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -205,14 +205,14 @@
                            (tmp/make-wrapper g omega (tg/omega ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement galpha) nil :out))
                    [(let [ed (tmp/make-tmp-element g :relationship)]
-                      (tmp/set-alpha ed alpha)
-                      (tmp/set-omega ed omega)
+                      (tmp/set-source ed alpha)
+                      (tmp/set-target ed omega)
                       [ed gomega])]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha))
-       (if (and (tmp/set-alpha ge alpha)
-                (tmp/set-omega ge omega))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
@@ -226,14 +226,14 @@
                            (tmp/make-wrapper g alpha (tg/alpha ed))])
                         (tg/iseq (.wrapped-element ^WrapperElement gomega) nil :in))
                    [(let [ed (tmp/make-tmp-element g :relationship)]
-                      (tmp/set-alpha ed alpha)
-                      (tmp/set-omega ed omega)
+                      (tmp/set-source ed alpha)
+                      (tmp/set-target ed omega)
                       [ed galpha])]))
              (remove not)))
 
        (and (tmp/tmp-element? ge) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-alpha ge alpha)
-                (tmp/set-omega ge omega))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
          (ccl/succeed a)
          (ccl/fail a))
 
