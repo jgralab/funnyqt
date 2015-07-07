@@ -249,129 +249,129 @@
 
 ;;## Relationships
 
-(defn ^:private tmp-relationshipo [g e alpha omega]
+(defn ^:private tmp-relationshipo [m rel src trg]
   (fn [a]
-    (let [ge     (cclp/walk a e)
-          galpha (cclp/walk a alpha)
-          gomega (cclp/walk a omega)]
+    (let [grel (cclp/walk a rel)
+          gsrc (cclp/walk a src)
+          gtrg (cclp/walk a trg)]
       (cond
-       (not (or (ru/fresh? ge) (tmp/tmp-or-wrapper-element? ge)))
+       (not (or (ru/fresh? grel) (tmp/tmp-or-wrapper-element? grel)))
        (u/errorf "tmp-relationshipo: e must be fresh or a ground Wrapper/TmpElement but was %s."
-                 ge)
+                 grel)
 
-       (not (or (ru/fresh? galpha) (tmp/tmp-or-wrapper-element? galpha)))
+       (not (or (ru/fresh? gsrc) (tmp/tmp-or-wrapper-element? gsrc)))
        (u/errorf "tmp-relationshipo: alpha must be fresh or a ground Wrapper/TmpElement but was %s."
-                 galpha)
+                 gsrc)
 
-       (not (or (ru/fresh? gomega) (tmp/tmp-or-wrapper-element? gomega)))
+       (not (or (ru/fresh? gtrg) (tmp/tmp-or-wrapper-element? gtrg)))
        (u/errorf "tmp-relationshipo: omega must be fresh or a ground Wrapper/TmpElement but was %s."
-                 gomega)
+                 gtrg)
 
-       (tmp/wrapper-element? ge)
-       (ccl/unify a [alpha omega]
-                    (let [edge (.wrapped-element ^WrapperElement ge)]
-                      [(tmp/make-wrapper g alpha (g/source edge))
-                       (tmp/make-wrapper g omega (g/target edge))]))
+       (tmp/wrapper-element? grel)
+       (ccl/unify a [src trg]
+                    (let [wrel (.wrapped-element ^WrapperElement grel)]
+                      [(tmp/make-wrapper m src (g/source wrel))
+                       (tmp/make-wrapper m trg (g/target wrel))]))
 
-       (and (ru/fresh? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
+       (and (ru/fresh? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
        (ccl/to-stream
-        (->> (map (fn [ed]
-                    (ccl/unify a e ed))
+        (->> (map (fn [orel]
+                    (ccl/unify a rel orel))
                   (concat
-                   (map (partial tmp/make-wrapper g e)
+                   (map (partial tmp/make-wrapper m rel)
                         (filter
-                         #(= (.wrapped-element ^WrapperElement gomega) (g/target %))
-                         (g/incident-relationships (.wrapped-element ^WrapperElement galpha) nil :out)))
-                   [(doto (tmp/make-tmp-element g :relationship)
-                      (tmp/set-source alpha)
-                      (tmp/set-target omega))]))
+                         #(= (.wrapped-element ^WrapperElement gtrg) (g/target %))
+                         (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out)))
+                   [(doto (tmp/make-tmp-element m :relationship)
+                      (tmp/set-source src)
+                      (tmp/set-target trg))]))
              (remove not)))
 
-       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-source ge alpha)
-                (tmp/set-target ge omega))
+       (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
+       (if (and (tmp/set-source grel src)
+                (tmp/set-target grel trg))
          (ccl/succeed a)
          (ccl/fail a))
 
-       (and (ru/fresh? ge) (tmp/wrapper-element? galpha))
+       (and (ru/fresh? grel) (tmp/wrapper-element? gsrc))
        (ccl/to-stream
-        (->> (map (fn [ed-om]
-                    (ccl/unify a [e omega] ed-om))
+        (->> (map (fn [orel-trg]
+                    (ccl/unify a [rel trg] orel-trg))
                   (concat
-                   (map (fn [ed]
-                          [(tmp/make-wrapper g e ed)
-                           (tmp/make-wrapper g omega (g/target ed))])
-                        (g/incident-relationships (.wrapped-element ^WrapperElement galpha) nil :out))
-                   [(let [ed (tmp/make-tmp-element g :relationship)]
-                      (tmp/set-source ed alpha)
-                      (tmp/set-target ed omega)
-                      [ed gomega])]))
+                   (map (fn [orel]
+                          [(tmp/make-wrapper m rel orel)
+                           (tmp/make-wrapper m trg (g/target orel))])
+                        (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out))
+                   [(let [trel (tmp/make-tmp-element m :relationship)]
+                      (tmp/set-source trel src)
+                      (tmp/set-target trel trg)
+                      [trel gtrg])]))
              (remove not)))
 
-       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha))
-       (if (and (tmp/set-source ge alpha)
-                (tmp/set-target ge omega))
+       (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc))
+       (if (and (tmp/set-source grel src)
+                (tmp/set-target grel trg))
          (ccl/succeed a)
          (ccl/fail a))
 
-       (and (ru/fresh? ge) (tmp/wrapper-element? gomega))
+       (and (ru/fresh? grel) (tmp/wrapper-element? gtrg))
        (ccl/to-stream
-        (->> (map (fn [ed-al]
-                    (ccl/unify a [e alpha] ed-al))
+        (->> (map (fn [orel-src]
+                    (ccl/unify a [rel src] orel-src))
                   (concat
-                   (map (fn [ed]
-                          [(tmp/make-wrapper g e ed)
-                           (tmp/make-wrapper g alpha (g/source ed))])
-                        (g/incident-relationships (.wrapped-element ^WrapperElement gomega) nil :in))
-                   [(let [ed (tmp/make-tmp-element g :relationship)]
-                      (tmp/set-source ed alpha)
-                      (tmp/set-target ed omega)
-                      [ed galpha])]))
+                   (map (fn [orel]
+                          [(tmp/make-wrapper m rel orel)
+                           (tmp/make-wrapper m src (g/source orel))])
+                        (g/incident-relationships (.wrapped-element ^WrapperElement gtrg) nil :in))
+                   [(let [trel (tmp/make-tmp-element m :relationship)]
+                      (tmp/set-source trel src)
+                      (tmp/set-target trel trg)
+                      [trel gsrc])]))
              (remove not)))
 
-       (and (tmp/tmp-element? ge) (tmp/wrapper-element? gomega))
-       (if (and (tmp/set-source ge alpha)
-                (tmp/set-target ge omega))
+       (and (tmp/tmp-element? grel) (tmp/wrapper-element? gtrg))
+       (if (and (tmp/set-source grel src)
+                (tmp/set-target grel trg))
          (ccl/succeed a)
          (ccl/fail a))
 
-       :else (u/errorf "Can't handle (tmp-relationshipo %s %s %s %s)" g ge galpha gomega)))))
+       :else (u/errorf "Can't handle (tmp-relationshipo %s %s %s %s)" m grel gsrc gtrg)))))
 
 (defn relationshipo
-  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
-  `g` has to be ground."
-  [g e alpha omega]
+  "A relation where `rel` is a relationship in model `m` starting at element
+  `src` and ending at element `trg`.  `m` has to be ground."
+  [m rel src trg]
   (if tmp/*make-tmp-elements*
-    (tmp-relationshipo g e alpha omega)
+    (tmp-relationshipo m rel src trg)
     (fn [a]
-      (let [ge     (cclp/walk a e)
-            galpha (cclp/walk a alpha)
-            gomega (cclp/walk a omega)]
+      (let [grel (cclp/walk a rel)
+            gsrc (cclp/walk a src)
+            gtrg (cclp/walk a trg)]
         (cond
-         (or (and (ru/ground? ge) (not (g/relationship? ge)))
-             (and (ru/ground? galpha) (not (g/element? galpha)))
-             (and (ru/ground? gomega) (not (g/element? gomega))))
+         (or (and (ru/ground? grel) (not (g/relationship? grel)))
+             (and (ru/ground? gsrc) (not (g/element? gsrc)))
+             (and (ru/ground? gtrg) (not (g/element? gtrg))))
          (ccl/fail a)
 
-         (ru/ground? ge)
-         (ccl/unify a [alpha omega] [(g/source ge) (g/target ge)])
+         (ru/ground? grel)
+         (ccl/unify a [src trg] [(g/source grel) (g/target grel)])
 
-         (ru/ground? galpha)
+         (ru/ground? gsrc)
          (ccl/to-stream
-          (->> (map #(ccl/unify a [e omega] [% (g/target %)])
-                    (g/incident-relationships galpha nil :out))
+          (->> (map #(ccl/unify a [rel trg] [% (g/target %)])
+                    (g/incident-relationships gsrc nil :out))
                (remove not)))
 
-         (ru/ground? gomega)
+         (ru/ground? gtrg)
          (ccl/to-stream
-          (->> (map #(ccl/unify a [e alpha] [% (g/source %)])
-                    (g/incident-relationships gomega nil :in))
+          (->> (map #(ccl/unify a [rel src] [% (g/source %)])
+                    (g/incident-relationships gtrg nil :in))
                (remove not)))
 
          :else (ccl/to-stream
-                (->> (for [edge (g/relationships g)]
-                       (ccl/unify a [e alpha omega]
-                                  [edge (g/source edge) (g/target edge)]))
+                (->> (for [orel (g/relationships m)]
+                       (ccl/unify a [rel src trg]
+                                  [orel (g/source orel) (g/target orel)]))
                      (remove not))))))))
 
 ;;## Attribute values
