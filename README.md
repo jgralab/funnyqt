@@ -96,9 +96,8 @@ API** realizes a rule-based approach to model transformations.
 The **relational querying API** allows for Prolog-like logical querying of
 models using the [core.logic](http://github.com/clojure/core.logic) library.
 
-  - _funnyqt.relational_: Generic relations
-  - _funnyqt.relational.emf_: EMF-specific relations
-  - _funnyqt.relational.tg_: TGraph-specific relations
+  - _funnyqt.relational_: Generic relations for elements, relationships,
+    attributes, and references
 
 Based on the relational querying API, there's a **bidirectional transformation
 API**.
@@ -134,21 +133,17 @@ The FunnyQT API docs generated for the current release are
 
 ## Publications
 
-- _Model Querying with FunnyQT_, Tassilo Horn,
-  [ICMT 2013](http://www.model-transformation.org/ICMT2013/),
+- _Model Querying with FunnyQT_, Tassilo Horn, ICMT 2013,
   http://dx.doi.org/10.1007/978-3-642-38883-5_7
 
-- _Solving the TTC 2013 Flowgraphs Case with FunnyQT_, Tassilo Horn,
-  [TTC 2013](http://planet-sl.org/ttc2013),
+- _Solving the TTC 2013 Flowgraphs Case with FunnyQT_, Tassilo Horn, TTC 2013,
   http://dx.doi.org/10.4204/EPTCS.135.7
 
 - _Solving the Class Diagram Restructuring Transformation Case with FunnyQT_,
-  Tassilo Horn, [TTC 2013](http://planet-sl.org/ttc2013),
-  http://dx.doi.org/10.4204/EPTCS.135.9
+  Tassilo Horn, TTC 2013, http://dx.doi.org/10.4204/EPTCS.135.9
 
 - _Solving the Petri-Nets to Statecharts Transformation Case with FunnyQT_,
-  Tassilo Horn, [TTC 2013](http://planet-sl.org/ttc2013),
-  http://dx.doi.org/10.4204/EPTCS.135.11
+  Tassilo Horn, TTC 2013, http://dx.doi.org/10.4204/EPTCS.135.11
 
 - _Bidirectional Model Transformations With FunnyQT_, Tassilo Horn, rejected at
   both BX'14 and ICMT'14, but I consider it to be my best paper so far anyway
@@ -156,10 +151,23 @@ The FunnyQT API docs generated for the current release are
   http://userpages.uni-koblenz.de/~horn/mypapers/funnyqt-bidi2014.pdf
 
 - _Solving the TTC Movie Database Case with FunnyQT_, Tassilo Horn,
-  [TTC 2014](http://www.transformation-tool-contest.eu/solutions_movie.html)
+  [TTC 2014](http://ceur-ws.org/Vol-1305/paper4.pdf)
 
 - _Solving the TTC FIXML Case with FunnyQT_, Tassilo Horn,
-  [TTC 2014](http://www.transformation-tool-contest.eu/solutions_fixml.html)
+  [TTC 2014](http://ceur-ws.org/Vol-1305/paper5.pdf)
+
+- _Solving the TTC Model Execution Case with FunnyQT_, Tassilo Horn,
+  [TTC 2015](http://www.transformation-tool-contest.eu/solutions_execution.html)
+
+- _Solving the TTC Java Refactoring Case with FunnyQT_, Tassilo Horn,
+  [TTC 2015](http://www.transformation-tool-contest.eu/solutions_refactoring.html)
+
+- _Solving the TTC Train Benchmark Case with FunnyQT_, Tassilo Horn,
+  [TTC 2015](http://www.transformation-tool-contest.eu/solutions_train.html)
+
+- _Graph Pattern Matching as an Embedded Clojure DSL_, Tassilo Horn,
+  [ICGT 2015](http://btn1x4.inf.uni-bayreuth.de/icgt2015), to appear
+
 
 # Getting FunnyQT
 
