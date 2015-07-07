@@ -1,8 +1,8 @@
 (ns funnyqt.utils
-  "Generic utility functions."
-  (:require clojure.pprint
-            [clojure.repl         :as repl]
-            [clojure.string       :as str]
+  "Generic utility functions, e.g., for signaling errors, debugging, and profiling, "
+  (:require [clojure pprint
+             [repl :as repl]
+             [string :as str]]
             [flatland.ordered.set :as os])
   (import (org.pcollections PCollection ArrayPSet)))
 

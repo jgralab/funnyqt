@@ -1,9 +1,9 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.misc-tests.sierpinski-tg
-  (:use funnyqt.tg)
-  (:use funnyqt.in-place)
-  (:use clojure.test))
-
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [tg :refer :all]
+             [in-place :refer :all]]))
 
 (defn sierpinski-init
   "Returns a sierpienki triangle."

@@ -1,12 +1,9 @@
 (ns funnyqt.extensional.emf
   "Specify EMF models extensionally."
   (:require clojure.set
-            [funnyqt.utils       :as u]
-            [funnyqt.emf         :as emf]
-            [funnyqt.extensional :as e])
-  (:import
-   (org.eclipse.emf.ecore EObject EClass EStructuralFeature EReference)))
-
+            [funnyqt
+             [extensional :as e]
+             [utils :as u]]))
 
 ;;# Creating Elements
 

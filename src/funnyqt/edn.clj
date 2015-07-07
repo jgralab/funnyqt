@@ -3,15 +3,15 @@
   traces as EDN."
   (:refer-clojure :exclude [pr prn pr-str read read-string slurp spit])
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]
             [clojure.java.io :as io]
-            [funnyqt.utils :as u]
-            [funnyqt.query :as q]
-            [funnyqt.emf :as emf]
-            [funnyqt.tg  :as tg])
-  (:import (org.eclipse.emf.ecore.resource Resource ResourceSet)
-           (org.eclipse.emf.ecore EObject)
-           (org.eclipse.emf.common.util URI)))
+            [funnyqt
+             [emf :as emf]
+             [query :as q]
+             [tg :as tg]
+             [utils :as u]])
+  (:import org.eclipse.emf.common.util.URI
+           org.eclipse.emf.ecore.EObject
+           [org.eclipse.emf.ecore.resource Resource ResourceSet]))
 
 ;;# Writing EDN
 

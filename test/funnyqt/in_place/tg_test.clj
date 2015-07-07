@@ -1,13 +1,12 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.in-place.tg-test
-  (:require [funnyqt.generic :as g]
-            [funnyqt.query   :as q]
-            [funnyqt.tg      :as tg])
-  (:use funnyqt.tg)
-  (:use funnyqt.in-place)
-  (:use funnyqt.tg-test)
-  (:use clojure.test))
-
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [generic :as g]
+             [in-place :refer :all]
+             [query :as q]
+             [tg :as tg :refer :all]
+             [tg-test :refer :all]]))
 
 ;;* BinTree eval
 

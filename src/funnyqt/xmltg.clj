@@ -14,19 +14,18 @@ IDREFS, all references will be represented as References edges in the Graph.
 
 If the XML file has no DTD, you can influence the resolution by providing an
 `attr-type-fn` and/or an `text-type-fn` as documented in `xml2xml-graph`."
-  (:require [clojure.string   :as str]
-            [clojure.java.io  :as io]
-            [funnyqt.utils    :as u]
-            [funnyqt.generic  :as g]
-            [funnyqt.tg       :as tg]
-            [funnyqt.query    :as q])
-  (:import
-   (javax.xml.stream XMLInputFactory XMLEventReader XMLStreamConstants)
-   (javax.xml.stream.events StartDocument EndDocument StartElement EndElement
-                            Attribute Characters Namespace XMLEvent)
-   (javax.xml.namespace QName)
-   (de.uni_koblenz.jgralab Graph Vertex Edge)
-   (de.uni_koblenz.jgralab.schema Schema)))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [funnyqt
+             [generic :as g]
+             [query :as q]
+             [tg :as tg]
+             [utils :as u]])
+  (:import de.uni_koblenz.jgralab.Vertex
+           javax.xml.namespace.QName
+           [javax.xml.stream XMLInputFactory XMLStreamConstants]
+           [javax.xml.stream.events Attribute Characters EndDocument EndElement
+            Namespace StartDocument StartElement XMLEvent]))
 
 ;;# XML Graph Utils
 

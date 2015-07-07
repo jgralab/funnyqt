@@ -1,10 +1,10 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.misc-tests.tree-tg
-  (:use funnyqt.tg)
-  (:use funnyqt.in-place)
-  (:use [funnyqt.utils :only [timing]])
-  (:use clojure.test))
-
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [in-place :refer :all]
+             [tg :refer :all]
+             [utils :refer :all]]))
 
 (defn mintree-init
   "Returns a mintree graph with one Tree vertex."

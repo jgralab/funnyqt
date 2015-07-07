@@ -1,16 +1,12 @@
 (ns funnyqt.query.emf-test
   (:refer-clojure :exclude [parents])
-  (:use funnyqt.emf
-        funnyqt.query.emf)
-  (:use clojure.test)
-  (:require [funnyqt.utils    :as u]
-            [funnyqt.generic  :as g]
-            [funnyqt.query    :as q]
-            [funnyqt.emf-test :refer [family-model]])
-  (:import
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.common.util URI EList]
-   [org.eclipse.emf.ecore EPackage EObject EModelElement]))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :refer :all]
+             [emf-test :refer [family-model]]
+             [query :as q]
+             [utils :as u]]
+            [funnyqt.query.emf :refer :all]))
 
 (deftest test-basic-rpes
   (let [fm (q/the (econtents family-model))]

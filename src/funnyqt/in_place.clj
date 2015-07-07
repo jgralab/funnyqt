@@ -1,5 +1,5 @@
-(ns ^{:doc "In-place transformation stuff."}
-  funnyqt.in-place
+(ns funnyqt.in-place
+  "In-place transformation stuff."
   (:require [clojure.string :as str]
             [clojure.tools.macro :as m]
             [funnyqt

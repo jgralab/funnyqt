@@ -1,6 +1,6 @@
 (ns funnyqt.utils-test
-  (:use clojure.test)
-  (:use funnyqt.utils))
+  (:require [clojure.test :refer :all]
+            [funnyqt.utils :refer :all]))
 
 (deftest test-qname?
   (is (qname? 'foo.bar.Baz))

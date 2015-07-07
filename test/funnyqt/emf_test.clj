@@ -1,14 +1,11 @@
 (ns funnyqt.emf-test
   (:refer-clojure :exclude [parents])
-  (:use funnyqt.emf)
-  (:use clojure.test)
-  (:require [funnyqt.utils   :as u]
-            [funnyqt.generic :as g]
-            [funnyqt.query   :as q])
-  (:import
-   [org.eclipse.emf.ecore.xmi.impl XMIResourceImpl]
-   [org.eclipse.emf.common.util URI EList]
-   [org.eclipse.emf.ecore EPackage EObject EModelElement]))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :refer :all]
+             [generic :as g]
+             [query :as q]])
+  (:import org.eclipse.emf.common.util.EList))
 
 (deftest test-load-ecore-resource
   (let [mm (load-ecore-resource "test/input/Families.ecore")]

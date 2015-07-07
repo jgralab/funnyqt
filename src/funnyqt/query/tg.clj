@@ -1,11 +1,9 @@
 (ns funnyqt.query.tg
   "TG-specific query functions"
-  (:require [flatland.ordered.set :as os]
-            [funnyqt.tg           :as tg]
-            [funnyqt.query        :as q]
-            [funnyqt.utils        :as u])
-  (:import
-   (de.uni_koblenz.jgralab.schema AggregationKind)))
+  (:require [funnyqt
+             [query :as q]
+             [tg :as tg]])
+  (:import de.uni_koblenz.jgralab.schema.AggregationKind))
 
 ;;# Regular Path Expressions
 

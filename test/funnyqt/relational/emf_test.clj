@@ -1,12 +1,13 @@
 (ns funnyqt.relational.emf-test
   (:refer-clojure :exclude [==])
-  (:use clojure.core.logic
-        funnyqt.relational
-        [funnyqt.emf-test :only [family-model]])
-  (:require [funnyqt.emf     :as emf]
-            [funnyqt.query   :as q]
-            [funnyqt.generic :as g]
-            [clojure.test    :as t]))
+  (:require [clojure.core.logic :refer :all]
+            [clojure.test :as t]
+            [funnyqt
+             [emf :as emf]
+             [emf-test :refer :all]
+             [generic :as g]
+             [query :as q]
+             [relational :refer :all]]))
 
 (generate-metamodel-relations "test/input/Families.ecore"
                               test.relational.families.emf families +)

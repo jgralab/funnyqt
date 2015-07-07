@@ -1,8 +1,8 @@
 (ns funnyqt.extensional.tg
   "Specify TGraphs extensionally."
-  (:require [funnyqt.utils       :as u]
-            [clojure.string      :as str]
-            [funnyqt.extensional :as e]))
+  (:require [funnyqt
+             [extensional :as e]
+             [utils :as u]]))
 
 ;;# Creating Elements
 

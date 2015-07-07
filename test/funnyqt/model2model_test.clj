@@ -1,11 +1,11 @@
 (ns funnyqt.model2model-test
-  (:use funnyqt.tg)
-  (:require [funnyqt.generic :as g]
-            [funnyqt.visualization :as viz]
-            [funnyqt.emf :as emf]
-            [funnyqt.query :as q])
-  (:use funnyqt.model2model)
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :as emf]
+             [generic :as g]
+             [model2model :refer :all]
+             [query :as q]
+             [tg :refer :all]]))
 
 (emf/load-ecore-resource "test/input/Families.ecore")
 

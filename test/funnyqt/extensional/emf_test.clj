@@ -1,9 +1,10 @@
 (ns funnyqt.extensional.emf-test
-  (:use funnyqt.emf)
-  (:require [funnyqt.query :as q]
-            [funnyqt.extensional :as e]
-            [funnyqt.extensional.emf :as eemf]
-            [funnyqt.generic :as g])
+  (:require [funnyqt
+             [emf :refer :all]
+             [extensional :as e]
+             [generic :as g]
+             [query :as q]]
+            [funnyqt.extensional.emf :as eemf])
   (:use clojure.test))
 
 ;; The Family2Genealogy transformation from EMF to EMF

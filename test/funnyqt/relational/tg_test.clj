@@ -1,13 +1,12 @@
 (ns funnyqt.relational.tg-test
   (:refer-clojure :exclude [==])
-  (:use [clojure.core.logic :only [run* run ==]]
-        clojure.test
-        funnyqt.relational
-        [funnyqt.tg-test :only [rg]])
-  (:require [funnyqt.tg                  :as tg]
-            [funnyqt.query               :as q]
-            [funnyqt.generic             :as g]
-            [funnyqt.relational.tmp-elem :as tmp]))
+  (:require [clojure.core.logic :refer [run* ==]]
+            [clojure.test :refer :all]
+            [funnyqt
+             [generic :as g]
+             [relational :refer :all]
+             [tg :as tg]
+             [tg-test :refer :all]]))
 
 (generate-metamodel-relations "test/input/greqltestgraph.tg"
                               test.relational.routemap.tg routemap +)

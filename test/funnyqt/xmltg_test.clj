@@ -1,6 +1,7 @@
 (ns funnyqt.xmltg-test
-  (:use funnyqt.tg)
-  (:use funnyqt.xmltg)
+  (:require [funnyqt
+             [tg :refer :all]
+             [xmltg :refer :all]])
   (:use clojure.test))
 
 (deftest test-example-with-dtd

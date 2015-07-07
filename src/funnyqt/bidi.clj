@@ -1,16 +1,14 @@
 (ns funnyqt.bidi
-  (:require [clojure.core.cache           :as cache]
-            [clojure.core.logic           :as ccl]
-            [clojure.core.logic.protocols :as cclp]
-            [flatland.ordered.map         :as om]
-            [funnyqt.query                :as q]
-            [funnyqt.relational.tmp-elem  :as tmp]
-            [funnyqt.relational.util      :as ru]
-            [funnyqt.utils                :as u]
-            [funnyqt.tg                   :as tg]
-            [funnyqt.generic              :as g]
-            [clojure.tools.macro          :as tm]
-            [clojure.walk                 :as cw]))
+  (:require [clojure.core.logic :as ccl]
+            [clojure.tools.macro :as tm]
+            [clojure.walk :as cw]
+            [flatland.ordered.map :as om]
+            [funnyqt
+             [generic :as g]
+             [utils :as u]]
+            [funnyqt.relational
+             [tmp-elem :as tmp]
+             [util :as ru]]))
 
 (def ^{:dynamic true
        :doc "Only for internal use.

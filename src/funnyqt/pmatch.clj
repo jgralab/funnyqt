@@ -1,18 +1,18 @@
 (ns funnyqt.pmatch
-  "Pattern Matching."
-  (:require clojure.set
-            [clojure.string            :as str]
-            [clojure.tools.macro       :as m]
+  "Graph Pattern Matching on arbitrary models."
+  (:require [clojure set
+             [string :as str]]
+            [clojure.core.reducers :as r]
             [clojure.data.priority-map :as pm]
-            [clojure.core.reducers     :as r]
-            [funnyqt.generic           :as g]
-            [funnyqt.query             :as q]
-            [funnyqt.query.tg          :as qtg]
-            [funnyqt.utils             :as u]
-            [funnyqt.tg                :as tg]
-            [funnyqt.emf               :as emf])
-  (:import (de.uni_koblenz.jgralab.schema AggregationKind)
-           (de.uni_koblenz.jgralab Edge)))
+            [clojure.tools.macro :as m]
+            [funnyqt
+             [emf :as emf]
+             [generic :as g]
+             [query :as q]
+             [tg :as tg]
+             [utils :as u]]
+            [funnyqt.query.tg :as qtg])
+  (:import de.uni_koblenz.jgralab.Edge))
 
 ;;# Pattern to pattern graph
 

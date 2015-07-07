@@ -1,9 +1,11 @@
 (ns funnyqt.model2model
-  (:require [funnyqt.utils        :as u]
-            [funnyqt.generic      :as g]
-            [funnyqt.query        :as q]
-            [clojure.tools.macro  :as tm]
-            [flatland.ordered.map :as om]))
+  "Rule-base out-place transformations similar to ATL or QVTo."
+  (:require [clojure.tools.macro :as tm]
+            [flatland.ordered.map :as om]
+            [funnyqt
+             [generic :as g]
+             [query :as q]
+             [utils :as u]]))
 
 (defn ^:private args-types-map [from]
   (loop [f from, r (om/ordered-map)]

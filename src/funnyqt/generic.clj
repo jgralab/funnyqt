@@ -1,8 +1,9 @@
 (ns funnyqt.generic
   "Generic protocols extended upon many different types, and generic functions."
-  (:require [clojure.string   :as str]
-            [funnyqt.internal :as i]
-            [funnyqt.utils    :as u]
+  (:require [clojure.string :as str]
+            [funnyqt
+             [internal :as i]
+             [utils :as u]]
             inflections.core))
 
 ;;# Describing Elements

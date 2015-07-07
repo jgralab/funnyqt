@@ -1,14 +1,14 @@
 (ns funnyqt.pmatch-test
-  (:use funnyqt.pmatch)
-  (:require [funnyqt.tg        :as tg]
-            [funnyqt.emf       :as emf]
-            [funnyqt.generic   :as g]
-            [funnyqt.query     :as q]
-            [funnyqt.tg-test   :as tt])
-  (:use funnyqt.query)
-  (:use clojure.test)
-  (:import (de.uni_koblenz.jgralab.schema AggregationKind)
-           (de.uni_koblenz.jgralab Edge)))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :as emf]
+             [generic :as g]
+             [pmatch :refer :all]
+             [query :as q :refer :all]
+             [tg :as tg]
+             [tg-test :as tt]])
+  (:import de.uni_koblenz.jgralab.Edge
+           de.uni_koblenz.jgralab.schema.AggregationKind))
 
 ;;# Tests on PMatchTest model/graph
 

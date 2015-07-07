@@ -1,11 +1,12 @@
 (ns ^{:pattern-expansion-context :emf}
   funnyqt.misc-tests.mutual-exclusion-emf
-  (:use funnyqt.emf)
-  (:use funnyqt.generic)
-  (:require [funnyqt.query :as q])
-  (:use funnyqt.utils)
-  (:use funnyqt.in-place)
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :refer :all]
+             [generic :refer :all]
+             [in-place :refer :all]
+             [query :as q]
+             [utils :refer :all]]))
 
 (load-ecore-resource "test/input/MutualExclusion.ecore")
 

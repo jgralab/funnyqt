@@ -1,10 +1,11 @@
 (ns funnyqt.polyfns-test
-  (:require [funnyqt.tg        :as tg])
-  (:require [funnyqt.generic   :as p])
-  (:require [funnyqt.polyfns   :refer :all])
-  (:require [funnyqt.utils     :as u])
-  (:use [funnyqt.tg-test       :only [rg]])
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [generic :as p]
+             [polyfns :refer :all]
+             [tg :as tg]
+             [tg-test :refer :all]
+             [utils :as u]]))
 
 ;;* Tests
 

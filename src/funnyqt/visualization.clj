@@ -4,19 +4,18 @@
 Using the function `print-model`, TGraph and EMF models can be visualized,
 either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (:require clojure.java.shell
-            [clojure.string  :as str]
-            [funnyqt.generic :as g]
-            [funnyqt.emf     :as emf]
-            [funnyqt.tg      :as tg]
-            [funnyqt.query   :as q]
-            [funnyqt.utils   :as u])
-  (:import
-   (de.uni_koblenz.jgralab Vertex Edge Graph AttributedElement)
-   (de.uni_koblenz.jgralab.schema Attribute EdgeClass AggregationKind)
-   (org.eclipse.emf.ecore EObject EAttribute EReference)
-   (org.eclipse.emf.ecore.resource Resource ResourceSet)
-   (java.awt Image)
-   (javax.swing ImageIcon)))
+            [clojure.string :as str]
+            [funnyqt
+             [emf :as emf]
+             [generic :as g]
+             [query :as q]
+             [tg :as tg]
+             [utils :as u]])
+  (:import [de.uni_koblenz.jgralab AttributedElement Edge Graph Vertex]
+           [de.uni_koblenz.jgralab.schema AggregationKind Attribute EdgeClass]
+           javax.swing.ImageIcon
+           [org.eclipse.emf.ecore EAttribute EObject EReference]
+           [org.eclipse.emf.ecore.resource Resource ResourceSet]))
 
 ;;* Visualization
 

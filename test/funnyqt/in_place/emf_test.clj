@@ -1,12 +1,13 @@
 (ns ^{:pattern-expansion-context :emf}
   funnyqt.in-place.emf-test
-  (:require [funnyqt.generic :as g]
-            [funnyqt.query   :as q]
-            [funnyqt.emf     :as emf]
-            [funnyqt.tg      :as tg]
-            [funnyqt.pmatch  :as pmatch])
-  (:use funnyqt.in-place)
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :as emf]
+             [generic :as g]
+             [in-place :refer :all]
+             [pmatch :as pmatch]
+             [query :as q]
+             [tg :as tg]]))
 
 (emf/load-ecore-resource "test/input/clock.ecore")
 

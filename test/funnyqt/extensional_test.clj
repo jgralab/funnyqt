@@ -1,11 +1,12 @@
 (ns funnyqt.extensional-test
   (:refer-clojure :exclude [parents])
-  (:require [funnyqt.emf       :as emf]
-            [funnyqt.tg        :as tg]
-            [funnyqt.query     :as q]
-            [funnyqt.generic   :refer [elements adj aval enum-constant]]
-            [funnyqt.extensional :refer :all])
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [emf :as emf]
+             [extensional :refer :all]
+             [generic :refer [adj aval elements enum-constant]]
+             [query :as q]
+             [tg :as tg]]))
 
 (emf/load-ecore-resource "test/input/Families.ecore")
 

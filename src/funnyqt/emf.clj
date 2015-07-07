@@ -1,5 +1,4 @@
-(ns ^{:doc "Core functions for accessing and manipulating EMF models."}
-  funnyqt.emf
+(ns funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
   (:require [clojure.core.cache :as cache]
             [clojure.string :as str]

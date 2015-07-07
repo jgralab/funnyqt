@@ -1,8 +1,9 @@
 (ns funnyqt.query
-  "Generic functions like quantified expressions."
-  (:require [flatland.ordered.set  :as os]
-            [funnyqt.utils         :as u]
-            [funnyqt.generic       :as g]))
+  "Generic query functions like regular path expressions & quantified expressions."
+  (:require [flatland.ordered.set :as os]
+            [funnyqt
+             [generic :as g]
+             [utils :as u]]))
 
 ;;# Quantified Expressions
 

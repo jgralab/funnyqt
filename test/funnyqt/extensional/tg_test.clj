@@ -1,9 +1,10 @@
 (ns funnyqt.extensional.tg-test
-  (:use funnyqt.tg)
-  (:require [funnyqt.emf       :as emf]
-            [funnyqt.generic   :as g]
-            [funnyqt.query     :as q]
-            [funnyqt.extensional :as e]
+  (:require [funnyqt
+             [emf :as emf]
+             [extensional :as e]
+             [generic :as g]
+             [query :as q]
+             [tg :refer :all]]
             [funnyqt.extensional.tg :as etg])
   (:use [funnyqt.tg-test :only [rg]])
   (:use clojure.test))

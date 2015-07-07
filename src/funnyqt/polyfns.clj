@@ -1,5 +1,6 @@
 (ns funnyqt.polyfns
   "Polymorphic functions dispatching on types of model elements.
+
 Every polyfn must be declared first, and then arbitrary many implementations
 for several metamodel types may be provided.  A polyfn must have a model
 element as first argument which is used to dispatch among implementations.
@@ -39,8 +40,9 @@ types is provided:
 
   (defpolyfn foo (TypeX TypeY TypeZ) [elem ...] ...)"
   (:require [clojure.tools.macro :as tm]
-            [funnyqt.utils       :as u]
-            [funnyqt.generic     :as g]))
+            [funnyqt
+             [utils :as u]
+             [generic :as g]]))
 
 ;;# Utility protocols
 

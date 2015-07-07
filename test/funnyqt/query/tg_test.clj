@@ -1,11 +1,11 @@
 (ns funnyqt.query.tg-test
-  (:use funnyqt.tg
-        funnyqt.query.tg)
+  (:use funnyqt.tg)
+  (:use funnyqt.query.tg)
   (:require [funnyqt.generic :as g]
             [funnyqt.query   :as q]
             [funnyqt.utils   :as u]
             [funnyqt.tg-test :refer [rg jg]])
-  (:use [clojure.test]))
+  (:use clojure.test))
 
 (deftest test--->
   (mapv #(is (= %1 %2 %3))

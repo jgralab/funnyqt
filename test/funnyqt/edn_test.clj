@@ -1,10 +1,9 @@
 (ns funnyqt.edn-test
   (:require [clojure.test :refer :all]
-            [clojure.java.io :as io]
-            [funnyqt.utils :as u]
-            [funnyqt.edn  :as edn]
-            [funnyqt.tg   :as tg]
-            [funnyqt.emf  :as emf]))
+            [funnyqt
+             [edn :as edn]
+             [emf :as emf]
+             [tg :as tg]]))
 
 (def test-graph (tg/load-graph "test/input/familygraph.tg"))
 

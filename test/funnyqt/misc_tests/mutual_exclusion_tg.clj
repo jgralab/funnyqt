@@ -1,11 +1,11 @@
 (ns ^{:pattern-expansion-context :tg}
   funnyqt.misc-tests.mutual-exclusion-tg
-  (:use funnyqt.tg)
-  (:use funnyqt.utils)
-  (:require [funnyqt.generic :as g])
-  (:use funnyqt.in-place)
-  (:use funnyqt.pmatch)
-  (:use clojure.test))
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [generic :as g]
+             [in-place :refer :all]
+             [tg :refer :all]
+             [utils :refer :all]]))
 
 ;;* Rules
 

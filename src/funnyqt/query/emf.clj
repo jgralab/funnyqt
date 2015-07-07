@@ -1,8 +1,9 @@
 (ns funnyqt.query.emf
   "EMF-specific query functions"
-  (:require [funnyqt.utils         :as u]
-            [flatland.ordered.set  :as os]
-            [funnyqt.emf           :as emf]))
+  (:require [flatland.ordered.set :as os]
+            [funnyqt
+             [emf :as emf]
+             [utils :as u]]))
 
 ;;# Regular Path Expressions
 

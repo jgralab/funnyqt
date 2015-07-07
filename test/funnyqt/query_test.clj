@@ -1,11 +1,6 @@
 (ns funnyqt.query-test
-  (:use [flatland.ordered.set])
-  (:use [funnyqt.query])
-  (:use [clojure.test])
-  (:require [clojure.core.reducers :as r]
-            [funnyqt.utils :as u]
-            [funnyqt.emf :as emf]
-            [funnyqt.tg  :as tg]))
+  (:require [clojure.test :refer :all]
+            [funnyqt.query :refer :all]))
 
 (deftest test-forall?
   (is (forall? even? []))

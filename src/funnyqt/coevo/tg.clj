@@ -1,26 +1,21 @@
 (ns funnyqt.coevo.tg
   "Co-Evolution transformations on TGraphs.
-  Those are transformations which change the schema and the graph in-place."
-  (:require clojure.set
-            clojure.pprint
-            [clojure.tools.macro :as m]
-            [funnyqt.generic :as g]
-            [funnyqt.utils :as u]
-            [funnyqt.tg :as tg]
-            [funnyqt.query :as q]
-            [funnyqt.extensional :as e]
+  Those are transformations which simultaneously change the schema and the
+  graph in-place."
+  (:require [clojure pprint set]
+            [funnyqt
+             [extensional :as e]
+             [generic :as g]
+             [tg :as tg]
+             [utils :as u]]
             [funnyqt.extensional.tg :as etg])
-  (:import
-   (java.util Arrays)
-   (de.uni_koblenz.jgralab Graph Vertex Edge AttributedElement)
-   (de.uni_koblenz.jgralab.schema AggregationKind Attribute
-                                  AttributedElementClass GraphElementClass
-                                  GraphClass EdgeClass Schema VertexClass
-                                  RecordDomain EnumDomain IncidenceClass)
-   (de.uni_koblenz.jgralab.schema.impl.compilation SchemaClassManager)
-   (de.uni_koblenz.jgralab.schema.impl SchemaImpl NamedElementImpl GraphClassImpl)
-   (de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
-                                        InternalAttributesArrayAccess$OnAttributesFunction)))
+  (:import [de.uni_koblenz.jgralab AttributedElement Graph]
+           [de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
+            InternalAttributesArrayAccess$OnAttributesFunction]
+           [de.uni_koblenz.jgralab.schema AggregationKind Attribute
+            AttributedElementClass EdgeClass GraphClass GraphElementClass
+            IncidenceClass RecordDomain Schema VertexClass]
+           de.uni_koblenz.jgralab.schema.impl.SchemaImpl))
 
 ;;# Utility functions
 

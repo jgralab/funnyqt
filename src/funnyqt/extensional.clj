@@ -1,10 +1,9 @@
 (ns funnyqt.extensional
   "Specify models extensionally."
   (:require clojure.set
-            [funnyqt.utils       :as u]
-            [funnyqt.query       :as q]
-            [funnyqt.generic     :as g]
-            [clojure.tools.macro :as m]))
+            [funnyqt
+             [generic :as g]
+             [utils :as u]]))
 
 ;;# Dynamic vars
 

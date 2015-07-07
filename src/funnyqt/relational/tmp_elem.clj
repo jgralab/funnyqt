@@ -1,12 +1,13 @@
 (ns funnyqt.relational.tmp-elem
-  (:require [funnyqt.tg                   :as tg]
-            [funnyqt.emf                  :as emf]
-            [funnyqt.query                :as q]
-            [funnyqt.utils                :as u]
-            [funnyqt.generic              :as g]
-            [clojure.core.logic           :as ccl]
+  "(Internal) Stuff for letting relations create temporary elements."
+  (:require [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [funnyqt.relational.util      :as ru]))
+            [funnyqt
+             [generic :as g]
+             [query :as q]
+             [tg :as tg]
+             [utils :as u]]
+            [funnyqt.relational.util :as ru]))
 
 (def ^:dynamic *make-tmp-elements* false)
 

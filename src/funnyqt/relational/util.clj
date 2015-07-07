@@ -1,5 +1,5 @@
 (ns funnyqt.relational.util
-  "Relation writing utilities."
+  "(Internal) Relation writing utilities."
   (:require [clojure.core.logic :as ccl]))
 
 (defn qmark-symbol? [sym]

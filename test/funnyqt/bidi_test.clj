@@ -1,12 +1,12 @@
 (ns funnyqt.bidi-test
-  (:require [clojure.test           :as test]
-            [clojure.core.logic     :as ccl]
-            [funnyqt.bidi           :as bidi]
-            [funnyqt.relational     :as r]
-            [funnyqt.tg             :as tg]
-            [funnyqt.emf            :as emf]
-            [funnyqt.visualization  :as viz]
-            [funnyqt.generic        :as g]))
+  (:require [clojure.core.logic :as ccl]
+            [clojure.test :as test]
+            [funnyqt
+             [bidi :as bidi]
+             [emf :as emf]
+             [generic :as g]
+             [relational :as r]
+             [tg :as tg]]))
 
 ;;# AddressBook to AddressBook
 

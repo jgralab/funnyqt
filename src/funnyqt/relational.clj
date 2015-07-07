@@ -1,5 +1,5 @@
-(ns ^{:doc "Generic relations"}
-  funnyqt.relational
+(ns funnyqt.relational
+  "Relational Model Querying."
   (:require [clojure string walk]
             [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp]
