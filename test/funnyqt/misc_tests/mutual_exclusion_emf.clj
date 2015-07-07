@@ -17,7 +17,7 @@
 (def counter (atom 1))
 
 (defrule new-rule
-  "Matches 2 connected processes and injects a new process in between."
+  "Matches 2 connected processes and adds a new process in between."
   [model] [p1<Process> -<:next>-> p2
            :isomorphic]
   (let [p (ecreate! model 'Process)]
