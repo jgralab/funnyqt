@@ -4,7 +4,8 @@
              [extensional :as e]
              [generic :as g]
              [query :as q]
-             [tg :as tg]]
+             [tg :as tg]
+             [utils :as u]]
             [funnyqt.coevo.tg :as coevo]
             [funnyqt.extensional.tg :as etg])
   (:import de.uni_koblenz.jgralab.exception.GraphException
