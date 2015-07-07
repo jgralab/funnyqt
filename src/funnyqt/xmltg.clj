@@ -405,7 +405,7 @@ If the XML file has no DTD, you can influence the resolution by providing an
 (def ^:private ^:dynamic *indent-level*)
 (def ^:private ^:dynamic *last-node-was-text*)
 
-(defn ^:private xml-escape-chars ^String [val]
+(defn ^:private xml-escape-chars ^java.lang.String [val]
   (str/escape val {\" "&quot;", \' "&apos;", \& "&amp;", \< "&lt;", \> "&gt;"}))
 
 (defn ^:private attributes-str [elem]

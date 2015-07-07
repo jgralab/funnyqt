@@ -1,20 +1,18 @@
-(ns funnyqt.in-place
-  "In-place transformation stuff."
-  (:require [clojure.tools.macro   :as m]
-            [clojure.string        :as str]
-            [funnyqt.generic       :as g]
-            [funnyqt.visualization :as viz]
-            [funnyqt.utils         :as u]
-            [funnyqt.query         :as q]
-            [funnyqt.pmatch        :as pm]
-            [funnyqt.tg            :as tg])
-  (:import
-   (javax.swing JDialog JButton AbstractAction WindowConstants BoxLayout
-                JPanel JLabel JScrollPane JComboBox Action JCheckBox
-                Box BorderFactory ImageIcon JComponent DefaultListCellRenderer)
-   (java.awt.event ActionEvent ItemEvent ItemListener)
-   (java.awt Color GridLayout GridBagLayout GridBagConstraints)))
-
+(ns ^{:doc "In-place transformation stuff."}
+  funnyqt.in-place
+  (:require [clojure.string :as str]
+            [clojure.tools.macro :as m]
+            [funnyqt
+             [generic :as g]
+             [pmatch :as pm]
+             [tg :as tg]
+             [utils :as u]
+             [visualization :as viz]])
+  (:import [java.awt GridBagConstraints GridBagLayout GridLayout]
+           [java.awt.event ItemEvent ItemListener]
+           [javax.swing AbstractAction Action BorderFactory Box BoxLayout
+            DefaultListCellRenderer ImageIcon JButton JCheckBox JComboBox
+            JComponent JDialog JLabel JPanel JScrollPane WindowConstants]))
 
 ;;# Rules
 
@@ -421,7 +419,7 @@
               v (apply r args)]
           (or v (recur (disj rs r))))))))
 
-(defn ^:private action ^Action [name f]
+(defn ^:private action ^javax.swing.Action [name f]
   (proxy [AbstractAction] [name]
     (actionPerformed [ev]
       (try
@@ -460,7 +458,7 @@
         button-box (Box. BoxLayout/X_AXIS)
         gridbag (GridBagLayout.)
         gridbagconsts (GridBagConstraints.)]
-    (letfn [(deliver-action ^Action [name val]
+    (letfn [(deliver-action ^javax.swing.Action [name val]
               (proxy [AbstractAction] [name]
                 (actionPerformed [ev]
                   (deliver thunkp val)

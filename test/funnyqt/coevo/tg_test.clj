@@ -1,16 +1,15 @@
 (ns funnyqt.coevo.tg-test
-  (:require [funnyqt.query :as q]
-            [funnyqt.tg :as tg]
+  (:require [clojure.test :refer :all]
+            [funnyqt
+             [extensional :as e]
+             [generic :as g]
+             [query :as q]
+             [tg :as tg]]
             [funnyqt.coevo.tg :as coevo]
-            [funnyqt.extensional :as e]
-            [funnyqt.extensional.tg :as etg]
-            [funnyqt.utils :as u]
-            [funnyqt.generic :as g])
-  (:use [clojure.test :only [deftest is test-all-vars]])
-  (:import
-   (de.uni_koblenz.jgralab.exception GraphException)
-   (de.uni_koblenz.jgralab.schema Attribute AttributedElementClass AggregationKind)
-   (de.uni_koblenz.jgralab.schema.exception SchemaException)))
+            [funnyqt.extensional.tg :as etg])
+  (:import de.uni_koblenz.jgralab.exception.GraphException
+           [de.uni_koblenz.jgralab.schema AggregationKind Attribute AttributedElementClass]
+           de.uni_koblenz.jgralab.schema.exception.SchemaException))
 
 ;;# Tests
 ;;## Basic Tests

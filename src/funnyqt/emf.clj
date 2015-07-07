@@ -1,25 +1,25 @@
-(ns funnyqt.emf
+(ns ^{:doc "Core functions for accessing and manipulating EMF models."}
+  funnyqt.emf
   "Core functions for accessing and manipulating EMF models."
-  (:require [clojure.core.cache    :as cache]
-            [clojure.core.reducers :as r]
-            [clojure.string        :as str]
-            [funnyqt.generic       :as g]
-            [funnyqt.internal      :as i]
-            [funnyqt.utils         :as u]
-            [funnyqt.query         :as q]
-            [flatland.ordered.set  :as os]
-            [flatland.ordered.map  :as om]
+  (:require [clojure.core.cache :as cache]
+            [clojure.string :as str]
+            [flatland.ordered
+             [map :as om]
+             [set :as os]]
+            [funnyqt
+             [generic :as g]
+             [internal :as i]
+             [query :as q]
+             [utils :as u]]
             inflections.core)
-  (:import
-   (org.eclipse.emf.ecore.xmi.impl XMIResourceImpl XMIResourceFactoryImpl)
-   (org.eclipse.emf.ecore.util EcoreUtil)
-   (org.eclipse.emf.common.util URI EList UniqueEList EMap)
-   (org.eclipse.emf.ecore.resource Resource ResourceSet Resource$Factory$Registry)
-   (org.eclipse.emf.ecore.resource.impl ResourceSetImpl ResourceFactoryRegistryImpl)
-   (org.eclipse.emf.ecore
-    EcorePackage EPackage EPackage$Registry EObject EModelElement EClassifier
-    EClass EDataType EEnumLiteral EEnum EFactory ETypedElement EAnnotation
-    EAttribute EReference EStructuralFeature)))
+  (:import [org.eclipse.emf.common.util EList EMap UniqueEList URI]
+           [org.eclipse.emf.ecore EAnnotation EAttribute EClass EClassifier EcorePackage
+            EDataType EEnum EEnumLiteral EFactory EObject EPackage EPackage$Registry
+            EReference EStructuralFeature ETypedElement]
+           [org.eclipse.emf.ecore.resource Resource Resource$Factory$Registry ResourceSet]
+           [org.eclipse.emf.ecore.resource.impl ResourceFactoryRegistryImpl ResourceSetImpl]
+           org.eclipse.emf.ecore.util.EcoreUtil
+           [org.eclipse.emf.ecore.xmi.impl XMIResourceFactoryImpl XMIResourceImpl]))
 
 ;;# Simple type predicates
 
@@ -764,7 +764,7 @@
                        identity)
     :else (u/errorf "Don't know how to create a reference matcher for %s" rs)))
 
-(defn ^:private get-eref ^EReference [^EClass ec n pred]
+(defn ^:private get-eref ^org.eclipse.emf.ecore.EReference [^EClass ec n pred]
   (if-let [^EStructuralFeature sf (.getEStructuralFeature ec (name n))]
     (do
       (when-not (instance? EReference sf)
