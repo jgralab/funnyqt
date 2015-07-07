@@ -205,46 +205,46 @@
 
 ;;## Element Relation
 
-(defn ^:private tmp-elemento [g v]
+(defn ^:private tmp-elemento [m el]
   (fn [a]
-    (let [gv (cclp/walk a v)]
+    (let [gel (cclp/walk a el)]
       (cond
-       (not (or (ru/fresh? gv)
-                (tmp/tmp-or-wrapper-element? gv)))
-       (u/errorf "tmp-elemento: v must be fresh or a ground Wrapper/TmpElement but was %s."
-                 gv)
+       (not (or (ru/fresh? gel)
+                (tmp/tmp-or-wrapper-element? gel)))
+       (u/errorf "tmp-elemento: el must be fresh or a ground Wrapper/TmpElement but was %s."
+                 gel)
 
-       (ru/ground? gv)
-       (if (tmp/set-kind gv :element)
+       (ru/ground? gel)
+       (if (tmp/set-kind gel :element)
          (ccl/succeed a)
          (ccl/fail a))
 
        :else (ccl/to-stream
-              (->> (map #(ccl/unify a v %)
+              (->> (map #(ccl/unify a el %)
                         (concat
                          ;; Existing vertices wrapped
-                         (map (partial tmp/make-wrapper g v)
-                              (g/elements g))
+                         (map (partial tmp/make-wrapper m el)
+                              (g/elements m))
                          ;; One new vertex tmp element
-                         [(tmp/make-tmp-element g :element)]))
+                         [(tmp/make-tmp-element m :element)]))
                    (remove not)))))))
 
 (defn elemento
-  "A relation where `v` is a vertex in graph `g`.
-  `g` has to be ground."
-  [g v]
+  "A relation where `el` is an element of model `m`.
+  `m` has to be ground."
+  [m el]
   (if tmp/*make-tmp-elements*
-    (tmp-elemento g v)
+    (tmp-elemento m el)
     (fn [a]
-      (let [gv (cclp/walk a v)]
-        (if (ru/ground? gv)
+      (let [gel (cclp/walk a el)]
+        (if (ru/ground? gel)
           ;; TODO: Maybe we also want a contains check here, e.g., is the
           ;; element contained in this model?
-          (if (g/element? gv)
+          (if (g/element? gel)
             (ccl/succeed a)
             (ccl/fail a))
           (ccl/to-stream
-           (->> (map #(ccl/unify a v %) (g/elements g))
+           (->> (map #(ccl/unify a el %) (g/elements m))
                 (remove not))))))))
 
 ;;## Relationships
