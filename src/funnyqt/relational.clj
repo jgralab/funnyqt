@@ -41,24 +41,6 @@
                       lvars)))
        (ccl/succeed a))))
 
-(defmacro condx
-  "Expands into a `conda` checking if all vars used in the questions are ground.
-  If so, then use a (conda ~@clauses), else use (conde ~@clauses).
-  Thus, `condx` can be used as a generator just like `conde`, but if everything
-  is ground, then the use of `conda` improves the performance."
-  [& clauses]
-  (let [vars (mapcat (fn [c]
-		       (let [f (first c)]
-			 (if (list? f)
-			   (rest f)
-			   [])))
-		     clauses)]
-    `(ccl/conda
-      [(all ~@(map (fn [v] `(ccl/nonlvaro ~v)) vars))
-       (ccl/conda ~@clauses)]
-      [ccl/succeed
-       (ccl/conde ~@clauses)])))
-
 (defn ^:private str-splits [s]
   (loop [idx 0, r []]
     (if (<= idx (count s))
@@ -115,7 +97,7 @@
   ((if (satisfies? g/IUniqueName c)
      g/uname g/qname) c))
 
-(defn kind-class-tup-from-spec [m spec]
+(defn ^:private kind-class-tup-from-spec [m spec]
   (let [aecfn (fn [ts]
                 (g/mm-class m (second (u/type-with-modifiers (name ts)))))
         kindfn #(cond (g/mm-element-class? %)      :element
@@ -131,7 +113,7 @@
 
 ;;## Typing Relation
 
-(defn tmp-typeo [g e t]
+(defn ^:private tmp-typeo [g e t]
   (fn [a]
     (let [ge (cclp/walk a e)
           gt (cclp/walk a t)]
@@ -222,7 +204,7 @@
 
 ;;## Element Relation
 
-(defn tmp-elemento [g v]
+(defn ^:private tmp-elemento [g v]
   (fn [a]
     (let [gv (cclp/walk a v)]
       (cond
@@ -266,7 +248,7 @@
 
 ;;## Relationships
 
-(defn tmp-relationshipo [g e alpha omega]
+(defn ^:private tmp-relationshipo [g e alpha omega]
   (fn [a]
     (let [ge     (cclp/walk a e)
           galpha (cclp/walk a alpha)
@@ -403,7 +385,7 @@
       (concat l (mapcat #(property-list % method) supers))
       l)))
 
-(defn tmp-avalo [m o at val may-override]
+(defn ^:private tmp-avalo [m o at val may-override]
   (fn [a]
     (let [go  (cclp/walk a o)
           gat (cclp/walk a at)]
@@ -465,7 +447,7 @@
 
 ;;## Adjacences
 
-(defn tmp-adjo [m o ref ro may-override]
+(defn ^:private tmp-adjo [m o ref ro may-override]
   (fn [a]
     (let [go   (cclp/walk a o)
           gref (cclp/walk a ref)
