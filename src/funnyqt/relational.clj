@@ -1,15 +1,16 @@
-(ns funnyqt.relational
-  "Generic relations"
-  (:require clojure.walk
-            clojure.string
+(ns ^{:doc "Generic relations"}
+  funnyqt.relational
+  (:require [clojure string walk]
             [clojure.core.logic :as ccl]
             [clojure.core.logic.protocols :as cclp]
-            [funnyqt.query :as q]
-            [funnyqt.utils :as u]
-            [funnyqt.relational.util :as ru]
-            [funnyqt.relational.tmp-elem :as tmp]
-            [funnyqt.generic :as g])
-  (:import (funnyqt.relational.tmp_elem WrapperElement)))
+            [funnyqt
+             [generic :as g]
+             [query :as q]
+             [utils :as u]]
+            [funnyqt.relational
+             [tmp-elem :as tmp]
+             [util :as ru]])
+  (:import funnyqt.relational.tmp_elem.WrapperElement))
 
 ;;* Utils
 
@@ -111,93 +112,95 @@
 
 ;;## Typing Relation
 
-(defn ^:private tmp-typeo [g e t]
+(defn ^:private tmp-typeo [m el-or-rel type]
   (fn [a]
-    (let [ge (cclp/walk a e)
-          gt (cclp/walk a t)]
+    (let [gel-or-rel (cclp/walk a el-or-rel)
+          gtype      (cclp/walk a type)]
       (cond
-       (not (ru/ground? gt))
+       (not (ru/ground? gtype))
        (u/errorf "tmp-typeo: type must be ground.")
 
-       (not (or (ru/fresh? ge)
-                (tmp/tmp-or-wrapper-element? ge)))
-       (u/errorf "tmp-typeo: e must be fresh or a ground Wrapper/TmpElement but was %s." ge)
+       (not (or (ru/fresh? gel-or-rel)
+                (tmp/tmp-or-wrapper-element? gel-or-rel)))
+       (u/errorf "tmp-typeo: el-or-rel must be fresh or a ground Wrapper/TmpElement but was %s." gel-or-rel)
 
-       (ru/ground? ge)
-       (let [[kind aec] (kind-class-tup-from-spec g gt)]
-         (if (and (tmp/set-type ge gt)
-                  (tmp/set-kind ge kind))
+       (ru/ground? gel-or-rel)
+       (let [[kind aec] (kind-class-tup-from-spec m gtype)]
+         (if (and (tmp/set-type gel-or-rel gtype)
+                  (tmp/set-kind gel-or-rel kind))
            (ccl/succeed a)
            (ccl/fail a)))
 
-       :else (let [[kind aec] (kind-class-tup-from-spec g gt)
+       :else (let [[kind aec] (kind-class-tup-from-spec m gtype)
                    seqfn (cond
                            (= kind :element)        g/elements
                            (= kind :relationship)   g/relationships
-                           :else (fn [g gt]
-                                   (concat (g/elements g gt)
-                                           (when (satisfies? g/IRelationships g)
-                                             (g/relationships g gt)))))]
+                           :else (fn [model type-spec]
+                                   (concat (g/elements model type-spec)
+                                           (when (satisfies? g/IRelationships model)
+                                             (g/relationships model type-spec)))))]
                (ccl/to-stream
-                (->> (map #(ccl/unify a e %)
+                (->> (map #(ccl/unify a el-or-rel %)
                           (concat
                            ;; Existing vertices/edges wrapped
-                           (map (partial tmp/make-wrapper g e)
-                                (seqfn g gt))
+                           (map (partial tmp/make-wrapper m el-or-rel)
+                                (seqfn m gtype))
                            ;; One new vertex/edge tmp element
-                           [(tmp/make-tmp-element g kind gt)]))
+                           [(tmp/make-tmp-element m kind gtype)]))
                      (remove not))))))))
 
 (defn typeo
-  "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
-  element class name.  In fact, `t` may be any type specification (see
-  `funnyqt.generic/type-matcher`).  The graph `g` must be ground."
-  [g e t]
+  "A relation where in model `m` the element or relationship `el-or-rel` has
+  the given `type`.  In fact, `type` may be any type specification (see
+  `funnyqt.generic/type-matcher`).  The model `m` must be ground."
+  [m el-or-rel type]
   (if tmp/*make-tmp-elements*
-    (tmp-typeo g e t)
+    (tmp-typeo m el-or-rel type)
     (fn [a]
-      (let [ge (cclp/walk a e)
-            gt (cclp/walk a t)]
+      (let [gel-or-rel (cclp/walk a el-or-rel)
+            gtype      (cclp/walk a type)]
         (cond
-          (or (and (ru/ground? ge) (not (or (g/element? ge) (g/relationship? ge))))
-              (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
+          (or (and (ru/ground? gel-or-rel)
+                   (not (or (g/element? gel-or-rel) (g/relationship? gel-or-rel))))
+              (and (ru/ground? gtype) (not (or (symbol? gtype) (coll? gtype)))))
           (ccl/fail a)
 
-          (and (ru/ground? ge) (ru/ground? gt))
-          (if (g/has-type? ge gt) (ccl/succeed a) (ccl/fail a))
+          (and (ru/ground? gel-or-rel) (ru/ground? gtype))
+          (if (g/has-type? gel-or-rel gtype) (ccl/succeed a) (ccl/fail a))
 
-          (ru/ground? ge)
-          (ccl/unify a t (g/qname ge))
+          (ru/ground? gel-or-rel)
+          (ccl/unify a type (g/qname gel-or-rel))
 
-          (ru/ground? gt)
-          (if (symbol? gt)
-            ;; Ok, here we can determine if its a vertex or an edge class
-            (let [[_ tn _] (u/type-with-modifiers (name gt))
-                  aec      (g/mm-class g tn)]
+          (ru/ground? gtype)
+          (if (symbol? gtype)
+            ;; Ok, here we can determine if its a element or a relationship
+            ;; class
+            (let [[_ tn _] (u/type-with-modifiers (name gtype))
+                  mm-cls   (g/mm-class m tn)]
               (cond
-                (g/mm-element-class? aec)
+                (g/mm-element-class? mm-cls)
                 (ccl/to-stream
-                 (->> (map #(ccl/unify a e %) (g/elements g gt))
+                 (->> (map #(ccl/unify a el-or-rel %) (g/elements m gtype))
                       (remove not)))
                 ;;---
-                (g/mm-relationship-class? aec)
+                (g/mm-relationship-class? mm-cls)
                 (ccl/to-stream
-                 (->> (map #(ccl/unify a e %) (g/relationships g gt))
+                 (->> (map #(ccl/unify a el-or-rel %) (g/relationships m gtype))
                       (remove not)))
                 ;;---
-                :else (u/errorf "%s is neither element nor relationship class." aec)))
+                :else (u/errorf "%s is neither element nor relationship class." mm-cls)))
             (ccl/to-stream
-             (->> (map #(ccl/unify a e %)
-                       (concat (g/elements g gt)
-                               (when (satisfies? g/IRelationships g)
-                                 (g/relationships g gt))))
+             (->> (map #(ccl/unify a el-or-rel %)
+                       (concat (g/elements m gtype)
+                               (when (satisfies? g/IRelationships m)
+                                 (g/relationships m gtype))))
                   (remove not))))
 
           :else (ccl/to-stream
-                 (->> (for [elem (concat (g/elements g)
-                                         (when (satisfies? g/IRelationships g)
-                                           (g/relationships g)))]
-                        (ccl/unify a [e t] [elem (g/qname elem)]))
+                 (->> (for [elem (concat (g/elements m)
+                                         (when (satisfies? g/IRelationships m)
+                                           (g/relationships m)))]
+                        (ccl/unify a [el-or-rel type] [elem (g/qname elem)]))
                       (remove not))))))))
 
 ;;## Element Relation
