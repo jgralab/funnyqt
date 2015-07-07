@@ -29,19 +29,22 @@
               (tg/eseq rg))
          (run* [q]
            (with-fresh
-             (relationshipo rg ?e ?t ?a ?o)
+             (typeo rg ?e ?t)
+             (relationshipo rg ?e ?a ?o)
              (== q [?e ?t ?a ?o]))))))
 
 (deftest test-elemento-and-relationshipo-with-type
   (is (= (tg/vseq rg 'Junction)
          (run* [q]
-           (elemento rg q 'Junction))
+           (typeo rg q 'Junction)
+           (elemento rg q))
          (run* [q]
            (routemap/+Junction rg q))))
   (is (= (tg/eseq rg 'Connection)
          (run* [q]
            (with-fresh
-             (relationshipo rg q 'Connection _ _)))
+             (typeo rg q 'Connection)
+             (relationshipo rg q _ _)))
          (run* [q]
            (with-fresh
              (routemap/+Connection rg q _ _))))))

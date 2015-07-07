@@ -3,8 +3,6 @@
             [clojure.core.logic     :as ccl]
             [funnyqt.bidi           :as bidi]
             [funnyqt.relational     :as r]
-            [funnyqt.relational.tg  :as rtg]
-            [funnyqt.relational.emf :as remf]
             [funnyqt.tg             :as tg]
             [funnyqt.emf            :as emf]
             [funnyqt.visualization  :as viz]
@@ -12,10 +10,10 @@
 
 ;;# AddressBook to AddressBook
 
-(rtg/generate-schema-relations "test/input/addressbook.tg"
-                               test.relational.addressbook.tg ab-tg)
-(remf/generate-ecore-model-relations "test/input/AddressBook.ecore"
-                                     test.relational.addressbook.emf ab-emf)
+(r/generate-metamodel-relations "test/input/addressbook.tg"
+                                test.relational.addressbook.tg ab-tg)
+(r/generate-metamodel-relations "test/input/AddressBook.ecore"
+                                test.relational.addressbook.emf ab-emf)
 
 (emf/load-ecore-resource "test/input/AddressBook.ecore")
 
@@ -442,10 +440,10 @@
 
 ;;# UML Class Diagram to RDBMS Tables
 
-(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"
-                                     test.relational.classdiagram.emf cd)
-(remf/generate-ecore-model-relations "test/input/uml-rdbms-bidi/database.ecore"
-                                     test.relational.database.emf db)
+(r/generate-metamodel-relations "test/input/uml-rdbms-bidi/classdiagram.ecore"
+                                test.relational.classdiagram.emf cd)
+(r/generate-metamodel-relations "test/input/uml-rdbms-bidi/database.ecore"
+                                test.relational.database.emf db)
 
 (emf/load-ecore-resource "test/input/uml-rdbms-bidi/classdiagram.ecore")
 (emf/load-ecore-resource "test/input/uml-rdbms-bidi/database.ecore")

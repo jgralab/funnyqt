@@ -19,12 +19,14 @@
 (t/deftest test-elemento-with-type
   (t/is (= (emf/eallcontents family-model 'Member)
            (run* [q]
-             (elemento family-model q 'Member))
+             (elemento family-model q)
+             (typeo family-model q 'Member))
            (run* [q]
              (families/+Member family-model q))))
   (t/is (= (emf/eallcontents family-model '!Member)
            (run* [q]
-             (elemento family-model q '!Member))
+             (typeo family-model q '!Member)
+             (elemento family-model q))
            (run* [q]
              (families/+!Member family-model q)))))
 

@@ -419,7 +419,7 @@ functions `record` and `enum-constant`."
 
 (extend-protocol g/IMMRelationshipClass
   EdgeClass
-  (mm-relationship-class-class? [_] true))
+  (mm-relationship-class? [_] true))
 
 (extend-protocol g/IMMRelationshipClassSourceTarget
   EdgeClass

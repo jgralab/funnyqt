@@ -115,370 +115,281 @@
   ((if (satisfies? g/IUniqueName c)
      g/uname g/qname) c))
 
-;;## Elements
+(defn kind-class-tup-from-spec [m spec]
+  (let [aecfn (fn [ts]
+                (g/mm-class m (second (u/type-with-modifiers (name ts)))))
+        kindfn #(cond (g/mm-element-class? %)      :element
+                      (g/mm-relationship-class? %) :relationship
+                      :else (u/errorf "Cannot handle %s" %))]
+    (cond
+     (symbol? spec) (let [aec (aecfn spec)]
+                      [(kindfn aec) aec])
+     (vector? spec) (let [aecs  (set (map aecfn spec))
+                          kinds (set (map kindfn aecs))]
+                      [kinds aecs])
+     :else (u/errorf "Unknown spec %s." spec))))
 
-(defn tmp-elemento
-  ([m el]
-   (fn [a]
-     (let [gel (cclp/walk a el)]
-       (cond
-         (not (or (ru/fresh? gel) (tmp/tmp-or-wrapper-element? gel)))
-         (u/errorf "tmp-element/2: el must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gel)
+;;## Typing Relation
 
-         (ru/ground? gel)
-         (if (tmp/set-kind gel :element)
+(defn tmp-typeo [g e t]
+  (fn [a]
+    (let [ge (cclp/walk a e)
+          gt (cclp/walk a t)]
+      (cond
+       (not (ru/ground? gt))
+       (u/errorf "tmp-typeo: type must be ground.")
+
+       (not (or (ru/fresh? ge)
+                (tmp/tmp-or-wrapper-element? ge)))
+       (u/errorf "tmp-typeo: e must be fresh or a ground Wrapper/TmpElement but was %s." ge)
+
+       (ru/ground? ge)
+       (let [[kind aec] (kind-class-tup-from-spec g gt)]
+         (if (and (tmp/set-type ge gt)
+                  (tmp/set-kind ge kind))
            (ccl/succeed a)
-           (ccl/fail a))
+           (ccl/fail a)))
 
-         :else (ccl/to-stream
-                (->> (map #(ccl/unify a el %)
+       :else (let [[kind aec] (kind-class-tup-from-spec g gt)
+                   seqfn (cond
+                           (= kind :element)        g/elements
+                           (= kind :relationship)   g/relationships
+                           :else (fn [g gt]
+                                   (concat (g/elements g gt)
+                                           (when (satisfies? g/IRelationships g)
+                                             (g/relationships g gt)))))]
+               (ccl/to-stream
+                (->> (map #(ccl/unify a e %)
                           (concat
-                           (map (partial tmp/make-wrapper m el)
-                                (g/elements m))
-                           [(tmp/make-tmp-element m :element)]))
-                     (remove not)))))))
-  ([m el t]
-   (fn [a]
-     (let [gel (cclp/walk a el)
-           gt  (cclp/walk a t)]
-       (cond
-         (not (ru/ground? gt))
-         (u/errorf "tmp-elemento/3: type must be ground.")
-
-         (not (or (ru/fresh? gel) (tmp/tmp-or-wrapper-element? gel)))
-         (u/errorf "tmp-elemento/3: el must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gel)
-
-         (ru/ground? gel) ;; TODO: we probably need something like tg/kind-aec-tup-from-spec, too
-         (if (and (tmp/set-kind gel :element)
-                  (tmp/set-type gel gt))
-           (ccl/succeed a)
-           (ccl/fail a))
-
-         :else (ccl/to-stream
-                (->> (map #(ccl/unify a el %)
-                          (concat
-                           (map (partial tmp/make-wrapper m el)
-                                (g/elements m gt))
-                           [(tmp/make-tmp-element m :element gt)]))
+                           ;; Existing vertices/edges wrapped
+                           (map (partial tmp/make-wrapper g e)
+                                (seqfn g gt))
+                           ;; One new vertex/edge tmp element
+                           [(tmp/make-tmp-element g kind gt)]))
                      (remove not))))))))
 
+(defn typeo
+  "A relation where in graph `g`, vertex or edge `e` has the type `t`, a graph
+  element class name.  In fact, `t` may be any type specification (see
+  `funnyqt.generic/type-matcher`).  The graph `g` must be ground."
+  [g e t]
+  (if tmp/*make-tmp-elements*
+    (tmp-typeo g e t)
+    (fn [a]
+      (let [ge (cclp/walk a e)
+            gt (cclp/walk a t)]
+        (cond
+          (or (and (ru/ground? ge) (not (or (g/element? ge) (g/relationship? ge))))
+              (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
+          (ccl/fail a)
+
+          (and (ru/ground? ge) (ru/ground? gt))
+          (if (g/has-type? ge gt) (ccl/succeed a) (ccl/fail a))
+
+          (ru/ground? ge)
+          (ccl/unify a t (g/qname ge))
+
+          (ru/ground? gt)
+          (if (symbol? gt)
+            ;; Ok, here we can determine if its a vertex or an edge class
+            (let [[_ tn _] (u/type-with-modifiers (name gt))
+                  aec      (g/mm-class g tn)]
+              (cond
+                (g/mm-element-class? aec)
+                (ccl/to-stream
+                 (->> (map #(ccl/unify a e %) (g/elements g gt))
+                      (remove not)))
+                ;;---
+                (g/mm-relationship-class? aec)
+                (ccl/to-stream
+                 (->> (map #(ccl/unify a e %) (g/relationships g gt))
+                      (remove not)))
+                ;;---
+                :else (u/errorf "%s is neither element nor relationship class." aec)))
+            (ccl/to-stream
+             (->> (map #(ccl/unify a e %)
+                       (concat (g/elements g gt)
+                               (when (satisfies? g/IRelationships g)
+                                 (g/relationships g gt))))
+                  (remove not))))
+
+          :else (ccl/to-stream
+                 (->> (for [elem (concat (g/elements g)
+                                         (when (satisfies? g/IRelationships g)
+                                           (g/relationships g)))]
+                        (ccl/unify a [e t] [elem (g/qname elem)]))
+                      (remove not))))))))
+
+;;## Element Relation
+
+(defn tmp-elemento [g v]
+  (fn [a]
+    (let [gv (cclp/walk a v)]
+      (cond
+       (not (or (ru/fresh? gv)
+                (tmp/tmp-or-wrapper-element? gv)))
+       (u/errorf "tmp-elemento: v must be fresh or a ground Wrapper/TmpElement but was %s."
+                 gv)
+
+       (ru/ground? gv)
+       (if (tmp/set-kind gv :element)
+         (ccl/succeed a)
+         (ccl/fail a))
+
+       :else (ccl/to-stream
+              (->> (map #(ccl/unify a v %)
+                        (concat
+                         ;; Existing vertices wrapped
+                         (map (partial tmp/make-wrapper g v)
+                              (g/elements g))
+                         ;; One new vertex tmp element
+                         [(tmp/make-tmp-element g :element)]))
+                   (remove not)))))))
+
 (defn elemento
-  "A relation where the element `el` has the type `t` in model `m`.  In fact,
-  `t` may be any type specification (see `funnyqt.generic/type-matcher`)."
-  ([m el]
-     (if tmp/*make-tmp-elements*
-       (tmp-elemento m el)
-       (fn [a]
-         (let [gel (cclp/walk a el)]
-           (if (ru/ground? gel)
-             (if (g/element? gel) (ccl/succeed a) (ccl/fail a))
-             (ccl/to-stream
-              (->> (map #(ccl/unify a el %)
-                        (g/elements m))
-                   (remove not))))))))
-  ([m el t]
-     (if tmp/*make-tmp-elements*
-       (tmp-elemento m el t)
-       (fn [a]
-         (let [gel (cclp/walk a el)
-               gt (cclp/walk a t)]
-           (cond
-             (or (and (ru/ground? gel) (not (g/element? gel)))
-                 (and (ru/ground? gt) (not (or (symbol? gt) (coll? gt)))))
-             (ccl/fail a)
-
-             (and (ru/ground? gel) (ru/ground? gt))
-             (if (g/has-type? gel gt)
-               (ccl/succeed a)
-               (ccl/fail a))
-
-             (ru/ground? gel)
-             (ccl/unify a t (g/qname gel))
-
-             (ru/ground? gt)
-             (ccl/to-stream
-              (->> (map #(ccl/unify a el %) (g/elements m gt))
-                   (remove not)))
-
-             :else (ccl/to-stream
-                    (->> (for [elem (g/elements m)]
-                           (ccl/unify a [el t] [elem (g/qname elem)]))
-                         (remove not)))))))))
+  "A relation where `v` is a vertex in graph `g`.
+  `g` has to be ground."
+  [g v]
+  (if tmp/*make-tmp-elements*
+    (tmp-elemento g v)
+    (fn [a]
+      (let [gv (cclp/walk a v)]
+        (if (ru/ground? gv)
+          ;; TODO: Maybe we also want a contains check here, e.g., is the
+          ;; element contained in this model?
+          (if (g/element? gv)
+            (ccl/succeed a)
+            (ccl/fail a))
+          (ccl/to-stream
+           (->> (map #(ccl/unify a v %) (g/elements g))
+                (remove not))))))))
 
 ;;## Relationships
 
-(defn tmp-relationshipo
-  ([m rel src trg]
-   (fn [a]
-     (let [grel (cclp/walk a rel)
-           gsrc (cclp/walk a src)
-           gtrg (cclp/walk a trg)]
-       (cond
-         (not (or (ru/fresh? grel) (tmp/tmp-or-wrapper-element? grel)))
-         (u/errorf "tmp-relationshipo: rel must be fresh or a ground Wrapper/TmpElement but was %s."
-                   grel)
+(defn tmp-relationshipo [g e alpha omega]
+  (fn [a]
+    (let [ge     (cclp/walk a e)
+          galpha (cclp/walk a alpha)
+          gomega (cclp/walk a omega)]
+      (cond
+       (not (or (ru/fresh? ge) (tmp/tmp-or-wrapper-element? ge)))
+       (u/errorf "tmp-relationshipo: e must be fresh or a ground Wrapper/TmpElement but was %s."
+                 ge)
 
-         (not (or (ru/fresh? gsrc) (tmp/tmp-or-wrapper-element? gsrc)))
-         (u/errorf "tmp-relationshipo: src must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gsrc)
+       (not (or (ru/fresh? galpha) (tmp/tmp-or-wrapper-element? galpha)))
+       (u/errorf "tmp-relationshipo: alpha must be fresh or a ground Wrapper/TmpElement but was %s."
+                 galpha)
 
-         (not (or (ru/fresh? gtrg) (tmp/tmp-or-wrapper-element? gtrg)))
-         (u/errorf "tmp-relationshipo: trg must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gtrg)
+       (not (or (ru/fresh? gomega) (tmp/tmp-or-wrapper-element? gomega)))
+       (u/errorf "tmp-relationshipo: omega must be fresh or a ground Wrapper/TmpElement but was %s."
+                 gomega)
 
-         (tmp/wrapper-element? grel)
-         (ccl/unify a [src trg]
-                    (let [edge (.wrapped-element ^WrapperElement grel)]
-                      [(tmp/make-wrapper m src (g/source edge))
-                       (tmp/make-wrapper m trg (g/target edge))]))
+       (tmp/wrapper-element? ge)
+       (ccl/unify a [alpha omega]
+                    (let [edge (.wrapped-element ^WrapperElement ge)]
+                      [(tmp/make-wrapper g alpha (g/source edge))
+                       (tmp/make-wrapper g omega (g/target edge))]))
 
-         (and (ru/fresh? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
-         (ccl/to-stream
-          (->> (map (fn [ed]
-                      (ccl/unify a rel ed))
-                    (concat
-                     (map (partial tmp/make-wrapper m rel)
-                          (filter
-                           #(= (.wrapped-element ^WrapperElement gtrg) (g/target %))
-                           (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out)))
-                     [(doto (tmp/make-tmp-element m :relationship)
-                        (tmp/set-source src)
-                        (tmp/set-target trg))]))
-               (remove not)))
+       (and (ru/fresh? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
+       (ccl/to-stream
+        (->> (map (fn [ed]
+                    (ccl/unify a e ed))
+                  (concat
+                   (map (partial tmp/make-wrapper g e)
+                        (filter
+                         #(= (.wrapped-element ^WrapperElement gomega) (g/target %))
+                         (g/incident-relationships (.wrapped-element ^WrapperElement galpha) nil :out)))
+                   [(doto (tmp/make-tmp-element g :relationship)
+                      (tmp/set-source alpha)
+                      (tmp/set-target omega))]))
+             (remove not)))
 
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg))
-           (ccl/succeed a)
-           (ccl/fail a))
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha) (tmp/wrapper-element? gomega))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
+         (ccl/succeed a)
+         (ccl/fail a))
 
-         (and (ru/fresh? grel) (tmp/wrapper-element? gsrc))
-         (ccl/to-stream
-          (->> (map (fn [ed-om]
-                      (ccl/unify a [rel trg] ed-om))
-                    (concat
-                     (map (fn [ed]
-                            [(tmp/make-wrapper m rel ed)
-                             (tmp/make-wrapper m trg (g/target ed))])
-                          (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out))
-                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                        (tmp/set-source ed src)
-                        (tmp/set-target ed trg)
-                        [ed gtrg])]))
-               (remove not)))
+       (and (ru/fresh? ge) (tmp/wrapper-element? galpha))
+       (ccl/to-stream
+        (->> (map (fn [ed-om]
+                    (ccl/unify a [e omega] ed-om))
+                  (concat
+                   (map (fn [ed]
+                          [(tmp/make-wrapper g e ed)
+                           (tmp/make-wrapper g omega (g/target ed))])
+                        (g/incident-relationships (.wrapped-element ^WrapperElement galpha) nil :out))
+                   [(let [ed (tmp/make-tmp-element g :relationship)]
+                      (tmp/set-source ed alpha)
+                      (tmp/set-target ed omega)
+                      [ed gomega])]))
+             (remove not)))
 
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg))
-           (ccl/succeed a)
-           (ccl/fail a))
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? galpha))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
+         (ccl/succeed a)
+         (ccl/fail a))
 
-         (and (ru/fresh? grel) (tmp/wrapper-element? gtrg))
-         (ccl/to-stream
-          (->> (map (fn [ed-al]
-                      (ccl/unify a [rel src] ed-al))
-                    (concat
-                     (map (fn [ed]
-                            [(tmp/make-wrapper m rel ed)
-                             (tmp/make-wrapper m src (g/source ed))])
-                          (g/incident-relationships (.wrapped-element ^WrapperElement gtrg) nil :in))
-                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                        (tmp/set-source ed src)
-                        (tmp/set-target ed trg)
-                        [ed gsrc])]))
-               (remove not)))
+       (and (ru/fresh? ge) (tmp/wrapper-element? gomega))
+       (ccl/to-stream
+        (->> (map (fn [ed-al]
+                    (ccl/unify a [e alpha] ed-al))
+                  (concat
+                   (map (fn [ed]
+                          [(tmp/make-wrapper g e ed)
+                           (tmp/make-wrapper g alpha (g/source ed))])
+                        (g/incident-relationships (.wrapped-element ^WrapperElement gomega) nil :in))
+                   [(let [ed (tmp/make-tmp-element g :relationship)]
+                      (tmp/set-source ed alpha)
+                      (tmp/set-target ed omega)
+                      [ed galpha])]))
+             (remove not)))
 
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gtrg))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg))
-           (ccl/succeed a)
-           (ccl/fail a))
+       (and (tmp/tmp-element? ge) (tmp/wrapper-element? gomega))
+       (if (and (tmp/set-source ge alpha)
+                (tmp/set-target ge omega))
+         (ccl/succeed a)
+         (ccl/fail a))
 
-         :else (u/errorf "Can't handle (tmp-relationshipo %s %s %s %s)" m grel gsrc gtrg)))))
-  ([m rel t src trg]
-   (fn [a]
-     (let [grel (cclp/walk a rel)
-           gt   (cclp/walk a t)
-           gsrc (cclp/walk a src)
-           gtrg (cclp/walk a trg)]
-       (cond
-         (not (or (ru/fresh? grel) (tmp/tmp-or-wrapper-element? grel)))
-         (u/errorf "tmp-relationshipo: rel must be fresh or a ground Wrapper/TmpElement but was %s."
-                   grel)
-
-         (not (or (ru/fresh? gsrc) (tmp/tmp-or-wrapper-element? gsrc)))
-         (u/errorf "tmp-relationshipo: src must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gsrc)
-
-         (not (or (ru/fresh? gtrg) (tmp/tmp-or-wrapper-element? gtrg)))
-         (u/errorf "tmp-relationshipo: trg must be fresh or a ground Wrapper/TmpElement but was %s."
-                   gtrg)
-
-         (tmp/wrapper-element? grel)
-         (ccl/unify a [t src trg]
-                    (let [edge (.wrapped-element ^WrapperElement grel)]
-                      [(g/qname edge)
-                       (tmp/make-wrapper m src (g/source edge))
-                       (tmp/make-wrapper m trg (g/target edge))]))
-
-         (and (ru/fresh? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
-         (ccl/to-stream
-          (->> (map (fn [ed]
-                      (if (ru/ground? gt)
-                        (ccl/unify a rel ed)
-                        (ccl/unify a [rel t] [ed (g/qname ed)])))
-                    (concat
-                     (map (partial tmp/make-wrapper m rel)
-                          (filter
-                           #(= (.wrapped-element ^WrapperElement gtrg) (g/target %))
-                           (g/incident-relationships (.wrapped-element ^WrapperElement gsrc)
-                                                     (when (ru/ground? gt) gt) :out)))
-                     [(let [tmp-rel (tmp/make-tmp-element m :relationship)]
-                        (tmp/set-source tmp-rel src)
-                        (tmp/set-target tmp-rel trg)
-                        (when (ru/ground? gt)
-                          (tmp/set-type grel gt))
-                        tmp-rel)]))
-               (remove not)))
-
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg)
-                  (if (ru/ground? gt)
-                    (tmp/set-type grel gt)
-                    true))
-           (ccl/succeed a)
-           (ccl/fail a))
-
-         (and (ru/fresh? grel) (tmp/wrapper-element? gsrc))
-         (ccl/to-stream
-          (->> (map (fn [ed-om-t]
-                      (if (and (ru/fresh? gt) (nth ed-om-t 2))
-                        (ccl/unify a [rel trg t] ed-om-t)
-                        (ccl/unify a [rel trg] ed-om-t)))
-                    (concat
-                     (map (fn [ed]
-                            [(tmp/make-wrapper m rel ed)
-                             (tmp/make-wrapper m trg (g/target ed))
-                             (g/qname ed)])
-                          (g/incident-relationships (.wrapped-element ^WrapperElement gsrc)
-                                                    (when (ru/ground? gt) gt) :out))
-                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                        (tmp/set-source ed src)
-                        (tmp/set-target ed trg)
-                        [ed gtrg])]))
-               (remove not)))
-
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg))
-           (ccl/succeed a)
-           (ccl/fail a))
-
-         (and (ru/fresh? grel) (tmp/wrapper-element? gtrg))
-         (ccl/to-stream
-          (->> (map (fn [ed-al-t]
-                      (if (and (ru/fresh? gt) (nth ed-al-t 2))
-                        (ccl/unify a [rel src t] ed-al-t)
-                        (ccl/unify a [rel src] ed-al-t)))
-                    (concat
-                     (map (fn [ed]
-                            [(tmp/make-wrapper m rel ed)
-                             (tmp/make-wrapper m src (g/source ed))
-                             (g/qname ed)])
-                          (g/incident-relationships (.wrapped-element ^WrapperElement gtrg)
-                                                    (when (ru/ground? gt) gt) :in))
-                     [(let [ed (tmp/make-tmp-element m :relationship)]
-                        (tmp/set-source ed src)
-                        (tmp/set-target ed trg)
-                        [ed gsrc])]))
-               (remove not)))
-
-         (and (tmp/tmp-element? grel) (tmp/wrapper-element? gtrg))
-         (if (and (tmp/set-source grel src)
-                  (tmp/set-target grel trg))
-           (ccl/succeed a)
-           (ccl/fail a))
-
-         :else (u/errorf "Can't handle (tmp-relationshipo %s %s %s %s)" m grel gsrc gtrg))))))
+       :else (u/errorf "Can't handle (tmp-relationshipo %s %s %s %s)" g ge galpha gomega)))))
 
 (defn relationshipo
-  "A relation where `rel` is a relationship in model `m` starting at `src` and
-  ending at `trg`. `m` has to be ground."
-  ([m rel src trg]
-   (if tmp/*make-tmp-elements*
-     (tmp-relationshipo m rel src trg)
-     (fn [a]
-       (let [grel (cclp/walk a rel)
-             gsrc (cclp/walk a src)
-             gtrg (cclp/walk a trg)]
-         (cond
-           (or (and (ru/ground? grel) (not (g/relationship? grel)))
-               (and (ru/ground? gsrc) (not (g/element? gsrc)))
-               (and (ru/ground? gtrg) (not (g/element? gtrg))))
-           (ccl/fail a)
+  "A relation where `e` is an edge in graph `g` from `alpha` to `omega`.
+  `g` has to be ground."
+  [g e alpha omega]
+  (if tmp/*make-tmp-elements*
+    (tmp-relationshipo g e alpha omega)
+    (fn [a]
+      (let [ge     (cclp/walk a e)
+            galpha (cclp/walk a alpha)
+            gomega (cclp/walk a omega)]
+        (cond
+         (or (and (ru/ground? ge) (not (g/relationship? ge)))
+             (and (ru/ground? galpha) (not (g/element? galpha)))
+             (and (ru/ground? gomega) (not (g/element? gomega))))
+         (ccl/fail a)
 
-           (ru/ground? grel)
-           (ccl/unify a [src trg] [(g/source grel) (g/target grel)])
+         (ru/ground? ge)
+         (ccl/unify a [alpha omega] [(g/source ge) (g/target ge)])
 
-           (ru/ground? gsrc)
-           (ccl/to-stream
-            (->> (map #(ccl/unify a [rel trg] [% (g/target %)])
-                      (g/incident-relationships gsrc nil :out))
-                 (remove not)))
+         (ru/ground? galpha)
+         (ccl/to-stream
+          (->> (map #(ccl/unify a [e omega] [% (g/target %)])
+                    (g/incident-relationships galpha nil :out))
+               (remove not)))
 
-           (ru/ground? gtrg)
-           (ccl/to-stream
-            (->> (map #(ccl/unify a [rel src] [% (g/source %)])
-                      (g/incident-relationships gtrg nil :in))
-                 (remove not)))
+         (ru/ground? gomega)
+         (ccl/to-stream
+          (->> (map #(ccl/unify a [e alpha] [% (g/source %)])
+                    (g/incident-relationships gomega nil :in))
+               (remove not)))
 
-           :else (ccl/to-stream
-                  (->> (for [edge (g/relationships m)]
-                         (ccl/unify a [rel src trg]
-                                    [edge (g/source edge) (g/target edge)]))
-                       (remove not))))))))
-  ([m rel t src trg]
-   (if tmp/*make-tmp-elements*
-     (tmp-relationshipo m rel t src trg)
-     (fn [a]
-       (let [grel (cclp/walk a rel)
-             gt   (cclp/walk a t)
-             gsrc (cclp/walk a src)
-             gtrg (cclp/walk a trg)]
-         (cond
-           (or (and (ru/ground? grel) (ru/ground? gt)
-                    (not (nil? gt))   (not (g/has-type? grel t)))
-               (and (ru/ground? grel) (not (g/relationship? grel)))
-               (and (ru/ground? gsrc) (not (g/element? gsrc)))
-               (and (ru/ground? gtrg) (not (g/element? gtrg))))
-           (ccl/fail a)
-
-           (ru/ground? grel)
-           (ccl/unify a [t src trg] [(u-or-qname grel) (g/source grel) (g/target grel)])
-
-           (ru/ground? gsrc)
-           (ccl/to-stream
-            (->> (map #(ccl/unify a [rel t trg] [% (u-or-qname %) (g/target %)])
-                      (g/incident-relationships gsrc (when (ru/ground? gt) gt) :out))
-                 (remove not)))
-
-           (ru/ground? gtrg)
-           (ccl/to-stream
-            (->> (map #(ccl/unify a [rel t src] [% (u-or-qname %) (g/source %)])
-                      (g/incident-relationships gtrg (when (ru/ground? gt) gt) :in))
-                 (remove not)))
-
-           :else (ccl/to-stream
-                  (->> (for [edge (g/relationships m (when (ru/ground? gt) gt))]
-                         (ccl/unify a [rel t src trg]
-                                    [edge
-                                     (if (ru/ground? gt) gt (g/qname edge))
-                                     (g/source edge)
-                                     (g/target edge)]))
-                       (remove not)))))))))
+         :else (ccl/to-stream
+                (->> (for [edge (g/relationships g)]
+                       (ccl/unify a [e alpha omega]
+                                  [edge (g/source edge) (g/target edge)]))
+                     (remove not))))))))
 
 ;;## Attribute values
 
@@ -498,60 +409,61 @@
           gat (cclp/walk a at)]
       (cond
        (not (tmp/tmp-or-wrapper-element? go))
-       (u/errorf "tmp-avalo: o has to be a ground Tmp/WrapperElement but was %s."
+       (u/errorf "tmp-valueo: o has to be a ground Tmp/WrapperElement but was %s."
                  go)
 
        (not (keyword? gat))
-       (u/errorf "tmp-avalo: at must be a ground keyword but was %s." gat)
+       (u/errorf "tmp-valueo: at must be a ground keyword but was %s." gat)
 
        :else (do (tmp/add-attr go gat val may-override)
                  (ccl/succeed a))))))
 
+
 (defn avalo
-  "A relation where element (or relationship) `el` has value `val` for its `at`
-  attribute in the model `m`.
+  "A relation where graph `g`s attributed element `ae` has value `val` for its
+  `at` attribute.
 
   The parameter `may-override` specifies that the attribute value may be
-  overridden when transforming into the direction of `m` in a bidirectional
+  overridden when transforming into the direction of `g` in a bidirectional
   transformation.  (You normally shouldn't use that parameter directly, but use
-  the API generated by `generate-ecore-model-relations`.)" ;; FIXME: correct macro!
-  ([m el at val]
-     (avalo m el at val false))
-  ([m el at val may-override]
+  the API generated by `generate-schema-relations`.)"
+  ([g ae at val]
+     (avalo g ae at val false))
+  ([g ae at val may-override]
      (if tmp/*make-tmp-elements*
-       (tmp-avalo m el at val may-override)
+       (tmp-avalo g ae at val may-override)
        (fn [a]
-         (let [gel  (cclp/walk a el)
+         (let [gae  (cclp/walk a ae)
                gat  (cclp/walk a at)
                gval (cclp/walk a val)]
            (cond
-             (or (and (ru/ground? gel) (not (or (g/element? gel)
-                                                (g/relationship? gel))))
+             (or (and (ru/ground? gae)
+                      (not (or (g/element? gae)
+                               (and (satisfies? g/IRelationship gae)
+                                    (g/relationship? gae)))))
                  (and (ru/ground? gat) (not (keyword? gat)))
-                 (and (ru/ground? gel) (ru/ground? gat)
-                      (not (q/member? gat (property-list gel g/mm-attributes)))))
+                 (and (ru/ground? gae) (ru/ground? gat)
+                      (not (q/member? gat (property-list gae g/mm-attributes)))))
              (ccl/fail a)
 
-             (and (ru/ground? gel) (ru/ground? gat))
-             (ccl/unify a val (g/aval gel gat))
+             (and (ru/ground? gae) (ru/ground? gat))
+             (ccl/unify a val (g/aval gae gat))
 
-             (ru/ground? gel)
+             (ru/ground? gae)
              (ccl/to-stream
-              (->> (for [an (property-list gel g/mm-attributes)]
-                     (ccl/unify a [at val] [an (g/aval gel an)]))
+              (->> (for [an (property-list gae g/mm-attributes)]
+                     (ccl/unify a [at val] [an (g/aval gae an)]))
                    (remove not)))
 
              :else (ccl/to-stream
-                    (->> (for [elem (concat (g/elements m)
-                                            (when (satisfies? g/IRelationships m)
-                                              (g/relationships m)))
+                    (->> (for [elem (concat (g/elements g)
+                                            (when (satisfies? g/IRelationships g)
+                                              (g/relationships g)))
                                an (property-list elem g/mm-attributes)]
-                           (ccl/unify a [el at val] [elem an (g/aval elem an)]))
+                           (ccl/unify a [ae at val] [elem an (g/aval elem an)]))
                          (remove not)))))))))
 
 ;;## Adjacences
-
-
 
 (defn tmp-adjo [m o ref ro may-override]
   (fn [a]
@@ -559,76 +471,82 @@
           gref (cclp/walk a ref)
           gro  (cclp/walk a ro)]
       (cond
-       (not (tmp/tmp-or-wrapper-element? go))
-       (u/errorf "tmp-adjo: o has to be a ground Tmp/WrapperElement but was %s."
-                 go)
+        (not (tmp/tmp-or-wrapper-element? go))
+        (u/errorf "tmp-adjo: o has to be a ground Tmp/WrapperElement but was %s."
+                  go)
 
-       (not (keyword? gref))
-       (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
+        (not (keyword? gref))
+        (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
 
-       (or (and (tmp/tmp-or-wrapper-element? go) (tmp/tmp-or-wrapper-element? gro))
-           (and (tmp/tmp-element? go)            (ru/fresh? gro)))
-       (do (tmp/add-ref go gref ro may-override)
-           (ccl/succeed a))
+        (or (and (tmp/tmp-or-wrapper-element? go) (tmp/tmp-or-wrapper-element? gro))
+            (and (tmp/tmp-element? go)            (ru/fresh? gro)))
+        (do (tmp/add-ref go gref ro may-override)
+            (ccl/succeed a))
 
-       (and (tmp/wrapper-element? go) (ru/fresh? gro))
-       (ccl/to-stream
-        (->> (map #(ccl/unify a ro (if (fn? %) (%) %))
-                  (concat
-                   (map #(tmp/make-wrapper m ro %)
-                        (g/adjs (.wrapped-element ^WrapperElement go) gref))
-                   [#(let [refed (tmp/make-tmp-element m :element)]
-                       (tmp/add-ref go gref ro may-override)
-                       refed)]))
-             (remove not)))
+        (and (tmp/wrapper-element? go) (ru/fresh? gro))
+        (ccl/to-stream
+         (->> (map #(ccl/unify a ro (if (fn? %) (%) %))
+                   (concat
+                    (map #(tmp/make-wrapper m ro %)
+                         (g/adjs (.wrapped-element ^WrapperElement go) gref))
+                    [#(let [refed (tmp/make-tmp-element m :element)]
+                        (tmp/add-ref go gref ro may-override)
+                        refed)]))
+              (remove not)))
 
-       :else (u/errorf "unsupported args to tmp-adjo:\n  o = %s\n  ref = %s\n ro = %s"
-                       go gref gro)))))
+        :else (u/errorf "unsupported args to tmp-adjo:\n  o = %s\n  ref = %s\n ro = %s"
+                        go gref gro)))))
 
 (defn adjo
-  "A relation where `el` references `refed` with its `ref` reference in the
-  model `m`.
+  "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
+  `g`.
 
-  The parameter `may-override` specifies that in case of a single-valued
-  reference, the referenced object may be overridden when transforming into the
-  direction of `m` in a bidirectional transformation.  (You normally shouldn't
-  use that parameter directly, but use the API generated by
-  `generate-ecore-model-relations`.)" ;; FIXME: Name correct macro!
-  ([m el ref refed]
-   (adjo m el ref refed false))
-  ([m el ref refed may-override]
+  The parameter `may-override` specifies that in case of a single-valued role,
+  the referenced vertex may be overridden when transforming into the direction
+  of `g` in a bidirectional transformation.  (You normally shouldn't use that
+  parameter directly, but use the API generated by
+  `generate-schema-relations`.)"
+  ([g v role rv]
+   (adjo g v role rv false))
+  ([g v role rv may-override]
    (if tmp/*make-tmp-elements*
-     (tmp-adjo m el ref refed may-override)
+     (tmp-adjo g v role rv may-override)
      (fn [a]
-       (let [gel    (cclp/walk a el)
-             gref   (cclp/walk a ref)
-             grefed (cclp/walk a refed)]
+       (let [gv    (cclp/walk a v)
+             grole (cclp/walk a role)
+             grv   (cclp/walk a rv)]
          (cond
-           (or (and (ru/ground? gel)    (not (g/element? gel)))
-               (and (ru/ground? gref)   (not (keyword? gref)))
-               (and (ru/ground? grefed) (not (g/element? grefed)))
-               (and (ru/ground? gel)    (ru/ground? gref)
-                    (not (q/member? gref (property-list gel g/mm-references)))))
+           ;; Ground lvars must have the expected types
+           (or (and (ru/ground? gv)    (not (g/element? gv)))
+               (and (ru/ground? grole) (not (keyword? grole)))
+               (and (ru/ground? grv)   (not (g/element? grv))))
            (ccl/fail a)
 
-           (and (ru/ground? gel) (ru/ground? gref))
+           (and (ru/ground? gv) (ru/ground? grole) (ru/ground? grv))
+           (if (q/member? grv (g/adjs gv grole))
+             (ccl/succeed a)
+             (ccl/fail a))
+
+           (and (ru/ground? gv) (ru/ground? grole))
            (ccl/to-stream
-            (->> (for [refed-el (funnyqt.generic/adjs* gel gref)]
-                   (ccl/unify a [refed] [refed-el]))
+            (->> (for [refed (g/adjs gv grole)]
+                   (ccl/unify a [rv] [refed]))
                  (remove not)))
 
-           (ru/ground? gel)
+           (ru/ground? gv)
            (ccl/to-stream
-            (->> (for [rn (property-list gel g/mm-references)
-                       refed-el (funnyqt.generic/adjs* gel rn)]
-                   (ccl/unify a [ref refed] [rn refed-el]))
+            (->> (for [rn (property-list gv g/mm-references)
+                       refed (g/adjs gv rn)]
+                   (ccl/unify a [role rv] [rn refed]))
                  (remove not)))
 
            :else (ccl/to-stream
-                  (->> (for [elem (g/elements m)
-                             rn (property-list elem g/mm-references)
-                             refed-el (funnyqt.generic/adjs* elem rn)]
-                         (ccl/unify a [el ref refed] [elem rn refed-el]))
+                  (->> (for [s (g/elements g)
+                             rn (if (ru/ground? grole)
+                                  [grole]
+                                  (property-list s g/mm-references))
+                             t (g/adjs s rn)]
+                         (ccl/unify a [v role rv] [s rn t]))
                        (remove not)))))))))
 
 ;;## Metamodel Relation Generator
@@ -652,7 +570,9 @@
          `(defn ~(:relation-name (meta na))
             ~(format "A relation where `el` is a %s element of model `m`." na)
             [~'m ~'el]
-            (elemento ~'m ~'el '~na)))))
+            (ccl/all
+             (typeo ~'m ~'el '~na)
+             (elemento ~'m ~'el))))))
 
 (defn ^:private create-relationship-relations
   "Creates relations for the given relationship class."
@@ -662,7 +582,9 @@
          `(defn ~(:relation-name (meta na))
             ~(format "A relation where `rel` is a %s relationship from `src` to `trg` in model `m`." na)
             [~'m ~'rel ~'src ~'trg]
-            (relationshipo ~'m ~'rel '~na ~'src ~'trg)))))
+            (ccl/all
+             (typeo ~'m ~'rel '~na)
+             (relationshipo ~'m ~'rel ~'src ~'trg))))))
 
 (defn ^:private create-attr-relations
   "Creates relations for the given attribute."
@@ -673,13 +595,17 @@
        (defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-")))
          ~(format "A relation where `el` has value `val` for its %s attribute in model `m`." attr)
          [~'m ~'el ~'val]
-         (avalo ~'m ~'el ~attr ~'val false))
+         (ccl/all
+          (typeo ~'m ~'el '~ts)
+          (avalo ~'m ~'el ~attr ~'val false)))
        (defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-") "*"))
          ~(format "A relation where `el` has value `val` for its %s attribute in model `m`.
   When used in a bidirectional transformation executed in the direction of `g`
   the attribute value may be overridden." attr)
          [~'m ~'el ~'val]
-         (avalo ~'m ~'el ~attr ~'val true)))))
+         (ccl/all
+          (typeo ~'m ~'el '~ts)
+          (avalo ~'m ~'el ~attr ~'val true))))))
 
 (defn ^:private create-reference-relations
   "Creates a relation for the given role name."
@@ -689,14 +615,18 @@
        (defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-")))
          ~(format "A relation where `el` references `refed` with its `%s` role in model `m`." (name role))
          [~'m ~'el ~'refed]
-         (adjo ~'m ~'el ~role ~'refed false))
+         (ccl/all
+          (typeo ~'m ~'el '~ts)
+          (adjo ~'m ~'el ~role ~'refed false)))
        ~(when (some #(not (g/mm-multi-valued-property? % role)) vcs)
           `(defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-") "*"))
              ~(format "A relation where `el` references `refed` with its `%s` role in model `m`.
   When used in a bidirectional transformation executed in the direction of `m`
   the element in that single-valued role may be overridden." (name role))
              [~'m ~'el ~'refed]
-             (adjo ~'m ~'el ~role ~'refed true))))))
+             (ccl/all
+              (typeo ~'m ~'el '~ts)
+              (adjo ~'m ~'el ~role ~'refed true)))))))
 
 (defmacro generate-metamodel-relations
   "Generates schema-specific relations in the namespace denoted by `nssym`.
