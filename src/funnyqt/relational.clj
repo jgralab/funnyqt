@@ -49,6 +49,8 @@
       r)))
 
 (defn stro
+  "A relation where the strings `x` and `y` concatenate to `xy`, or the strings
+  `x`, `y`, and `z` concatenate to `xyz`.  Not fully relational."
   ([x y xy]
      (fn [a]
        (let [wx  (cclp/walk a x)
@@ -92,10 +94,6 @@
          (stro x y front)]))))
 
 ;;# Model Relations
-
-(defn ^:private u-or-qname [c]
-  ((if (satisfies? g/IUniqueName c)
-     g/uname g/qname) c))
 
 (defn ^:private kind-class-tup-from-spec [m spec]
   (let [aecfn (fn [ts]
@@ -536,7 +534,8 @@
 (defn ^:private class->rel-symbols
   "Returns a relation symbol for the class `c`."
   [c prefix]
-  (let [n (u-or-qname c)]
+  (let [n ((if (satisfies? g/IUniqueName c)
+             g/uname g/qname) c)]
     (mapv (fn [s]
             (with-meta (symbol s)
               {:relation-name
@@ -572,7 +571,7 @@
   "Creates relations for the given attribute."
   [attr classes prefix]
   ;; attr is an attr name keyword, classes the set of classes having such an attr
-  (let [ts (mapv #(u-or-qname %) classes)]
+  (let [ts (mapv #(g/qname %) classes)]
     `(do
        (defn ~(symbol (str prefix (clojure.string/replace (name attr) "_" "-")))
          ~(format "A relation where `el` has value `val` for its %s attribute in model `m`." attr)
@@ -592,7 +591,7 @@
 (defn ^:private create-reference-relations
   "Creates a relation for the given role name."
   [role vcs prefix]
-  (let [ts (mapv #(u-or-qname %) vcs)]
+  (let [ts (mapv #(g/qname %) vcs)]
     `(do
        (defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-")))
          ~(format "A relation where `el` references `refed` with its `%s` role in model `m`." (name role))
