@@ -140,13 +140,13 @@
                                            (when (satisfies? g/IRelationships model)
                                              (g/relationships model type-spec)))))]
                (ccl/to-stream
-                (->> (map #(ccl/unify a el-or-rel %)
+                (->> (map #(ccl/unify a el-or-rel (if (fn? %) (%) %))
                           (concat
                            ;; Existing vertices/edges wrapped
                            (map (partial tmp/make-wrapper m el-or-rel)
                                 (seqfn m gtype))
                            ;; One new vertex/edge tmp element
-                           [(tmp/make-tmp-element m kind gtype)]))
+                           [#(tmp/make-tmp-element m kind gtype)]))
                      (remove not))))))))
 
 (defn typeo
@@ -220,13 +220,13 @@
          (ccl/fail a))
 
        :else (ccl/to-stream
-              (->> (map #(ccl/unify a el %)
+              (->> (map #(ccl/unify a el (if (fn? %) (%) %))
                         (concat
                          ;; Existing vertices wrapped
                          (map (partial tmp/make-wrapper m el)
                               (g/elements m))
                          ;; One new vertex tmp element
-                         [(tmp/make-tmp-element m :element)]))
+                         [#(tmp/make-tmp-element m :element)]))
                    (remove not)))))))
 
 (defn elemento
@@ -275,16 +275,15 @@
 
        (and (ru/fresh? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
        (ccl/to-stream
-        (->> (map (fn [orel]
-                    (ccl/unify a rel orel))
+        (->> (map #(ccl/unify a rel (if (fn? %) (%) %))
                   (concat
                    (map (partial tmp/make-wrapper m rel)
                         (filter
                          #(= (.wrapped-element ^WrapperElement gtrg) (g/target %))
                          (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out)))
-                   [(doto (tmp/make-tmp-element m :relationship)
-                      (tmp/set-source src)
-                      (tmp/set-target trg))]))
+                   [#(doto (tmp/make-tmp-element m :relationship)
+                       (tmp/set-source src)
+                       (tmp/set-target trg))]))
              (remove not)))
 
        (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc) (tmp/wrapper-element? gtrg))
@@ -295,17 +294,16 @@
 
        (and (ru/fresh? grel) (tmp/wrapper-element? gsrc))
        (ccl/to-stream
-        (->> (map (fn [orel-trg]
-                    (ccl/unify a [rel trg] orel-trg))
+        (->> (map #(ccl/unify a [rel trg] (if (fn? %) (%) %))
                   (concat
                    (map (fn [orel]
                           [(tmp/make-wrapper m rel orel)
                            (tmp/make-wrapper m trg (g/target orel))])
                         (g/incident-relationships (.wrapped-element ^WrapperElement gsrc) nil :out))
-                   [(let [trel (tmp/make-tmp-element m :relationship)]
-                      (tmp/set-source trel src)
-                      (tmp/set-target trel trg)
-                      [trel gtrg])]))
+                   [#(let [trel (tmp/make-tmp-element m :relationship)]
+                       (tmp/set-source trel src)
+                       (tmp/set-target trel trg)
+                       [trel gtrg])]))
              (remove not)))
 
        (and (tmp/tmp-element? grel) (tmp/wrapper-element? gsrc))
@@ -316,17 +314,16 @@
 
        (and (ru/fresh? grel) (tmp/wrapper-element? gtrg))
        (ccl/to-stream
-        (->> (map (fn [orel-src]
-                    (ccl/unify a [rel src] orel-src))
+        (->> (map #(ccl/unify a [rel src] (if (fn? %) (%) %))
                   (concat
                    (map (fn [orel]
                           [(tmp/make-wrapper m rel orel)
                            (tmp/make-wrapper m src (g/source orel))])
                         (g/incident-relationships (.wrapped-element ^WrapperElement gtrg) nil :in))
-                   [(let [trel (tmp/make-tmp-element m :relationship)]
-                      (tmp/set-source trel src)
-                      (tmp/set-target trel trg)
-                      [trel gsrc])]))
+                   [#(let [trel (tmp/make-tmp-element m :relationship)]
+                       (tmp/set-source trel src)
+                       (tmp/set-target trel trg)
+                       [trel gsrc])]))
              (remove not)))
 
        (and (tmp/tmp-element? grel) (tmp/wrapper-element? gtrg))
@@ -448,37 +445,37 @@
 
 ;;## Adjacences
 
-(defn ^:private tmp-adjo [m o ref ro may-override]
+(defn ^:private tmp-adjo [m el ref refed-el may-override]
   (fn [a]
-    (let [go   (cclp/walk a o)
-          gref (cclp/walk a ref)
-          gro  (cclp/walk a ro)]
+    (let [gel       (cclp/walk a el)
+          gref      (cclp/walk a ref)
+          grefed-el (cclp/walk a refed-el)]
       (cond
-        (not (tmp/tmp-or-wrapper-element? go))
+        (not (tmp/tmp-or-wrapper-element? gel))
         (u/errorf "tmp-adjo: o has to be a ground Tmp/WrapperElement but was %s."
-                  go)
+                  gel)
 
         (not (keyword? gref))
         (u/errorf "tmp-adjo: ref must be a ground keyword but was %s." gref)
 
-        (or (and (tmp/tmp-or-wrapper-element? go) (tmp/tmp-or-wrapper-element? gro))
-            (and (tmp/tmp-element? go)            (ru/fresh? gro)))
-        (do (tmp/add-ref go gref ro may-override)
+        (or (and (tmp/tmp-or-wrapper-element? gel) (tmp/tmp-or-wrapper-element? grefed-el))
+            (and (tmp/tmp-element? gel)            (ru/fresh? grefed-el)))
+        (do (tmp/add-ref gel gref refed-el may-override)
             (ccl/succeed a))
 
-        (and (tmp/wrapper-element? go) (ru/fresh? gro))
+        (and (tmp/wrapper-element? gel) (ru/fresh? grefed-el))
         (ccl/to-stream
-         (->> (map #(ccl/unify a ro (if (fn? %) (%) %))
+         (->> (map #(ccl/unify a refed-el (if (fn? %) (%) %))
                    (concat
-                    (map #(tmp/make-wrapper m ro %)
-                         (g/adjs (.wrapped-element ^WrapperElement go) gref))
+                    (map #(tmp/make-wrapper m refed-el %)
+                         (g/adjs (.wrapped-element ^WrapperElement gel) gref))
                     [#(let [refed (tmp/make-tmp-element m :element)]
-                        (tmp/add-ref go gref ro may-override)
+                        (tmp/add-ref gel gref refed-el may-override)
                         refed)]))
               (remove not)))
 
         :else (u/errorf "unsupported args to tmp-adjo:\n  o = %s\n  ref = %s\n ro = %s"
-                        go gref gro)))))
+                        gel gref grefed-el)))))
 
 (defn adjo
   "A relation where vertex `rv` is in the `role` role of vertex `v` in graph
