@@ -24,7 +24,7 @@
   "Returns [match id type] if sym is a vertex symbol."
   [sym]
   (and (symbol? sym)
-       (when-let [[match id _ type] (re-matches #"([a-zA-Z0-9_]*)(<([a-zA-Z0-9._!]*)>)?"
+       (when-let [[match id _ type] (re-matches #"^([a-zA-Z0-9_]*)(<([a-zA-Z0-9._!]*)>)?$"
                                                 (name sym))]
          [match id type])))
 
@@ -34,16 +34,15 @@
   [sym]
   (and
    (symbol? sym)
-   (or (re-matches #"<-.*-" (name sym))
-       (re-matches #"-.*->" (name sym))
-       (re-matches #"<[^>]*>.*--" (name sym))
-       (re-matches #"--.*<[^>]*>" (name sym)))
-   (or (when-let [[match larrow id _ type rarrow] (re-matches #"(<?-)([!a-zA-Z0-9_]*)(<([a-zA-Z0-9._!:]*)>)?(->?)"
+   (or (when-let [[match larrow id _ type rarrow] (re-matches #"^(-)([!a-zA-Z0-9_]*)(<([a-zA-Z0-9._!:]*)>)?(->)$"
                                                               (name sym))]
          [match larrow id type rarrow])
-       (when-let [[match type id] (re-matches #"<([a-zA-Z0-9._!:]*)>([!a-zA-Z0-9_]*)--" (name sym))]
+       (when-let [[match larrow id _ type rarrow] (re-matches #"^(<-)([!a-zA-Z0-9_]*)(<([a-zA-Z0-9._!:]*)>)?(-)$"
+                                                              (name sym))]
+         [match larrow id type rarrow])
+       (when-let [[match type id] (re-matches #"^<([a-zA-Z0-9._!:]*)>([!a-zA-Z0-9_]*)--$" (name sym))]
          [match "<>" id type nil])
-       (when-let [[match id type] (re-matches #"--([!a-zA-Z0-9_]*)<([a-zA-Z0-9._!:]*)>" (name sym))]
+       (when-let [[match id type] (re-matches #"^--([!a-zA-Z0-9_]*)<([a-zA-Z0-9._!:]*)>$" (name sym))]
          [match nil id type "<>"]))))
 
 (defn ^:private name-and-type
