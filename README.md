@@ -2,8 +2,9 @@
 
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
-[![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
-
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt
+)
 <object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
   <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
@@ -281,6 +282,13 @@ Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
 (channel `#jgralab` on `irc.freenode.net`).  If you don't have or don't want to
 install an IRC client, you can also
 [chat directly in your browser](http://webchat.freenode.net/?channels=jgralab).
+
+## Gitter Channel
+
+FunnyQT also has a Gitter channel: [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge).
+
+If I'm not around, just ask your question and come back later.  I'll reply as
+soon as I can.
 
 ## Found a Bug?
 
