@@ -1,0 +1,7 @@
+TGraph 2;
+
+Schema documents.DocumentSchema;
+GraphClass DocumentGraph;
+VertexClass Document {name : String};
+EdgeClass LinksDirectly from Document (0,*) role srcs to Document (0,*) role trgs;
+EdgeClass LinksTransitively from Document (0,*) role allsrcs to Document (0,*) role alltrgs;
