@@ -1,5 +1,6 @@
 (ns funnyqt.classhierarchy2documents
-  (:require [funnyqt.generic :as g]
+  (:require [funnyqt.query :as q]
+            [funnyqt.generic :as g]
             [funnyqt.visualization :as v]
             [funnyqt.tg :as tg]
             [funnyqt.relational :as r]
@@ -23,13 +24,16 @@
         employer (doto (tg/create-vertex! g 'Class)
                    (tg/set-value! :name "Employer"))
         employee (doto (tg/create-vertex! g 'Class)
-                   (tg/set-value! :name "Employee"))]
+                   (tg/set-value! :name "Employee"))
+        subemployee (doto (tg/create-vertex! g 'Class)
+                      (tg/set-value! :name "SubEmployee"))]
     (tg/create-edge! g 'HasSuperClass obs obj)
     (tg/create-edge! g 'HasSuperClass ser obj)
     (tg/create-edge! g 'HasSuperClass per obs)
     (tg/create-edge! g 'HasSuperClass per ser)
     (tg/create-edge! g 'HasSuperClass employer per)
     (tg/create-edge! g 'HasSuperClass employee per)
+    (tg/create-edge! g 'HasSuperClass subemployee employee)
     g))
 
 ;; (v/print-model (sample-class-graph) :gtk)
@@ -55,11 +59,30 @@
                  (d/->alltrgs docs ?b ?c)
                  (d/->alltrgs docs ?a ?c)]))
 
+(defn doc-by-name [docs name]
+  (q/the #(= name (tg/value % :name))
+         (tg/vseq docs 'Document)))
+
+(defn docs-by-name [docs names]
+  (let [names (set names)]
+    (into #{} (filter #(names (tg/value % :name))
+                      (tg/vseq docs 'Document)))))
+
+(defn assert-all-trgs [d src & trgs]
+  (test/is (= (set (g/adjs (doc-by-name d src) :alltrgs))
+              (docs-by-name d trgs))))
+
 (test/deftest test-classhierarchy2documents
   (let [c (sample-class-graph)
         d (tg/new-graph (tg/load-schema "test/input/documents.tg"))
         c2 (tg/new-graph (tg/schema c))]
     (classhierarchy2documents c d :right)
+    (assert-all-trgs d "SubEmployee" "Employee" "Person" "Observable" "Serializable" "Object")
+    (assert-all-trgs d "Employee" "Person" "Observable" "Serializable" "Object")
+    (assert-all-trgs d "Employer" "Person" "Observable" "Serializable" "Object")
+    (assert-all-trgs d "Person" "Observable" "Serializable" "Object")
+    (assert-all-trgs d "Observable" "Object")
+    (assert-all-trgs d "Serializable" "Object")
     ;;(v/print-model d :gtk)
     (classhierarchy2documents c2 d :left)
     ;;(v/print-model c2 :gtk)
