@@ -1,4 +1,4 @@
-(ns funnyqt.classhierarchy2documents
+(ns funnyqt.misc-tests.classhierarchy2documents
   (:require [funnyqt.query :as q]
             [funnyqt.generic :as g]
             [funnyqt.visualization :as v]
