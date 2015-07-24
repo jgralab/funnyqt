@@ -466,6 +466,12 @@
          :right [(db/Schema db ?schema)
                  (db/name db ?schema ?name)]
          :where [(class2table :?pkg ?pkg :?schema ?schema)])
+  (this-is-just-a-normal-relation [a b c]
+                                  (== a b c)
+                                  (== 1 b))
+  (and-another-one [a b c]
+                   (== a b c)
+                   (== 1 b))
   (class2table
    :left [(cd/->classifiers cd ?pkg ?class)
           (cd/Class cd ?class)
@@ -517,6 +523,8 @@
   always-succeeding :when clause, and uses different model parameter names."
   [[l r]]
   :extends [class-diagram2database-schema]
+  (this-is-just-a-normal-relation [a b c]
+                                  (== a "I overwrite the inherited one"))
   (class2table
    :when [ccl/succeed]
    :left [(cd/->classifiers l ?pkg ?class)

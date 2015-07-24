@@ -125,42 +125,44 @@
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
                   relsym kw (kw map))))
-    `(let [wfns#
-           (doall
-            (for [~(make-destr-map (concat wsyms src-syms) sm)
-                  (ccl/run* [q#]
-                    (ccl/fresh [~@(set (concat wsyms src-syms))]
-                      (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
-                      ;; TODO: Sometimes it's faster if :when goals are after
-                      ;; source goals, and sometimes it's the other way round.
-                      ;; Maybe the user should be able to annotate the :when
-                      ;; clause with ^:last in order to force it to come after
-                      ;; the source goals.  Well, but for some relations,
-                      ;; changing the order is not semantically equivalent.
-                      ;; That's the case if :when binds ?foo, and the target
-                      ;; clause starts with (->role model ?foo ?bar).
-                      ~@(:when map)
-                      ~@(get map src)
-                      (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
-              (binding [tmp/*wrapper-cache* (atom {})]
-                ~@(insert-debug (:debug-src map))
-                (let [~(make-destr-map trg-syms tm)
-                      (binding [tmp/*make-tmp-elements* true]
-                        (select-match
-                         (ccl/run 1 [q#]
-                           (ccl/fresh [~@trg-syms]
-                             (trg-initializeo ~sm ~args-map ~@trg-syms)
-                             ~@(get map trg)
-                             (tmp/finalizeo ~@trg-syms)
-                             (ccl/== q# ~(make-kw-result-map trg-syms))))
-                         ~relsym ~sm))]
-                  ~@(insert-debug (:debug-trg map))
-                  (enforce-match ~tm)
-                  (let [~(make-destr-map trg-syms etm)
-                        (replace-tmps-and-wrappers-with-manifestations ~tm)]
-                    (swap! *relation-bindings* update-in [~relsym] conj (merge ~sm ~etm))
-                    ~@(insert-debug (:debug-enforced map))
-                    (fn [] ~@(:where map)))))))]
+    `(let [wfns# (doall
+                  (u/for-1 [~(make-destr-map (concat wsyms src-syms) sm)
+                            (ccl/run* [q#]
+                              (ccl/fresh [~@(set (concat wsyms src-syms))]
+                                (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                                ;; TODO: Sometimes it's faster if :when goals are after
+                                ;; source goals, and sometimes it's the other way round.
+                                ;; Maybe the user should be able to annotate the :when
+                                ;; clause with ^:last in order to force it to come after
+                                ;; the source goals.  Well, but for some relations,
+                                ;; changing the order is not semantically equivalent.
+                                ;; That's the case if :when binds ?foo, and the target
+                                ;; clause starts with (->role model ?foo ?bar).
+                                ~@(:when map)
+                                ~@(get map src)
+                                (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
+                    (binding [tmp/*wrapper-cache* (atom {})]
+                      ~@(insert-debug (:debug-src map))
+                      (let [~(make-destr-map trg-syms tm)
+                            (binding [tmp/*make-tmp-elements* true]
+                              (select-match
+                               (ccl/run 1 [q#]
+                                 (ccl/fresh [~@trg-syms]
+                                   (trg-initializeo ~sm ~args-map ~@trg-syms)
+                                   ~@(get map trg)
+                                   (tmp/finalizeo ~@trg-syms)
+                                   (ccl/== q# ~(make-kw-result-map trg-syms))))
+                               ~relsym ~sm))]
+                        ~@(insert-debug (:debug-trg map))
+                        (enforce-match ~tm)
+                        (let [~(make-destr-map trg-syms etm)
+                              (replace-tmps-and-wrappers-with-manifestations ~tm)]
+                          (swap! *relation-bindings* update-in [~relsym]
+                                 (fn [current# new#]
+                                   (conj (or current# #{}) new#))
+                                 (merge ~sm ~etm))
+                          ~@(insert-debug (:debug-enforced map))
+                          (fn [] ~@(:where map)))))))]
        (doseq [wfn# wfns#]
          (wfn#)))))
 
@@ -300,10 +302,16 @@
       (ccl/succeed a)
       (ccl/fail a))))
 
-(defn ^:private mapify-relations [rels]
+(defn ^:private mapify-trelations [rels]
   (into (om/ordered-map)
         (map (fn [rel]
                [(first rel) (apply hash-map (rest rel))])
+             rels)))
+
+(defn ^:private mapify-prelations [rels]
+  (into (om/ordered-map)
+        (map (fn [rel]
+               [(first rel) rel])
              rels)))
 
 (defmacro deftransformation
@@ -316,11 +324,12 @@
   `direction` is the direction in which to execute the transformation,
   either :left or :right.
 
-  Defining Relations
-  ==================
+  Defining Transformation Relations
+  =================================
 
-  In the transformation specification, `relations` is a sequence of relation
-  definitions.  Every relation has the following form:
+  In the transformation specification, `relations` is a sequence of
+  transformation relation definitions.  Every such t-relation has the following
+  form:
 
     (foo2bar
       :left [...]
@@ -329,7 +338,7 @@
   The values of :left and :right are vectors of goals.  Logical variables with
   the same name in :left and :right define the correspondence between the left
   and right elements.  Logical variables have to start with a question mark.
-  Usually, those are used for attribute values, e.g., (+name left ?left-el
+  Those are used for elements and attribute values, e.g., (+name left ?left-el
   ?foo) in :left and (+id right ?right-el ?foo) in :right specifies that
   ?left-el's name and ?right-el's id values have to be equal.
 
@@ -338,8 +347,8 @@
   at least one set of elements in the `right` model for which all :right goals
   succeed.
 
-  ^:top metadata can be added to relation names.  Such top-level relations are
-  enforced automatically by the transformation in their declaration order.
+  ^:top metadata can be added to t-relation names.  Such top-level t-relations
+  are enforced automatically by the transformation in their declaration order.
 
   Preconditions
   =============
@@ -385,10 +394,10 @@
   elements only in terms of `:when [(relateo ...)...]` and then invokes other
   relations using its :where clause.
 
-  Relation Inheritance
-  ====================
+  Transformation Relation Inheritance
+  ===================================
 
-  A relation spec may also contain an :extends clause:
+  A t-relation spec may also contain an :extends clause:
 
     (foo2bar
       :extends [(a2b :?a ?foo :?b ?bar)]
@@ -403,15 +412,15 @@
   Usually, this feature is useful for refactoring relations on common
   attributes.
 
-  A relation may extend multiple other relations, and extension works
+  A t-relation may extend multiple other relations, and extension works
   transitively.  The mustn't be extension cycles.
 
-  A relation that's not called explicitly in a :where clause and is only
+  A t-relation that's not called explicitly in a :where clause and is only
   extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
-  Debugging Relations
-  ===================
+  Debugging Transformation Relations
+  ==================================
 
   For debugging purposes, relations may also contain the following clauses:
 
@@ -425,6 +434,11 @@
 
   The value may be arbitrary forms that are inserted at the corresponding
   places.
+
+  Plain Relations
+  ===============
+
+  TODO: Write me!!!
 
   Transformation Inheritance
   ==========================
@@ -460,39 +474,47 @@
                           [(fnext more) (nnext more)]
                           [nil          more])
         relations more
-        relations (mapify-relations relations)
-        relations (if extended
-                    (do
-                      (when-not (or (symbol? extended)
-                                    (and (vector? extended)
-                                         (every? symbol? extended)))
-                        (u/errorf (str "The value of :extends must be a symbol or a "
-                                       "vector of symbols denoting bidi transformations: "
-                                       "%s")
-                                  extended))
-                      (let [extended (if (coll? extended) extended [extended])]
-                        (apply merge (conj (mapv (fn [ex]
-                                                   (let [m (meta (resolve ex))]
-                                                     (cw/prewalk-replace
-                                                      {(::left-model-name m) left
-                                                       (::right-model-name m) right}
-                                                      (::relations m))))
-                                                 extended)
-                                           relations))))
-                    relations)
-        top-rels (filter #(:top (meta %)) (keys relations))]
+        [trelations prelations] ((juxt remove filter) #(vector? (nth % 1)) relations)
+        trelations (mapify-trelations trelations)
+        prelations (mapify-prelations prelations)
+        [trelations prelations] (if extended
+                                  (do
+                                    (when-not (or (symbol? extended)
+                                                  (and (vector? extended)
+                                                       (every? symbol? extended)))
+                                      (u/errorf (str "The value of :extends must be a symbol or a "
+                                                     "vector of symbols denoting bidi transformations: "
+                                                     "%s")
+                                                extended))
+                                    (let [extended (if (coll? extended) extended [extended])]
+                                      [(apply merge (conj (mapv (fn [ex]
+                                                                  (let [m (meta (resolve ex))]
+                                                                    (cw/prewalk-replace
+                                                                     {(::left-model-name m) left
+                                                                      (::right-model-name m) right}
+                                                                     (::trelations m))))
+                                                                extended)
+                                                          trelations))
+                                       (apply merge (conj (mapv (fn [ex]
+                                                                  (::prelations (meta (resolve ex))))
+                                                                extended)
+                                                          prelations))]))
+                                  [trelations prelations])
+        top-rels (filter #(:top (meta %)) (keys trelations))]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
     `(defn ~name ~(merge (meta name)
                          {::left-model-name (list 'quote left)
                           ::right-model-name (list 'quote right)
-                          ::relations (list 'quote relations)})
+                          ::trelations (list 'quote trelations)
+                          ::prelations (list 'quote prelations)})
        [~left ~right dir# ~@other-args]
        (when-not (#{:left :right} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
-       (letfn [~@(map (partial convert-relation relations)
-                   (remove #(:abstract (meta %)) relations))]
+       (letfn [~@(vals prelations)
+               ~@(map (partial convert-relation trelations)
+                      (remove #(:abstract (meta %)) trelations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
                    *relation-bindings* (atom {})]

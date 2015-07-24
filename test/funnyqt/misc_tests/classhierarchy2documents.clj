@@ -49,28 +49,23 @@
                 (relateo class2doc :?c ?superclass :?d ?trgdoc)]
          :left [(c/->superclasses classes ?subclass ?superclass)]
          :right [(d/->trgs docs ?srcdoc ?trgdoc)])
+  (transitive-linko [a b]
+                    (ccl/conde
+                     [(relateo generalization2directlinks :?srcdoc a :?trgdoc b)]
+                     [(ccl/fresh [x]
+                        (relateo generalization2directlinks :?srcdoc a :?trgdoc x)
+                        (transitive-linko x b))]))
   (^:top generalization2transitivelinks
-         :when [(ccl/conde
-                 [(relateo generalization2directlinks :?srcdoc ?a :?trgdoc ?b)
-                  (relateo generalization2directlinks :?srcdoc ?b :?trgdoc ?c)]
-                 [(d/->alltrgs docs ?a ?b)
-                  (d/->alltrgs docs ?b ?c)])]
-         :right [(d/->alltrgs docs ?a ?b)
-                 (d/->alltrgs docs ?b ?c)
-                 (d/->alltrgs docs ?a ?c)]))
+         :when [(transitive-linko ?a ?b)]
+         :right [(d/->alltrgs docs ?a ?b)]))
 
 (defn doc-by-name [docs name]
   (q/the #(= name (tg/value % :name))
          (tg/vseq docs 'Document)))
 
-(defn docs-by-name [docs names]
-  (let [names (set names)]
-    (into #{} (filter #(names (tg/value % :name))
-                      (tg/vseq docs 'Document)))))
-
 (defn assert-all-trgs [d src & trgs]
-  (test/is (= (set (g/adjs (doc-by-name d src) :alltrgs))
-              (docs-by-name d trgs))))
+  (test/is (= (set (map (partial doc-by-name d) trgs))
+              (set (g/adjs (doc-by-name d src) :alltrgs)))))
 
 (test/deftest test-classhierarchy2documents
   (let [c (sample-class-graph)
