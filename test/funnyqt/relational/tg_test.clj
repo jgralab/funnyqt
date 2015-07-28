@@ -3,10 +3,13 @@
   (:require [clojure.core.logic :refer [run* ==]]
             [clojure.test :refer :all]
             [funnyqt
+             [emf :as emf]
              [generic :as g]
              [relational :refer :all]
              [tg :as tg]
-             [tg-test :refer :all]]))
+             [tg-test :refer :all]
+             [model2model-test :as m2m-test]]
+            [funnyqt.coevo.tg :as coevo]))
 
 (generate-metamodel-relations "test/input/greqltestgraph.tg"
                               test.relational.routemap.tg routemap +)
@@ -73,3 +76,16 @@
            (adjo rg (tg/vertex rg 12) :capital q))
          (run* [q]
            (routemap/+->capital rg (tg/vertex rg 12) q)))))
+
+;;* Tests with the Genealogy graph
+
+(def g (let [fm (emf/load-resource "test/input/example.families")
+             g (tg/new-graph (tg/load-schema "test/input/genealogy-schema.tg"))]
+         (m2m-test/families2genealogy fm g)
+         (coevo/delete-attribute! g 'Person :ageGroup)
+         g))
+
+(deftest test-elemento-familygraph
+  (is (= (g/elements g)
+         (run* [q]
+           (elemento g q)))))
