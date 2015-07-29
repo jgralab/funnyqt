@@ -89,3 +89,4 @@
   (is (= (g/elements g)
          (run* [q]
            (elemento g q)))))
+

@@ -338,6 +338,9 @@
   "A relation where `rel` is a relationship in model `m` starting at element
   `src` and ending at element `trg`.  `m` has to be ground."
   [m rel src trg]
+  (when-not (satisfies? g/IRelationships m)
+    (u/errorf "Cannot use relationshipo with model %s which doesn't support relationships."
+              m))
   (if tmp/*make-tmp-elements*
     (tmp-relationshipo m rel src trg)
     (fn [a]

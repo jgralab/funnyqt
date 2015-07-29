@@ -31,6 +31,12 @@
            (run* [q]
              (families/+!Member family-model q)))))
 
+(t/deftest test-relationshipo-error
+  (t/is (thrown-with-msg? Exception #".*Cannot use relationshipo.*"
+                          (doall
+                           (run* [q s t]
+                             (relationshipo family-model q s t))))))
+
 (t/deftest test-avalo
   (t/is (= (map (fn [e]
                   [e (emf/eget e :firstName)])
