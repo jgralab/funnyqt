@@ -1,6 +1,7 @@
 (ns funnyqt.relational.tg-test
   (:refer-clojure :exclude [==])
-  (:require [clojure.core.logic :refer [run* ==]]
+  (:require [clojure.core.logic :refer [run* == conde conda all fresh membero nafc everyg]]
+            [clojure.core.logic.fd :as fd]
             [clojure.test :refer :all]
             [funnyqt
              [emf :as emf]

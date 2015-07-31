@@ -25,23 +25,6 @@
     `(ccl/fresh ~qsyms
        ~@fs)))
 
-(defn echo
-  "Prints the values of all `lvars`.  Always succeeds."
-  ([lvars]
-     (echo nil lvars))
-  ([prompt lvars]
-     (fn [a]
-       (println "################# " (or prompt "ECHO") " #################")
-       #_(clojure.pprint/pprint a)
-       (println (clojure.string/join
-                 (map (fn [^clojure.core.logic.LVar v]
-                        (if (ccl/lvar? v)
-                          (let [w (cclp/walk a v)]
-                            (str (:oname v) " = " w "\n"))
-                          (str "### = " v "\n")))
-                      lvars)))
-       (ccl/succeed a))))
-
 (defn ^:private str-splits [s]
   (loop [idx 0, r []]
     (if (<= idx (count s))
