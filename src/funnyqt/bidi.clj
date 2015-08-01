@@ -270,7 +270,7 @@
 
   Example:
 
-    (bidi/relateo class2table :?class ?subclass :?table ?subtable)"
+    (relateo class2table :?class ?subclass :?table ?subtable)"
   [relation & keyvals]
   (when-not (fn? relation)
     (u/errorf "No relation (fn) given but %s %s."
@@ -438,7 +438,19 @@
   Plain Relations
   ===============
 
-  TODO: Write me!!!
+  A bidirectional transformation definition may also define plain, local
+  relations which can then be used inside the :left, :right, and :when clauses
+  of t-relations.  The syntax is that of local functions as per `letfn`.
+
+    (my-relation [arg1 arg2 ...]
+      (all
+        (goal1 arg1)
+        (goal2 arg2 arg1 ...)))
+
+  Of course, plain relation may also be specified outside of the
+  transformation.  However, only such local, plain relations have access to the
+  traceability information of the transformation in terms of `relateo` as this
+  requires a t-relation to be given.
 
   Transformation Inheritance
   ==========================
