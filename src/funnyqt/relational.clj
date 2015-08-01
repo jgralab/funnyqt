@@ -25,6 +25,11 @@
     `(ccl/fresh ~qsyms
        ~@fs)))
 
+(defn alwayso
+  "A relation with arbitrary many args which always succeeds."
+  [& args]
+  ccl/succeed)
+
 (defn ^:private str-splits [s]
   (loop [idx 0, r []]
     (if (<= idx (count s))
