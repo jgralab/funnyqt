@@ -148,7 +148,7 @@
                                                          top-classes))
                                      new-archs))]
           (u/errorf
-           "Bijectivity violation: the archetypes %s are already contained in *img* for class %s or a sub- or superclass thereof."
+           "Bijectivity violation: the archetypes %s are already contained in the domain of *img* for class %s or a sub- or superclass thereof."
            dups (g/qname mm-cls)))))
     (u/errorf "No trace mappings in scope!")))
 
