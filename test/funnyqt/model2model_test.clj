@@ -205,7 +205,7 @@
   (let [in (emf/load-resource "test/input/example.families")
         out-schema (load-schema "test/input/genealogy-schema.tg")
         ng (new-graph out-schema)
-        _ (print "families2genealogy-explicit-main (EMF -> TG): ")
+        _ (print "families2genealogy-generic (EMF -> TG): ")
         trace (time (families2genealogy-generic in ng))]
     #_(viz/print-model ng :gtk)
     (is (== 13 (vcount ng 'Person)))
@@ -213,7 +213,8 @@
     (is (==  6 (vcount ng 'Male)))
     (is (==  3 (ecount ng 'HasSpouse)))
     (is (== 18 (ecount ng 'HasChild)))
-    (is (== 3  (count (vseq ng 'Address))))
+    (is (== 13 (ecount ng 'LivesAt)))
+    (is (== 3  (vcount ng 'Address)))
     #_(clojure.pprint/pprint trace)))
 
 

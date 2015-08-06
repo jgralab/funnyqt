@@ -1,6 +1,6 @@
 (ns funnyqt.relational.tg-test
   (:refer-clojure :exclude [==])
-  (:require [clojure.core.logic :refer [run* == conde conda all fresh membero nafc everyg succeed]]
+  (:require [clojure.core.logic :refer [run* == conde conda all fresh membero nafc everyg succeed !=]]
             [clojure.core.logic.fd :as fd]
             [clojure.test :refer :all]
             [funnyqt
@@ -120,11 +120,19 @@
 ;;   (fathero g p c)
 ;;   (daughtero g p c))
 
+(run* [f d]
+  (parento g gen/Male gen/Female f ))
+;;=> ([#<v4: Male> #<v1: Female>]
+;;    [#<v8: Male> #<v10: Female>]
+;;    [#<v12: Male> #<v7: Female>]
+;;    [#<v12: Male> #<v15: Female>]
+;;    [#<v12: Male> #<v16: Female>])
+
 (defn grandparento
   ([m grandparent grandchild]
-   (fresh [parent]
-     (parento m grandparent parent)
-     (parento m parent grandchild)))
+   (with-fresh
+     (parento m grandparent ?parent)
+     (parento m ?parent grandchild)))
   ([m grandparent-c grandchild-c grandparent grandchild]
    (all
     (grandparent-c m grandparent)
@@ -144,17 +152,44 @@
   (grandparento m alwayso gen/Female grandparent granddaughter))
 
 
+(defn siblingo [m s1 s2]
+  (with-fresh
+    (parento m ?parent s1)
+    (parento m ?parent s2)
+    (!= s1 s2)))
+
+(defn aunto [m aunt nephew]
+  (with-fresh
+    (parento m ?parent nephew)
+    (siblingo m ?parent aunt)
+    (gen/Female m aunt)))
+
+(distinct
+ (run* [aunt nephew]
+   (aunto g aunt nephew)))
+;;=> ([#<v15: Female> #<v10: Female>] [#<v1: Female> #<v10: Female>]
+;;    [#<v16: Female> #<v10: Female>] [#<v15: Female> #<v14: Male>]
+;;    [#<v16: Female> #<v14: Male>] [#<v1: Female> #<v14: Male>])
+
 ;; All grandmothers with their grandsons
 ;; (run* [gp gc]
 ;;   (grandmothero g gp gc)
 ;;   (grandsono g gp gc))
 
+(run* [q]
+  (fresh [a b]
+    (== q #{a b})  ;; StackOverflowError
+    ;;(== q [a b]) ;; works
+    ;;(== q (list a b)) ;; works, too
+    (conde [(== a 1)] [(== a 2)] [(== a 3)])
+    (conde [(== b 1)] [(== b 2)] [(== b 3)])))
+
 (defn ancestoro [m a p]
   (conde
    [(parento m a p)]
-   [(fresh [i]
-      (parento m a i)
-      (ancestoro m i p))]))
+   [(with-fresh
+      (parento m a ?i)
+      (ancestoro m ?i p))]))
 
 ;; (run* [a p]
 ;;   (ancestoro g a p))
