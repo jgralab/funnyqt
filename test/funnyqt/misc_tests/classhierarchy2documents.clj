@@ -38,7 +38,7 @@
 
 ;; (v/print-model (sample-class-graph) :gtk)
 
-(deftransformation classhierarchy2documents [[classes docs]]
+(deftransformation classhierarchy2documents [classes docs]
   (^:top class2doc
          :left [(c/Class classes ?c)
                 (c/name classes ?c ?name)]

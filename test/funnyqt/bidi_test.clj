@@ -61,7 +61,7 @@
 
 ;;## Transformation TG <-> TG
 
-(bidi/deftransformation addressbook-tg2addressbook-tg [[l r]]
+(bidi/deftransformation addressbook-tg2addressbook-tg [l r]
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
@@ -163,7 +163,7 @@
 
 ;;## Transformation TG <-> EMF
 
-(bidi/deftransformation addressbook-tg2addressbook-emf [[l r]]
+(bidi/deftransformation addressbook-tg2addressbook-emf [l r]
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
@@ -273,7 +273,7 @@
 
 ;;## Tests for attribute modifications (TG <-> TG)
 
-(bidi/deftransformation attr-override-contact-tg2contact-tg [[l r]]
+(bidi/deftransformation attr-override-contact-tg2contact-tg [l r]
   (^:top contact2contact
    :left [(ab-tg/Contact l ?contact1)
           (ab-tg/firstName l ?contact1 ?fn)
@@ -313,7 +313,7 @@
 
 ;;## Tests for attribute modifications (EMF <-> EMF)
 
-(bidi/deftransformation attr-override-contact-emf2contact-emf [[l r]]
+(bidi/deftransformation attr-override-contact-emf2contact-emf [l r]
   (^:top contact2contact
    :left [(ab-emf/Contact l ?contact1)
           (ab-emf/firstName l ?contact1 ?fn)
@@ -353,7 +353,7 @@
 
 ;;## Tests for single-valued role modifications (TG <-> TG)
 
-(bidi/deftransformation single-valued-role-override-ab-tg2ab-tg [[l r]]
+(bidi/deftransformation single-valued-role-override-ab-tg2ab-tg [l r]
   (^:top addressbook2addressbook
          :left [(ab-tg/AddressBook l ?addrbook1)
                 (ab-tg/name l ?addrbook1 ?n)]
@@ -397,7 +397,7 @@
 
 ;;## Tests for single-valued role modifications (TG <-> TG)
 
-(bidi/deftransformation single-valued-role-override-ab-emf2ab-emf [[l r]]
+(bidi/deftransformation single-valued-role-override-ab-emf2ab-emf [l r]
   (^:top addressbook2addressbook
          :left [(ab-emf/AddressBook l ?addrbook1)
                 (ab-emf/name l ?addrbook1 ?n)]
@@ -459,7 +459,7 @@
 
 (bidi/deftransformation class-diagram2database-schema
   "Transforms between class diagrams and database schemas."
-  [[cd db]]
+  [cd db]
   (^:top package2schema
          :left [(cd/Package cd ?pkg)
                 (cd/name cd ?pkg ?name)]
@@ -521,7 +521,7 @@
   "This transformation extends class-diagram2database-schema.  It only
   overrides class2table with the very same definition plus a
   always-succeeding :when clause, and uses different model parameter names."
-  [[l r]]
+  [l r]
   :extends [class-diagram2database-schema]
   (this-is-just-a-normal-relation [a b c]
                                   (== a "I overwrite the inherited one"))

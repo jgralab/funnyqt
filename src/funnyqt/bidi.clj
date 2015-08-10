@@ -477,10 +477,10 @@
   because the logical variables act as named parameters and are also
   represented in the transformation trace."
 
-  {:arglists '([name [[left right] & args] extends-clause? & relations])}
+  {:arglists '([name [left right & args] extends-clause? & relations])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
-        [[left right] & other-args] (first more)
+        [left right & other-args] (first more)
         more (next more)
         [extended more] (if (= :extends (first more))
                           [(fnext more) (nnext more)]
