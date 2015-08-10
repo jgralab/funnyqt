@@ -16,6 +16,21 @@
   Either :left or :right."}
   *target-direction*)
 
+(def ^{:dynamic true
+       :doc "Only for internal use.
+  A map with the following structure:
+
+    {:related   {relation1 bindings, relation2 bindings, ...}
+     :unrelated {relation1 bindings, relation2 bindings, ...}}
+
+  where relationN is a keyword denoting a t-relation and bindings is:
+
+    ({:?lsym1 lval1, :?rsym1 rval2, ...}
+     ...)
+
+  Access this information with the relation `relateo`."}
+  *relation-bindings*)
+
 (defn select-match
   "Only for internal use.
   Simply returns the first match.  Throws an exception if there's none."
@@ -84,7 +99,7 @@
                          (if (= val ::unknown) lv val)))
                      lvars))))
 
-(defn maybe-wrap
+(defn ^:private maybe-wrap
   "Wraps `val` in bound to the logic variable `lv` in a WrapperElement if it is
   a model object.  Else returns `val` unchanged.
   Only for internal use."
@@ -95,7 +110,7 @@
 
 (defn trg-initializeo
   "Only for internal use."
-  [src-match args-map & lvars]
+  [enforcing src-match args-map & lvars]
   (fn [a]
     (ccl/unify a (vec lvars)
                (mapv (fn [lv]
@@ -104,19 +119,26 @@
                              args-val (get args-map  lv-kw ::unknown)]
                          (cond
                            (not= src-val  ::unknown)
-                           (maybe-wrap lv src-val)
+                           (if enforcing
+                             (maybe-wrap lv src-val)
+                             src-val)
 
                            (not= args-val ::unknown)
-                           (maybe-wrap lv args-val)
+                           (if enforcing
+                             (maybe-wrap lv args-val)
+                             args-val)
 
                            :else lv)))
                      lvars))))
 
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
-  (let [src (if (= trg :right) :left :right)
-        sm  (gensym "src-match")
-        tm  (gensym "trg-match")
-        etm (gensym "enforced-trg-match")]
+  (let [src  (if (#{:right :right-checkonly} trg) :left :right)
+        enforcing (#{:left :right} trg)
+        trg  (if (#{:right :right-checkonly} trg) :right :left)
+        sm   (gensym "src-match")
+        tm   (gensym "trg-match")
+        etm  (gensym "enforced-trg-match")
+        wfns (gensym "where-fns")]
     (doseq [kw [:when :left :right]]
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of goals but was %s."
@@ -125,46 +147,74 @@
       (when-not (valid-spec-vector? (kw map) true)
         (u/errorf "Error in %s: %s has to be a vector of relation calls but was %s."
                   relsym kw (kw map))))
-    `(let [wfns# (doall
-                  (u/for-1 [~(make-destr-map (concat wsyms src-syms) sm)
-                            (ccl/run* [q#]
-                              (ccl/fresh [~@(set (concat wsyms src-syms))]
-                                (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
-                                ;; TODO: Sometimes it's faster if :when goals are after
-                                ;; source goals, and sometimes it's the other way round.
-                                ;; Maybe the user should be able to annotate the :when
-                                ;; clause with ^:last in order to force it to come after
-                                ;; the source goals.  Well, but for some relations,
-                                ;; changing the order is not semantically equivalent.
-                                ;; That's the case if :when binds ?foo, and the target
-                                ;; clause starts with (->role model ?foo ?bar).
-                                ~@(:when map)
-                                ~@(get map src)
-                                (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
-                    (binding [tmp/*wrapper-cache* (atom {})]
-                      ~@(insert-debug (:debug-src map))
-                      (let [~(make-destr-map trg-syms tm)
-                            (binding [tmp/*make-tmp-elements* true]
-                              (select-match
-                               (ccl/run 1 [q#]
-                                 (ccl/fresh [~@trg-syms]
-                                   (trg-initializeo ~sm ~args-map ~@trg-syms)
-                                   ~@(get map trg)
-                                   (tmp/finalizeo ~@trg-syms)
-                                   (ccl/== q# ~(make-kw-result-map trg-syms))))
-                               ~relsym ~sm))]
-                        ~@(insert-debug (:debug-trg map))
-                        (enforce-match ~tm)
-                        (let [~(make-destr-map trg-syms etm)
-                              (replace-tmps-and-wrappers-with-manifestations ~tm)]
-                          (swap! *relation-bindings* update-in [~relsym]
-                                 (fn [current# new#]
-                                   (conj (or current# #{}) new#))
-                                 (merge ~sm ~etm))
-                          ~@(insert-debug (:debug-enforced map))
-                          (fn [] ~@(:where map)))))))]
-       (doseq [wfn# wfns#]
-         (wfn#)))))
+    `(fn []
+       (let [~wfns (doall
+                    (remove nil?
+                            (u/for-1 [~(make-destr-map (concat wsyms src-syms) sm)
+                                      (ccl/run* [q#]
+                                        (ccl/fresh [~@(set (concat wsyms src-syms))]
+                                          (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                                          ;; TODO: Sometimes it's faster if :when goals are after
+                                          ;; source goals, and sometimes it's the other way round.
+                                          ;; Maybe the user should be able to annotate the :when
+                                          ;; clause with ^:last in order to force it to come after
+                                          ;; the source goals.  Well, but for some relations,
+                                          ;; changing the order is not semantically equivalent.
+                                          ;; That's the case if :when binds ?foo, and the target
+                                          ;; clause starts with (->role model ?foo ?bar).
+                                          ~@(:when map)
+                                          ~@(get map src)
+                                          (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
+                              ~(if enforcing
+                                 ;; Enforcement mode
+                                 `(binding [tmp/*wrapper-cache* (atom {})]
+                                    ~@(insert-debug (:debug-src map))
+                                    (let [~(make-destr-map trg-syms tm)
+                                          (binding [tmp/*make-tmp-elements* true]
+                                            (select-match
+                                             (ccl/run 1 [q#]
+                                               (ccl/fresh [~@trg-syms]
+                                                 (trg-initializeo true ~sm ~args-map ~@trg-syms)
+                                                 ~@(get map trg)
+                                                 (tmp/finalizeo ~@trg-syms)
+                                                 (ccl/== q# ~(make-kw-result-map trg-syms))))
+                                             ~relsym ~sm))]
+                                      ~@(insert-debug (:debug-trg map))
+                                      (enforce-match ~tm)
+                                      (let [~(make-destr-map trg-syms etm)
+                                            (replace-tmps-and-wrappers-with-manifestations ~tm)]
+                                        (swap! *relation-bindings* update-in [:related ~(keyword relsym)]
+                                               (fn [current# new#]
+                                                 (conj (or current# #{}) new#))
+                                               (merge ~sm ~etm))
+                                        ~@(insert-debug (:debug-enforced map))
+                                        (fn [] ~@(:where map)))))
+                                 ;; Checkonly mode
+                                 `(do
+                                    ~@(insert-debug (:debug-src map))
+                                    (let [match# (first
+                                                  (ccl/run 1 [q#]
+                                                    (ccl/fresh [~@trg-syms]
+                                                      (trg-initializeo false ~sm ~args-map ~@trg-syms)
+                                                      ~@(get map trg)
+                                                      (ccl/== q# ~(make-kw-result-map trg-syms)))))
+                                          ~(make-destr-map trg-syms tm) match#]
+                                      ~@(insert-debug (:debug-trg map))
+                                      (if match#
+                                        (do
+                                          (swap! *relation-bindings* update-in [:related ~(keyword relsym)]
+                                                 (fn [current# new#]
+                                                   (conj (or current# #{}) new#))
+                                                 (merge ~sm ~tm))
+                                          (fn [] ~@(:where map)))
+                                        (do
+                                          (swap! *relation-bindings* update-in [:unrelated ~(keyword relsym)]
+                                                 (fn [current# new#]
+                                                   (conj (or current# #{}) new#))
+                                                 ~sm)
+                                          nil))))))))]
+         (doseq [wfn# ~wfns]
+           (wfn#))))))
 
 (defn ^:private adapt-subst-map
   "Adapt the current subst-map `sm` for the given included rel.
@@ -241,43 +291,30 @@
                                        :debug-entry :debug-src :debug-trg
                                        :debug-enforced))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
-    (let [relbody `(~@(insert-debug (:debug-entry m))
-                    (if (= *target-direction* :right)
-                      ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
-                      ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)))]
-      `(~relsym [& ~(make-destr-map syms args-map)]
-                (check-args '~relsym ~args-map ~(set (map keyword syms)))
-                ~@relbody))))
-
-(def ^{:dynamic true
-       :doc "Only for internal use.
-  A map with the following structure:
-
-    {relation1 bindings, relation2 bindings, ...}
-
-  where bindings is:
-
-    ({:?lsym1 lval1, :?rsym1 rval2, ...}
-     ...)
-
-  Access this information with the relation `relateo`."}
-  *relation-bindings*)
+    `(~relsym [& ~(make-destr-map syms args-map)]
+              (check-args '~relsym ~args-map ~(set (map keyword syms)))
+              ~@(insert-debug (:debug-entry m))
+              (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
+                                    :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms rsyms args-map)
+                                    :left  ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)
+                                    :left-checkonly  ~(do-rel-body relsym :left-checkonly  m wsyms rsyms lsyms args-map)}]
+                ((transform-fns# *target-direction*))))))
 
 (defn relateo
   "A relation that succeeds if there's a correspondence between `keyvals` in
-  `relation`.  `keyvals` is a sequence of keywords with values that relate
-  elements from the left and right domains of `relation`.
+  `relation` (given as keyword).  `keyvals` is a sequence of keywords with
+  values that relate elements from the left and right domains of `relation`.
 
   Example:
 
-    (relateo class2table :?class ?subclass :?table ?subtable)"
+    (relateo :class2table :?class ?subclass :?table ?subtable)"
   [relation & keyvals]
-  (when-not (fn? relation)
-    (u/errorf "No relation (fn) given but %s %s."
-              (class relation) relation))
+  (when-not (keyword? relation)
+    (u/errorf "The relation has to be given as keyword but got %s."
+              relation))
   (let [m (apply hash-map keyvals)]
     (fn [a]
-      (let [bindings (@*relation-bindings* relation)]
+      (let [bindings ((:related @*relation-bindings*) relation)]
         (ccl/to-stream
          (->> (map (fn [b]
                      (let [vs (mapv #(let [el (get b % ::not-found)]
@@ -295,7 +332,7 @@
   one wants some t-relation to be only enforced in one direction.  Then, just
   put (target-directiono :left) in a :when clause."
   [dir]
-  (when-not (#{:right :left} dir)
+  (when-not (#{:right :left :right-checkonly :left-checkonly} dir)
     (u/errorf "dir must be :left or :right but was %s." dir))
   (fn [a]
     (if (= *target-direction* dir)
@@ -322,7 +359,8 @@
     (transformation-name left-model right-model direction & args)
 
   `direction` is the direction in which to execute the transformation,
-  either :left or :right.
+  either :right or :left for enforcement mode, or :right-checkonly
+  or :left-checkonly for checkonly mode.
 
   Defining Transformation Relations
   =================================
@@ -362,10 +400,10 @@
 
   It is also a vector of goals.  Usually, the goals are used to retrieve and
   bind elements created by previous relations using `relateo`.  The :left
-  to :right semantics are: For every set of elements in the `left` model for
-  which all :left and all :when goals succeed, there must be at least one set
-  of elements in the `right` model for which all :right and :when goals
-  succeed.
+  to :right semantics are: For all solutions satisfying the conjunction
+  of :left and :when goals, a corresponding solution of the :right goals has to
+  exist, i.e., the :when goals are simply added to the clause of the current
+  source direction.
 
   Postconditions
   ==============
@@ -419,6 +457,25 @@
   extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
+  Return Value and Traceability
+  =============================
+
+  The return value of the transformation is its complete traceability
+  information represented as a map with the following structure:
+
+    {:related   {:t-relation1 bindings, :t-relation2 bindings, ...}
+     :unrelated {:t-relation1 bindings, :t-relation2 bindings, ...}}
+
+  The map being the value of the :related key contains the actual traceability
+  information, i.e., it is a map from the transformation's t-relations (as
+  keywords) to the corresponding bindings in the left and right models.  This
+  information can be accessed during the transformation in terms of `relateo`.
+
+  The map being the value of the :unrelated key contains the bindings for which
+  no corresponding target model match exists.  This map is only populated in
+  checkonly mode since in enforcement mode, target elements are created or
+  modified in order to guarantee the existence of a match.
+
   Debugging Transformation Relations
   ==================================
 
@@ -448,9 +505,7 @@
         (goal2 arg2 arg1 ...)))
 
   Of course, plain relation may also be specified outside of the
-  transformation.  However, only such local, plain relations have access to the
-  traceability information of the transformation in terms of `relateo` as this
-  requires a t-relation to be given.
+  transformation.
 
   Transformation Inheritance
   ==========================
@@ -521,7 +576,7 @@
                           ::trelations (list 'quote trelations)
                           ::prelations (list 'quote prelations)})
        [~left ~right dir# ~@other-args]
-       (when-not (#{:left :right} dir#)
+       (when-not (#{:right :left :right-checkonly :left-checkonly} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
        (letfn [~@(vals prelations)
@@ -529,6 +584,7 @@
                       (remove #(:abstract (meta %)) trelations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
-                   *relation-bindings* (atom {})]
+                   *relation-bindings* (atom {:related {}
+                                              :unrelated {}})]
            ~@(map (fn [r] `(~r)) top-rels)
            @*relation-bindings*)))))

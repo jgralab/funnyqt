@@ -113,8 +113,8 @@
            (ab-tg/homepage r ?org2 ?hp)
            (ab-tg/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(bidi/relateo org2org :?org1 ?org1 :?org2 ?org2)
-                (bidi/relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :when [(bidi/relateo :org2org :?org1 ?org1 :?org2 ?org2)
+                (bidi/relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
          :right [(ab-tg/->employees r ?org2 ?contact2)]))
 
@@ -132,14 +132,27 @@
 (test/deftest test-addressbook-tg2addressbook-tg
   (let [l (make-example-addressbook-tg)
         r (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))]
+    ;; l to r checkonly
+    (print "addressbook-tg2addressbook-tg l -> r (empty, checkonly)     ")
+    (let [t0 (time (addressbook-tg2addressbook-tg l r :right-checkonly))
+          unrelated (:unrelated t0)]
+      (test/is (= {} (:related t0)))
+      (test/is (= {:addressbook2addressbook
+                   #{{:?addrbook1 (tg/first-vertex l #(g/has-type? % 'AddressBook))
+                      :?n "MyAddressBook"}}}
+                  unrelated)))
     ;; Transform l to r
     (print "addressbook-tg2addressbook-tg l -> r (empty)                ")
-    (time (addressbook-tg2addressbook-tg l r :right))
-    (assert-same-addressbooks-tg-tg l r)
-    ;; Do it again.  It shouldn't modify anything.
-    (print "addressbook-tg2addressbook-tg l -> r (both already in sync) ")
-    (time (addressbook-tg2addressbook-tg l r :right))
-    (assert-same-addressbooks-tg-tg l r)
+    (let [t1 (time (addressbook-tg2addressbook-tg l r :right))]
+      (assert-same-addressbooks-tg-tg l r)
+      ;; Do it again.  It shouldn't modify anything.
+      (print "addressbook-tg2addressbook-tg l -> r (both already in sync) ")
+      (let [t2 (time (addressbook-tg2addressbook-tg l r :right))]
+        (assert-same-addressbooks-tg-tg l r)
+        (test/is (= t1 t2))
+        ;; Now try checkonly mode which should also deliver the same bindings.
+        (let [t3 (addressbook-tg2addressbook-tg l r :right-checkonly)]
+          (test/is (= t1 t3)))))
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
     (print "addressbook-tg2addressbook-tg l <- r (both already in sync) ")
     (time (addressbook-tg2addressbook-tg l r :left))
@@ -216,8 +229,8 @@
            (ab-emf/homepage r ?org2 ?hp)
            (ab-emf/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(bidi/relateo org2org :?org1 ?org1 :?org2 ?org2)
-                (bidi/relateo contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :when [(bidi/relateo :org2org :?org1 ?org1 :?org2 ?org2)
+                (bidi/relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
          :right [(ab-emf/->employees r ?org2 ?contact2)]))
 
@@ -496,8 +509,8 @@
          :when [(bidi/target-directiono :right) ;; only execute in right target dir
                 (cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
-                 [(bidi/relateo class2table :?class ?subclass :?table ?table)]
-                 [(bidi/relateo super-attribute2column :?superclass ?subclass :?table ?table)])]
+                 [(bidi/relateo :class2table :?class ?subclass :?table ?table)]
+                 [(bidi/relateo :super-attribute2column :?superclass ?subclass :?table ?table)])]
          :where [(attribute2column :?class ?superclass :?table ?table)
                  (super-attribute2column :?subclass ?superclass :?table ?table)]))
 
