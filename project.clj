@@ -1,4 +1,4 @@
-(defproject funnyqt "0.53.2"
+(defproject funnyqt "0.54.0"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies."
   :dependencies [[org.clojure/clojure "1.8.0-alpha4"]
@@ -22,7 +22,7 @@
   :license {:name "GNU General Public License, Version 3 (or later)"
             :url "http://www.gnu.org/licenses/gpl.html"
             :distribution :repo}
-  :url "https://github.com/jgralab/funnyqt"
+  :url "http://funnyqt.org"
   :repl-options {:init (println "Welcome to FunnyQT!")}
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Stuff specific to generating API docs
@@ -31,7 +31,7 @@
   ;; :html5-docs-source-path "src/"
   :html5-docs-docset-icons ["logos/icon16.png" "logos/icon32.png"]
   :html5-docs-ns-includes #"^funnyqt\..*"
-  :html5-docs-ns-excludes #".*\.test\..*"
+  :html5-docs-ns-excludes #".*\.(internal|tmp-elem|relational\.util)$"
   ;; :html5-docs-docs-dir nil ;; => "docs"
   :html5-docs-repository-url #(str "https://github.com/jgralab/funnyqt/blob/v"
                                    (:version %)))

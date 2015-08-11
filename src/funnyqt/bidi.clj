@@ -8,13 +8,20 @@
              [utils :as u]]
             [funnyqt.relational
              [tmp-elem :as tmp]
-             [util :as ru]]))
+             [util :as ru]]
+            [funnyqt.bidi.internal :as i]))
 
 (def ^{:dynamic true
        :doc "Only for internal use.
   The current direction of the transformation execution.
   Either :left or :right."}
   *target-direction*)
+
+(def ^{:dynamic true
+       :doc "Only for internal use.
+  The current target model of the transformation execution.
+  Depends on `*target-direction*, so it's either the :right or the :left modes."}
+  *target-model*)
 
 (def ^{:dynamic true
        :doc "Only for internal use.
@@ -31,48 +38,14 @@
   Access this information with the relation `relateo`."}
   *relation-bindings*)
 
-(defn select-match
-  "Only for internal use.
-  Simply returns the first match.  Throws an exception if there's none."
-  [matches relation src-match]
-  (when-not (seq matches)
-    (u/errorf "Couldn't create a %s target match for source match: %s"
-              (.getSimpleName (class relation)) src-match))
-  (first matches))
-
-(defn enforce-match
-  "Only for internal use.
-  Manifests the temporary and wrapper elements in `match`."
-  [match]
-  (doseq [el (vals match)
-          :when (tmp/tmp-or-wrapper-element? el)]
-    ;;(println "Enforcing" (tmp/as-map el))
-    (tmp/manifest el)))
-
 (defn ^:private make-kw-result-map [syms]
   (apply hash-map
          (mapcat (fn [qs]
                    [(keyword (name qs)) qs])
                  syms)))
 
-(def ^{:dynamic true
-       :doc "Only for internal use.
-  The current target model of the transformation execution.
-  Depends on `*target-direction*, so it's either the :right or the :left modes."}
-  *target-model*)
-
 (defn ^:private make-destr-map [syms as]
   {:keys (vec (set syms)) :as as})
-
-(defn replace-tmps-and-wrappers-with-manifestations
-  "Only for internal use."
-  [trg-match]
-  (apply hash-map
-         (mapcat (fn [[k v]]
-                   [k (if (tmp/tmp-or-wrapper-element? v)
-                        (tmp/manifestation v)
-                        v)])
-                 trg-match)))
 
 (defn ^:private valid-spec-vector? [spec goals]
   (or (nil? spec)
@@ -88,48 +61,6 @@
   "If code is non-nil, wrap it in a vector for being spliced in."
   [code]
   (when code [code]))
-
-(defn src-initializeo
-  "Only for internal use."
-  [args-map & lvars]
-  (fn [a]
-    (ccl/unify a (vec lvars)
-               (mapv (fn [lv]
-                       (let [val (get args-map (keyword (:oname lv)) ::unknown)]
-                         (if (= val ::unknown) lv val)))
-                     lvars))))
-
-(defn ^:private maybe-wrap
-  "Wraps `val` in bound to the logic variable `lv` in a WrapperElement if it is
-  a model object.  Else returns `val` unchanged.
-  Only for internal use."
-  [lv val]
-  (if (or (g/element? val) (g/relationship? val))
-    (tmp/make-wrapper *target-model* lv val)
-    val))
-
-(defn trg-initializeo
-  "Only for internal use."
-  [enforcing src-match args-map & lvars]
-  (fn [a]
-    (ccl/unify a (vec lvars)
-               (mapv (fn [lv]
-                       (let [lv-kw    (keyword (:oname lv))
-                             src-val  (get src-match lv-kw ::unknown)
-                             args-val (get args-map  lv-kw ::unknown)]
-                         (cond
-                           (not= src-val  ::unknown)
-                           (if enforcing
-                             (maybe-wrap lv src-val)
-                             src-val)
-
-                           (not= args-val ::unknown)
-                           (if enforcing
-                             (maybe-wrap lv args-val)
-                             args-val)
-
-                           :else lv)))
-                     lvars))))
 
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
@@ -153,7 +84,7 @@
                             (u/for-1 [~(make-destr-map (concat wsyms src-syms) sm)
                                       (ccl/run* [q#]
                                         (ccl/fresh [~@(set (concat wsyms src-syms))]
-                                          (src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                                          (i/src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
                                           ;; TODO: Sometimes it's faster if :when goals are after
                                           ;; source goals, and sometimes it's the other way round.
                                           ;; Maybe the user should be able to annotate the :when
@@ -171,18 +102,18 @@
                                     ~@(insert-debug (:debug-src map))
                                     (let [~(make-destr-map trg-syms tm)
                                           (binding [tmp/*make-tmp-elements* true]
-                                            (select-match
+                                            (i/select-match
                                              (ccl/run 1 [q#]
                                                (ccl/fresh [~@trg-syms]
-                                                 (trg-initializeo true ~sm ~args-map ~@trg-syms)
+                                                 (i/trg-initializeo *target-model* true ~sm ~args-map ~@trg-syms)
                                                  ~@(get map trg)
                                                  (tmp/finalizeo ~@trg-syms)
                                                  (ccl/== q# ~(make-kw-result-map trg-syms))))
                                              ~relsym ~sm))]
                                       ~@(insert-debug (:debug-trg map))
-                                      (enforce-match ~tm)
+                                      (i/enforce-match ~tm)
                                       (let [~(make-destr-map trg-syms etm)
-                                            (replace-tmps-and-wrappers-with-manifestations ~tm)]
+                                            (i/replace-tmps-and-wrappers-with-manifestations ~tm)]
                                         (swap! *relation-bindings* update-in [:related ~(keyword relsym)]
                                                (fn [current# new#]
                                                  (conj (or current# #{}) new#))
@@ -195,7 +126,7 @@
                                     (let [match# (first
                                                   (ccl/run 1 [q#]
                                                     (ccl/fresh [~@trg-syms]
-                                                      (trg-initializeo false ~sm ~args-map ~@trg-syms)
+                                                      (i/trg-initializeo *target-model* false ~sm ~args-map ~@trg-syms)
                                                       ~@(get map trg)
                                                       (ccl/== q# ~(make-kw-result-map trg-syms)))))
                                           ~(make-destr-map trg-syms tm) match#]
@@ -271,14 +202,6 @@
             [m]))
     m))
 
-(defn check-args
-  "Only for internal use.
-  Check if the provided args in arg-map are valid (that is, in good-args)."
-  [relsym arg-map good-args]
-  (when-let [unbound-key (some #(when-not (good-args %) %) (keys arg-map))]
-    (u/errorf "Unbound keyword arg %s when calling relation %s."
-              unbound-key relsym)))
-
 (defn ^:private convert-relation [all-rels [relsym m]]
   (let [m     (embed-included-rels all-rels m)
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
@@ -292,7 +215,7 @@
                                        :debug-enforced))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms args-map)]
-              (check-args '~relsym ~args-map ~(set (map keyword syms)))
+              (i/check-t-relation-args '~relsym ~args-map ~(set (map keyword syms)))
               ~@(insert-debug (:debug-entry m))
               (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
                                     :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms rsyms args-map)
