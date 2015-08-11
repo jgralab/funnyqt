@@ -327,17 +327,22 @@
               (remove not)))))))
 
 (defn target-directiono
-  "A relation that succeeds if the transformation direction is `dir`.
+  "A relation where the transformation direction is `dir`.
   Can be used for conditionalizing non-bijective transformations, e.g., when
   one wants some t-relation to be only enforced in one direction.  Then, just
-  put (target-directiono :left) in a :when clause."
+  put (target-directiono :left) in a :when clause.
+
+  target-directiono only unifies with :left or :right, i.e., even if the target
+  direction argument of the transformation was :right-checkonly, the actual
+  direction considered by target-directiono is :right."
   [dir]
   (when-not (#{:right :left :right-checkonly :left-checkonly} dir)
     (u/errorf "dir must be :left or :right but was %s." dir))
   (fn [a]
-    (if (= *target-direction* dir)
-      (ccl/succeed a)
-      (ccl/fail a))))
+    (let [cdir (if (#{:right :right-checkonly} *target-direction*)
+                 :right
+                 :left)]
+      (ccl/unify a dir cdir))))
 
 (defn ^:private mapify-trelations [rels]
   (into (om/ordered-map)

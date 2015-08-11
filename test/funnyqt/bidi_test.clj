@@ -143,20 +143,22 @@
                   unrelated)))
     ;; Transform l to r
     (print "addressbook-tg2addressbook-tg l -> r (empty)                ")
-    (let [t1 (time (addressbook-tg2addressbook-tg l r :right))]
+    (let [t1 (time (addressbook-tg2addressbook-tg l r :right))
+          t11 (addressbook-tg2addressbook-tg l r :right-checkonly)]
       (assert-same-addressbooks-tg-tg l r)
+      (test/is (= t1 t11))
       ;; Do it again.  It shouldn't modify anything.
       (print "addressbook-tg2addressbook-tg l -> r (both already in sync) ")
-      (let [t2 (time (addressbook-tg2addressbook-tg l r :right))]
+      (let [t2 (time (addressbook-tg2addressbook-tg l r :right))
+            t22 (addressbook-tg2addressbook-tg l r :right-checkonly)]
         (assert-same-addressbooks-tg-tg l r)
-        (test/is (= t1 t2))
-        ;; Now try checkonly mode which should also deliver the same bindings.
-        (let [t3 (addressbook-tg2addressbook-tg l r :right-checkonly)]
-          (test/is (= t1 t3)))))
+        (test/is (= t1 t2 t22))))
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
     (print "addressbook-tg2addressbook-tg l <- r (both already in sync) ")
-    (time (addressbook-tg2addressbook-tg l r :left))
-    (assert-same-addressbooks-tg-tg l r)
+    (let [t3 (time (addressbook-tg2addressbook-tg l r :left))
+          t33 (addressbook-tg2addressbook-tg l r :left-checkonly)]
+      (test/is (= t3 t33))
+      (assert-same-addressbooks-tg-tg l r))
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
     (print "addressbook-tg2addressbook-tg l <- r (r has a new Contact)  ")
@@ -168,11 +170,10 @@
           cat-work (first (filter #(= (tg/value % :name) "Work")
                                   (tg/vseq r 'Category)))]
       (g/add-adj! cat-work :contacts tim))
-    (time (addressbook-tg2addressbook-tg l r :left))
-    (assert-same-addressbooks-tg-tg l r)
-    #_(do
-        (future (viz/print-model l :gtk))
-        (viz/print-model r :gtk))))
+    (let [t4 (time (addressbook-tg2addressbook-tg l r :left))
+          t44 (addressbook-tg2addressbook-tg l r :left-checkonly)]
+      (test/is (= t4 t44))
+      (assert-same-addressbooks-tg-tg l r))))
 
 ;;## Transformation TG <-> EMF
 
@@ -257,16 +258,22 @@
         r (emf/new-resource)]
     ;; Transform l to r
     (print "addressbook-tg2addressbook-emf l -> r (empty)                ")
-    (time (addressbook-tg2addressbook-emf l r :right))
-    (assert-same-addressbooks-tg-emf l r)
+    (let [t (time (addressbook-tg2addressbook-emf l r :right))
+          t1 (addressbook-tg2addressbook-emf l r :right-checkonly)]
+      (test/is (= t t1))
+      (assert-same-addressbooks-tg-emf l r))
     ;; Do it again.  It shouldn't modify anything.
     (print "addressbook-tg2addressbook-emf l -> r (both already in sync) ")
-    (time (addressbook-tg2addressbook-emf l r :right))
-    (assert-same-addressbooks-tg-emf l r)
+    (let [t (time (addressbook-tg2addressbook-emf l r :right))
+          t1 (addressbook-tg2addressbook-emf l r :right-checkonly)]
+      (test/is (= t t1))
+      (assert-same-addressbooks-tg-emf l r))
     ;; Do it in the other direction.  Again, it shouldn't modify anything.
     (print "addressbook-tg2addressbook-emf l <- r (both already in sync) ")
-    (time (addressbook-tg2addressbook-emf l r :left))
-    (assert-same-addressbooks-tg-emf l r)
+    (let [t (time (addressbook-tg2addressbook-emf l r :left))
+          t1 (addressbook-tg2addressbook-emf l r :left-checkonly)]
+      (test/is (= t t1))
+      (assert-same-addressbooks-tg-emf l r))
     ;; Now add a new Contact to the right addressbook and synchronize it to the
     ;; left.
     (print "addressbook-tg2addressbook-emf l <- r (r has a new Contact)  ")
@@ -278,24 +285,23 @@
           cat-work (first (filter #(= (emf/eget % :name) "Work")
                                   (emf/eallcontents r 'Category)))]
       (g/add-adj! cat-work :entries tim))
-    (time (addressbook-tg2addressbook-emf l r :left))
-    (assert-same-addressbooks-tg-emf l r)
-    #_(do
-        (future (viz/print-model l :gtk))
-        (viz/print-model r :gtk))))
+    (let [t (time (addressbook-tg2addressbook-emf l r :left))
+          t1 (addressbook-tg2addressbook-emf l r :left-checkonly)]
+      (test/is (= t t1))
+      (assert-same-addressbooks-tg-emf l r))))
 
 ;;## Tests for attribute modifications (TG <-> TG)
 
 (bidi/deftransformation attr-override-contact-tg2contact-tg [l r]
   (^:top contact2contact
-   :left [(ab-tg/Contact l ?contact1)
-          (ab-tg/firstName l ?contact1 ?fn)
-          (ab-tg/lastName l ?contact1 ?ln)
-          (ab-tg/email* l ?contact1 ?mail)]
-   :right [(ab-tg/Contact r ?contact2)
-           (ab-tg/firstName r ?contact2 ?fn)
-           (ab-tg/lastName r ?contact2 ?ln)
-           (ab-tg/email* r ?contact2 ?mail)]))
+         :left [(ab-tg/Contact l ?contact1)
+                (ab-tg/firstName l ?contact1 ?fn)
+                (ab-tg/lastName l ?contact1 ?ln)
+                (ab-tg/email* l ?contact1 ?mail)]
+         :right [(ab-tg/Contact r ?contact2)
+                 (ab-tg/firstName r ?contact2 ?fn)
+                 (ab-tg/lastName r ?contact2 ?ln)
+                 (ab-tg/email* r ?contact2 ?mail)]))
 
 (test/deftest test-attr-override-contact-tg2contact-tg
   (let [l (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))
@@ -515,16 +521,20 @@
                  (super-attribute2column :?subclass ?superclass :?table ?table)]))
 
 (test/deftest test-cd2db
-  (let [result-db (emf/new-resource)]
-    (class-diagram2database-schema cd1 result-db :right)
+  (let [result-db (emf/new-resource)
+        t0 (class-diagram2database-schema cd1 result-db :right)
+        t1 (class-diagram2database-schema cd1 result-db :right-checkonly)]
+    (test/is (= t0 t1))
     (test/is (= 1 (count (emf/eallcontents result-db 'Schema))))
     (test/is (= 2 (count (emf/eallcontents result-db 'Table))))
     (test/is (= 7 (count (emf/eallcontents result-db 'Column))))
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd
-  (let [result-cd (emf/new-resource)]
-    (class-diagram2database-schema result-cd db1 :left)
+  (let [result-cd (emf/new-resource)
+        t0 (class-diagram2database-schema result-cd db1 :left)
+        t1 (class-diagram2database-schema result-cd db1 :left-checkonly)]
+    (test/is (= t0 t1))
     (test/is (= 1 (count (emf/eallcontents result-cd 'Package))))
     (test/is (= 2 (count (emf/eallcontents result-cd 'Class))))
     (test/is (= 8 (count (emf/eallcontents result-cd 'Attribute))))
@@ -550,16 +560,20 @@
    :where [(attribute2column :?class ?class :?table ?table)]))
 
 (test/deftest test-cd2db-ext
-  (let [result-db (emf/new-resource)]
-    (class-diagram2database-schema-ext cd1 result-db :right)
+  (let [result-db (emf/new-resource)
+        t0 (class-diagram2database-schema-ext cd1 result-db :right)
+        t1 (class-diagram2database-schema-ext cd1 result-db :right-checkonly)]
+    (test/is (= t0 t1))
     (test/is (= 1 (count (emf/eallcontents result-db 'Schema))))
     (test/is (= 2 (count (emf/eallcontents result-db 'Table))))
     (test/is (= 7 (count (emf/eallcontents result-db 'Column))))
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd-ext
-  (let [result-cd (emf/new-resource)]
-    (class-diagram2database-schema-ext result-cd db1 :left)
+  (let [result-cd (emf/new-resource)
+        t0 (class-diagram2database-schema-ext result-cd db1 :left)
+        t1 (class-diagram2database-schema-ext result-cd db1 :left-checkonly)]
+    (test/is (= t0 t1))
     (test/is (= 1 (count (emf/eallcontents result-cd 'Package))))
     (test/is (= 2 (count (emf/eallcontents result-cd 'Class))))
     (test/is (= 8 (count (emf/eallcontents result-cd 'Attribute))))
