@@ -365,7 +365,7 @@
   Defining Transformation Relations
   =================================
 
-  In the transformation specification, `relations` is a sequence of
+  In the transformation specification, `t-relations` is a sequence of
   transformation relation definitions.  Every such t-relation has the following
   form:
 
@@ -386,7 +386,32 @@
   succeed.
 
   ^:top metadata can be added to t-relation names.  Such top-level t-relations
-  are enforced automatically by the transformation in their declaration order.
+  are enforced or checked automatically by the transformation in their
+  declaration order.  Non-top-level t-relations have to be called explicitly
+  from another t-relation using :where clauses (see Postconditions below).
+
+  Return Value and Traceability
+  =============================
+
+  The return value of a bidirectional transformation is its complete
+  traceability information represented as a map with the following structure:
+
+    {:related   {:t-relation1 bindings, :t-relation2 bindings, ...}
+     :unrelated {:t-relation1 bindings, :t-relation2 bindings, ...}}
+
+  The inner map being the value of the :related key contains the actual
+  traceability information, i.e., it is a map from the transformation's
+  t-relations (as keywords) to the corresponding bindings in the left and right
+  models.  Concretely, bindings is a set of maps of the form {:llvar1?
+  lval1, :rlvar1? rval1, ...} where :llvar1 and :rlvar1 correspond to some
+  logic variables in the :left or :right goals of the corresponding t-relation,
+  and lval1 and rval1 are their values.  This information can be accessed
+  during the transformation in terms of `relateo`.
+
+  The map being the value of the :unrelated key contains the bindings for which
+  no corresponding target model match exists.  This map is only populated in
+  checkonly mode since in enforcement mode, target elements are created or
+  modified in order to guarantee the existence of a match.
 
   Preconditions
   =============
@@ -457,25 +482,6 @@
   extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
-  Return Value and Traceability
-  =============================
-
-  The return value of the transformation is its complete traceability
-  information represented as a map with the following structure:
-
-    {:related   {:t-relation1 bindings, :t-relation2 bindings, ...}
-     :unrelated {:t-relation1 bindings, :t-relation2 bindings, ...}}
-
-  The map being the value of the :related key contains the actual traceability
-  information, i.e., it is a map from the transformation's t-relations (as
-  keywords) to the corresponding bindings in the left and right models.  This
-  information can be accessed during the transformation in terms of `relateo`.
-
-  The map being the value of the :unrelated key contains the bindings for which
-  no corresponding target model match exists.  This map is only populated in
-  checkonly mode since in enforcement mode, target elements are created or
-  modified in order to guarantee the existence of a match.
-
   Debugging Transformation Relations
   ==================================
 
@@ -532,7 +538,7 @@
   because the logical variables act as named parameters and are also
   represented in the transformation trace."
 
-  {:arglists '([name [left right & args] extends-clause? & relations])}
+  {:arglists '([name [left right & args] extends-clause? & t-relations])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [left right & other-args] (first more)
