@@ -334,7 +334,7 @@
   arguments as long as it returns logical true.  The function returns the
   number of successful applications or nil if it couldn't be applied at least
   once."
-  [r & args]
+  [r]
   (fn iterated-rule-fn [& args]
     (loop [val (apply r args), i 0]
       (if val
