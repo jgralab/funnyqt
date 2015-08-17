@@ -371,7 +371,7 @@
                                               (cclp/walk subst v)
                                               v)]
                                       (when (ccl/lvar? v)
-                                        (u/errorf "Reference %s can't be grounded with substitution."
+                                        (u/errorf "Reference %s can't be grounded with substitution %s."
                                                   r subst))
                                       v))
                                   vs)]
@@ -432,9 +432,9 @@
                      tw-els)
         (do
           (doseq [el tw-els]
-                   (finalize-attrs el a)
-                   (finalize-refs  el a)
-                   (finalize-alpha-and-omega el a))
+            (finalize-attrs el a)
+            (finalize-refs  el a)
+            (finalize-alpha-and-omega el a))
           (ccl/succeed a))
         (do
           #_(println (format "invalid: %s" (vec (map (partial cclp/walk a) els))))

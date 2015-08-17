@@ -6,7 +6,8 @@
              [emf :as emf]
              [generic :as g]
              [relational :as r]
-             [tg :as tg]]))
+             [tg :as tg]
+             [visualization :as viz]]))
 
 ;;# AddressBook to AddressBook
 
@@ -523,11 +524,16 @@
 (test/deftest test-cd2db
   (let [result-db (emf/new-resource)
         t0 (class-diagram2database-schema cd1 result-db :right)
-        t1 (class-diagram2database-schema cd1 result-db :right-checkonly)]
+        t1 (class-diagram2database-schema cd1 result-db :right-checkonly)
+        ;; FIXME: The back transformation should not copy the flattened,
+        ;; inherited attributes...
+        ;;t2 (class-diagram2database-schema cd1 result-db :left)
+        ]
     (test/is (= t0 t1))
     (test/is (= 1 (count (emf/eallcontents result-db 'Schema))))
     (test/is (= 2 (count (emf/eallcontents result-db 'Table))))
     (test/is (= 7 (count (emf/eallcontents result-db 'Column))))
+    #_(viz/print-model cd1 :gtk)
     #_(viz/print-model result-db :gtk)))
 
 (test/deftest test-db2cd
