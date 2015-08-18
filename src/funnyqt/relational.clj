@@ -41,46 +41,46 @@
   "A relation where the strings `x` and `y` concatenate to `xy`, or the strings
   `x`, `y`, and `z` concatenate to `xyz`.  Not fully relational."
   ([x y xy]
-     (fn [a]
-       (let [wx  (cclp/walk a x)
-             wy  (cclp/walk a y)
-             wxy (cclp/walk a xy)]
-         (cond
-          (and (ru/ground? wx) (ru/ground? wy) (ru/ground? wxy))
-          (if (= (str wx wy) wxy) (ccl/succeed a) (ccl/fail a))
+   (fn [a]
+     (let [wx  (cclp/walk a x)
+           wy  (cclp/walk a y)
+           wxy (cclp/walk a xy)]
+       (cond
+         (and (ru/ground? wx) (ru/ground? wy) (ru/ground? wxy))
+         (if (= (str wx wy) wxy) (ccl/succeed a) (ccl/fail a))
 
-          (and (ru/ground? wx) (ru/ground? wy))
-          (or (ccl/unify a xy (str wx wy))
-              (ccl/fail a))
+         (and (ru/ground? wx) (ru/ground? wy))
+         (or (ccl/unify a xy (str wx wy))
+             (ccl/fail a))
 
-          (and (ru/ground? wx) (ru/ground? wxy) (string? wxy)
-               (.startsWith ^String wxy wx))
-          (or (ccl/unify a y (subs wxy (count wx)))
-              (ccl/fail a))
+         (and (ru/ground? wx) (ru/ground? wxy) (string? wxy)
+              (.startsWith ^String wxy wx))
+         (or (ccl/unify a y (subs wxy (count wx)))
+             (ccl/fail a))
 
-          (and (ru/ground? wy) (ru/ground? wxy) (string? wxy)
-               (.endsWith ^String wxy wy))
-          (or (ccl/unify a x (subs wxy 0 (- (count wxy) (count wy))))
-              (ccl/fail a))
+         (and (ru/ground? wy) (ru/ground? wxy) (string? wxy)
+              (.endsWith ^String wxy wy))
+         (or (ccl/unify a x (subs wxy 0 (- (count wxy) (count wy))))
+             (ccl/fail a))
 
-          (ru/ground? wxy)
-          (ccl/to-stream
-           (->> (map (fn [[s1 s2]]
-                       (ccl/unify a [x y] [s1 s2]))
-                     (str-splits wxy))
-                (remove not)))
+         (ru/ground? wxy)
+         (ccl/to-stream
+          (->> (map (fn [[s1 s2]]
+                      (ccl/unify a [x y] [s1 s2]))
+                    (str-splits wxy))
+               (remove not)))
 
-          ;; TODO: we should not fail here...
-          :else (ccl/fail a)))))
+         ;; TODO: we should not fail here...
+         :else (ccl/fail a)))))
   ([x y z xyz]
-     (ccl/fresh [front]
-       (ccl/conde
-        ;; This one works if x and y are ground
-        [(stro x y front)
-         (stro front z xyz)]
-        ;; This one works if xyz is ground
-        [(stro front z xyz)
-         (stro x y front)]))))
+   (ccl/fresh [front]
+     (ccl/conde
+      ;; This one works if x and y are ground
+      [(stro x y front)
+       (stro front z xyz)]
+      ;; This one works if xyz is ground
+      [(stro front z xyz)
+       (stro x y front)]))))
 
 ;;# Model Relations
 
@@ -520,7 +520,7 @@
                          (ccl/unify a [el ref refed-el] [oel rn orefed-el]))
                        (remove not)))))))))
 
-;;## Metamodel Relation Generator
+;;# Metamodel Relation Generator
 
 (defn ^:private class->rel-symbols
   "Returns a relation symbol for the class `c`."
@@ -582,14 +582,19 @@
 (defn ^:private create-reference-relations
   "Creates a relation for the given role name."
   [role vcs prefix]
-  (let [ts (mapv #(g/qname %) vcs)]
+  (let [ts (mapv g/qname vcs)
+        target-vcs (set (map g/qname (map #(g/mm-referenced-element-class % role) vcs)))]
     `(do
        (defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-")))
          ~(format "A relation where `el` references `refed` with its `%s` role in model `m`." (name role))
          [~'m ~'el ~'refed]
          (ccl/all
           (typeo ~'m ~'el '~ts)
-          (adjo ~'m ~'el ~role ~'refed false)))
+          (adjo ~'m ~'el ~role ~'refed false)
+          ;; If there is one unique target type, declare it.  Then it can be
+          ;; omitted in bidi transformations.
+          ~@(when (= 1 (count target-vcs))
+              [`(typeo ~'m ~'refed '~(first target-vcs))])))
        ~(when (some #(not (g/mm-multi-valued-property? % role)) vcs)
           `(defn ~(symbol (str prefix "->" (clojure.string/replace (name role) "_" "-") "*"))
              ~(format "A relation where `el` references `refed` with its `%s` role in model `m`.

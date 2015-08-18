@@ -608,16 +608,13 @@
          :right [(sdb/Table r ?table)
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?col)
-                 (sdb/Column r ?col)
                  (sdb/name r ?col "ID")
                  (sdb/primary r ?col true)]
          :where [(attribute2column :?cls ?cls :?table ?table)])
   (attribute2column
    :left [(scd/->attrs l ?cls ?attr)
-          (scd/Attribute l ?attr)
           (scd/name l ?attr ?name)]
    :right [(sdb/->cols r ?table ?col)
-           (sdb/Column r ?col)
            (sdb/name r ?col ?name)
            (ccl/!= ?name "ID")])
   (^:top association2table
@@ -630,12 +627,9 @@
          :right [(sdb/Table r ?table)
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?src-col)
-                 (sdb/Column r ?src-col)
                  (sdb/name r ?src-col "SRC")
                  (sdb/->cols r ?table ?trg-col)
-                 (sdb/Column r ?trg-col)
                  (sdb/name r ?trg-col "TRG")
-                 (ccl/!= ?src-col ?trg-col)
                  (sdb/->pkey r ?src-col ?src-pkey)
                  (sdb/->pkey r ?trg-col ?trg-pkey)]))
 
@@ -644,6 +638,8 @@
         db (tg/new-graph (tg/load-schema "test/input/cd2db-simple/db-schema.tg"))
         cd-new (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))]
     (class-diagram2database-schema-simple cd db :right)
-    (class-diagram2database-schema-simple cd-new db :left)
     (viz/print-model db :gtk)
-    (viz/print-model cd-new :gtk)))
+    (test/is (= 3 (tg/vcount db 'Table)))
+    (test/is (= 6 (tg/vcount db 'Column)))
+    (class-diagram2database-schema-simple cd-new db :left)
+    (test/is (g/equal-models? cd cd-new))))
