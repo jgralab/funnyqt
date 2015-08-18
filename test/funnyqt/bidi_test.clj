@@ -637,9 +637,17 @@
   (let [cd (gen-simple-class-diagram)
         db (tg/new-graph (tg/load-schema "test/input/cd2db-simple/db-schema.tg"))
         cd-new (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))]
+    ;; New DBS from given CD
     (class-diagram2database-schema-simple cd db :right)
-    (viz/print-model db :gtk)
     (test/is (= 3 (tg/vcount db 'Table)))
     (test/is (= 6 (tg/vcount db 'Column)))
+    ;; New CD from result DBS
+    (class-diagram2database-schema-simple cd-new db :left)
+    (test/is (g/equal-models? cd cd-new))
+    ;; :right again shouldn't change anything
+    (class-diagram2database-schema-simple cd db :right)
+    (test/is (= 3 (tg/vcount db 'Table)))
+    (test/is (= 6 (tg/vcount db 'Column)))
+    ;; :left again shouldn't change anything, too
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))))
