@@ -513,8 +513,7 @@
    :left [(cd/is-primary cd ?attr true)]
    :right [(db/->pkey db ?table ?col)])
   (^:top super-attribute2column
-         :when [(bidi/target-directiono :right) ;; only execute in right target dir
-                (cd/->parent cd ?subclass ?superclass)
+         :when [(cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
                  [(bidi/relateo :class2table :?class ?subclass :?table ?table)]
                  [(bidi/relateo :super-attribute2column :?superclass ?subclass :?table ?table)])]
@@ -584,3 +583,67 @@
     (test/is (= 2 (count (emf/eallcontents result-cd 'Class))))
     (test/is (= 8 (count (emf/eallcontents result-cd 'Attribute))))
     #_(viz/print-model result-cd :gtk)))
+
+;;* Simple Class Diagram to Simple Database Schema
+
+(r/generate-metamodel-relations "test/input/cd2db-simple/cd-schema.tg"
+                                test.relational.simple-cd.tg scd)
+(r/generate-metamodel-relations "test/input/cd2db-simple/db-schema.tg"
+                                test.relational.simple-db.tg sdb)
+
+(defn gen-simple-class-diagram []
+  (let [g (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))
+        cls-a (tg/create-vertex! g 'Class {:name "A"})
+        attr-a (tg/create-vertex! g 'Attribute {:name "a", :class cls-a})
+        cls-b (tg/create-vertex! g 'Class {:name "B"})
+        attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b})
+        assoc-a2b (tg/create-vertex! g 'Association {:name "A2B", :src cls-a, :trg cls-b})]
+    ;;(viz/print-model g :gtk)
+    g))
+
+(bidi/deftransformation class-diagram2database-schema-simple [l r]
+  (^:top class2table
+         :left [(scd/Class l ?cls)
+                (scd/name l ?cls ?name)]
+         :right [(sdb/Table r ?table)
+                 (sdb/name r ?table ?name)
+                 (sdb/->cols r ?table ?col)
+                 (sdb/Column r ?col)
+                 (sdb/name r ?col "ID")
+                 (sdb/primary r ?col true)]
+         :where [(attribute2column :?cls ?cls :?table ?table)])
+  (attribute2column
+   :left [(scd/->attrs l ?cls ?attr)
+          (scd/Attribute l ?attr)
+          (scd/name l ?attr ?name)]
+   :right [(sdb/->cols r ?table ?col)
+           (sdb/Column r ?col)
+           (sdb/name r ?col ?name)
+           (ccl/!= ?name "ID")])
+  (^:top association2table
+         :when [(bidi/relateo :class2table :?cls ?src :?col ?src-pkey)
+                (bidi/relateo :class2table :?cls ?trg :?col ?trg-pkey)]
+         :left [(scd/Association l ?assoc)
+                (scd/name l ?assoc ?name)
+                (scd/->src l ?assoc ?src)
+                (scd/->trg l ?assoc ?trg)]
+         :right [(sdb/Table r ?table)
+                 (sdb/name r ?table ?name)
+                 (sdb/->cols r ?table ?src-col)
+                 (sdb/Column r ?src-col)
+                 (sdb/name r ?src-col "SRC")
+                 (sdb/->cols r ?table ?trg-col)
+                 (sdb/Column r ?trg-col)
+                 (sdb/name r ?trg-col "TRG")
+                 (ccl/!= ?src-col ?trg-col)
+                 (sdb/->pkey r ?src-col ?src-pkey)
+                 (sdb/->pkey r ?trg-col ?trg-pkey)]))
+
+(test/deftest test-class-diagram2database-schema-simple
+  (let [cd (gen-simple-class-diagram)
+        db (tg/new-graph (tg/load-schema "test/input/cd2db-simple/db-schema.tg"))
+        cd-new (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))]
+    (class-diagram2database-schema-simple cd db :right)
+    (class-diagram2database-schema-simple cd-new db :left)
+    (viz/print-model db :gtk)
+    (viz/print-model cd-new :gtk)))

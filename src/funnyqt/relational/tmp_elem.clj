@@ -31,7 +31,8 @@
   (set-kind [this k]))
 
 (defprotocol IType
-  (set-type [this t]))
+  (set-type [this t])
+  (check-type [this]))
 
 (defprotocol IManifestation
   (manifest [this])
@@ -96,6 +97,7 @@
                                    wrapped-element #'element-types #'relationship-types))]
           (= k cur)))))
   IType
+  (check-type [this] true)
   (set-type [this t]
     (when manifested (u/errorf "Already manifested: %s" this))
     (let [cur-class (g/mm-class wrapped-element)
@@ -228,6 +230,8 @@
           (= kind k) true
           :else (u/errorf "Cannot reset kind from %s to %s." kind k)))))
   IType
+  (check-type [this]
+    (or type (u/errorf "No type defined for %s." this)))
   (set-type [this t]
     (if (vector? t)
       true ;; Many types given as a result of an attribute relation.  Simply
@@ -427,7 +431,8 @@
 (defn finalizeo [& els]
   (fn [a]
     (let [tw-els (vec (filter tmp-or-wrapper-element? (map (partial cclp/walk a) els)))]
-      (if (q/forall? #(and (check-attr-validity % a)
+      (if (q/forall? #(and (check-type %)
+                           (check-attr-validity % a)
                            (check-ref-validity % a))
                      tw-els)
         (do
