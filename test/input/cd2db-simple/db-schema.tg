@@ -6,4 +6,4 @@ VertexClass Table {name: String};
 VertexClass Column {name: String, primary: Boolean};
 
 EdgeClass ContainsColumn from Table (1,1) role table to Column (0,*) role cols aggregation composite;
-EdgeClass IsForeignKey from Column (0,*) role fkey to Column (1,1) role pkey;
+EdgeClass IsForeignKey from Column (0,*) role fkeys to Column (1,1) role pkey;
