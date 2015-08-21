@@ -595,6 +595,8 @@
   (let [g (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))
         cls-a (tg/create-vertex! g 'Class {:name "A"})
         attr-a (tg/create-vertex! g 'Attribute {:name "a", :class cls-a})
+        cls-a-sub (tg/create-vertex! g 'Class {:name "ASub", :superclass cls-a})
+        attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub})
         cls-b (tg/create-vertex! g 'Class {:name "B"})
         attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b})
         assoc-a2b (tg/create-vertex! g 'Association {:name "A2B", :src cls-a, :trg cls-b})]
@@ -610,13 +612,22 @@
                  (sdb/->cols r ?table ?col)
                  (sdb/name r ?col "ID")
                  (sdb/primary r ?col true)]
-         :where [(attribute2column :?cls ?cls :?table ?table)])
+         :where [(generalization2foreign-key :?cls ?cls :?table ?table)
+                 (attribute2column :?cls ?cls :?table ?table)])
+  (generalization2foreign-key
+   :when  [(bidi/relateo :class2table :?cls ?cls :?table ?table :?col ?col)
+           (bidi/relateo :class2table :?cls ?subcls :?table ?subtable :?col ?subcol)]
+   :left  [(scd/->subclasses l ?cls ?subcls)]
+   :right [(sdb/->pkey r ?subcol ?col)])
+  (cd-type2db-type [cdt dbt]
+                   ;; TODO: Implement me!
+                   )
   (attribute2column
+   :when [(ccl/!= ?name "ID")]
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)]
    :right [(sdb/->cols r ?table ?col)
-           (sdb/name r ?col ?name)
-           (ccl/!= ?name "ID")])
+           (sdb/name r ?col ?name)])
   (^:top association2table
          :when [(bidi/relateo :class2table :?cls ?src :?col ?src-pkey)
                 (bidi/relateo :class2table :?cls ?trg :?col ?trg-pkey)]
@@ -639,15 +650,16 @@
         cd-new (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))]
     ;; New DBS from given CD
     (class-diagram2database-schema-simple cd db :right)
-    (test/is (= 3 (tg/vcount db 'Table)))
-    (test/is (= 6 (tg/vcount db 'Column)))
+    (test/is (= 4 (tg/vcount db 'Table)))
+    (test/is (= 8 (tg/vcount db 'Column)))
     ;; New CD from result DBS
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))
+    ;;(viz/print-model cd-new :gtk)
     ;; :right again shouldn't change anything
     (class-diagram2database-schema-simple cd db :right)
-    (test/is (= 3 (tg/vcount db 'Table)))
-    (test/is (= 6 (tg/vcount db 'Column)))
+    (test/is (= 4 (tg/vcount db 'Table)))
+    (test/is (= 8 (tg/vcount db 'Column)))
     ;; :left again shouldn't change anything, too
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))))

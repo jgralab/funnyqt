@@ -2,8 +2,9 @@ TGraph 2;
 Schema de.uni_koblenz.funnyqt.test.db_schema.DBSchema;
 GraphClass DBGraph;
 
+EnumDomain ColumnTypes (BOOLEAN, INTEGER, REAL, DOUBLE, TEXT);
 VertexClass Table {name: String};
-VertexClass Column {name: String, primary: Boolean};
+VertexClass Column {name: String, primary: Boolean, type: ColumnTypes};
 
 EdgeClass ContainsColumn from Table (1,1) role table to Column (0,*) role cols aggregation composite;
 EdgeClass IsForeignKey from Column (0,*) role fkeys to Column (1,1) role pkey;
