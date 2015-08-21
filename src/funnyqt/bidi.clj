@@ -86,14 +86,6 @@
                                         (ccl/fresh [~@(set (concat wsyms src-syms))]
                                           (i/src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
                                           ~@(get map src)
-                                          ;; TODO: Sometimes it's faster if :when goals are after
-                                          ;; source goals, and sometimes it's the other way round.
-                                          ;; Maybe the user should be able to annotate the :when
-                                          ;; clause with ^:last in order to force it to come after
-                                          ;; the source goals.  Well, but for some relations,
-                                          ;; changing the order is not semantically equivalent.
-                                          ;; That's the case if :when binds ?foo, and the target
-                                          ;; clause starts with (->role model ?foo ?bar).
                                           ~@(:when map)
                                           (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
                               ~(if enforcing

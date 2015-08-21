@@ -625,23 +625,20 @@
    :left  [(scd/->subclasses l ?cls ?subcls)]
    :right [(sdb/->pkey r ?subcol ?col)])
   (cd-type2db-type [cdt dbt]
-                   (ccl/fresh [cdn dbn]
-                     (ccl/condu
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.BOOLEAN) (ccl/== dbn 'ColumnTypes.BOOLEAN)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.LONG)    (ccl/== dbn 'ColumnTypes.INTEGER)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.INT)     (ccl/== dbn 'ColumnTypes.INTEGER)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.FLOAT)   (ccl/== dbn 'ColumnTypes.REAL)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.DOUBLE)  (ccl/== dbn 'ColumnTypes.DOUBLE)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
-                      [(ccl/all (ccl/== cdn 'AttributeTypes.STRING)  (ccl/== dbn 'ColumnTypes.TEXT)
-                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))])))
+   (ccl/fresh [cdn dbn]
+     (ccl/conde
+      [(ccl/all (ccl/== cdn 'AttributeTypes.BOOLEAN) (ccl/== dbn 'ColumnTypes.BOOLEAN))]
+      ;; We prefer LONG and not INT for INTEGER
+      [(ccl/all (ccl/== cdn 'AttributeTypes.LONG)    (ccl/== dbn 'ColumnTypes.INTEGER))]
+      [(ccl/all (ccl/== cdn 'AttributeTypes.INT)     (ccl/== dbn 'ColumnTypes.INTEGER))]
+      [(ccl/all (ccl/== cdn 'AttributeTypes.FLOAT)   (ccl/== dbn 'ColumnTypes.REAL))]
+      [(ccl/all (ccl/== cdn 'AttributeTypes.DOUBLE)  (ccl/== dbn 'ColumnTypes.DOUBLE))]
+      [(ccl/all (ccl/== cdn 'AttributeTypes.STRING)  (ccl/== dbn 'ColumnTypes.TEXT))])
+     (r/enum-constanto l cdn cdt)
+     (r/enum-constanto r dbn dbt)))
   (attribute2column
    :when [(ccl/!= ?name "ID")
-          (cd-type2db-type ?atype ?ctype)]
+          (ccl/condu [(cd-type2db-type ?atype ?ctype)])]
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
           (scd/type l ?attr ?atype)]
@@ -672,11 +669,11 @@
     (class-diagram2database-schema-simple cd db :right)
     (test/is (= 4 (tg/vcount db 'Table)))
     (test/is (= 8 (tg/vcount db 'Column)))
-    ;;(viz/print-model db :gtk)
+    (viz/print-model db :gtk)
     ;; New CD from result DBS
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))
-    ;;(viz/print-model cd-new :gtk)
+    (viz/print-model cd-new :gtk)
     ;; :right again shouldn't change anything
     (class-diagram2database-schema-simple cd db :right)
     (test/is (= 4 (tg/vcount db 'Table)))
