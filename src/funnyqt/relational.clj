@@ -520,6 +520,25 @@
                          (ccl/unify a [el ref refed-el] [oel rn orefed-el]))
                        (remove not)))))))))
 
+;;## Enum Constants
+
+(defn enum-constanto
+  "A relation where the enum constant `const` has the qualified or unique name
+  `qn`."
+  [m qn const]
+  (fn [a]
+    (let [gqn    (cclp/walk a qn)
+          gconst (cclp/walk a const)]
+      (if (ru/ground? gqn)
+        (ccl/unify a const (g/enum-constant m gqn))
+        (ccl/to-stream
+         (->> (for [[ec consts] (g/mm-enum-classes m)
+                    sc consts
+                    :let [n (symbol (str (g/qname ec) "." sc))
+                          c  (g/enum-constant m n)]]
+                (ccl/unify a [qn const] [n c]))
+              (remove not)))))))
+
 ;;# Metamodel Relation Generator
 
 (defn ^:private class->rel-symbols

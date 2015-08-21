@@ -460,6 +460,11 @@
     "Returns true if `role` (given as keyword) is a containment reference of `class`,
   i.e., the target objects are contained by `class`."))
 
+(defprotocol IMMEnumClasses
+  (mm-enum-classes [m]
+    "Returns a map of the following form:
+    {EnumClass (CONST1 CONST2 ...), ...}"))
+
 ;;# Metamodel-specific API generator
 
 (defn ^:private no-nils [coll]

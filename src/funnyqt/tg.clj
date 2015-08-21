@@ -933,6 +933,19 @@ For a Graph it is a string, for vertices and edges its an integer."
   (enum-constant [el const]
     (enum-constant el const)))
 
+(extend-protocol g/IMMEnumClasses
+  Schema
+  (mm-enum-classes [s]
+    (into {} (map (fn [^EnumDomain ed]
+                    [ed (.getConsts ed)]))
+          (.getEnumDomains s)))
+  AttributedElementClass
+  (mm-enum-classes [ae]
+    (g/mm-enum-classes (schema ae)))
+  AttributedElement
+  (mm-enum-classes [ae]
+    (g/mm-enum-classes (schema ae))))
+
 ;;### Generic attribute access
 
 (extend-protocol g/IAttributeValueAccess

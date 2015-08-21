@@ -85,6 +85,7 @@
                                       (ccl/run* [q#]
                                         (ccl/fresh [~@(set (concat wsyms src-syms))]
                                           (i/src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                                          ~@(get map src)
                                           ;; TODO: Sometimes it's faster if :when goals are after
                                           ;; source goals, and sometimes it's the other way round.
                                           ;; Maybe the user should be able to annotate the :when
@@ -94,7 +95,6 @@
                                           ;; That's the case if :when binds ?foo, and the target
                                           ;; clause starts with (->role model ?foo ?bar).
                                           ~@(:when map)
-                                          ~@(get map src)
                                           (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
                               ~(if enforcing
                                  ;; Enforcement mode

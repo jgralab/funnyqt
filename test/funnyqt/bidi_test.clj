@@ -594,11 +594,14 @@
 (defn gen-simple-class-diagram []
   (let [g (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))
         cls-a (tg/create-vertex! g 'Class {:name "A"})
-        attr-a (tg/create-vertex! g 'Attribute {:name "a", :class cls-a})
+        attr-a (tg/create-vertex! g 'Attribute {:name "a", :class cls-a,
+                                                :type (tg/enum-constant g 'AttributeTypes.STRING)})
         cls-a-sub (tg/create-vertex! g 'Class {:name "ASub", :superclass cls-a})
-        attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub})
+        attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub,
+                                                    :type (tg/enum-constant g 'AttributeTypes.LONG)})
         cls-b (tg/create-vertex! g 'Class {:name "B"})
-        attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b})
+        attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b,
+                                                :type (tg/enum-constant g 'AttributeTypes.FLOAT)})
         assoc-a2b (tg/create-vertex! g 'Association {:name "A2B", :src cls-a, :trg cls-b})]
     ;;(viz/print-model g :gtk)
     g))
@@ -611,7 +614,9 @@
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?col)
                  (sdb/name r ?col "ID")
-                 (sdb/primary r ?col true)]
+                 (sdb/primary r ?col true)
+                 (r/enum-constanto r 'ColumnTypes.INTEGER ?enum-const)
+                 (sdb/type r ?col ?enum-const)]
          :where [(generalization2foreign-key :?cls ?cls :?table ?table)
                  (attribute2column :?cls ?cls :?table ?table)])
   (generalization2foreign-key
@@ -620,14 +625,29 @@
    :left  [(scd/->subclasses l ?cls ?subcls)]
    :right [(sdb/->pkey r ?subcol ?col)])
   (cd-type2db-type [cdt dbt]
-                   ;; TODO: Implement me!
-                   )
+                   (ccl/fresh [cdn dbn]
+                     (ccl/condu
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.BOOLEAN) (ccl/== dbn 'ColumnTypes.BOOLEAN)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.LONG)    (ccl/== dbn 'ColumnTypes.INTEGER)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.INT)     (ccl/== dbn 'ColumnTypes.INTEGER)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.FLOAT)   (ccl/== dbn 'ColumnTypes.REAL)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.DOUBLE)  (ccl/== dbn 'ColumnTypes.DOUBLE)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))]
+                      [(ccl/all (ccl/== cdn 'AttributeTypes.STRING)  (ccl/== dbn 'ColumnTypes.TEXT)
+                                (r/enum-constanto l cdn cdt)         (r/enum-constanto r dbn dbt))])))
   (attribute2column
-   :when [(ccl/!= ?name "ID")]
+   :when [(ccl/!= ?name "ID")
+          (cd-type2db-type ?atype ?ctype)]
    :left [(scd/->attrs l ?cls ?attr)
-          (scd/name l ?attr ?name)]
+          (scd/name l ?attr ?name)
+          (scd/type l ?attr ?atype)]
    :right [(sdb/->cols r ?table ?col)
-           (sdb/name r ?col ?name)])
+           (sdb/name r ?col ?name)
+           (sdb/type r ?col ?ctype)])
   (^:top association2table
          :when [(bidi/relateo :class2table :?cls ?src :?col ?src-pkey)
                 (bidi/relateo :class2table :?cls ?trg :?col ?trg-pkey)]
@@ -652,6 +672,7 @@
     (class-diagram2database-schema-simple cd db :right)
     (test/is (= 4 (tg/vcount db 'Table)))
     (test/is (= 8 (tg/vcount db 'Column)))
+    ;;(viz/print-model db :gtk)
     ;; New CD from result DBS
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))

@@ -316,6 +316,18 @@
   (enum-constant [el const]
     (eenum-literal const)))
 
+(extend-protocol g/IMMEnumClasses
+  Object
+  (mm-enum-classes [s]
+    (g/mm-enum-classes nil))
+  nil
+  (mm-enum-classes [_]
+    (into {} (comp
+              (filter #(instance? EEnum %))
+              (map (fn [^EEnum e]
+                     [e (.getELiterals e)])))
+          (eclassifiers))))
+
 ;;# Generic Metamodel Access
 
 (extend-protocol g/IMMElementClasses
@@ -429,14 +441,17 @@
       (symbol (str (g/qname pkg)
                    "." (.getName this)))
       (symbol (.getName this))))
-
   EPackage
   (qname [this]
     (loop [p (.getESuperPackage this), n (.getName this)]
       (if p
         (recur (.getESuperPackage p) (str (.getName p) "." n))
         (symbol n))))
-
+  EEnumLiteral
+  (qname [this]
+    (symbol (str (g/qname (.getEEnum this))
+                 "."
+                 (.getName this))))
   EObject
   (qname [o]
     (g/qname (.eClass o))))
@@ -451,6 +466,11 @@
       (if (> (count ecs) 1)
         (g/qname ec)
         (symbol n))))
+  EEnumLiteral
+  (uname [this]
+    (symbol (str (g/uname (.getEEnum this))
+                 "."
+                 (.getName this))))
   EObject
   (uname [eo]
     (g/uname (.eClass eo))))
