@@ -27,16 +27,16 @@
        :doc "Only for internal use.
   A map with the following structure:
 
-    {:related   {relation1 bindings, relation2 bindings, ...}
-     :unrelated {relation1 bindings, relation2 bindings, ...}}
+    {:related   {t-relation1 bindings, t-relation2 bindings, ...}
+     :unrelated {t-relation1 bindings, t-relation2 bindings, ...}}
 
-  where relationN is a keyword denoting a t-relation and bindings is:
+  where t-relationN is a keyword denoting a t-relation and bindings is:
 
     ({:?lsym1 lval1, :?rsym1 rval2, ...}
      ...)
 
   Access this information with the relation `relateo`."}
-  *relation-bindings*)
+  *t-relation-bindings*)
 
 (defn ^:private make-kw-result-map [syms]
   (apply hash-map
@@ -106,7 +106,7 @@
                                       (i/enforce-match ~tm)
                                       (let [~(make-destr-map trg-syms etm)
                                             (i/replace-tmps-and-wrappers-with-manifestations ~tm)]
-                                        (swap! *relation-bindings* update-in [:related ~(keyword relsym)]
+                                        (swap! *t-relation-bindings* update-in [:related ~(keyword relsym)]
                                                (fn [current# new#]
                                                  (conj (or current# #{}) new#))
                                                (merge ~sm ~etm))
@@ -125,13 +125,13 @@
                                       ~@(insert-debug (:debug-trg map))
                                       (if match#
                                         (do
-                                          (swap! *relation-bindings* update-in [:related ~(keyword relsym)]
+                                          (swap! *t-relation-bindings* update-in [:related ~(keyword relsym)]
                                                  (fn [current# new#]
                                                    (conj (or current# #{}) new#))
                                                  (merge ~sm ~tm))
                                           (fn [] ~@(:where map)))
                                         (do
-                                          (swap! *relation-bindings* update-in [:unrelated ~(keyword relsym)]
+                                          (swap! *t-relation-bindings* update-in [:unrelated ~(keyword relsym)]
                                                  (fn [current# new#]
                                                    (conj (or current# #{}) new#))
                                                  ~sm)
@@ -217,19 +217,19 @@
 
 (defn relateo
   "A relation that succeeds if there's a correspondence between `keyvals` in
-  `relation` (given as keyword).  `keyvals` is a sequence of keywords with
-  values that relate elements from the left and right domains of `relation`.
+  `t-relation` (given as keyword).  `keyvals` is a sequence of keywords with
+  values that relate elements from the left and right domains of `t-relation`.
 
   Example:
 
     (relateo :class2table :?class ?subclass :?table ?subtable)"
-  [relation & keyvals]
-  (when-not (keyword? relation)
-    (u/errorf "The relation has to be given as keyword but got %s."
-              relation))
+  [t-relation & keyvals]
+  (when-not (keyword? t-relation)
+    (u/errorf "The t-relation has to be given as keyword but got %s."
+              t-relation))
   (let [m (apply hash-map keyvals)]
     (fn [a]
-      (let [bindings ((:related @*relation-bindings*) relation)]
+      (let [bindings ((:related @*t-relation-bindings*) t-relation)]
         (ccl/to-stream
          (->> (map (fn [b]
                      (let [vs (mapv #(let [el (get b % ::not-found)]
@@ -507,10 +507,10 @@
                    dir#))
        (letfn [~@(vals prelations)
                ~@(map (partial convert-relation trelations)
-                      (remove #(:abstract (meta %)) trelations))]
+                   (remove #(:abstract (meta %)) trelations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
-                   *relation-bindings* (atom {:related {}
-                                              :unrelated {}})]
+                   *t-relation-bindings* (atom {:related {}
+                                                :unrelated {}})]
            ~@(map (fn [r] `(~r)) top-rels)
-           @*relation-bindings*)))))
+           @*t-relation-bindings*)))))
