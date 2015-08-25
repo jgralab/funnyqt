@@ -114,8 +114,8 @@
            (ab-tg/homepage r ?org2 ?hp)
            (ab-tg/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(bidi/relateo :org2org :?org1 ?org1 :?org2 ?org2)
-                (bidi/relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :when [(org2org :?org1 ?org1 :?org2 ?org2)
+                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
          :right [(ab-tg/->employees r ?org2 ?contact2)]))
 
@@ -231,8 +231,8 @@
            (ab-emf/homepage r ?org2 ?hp)
            (ab-emf/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(bidi/relateo :org2org :?org1 ?org1 :?org2 ?org2)
-                (bidi/relateo :contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
+         :when [(org2org :?org1 ?org1 :?org2 ?org2)
+                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
          :right [(ab-emf/->employees r ?org2 ?contact2)]))
 
@@ -515,8 +515,8 @@
   (^:top super-attribute2column
          :when [(cd/->parent cd ?subclass ?superclass)
                 (ccl/conde
-                 [(bidi/relateo :class2table :?class ?subclass :?table ?table)]
-                 [(bidi/relateo :super-attribute2column :?superclass ?subclass :?table ?table)])]
+                 [(class2table :?class ?subclass :?table ?table)]
+                 [(super-attribute2column :?superclass ?subclass :?table ?table)])]
          :where [(attribute2column :?class ?superclass :?table ?table)
                  (super-attribute2column :?subclass ?superclass :?table ?table)]))
 
@@ -620,8 +620,8 @@
          :where [(generalization2foreign-key :?supercls ?cls :?table ?table :?col ?col)
                  (attribute2column :?cls ?cls :?table ?table)])
   (generalization2foreign-key
-   :when  [(bidi/relateo :class2table :?cls ?supercls :?table ?table :?col ?col)
-           (bidi/relateo :class2table :?cls ?subcls :?table ?subtable :?col ?subcol)]
+   :when  [(class2table :?cls ?supercls :?table ?table :?col ?col)
+           (class2table :?cls ?subcls :?table ?subtable :?col ?subcol)]
    :left  [(scd/->superclass l ?subcls ?supercls)]
    :right [(sdb/->pkey r ?subcol ?col)])
   (cd-type2db-type [cdt dbt]
@@ -646,8 +646,8 @@
            (sdb/name r ?col ?name)
            (sdb/type r ?col ?ctype)])
   (^:top association2table
-         :when [(bidi/relateo :class2table :?cls ?src :?col ?src-pkey)
-                (bidi/relateo :class2table :?cls ?trg :?col ?trg-pkey)]
+         :when [(class2table :?cls ?src :?col ?src-pkey)
+                (class2table :?cls ?trg :?col ?trg-pkey)]
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
                 (scd/->src l ?assoc ?src)

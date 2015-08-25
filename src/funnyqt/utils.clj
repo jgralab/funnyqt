@@ -222,21 +222,23 @@
 
 (defn prewalk
   "Do a pre-order traversal of `form` calling `skip-fn` and `edit-fn` on subforms.
-  If `skip-fn` returns logical true, this subform is is skipped in the
-  traversal.  Else, `edit-fn` is called on the subform and its result replaces
-  the original subform.  The replacement is not subject to any further
-  traversal."
-  [edit-fn skip-fn form]
-  (let [a (atom 0)]
-    (clojure.walk/prewalk (fn [el]
-                            (cond
-                              (skip-fn el)  (do (reset! a (dec (tree-count el))) el)
-                              (pos? @a)     (do (swap! a dec) el)
-                              :else         (let [x (edit-fn el)]
-                                              (when (not= x el)
-                                                (reset! a (dec (tree-count x))))
-                                              x)))
-                          form)))
+  `edit-fn` is called on each subform and its result replaces the original
+  subform.  The replacement is not subject to any further traversal.  If
+  `skip-fn` returns logical true, this complete subform is skipped in the
+  traversal, i.e. also all children won't be traversed."
+  ([edit-fn form]
+   (prewalk edit-fn (constantly false) form))
+  ([edit-fn skip-fn form]
+   (let [a (atom 0)]
+     (clojure.walk/prewalk (fn [el]
+                             (cond
+                               (skip-fn el)  (do (reset! a (dec (tree-count el))) el)
+                               (pos? @a)     (do (swap! a dec) el)
+                               :else         (let [x (edit-fn el)]
+                                               (when (not= x el)
+                                                 (reset! a (dec (tree-count x))))
+                                               x)))
+                           form))))
 
 ;;# Protocol Checks
 

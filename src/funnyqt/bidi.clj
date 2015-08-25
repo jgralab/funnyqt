@@ -196,8 +196,25 @@
             [m]))
     m))
 
-(defn ^:private convert-relation [all-rels [relsym m]]
+(defn ^:private t-relation-goals-to-relateo-goals-1 [rel-syms clause]
+  (u/prewalk (fn edit-fn [form]
+               (if (and (list? form)
+                        (contains? rel-syms (first form)))
+                 `(relateo ~(keyword (first form)) ~@(rest form))
+                 form))
+             clause))
+
+(defn ^:private t-relation-goals-to-relateo-goals [all-rels m]
+  (let [rel-syms (into #{} (keys all-rels))
+        do-it t-relation-goals-to-relateo-goals-1]
+    (assoc m
+           :left  (do-it rel-syms (:left m))
+           :right (do-it rel-syms (:right m))
+           :when  (do-it rel-syms (:when m)))))
+
+(defn ^:private convert-t-relation [all-rels [relsym m]]
   (let [m     (embed-included-rels all-rels m)
+        m     (t-relation-goals-to-relateo-goals all-rels m)
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
@@ -261,13 +278,13 @@
                  :left)]
       (ccl/unify a dir cdir))))
 
-(defn ^:private mapify-trelations [rels]
+(defn ^:private mapify-t-relations [rels]
   (into (om/ordered-map)
         (map (fn [rel]
                [(first rel) (apply hash-map (rest rel))])
              rels)))
 
-(defn ^:private mapify-prelations [rels]
+(defn ^:private mapify-p-relations [rels]
   (into (om/ordered-map)
         (map (fn [rel]
                [(first rel) rel])
@@ -327,8 +344,20 @@
   models.  Concretely, bindings is a set of maps of the form {:llvar1?
   lval1, :rlvar1? rval1, ...} where :llvar1 and :rlvar1 correspond to some
   logic variables in the :left or :right goals of the corresponding t-relation,
-  and lval1 and rval1 are their values.  This information can be accessed
-  during the transformation in terms of `relateo`.
+  and lval1 and rval1 are their values.
+
+  This information can be accessed during the transformation.  E.g., a goal
+  like
+
+    (foo2bar :?foo ?foo :?bar ?bar)
+
+  in a t-relation's :left, :right, or :when clause or in a plain relation
+  unifies ?foo and ?bar with all possible bindings where ?foo and ?bar have
+  been related previously by the foo2bar t-relation.  This is only a shorthand
+  for the low-level traceability relation `relateo`, i.e., the above is
+  equivalent to
+
+    (relateo :foo2bar :?foo ?foo :?bar ?bar)
 
   The map being the value of the :unrelated key contains the bindings for which
   no corresponding target model match exists.  This map is only populated in
@@ -470,8 +499,8 @@
                           [nil          more])
         relations more
         [trelations prelations] ((juxt remove filter) #(vector? (nth % 1)) relations)
-        trelations (mapify-trelations trelations)
-        prelations (mapify-prelations prelations)
+        trelations (mapify-t-relations trelations)
+        prelations (mapify-p-relations prelations)
         [trelations prelations] (if extended
                                   (do
                                     (when-not (or (symbol? extended)
@@ -507,8 +536,9 @@
        (when-not (#{:right :left :right-checkonly :left-checkonly} dir#)
          (u/errorf "Direction parameter must either be :left or :right but was %s."
                    dir#))
-       (letfn [~@(vals prelations)
-               ~@(map (partial convert-relation trelations)
+       (letfn [~@(map (partial t-relation-goals-to-relateo-goals-1 trelations)
+                   (vals prelations))
+               ~@(map (partial convert-t-relation trelations)
                    (remove #(:abstract (meta %)) trelations))]
          (binding [*target-direction* dir#
                    *target-model* (if (= dir# :right) ~right ~left)
