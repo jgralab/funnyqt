@@ -5,7 +5,8 @@
             [flatland.ordered.map :as om]
             [funnyqt
              [generic :as g]
-             [utils :as u]]
+             [utils :as u]
+             [relational :as r]]
             [funnyqt.relational
              [tmp-elem :as tmp]
              [util :as ru]]
@@ -82,12 +83,13 @@
        (let [~wfns (doall
                     (remove nil?
                             (u/for-1 [~(make-destr-map (concat wsyms src-syms) sm)
-                                      (ccl/run* [q#]
-                                        (ccl/fresh [~@(set (concat wsyms src-syms))]
-                                          (i/src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
-                                          ~@(get map src)
-                                          ~@(:when map)
-                                          (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms)))))]
+                                      (distinct
+                                       (ccl/run* [q#]
+                                         (r/with-fresh
+                                           (i/src-initializeo ~args-map ~@(set (concat wsyms src-syms)))
+                                           ~@(get map src)
+                                           ~@(:when map)
+                                           (ccl/== q# ~(make-kw-result-map (concat wsyms src-syms))))))]
                               ~(if enforcing
                                  ;; Enforcement mode
                                  `(binding [tmp/*wrapper-cache* (atom {})]
@@ -96,7 +98,7 @@
                                           (binding [tmp/*make-tmp-elements* true]
                                             (i/select-match
                                              (ccl/run 1 [q#]
-                                               (ccl/fresh [~@trg-syms]
+                                               (r/with-fresh
                                                  (i/trg-initializeo *target-model* true ~sm ~args-map ~@trg-syms)
                                                  ~@(get map trg)
                                                  (tmp/finalizeo ~@trg-syms)
@@ -117,7 +119,7 @@
                                     ~@(insert-debug (:debug-src map))
                                     (let [match# (first
                                                   (ccl/run 1 [q#]
-                                                    (ccl/fresh [~@trg-syms]
+                                                    (r/with-fresh
                                                       (i/trg-initializeo *target-model* false ~sm ~args-map ~@trg-syms)
                                                       ~@(get map trg)
                                                       (ccl/== q# ~(make-kw-result-map trg-syms)))))
