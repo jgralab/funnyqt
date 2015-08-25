@@ -33,8 +33,8 @@
 
   where t-relationN is a keyword denoting a t-relation and bindings is:
 
-    ({:?lsym1 lval1, :?rsym1 rval2, ...}
-     ...)
+    #{{:?lsym1 lval1, :?rsym1 rval2, ...}
+      ...}
 
   Access this information with the relation `relateo`."}
   *t-relation-bindings*)
