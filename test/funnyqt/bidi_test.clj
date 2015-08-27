@@ -641,10 +641,10 @@
           (ccl/condu [(cd-type2db-type ?atype ?ctype)])]
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
-          (scd/type l ?attr ?atype)]
+          (scd/type* l ?attr ?atype)]
    :right [(sdb/->cols r ?table ?col)
            (sdb/name r ?col ?name)
-           (sdb/type r ?col ?ctype)])
+           (sdb/type* r ?col ?ctype)])
   (^:top association2table
          :when [(class2table :?cls ?src :?col ?src-pkey)
                 (class2table :?cls ?trg :?col ?trg-pkey)]
