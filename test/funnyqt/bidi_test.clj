@@ -650,16 +650,16 @@
                 (class2table :?cls ?trg :?col ?trg-pkey)]
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
-                (scd/->src l ?assoc ?src)
-                (scd/->trg l ?assoc ?trg)]
+                (scd/->src* l ?assoc ?src)
+                (scd/->trg* l ?assoc ?trg)]
          :right [(sdb/Table r ?table)
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?src-col)
                  (sdb/name r ?src-col "SRC")
                  (sdb/->cols r ?table ?trg-col)
                  (sdb/name r ?trg-col "TRG")
-                 (sdb/->pkey r ?src-col ?src-pkey)
-                 (sdb/->pkey r ?trg-col ?trg-pkey)]))
+                 (sdb/->pkey* r ?src-col ?src-pkey)
+                 (sdb/->pkey* r ?trg-col ?trg-pkey)]))
 
 (test/deftest test-class-diagram2database-schema-simple
   (let [cd (gen-simple-class-diagram)
