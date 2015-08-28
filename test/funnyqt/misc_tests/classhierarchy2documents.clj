@@ -45,15 +45,15 @@
          :right [(d/Document docs ?d)
                  (d/name docs ?d ?name)])
   (^:top generalization2directlinks
-         :when [(relateo :class2doc :?c ?subclass :?d ?srcdoc)
-                (relateo :class2doc :?c ?superclass :?d ?trgdoc)]
+         :when [(class2doc :?c ?subclass :?d ?srcdoc)
+                (class2doc :?c ?superclass :?d ?trgdoc)]
          :left [(c/->superclasses classes ?subclass ?superclass)]
          :right [(d/->trgs docs ?srcdoc ?trgdoc)])
   (transitive-linko [a b]
                     (ccl/conde
-                     [(relateo :generalization2directlinks :?srcdoc a :?trgdoc b)]
+                     [(generalization2directlinks :?srcdoc a :?trgdoc b)]
                      [(ccl/fresh [x]
-                        (relateo :generalization2directlinks :?srcdoc a :?trgdoc x)
+                        (generalization2directlinks :?srcdoc a :?trgdoc x)
                         (transitive-linko x b))]))
   (^:top generalization2transitivelinks
          :when [(transitive-linko ?a ?b)]
