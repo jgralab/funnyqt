@@ -620,12 +620,12 @@
                  (enum-const r 'ColumnTypes.INTEGER ?enum-const)
                  (sdb/type r ?col ?enum-const)]
          :where [(generalization2foreign-key :?supercls ?cls :?table ?table :?col ?col)
-                 (attribute2column :?cls ?cls :?table ?table)])
+                 (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
   (generalization2foreign-key
-   :when  [(class2table :?cls ?supercls :?table ?table :?col ?col)
-           (class2table :?cls ?subcls :?table ?subtable :?col ?subcol)]
    :left  [(scd/->superclass l ?subcls ?supercls)]
-   :right [(sdb/->pkey r ?subcol ?col)])
+   :right [(sdb/->pkey r ?subcol ?col)]
+   :when  [(class2table :?cls ?supercls :?table ?table :?col ?col)
+           (class2table :?cls ?subcls :?table ?subtable :?col ?subcol)])
   (cd-type2db-type [cdt dbt]
     (ccl/conde
      [(ccl/all
@@ -647,17 +647,15 @@
        (enum-const l 'AttributeTypes.STRING cdt)
        (enum-const r 'ColumnTypes.TEXT dbt))]))
   (attribute2column
-   :when [(ccl/!= ?name "ID")
-          (ccl/condu [(cd-type2db-type ?atype ?ctype)])]
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
           (scd/type* l ?attr ?atype)]
    :right [(sdb/->cols r ?table ?col)
            (sdb/name r ?col ?name)
-           (sdb/type* r ?col ?ctype)])
+           (sdb/type* r ?col ?ctype)]
+   :when [(ccl/!= ?name ?pkey-col-name)
+          (ccl/condu [(cd-type2db-type ?atype ?ctype)])])
   (^:top association2table
-         :when [(class2table :?cls ?src :?col ?src-pkey :?enum-const ?src-pkey-type)
-                (class2table :?cls ?trg :?col ?trg-pkey :?enum-const ?trg-pkey-type)]
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
                 (scd/->src* l ?assoc ?src)
@@ -671,7 +669,9 @@
                  (sdb/->cols r ?table ?trg-col)
                  (sdb/name r ?trg-col "TRG")
                  (sdb/type* r ?trg-col ?trg-pkey-type)
-                 (sdb/->pkey* r ?trg-col ?trg-pkey)]))
+                 (sdb/->pkey* r ?trg-col ?trg-pkey)]
+         :when [(class2table :?cls ?src :?col ?src-pkey :?enum-const ?src-pkey-type)
+                (class2table :?cls ?trg :?col ?trg-pkey :?enum-const ?trg-pkey-type)]))
 
 (test/deftest test-class-diagram2database-schema-simple
   (let [cd (gen-simple-class-diagram)
