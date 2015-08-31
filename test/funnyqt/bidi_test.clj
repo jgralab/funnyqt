@@ -619,13 +619,13 @@
                  (sdb/primary r ?col true)
                  (enum-const r 'ColumnTypes.INTEGER ?enum-const)
                  (sdb/type r ?col ?enum-const)]
-         :where [(generalization2foreign-key :?supercls ?cls :?table ?table :?col ?col)
+         :where [(generalization2foreign-key :?subcls ?cls :?subcol ?col)
                  (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
   (generalization2foreign-key
    :left  [(scd/->superclass l ?subcls ?supercls)]
-   :right [(sdb/->pkey r ?subcol ?col)]
-   :when  [(class2table :?cls ?supercls :?table ?table :?col ?col)
-           (class2table :?cls ?subcls :?table ?subtable :?col ?subcol)])
+   :right [(sdb/->pkey r ?subcol ?supercol)]
+   :when  [(class2table :?cls ?supercls :?col ?supercol)
+           (class2table :?cls ?subcls   :?col ?subcol)])
   (cd-type2db-type [cdt dbt]
     (ccl/conde
      [(ccl/all
