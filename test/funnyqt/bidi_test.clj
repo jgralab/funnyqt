@@ -646,8 +646,8 @@
            (sdb/name r ?col ?name)
            (sdb/type* r ?col ?ctype)])
   (^:top association2table
-         :when [(class2table :?cls ?src :?col ?src-pkey)
-                (class2table :?cls ?trg :?col ?trg-pkey)]
+         :when [(class2table :?cls ?src :?col ?src-pkey :?enum-const ?src-pkey-type)
+                (class2table :?cls ?trg :?col ?trg-pkey :?enum-const ?trg-pkey-type)]
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
                 (scd/->src* l ?assoc ?src)
@@ -656,9 +656,11 @@
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?src-col)
                  (sdb/name r ?src-col "SRC")
+                 (sdb/type* r ?src-col ?src-pkey-type)
+                 (sdb/->pkey* r ?src-col ?src-pkey)
                  (sdb/->cols r ?table ?trg-col)
                  (sdb/name r ?trg-col "TRG")
-                 (sdb/->pkey* r ?src-col ?src-pkey)
+                 (sdb/type* r ?trg-col ?trg-pkey-type)
                  (sdb/->pkey* r ?trg-col ?trg-pkey)]))
 
 (test/deftest test-class-diagram2database-schema-simple
@@ -669,7 +671,7 @@
     (class-diagram2database-schema-simple cd db :right)
     (test/is (= 4 (tg/vcount db 'Table)))
     (test/is (= 8 (tg/vcount db 'Column)))
-    ;;(viz/print-model db :gtk)
+    (viz/print-model db :gtk)
     ;; New CD from result DBS
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))
