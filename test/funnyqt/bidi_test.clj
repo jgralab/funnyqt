@@ -607,6 +607,8 @@
     g))
 
 (bidi/deftransformation class-diagram2database-schema-simple [l r]
+  (enum-const [m const val]
+    (ccl/== (g/enum-constant m const) val))
   (^:top class2table
          :left [(scd/Class l ?cls)
                 (scd/name l ?cls ?name)]
@@ -615,7 +617,7 @@
                  (sdb/->cols r ?table ?col)
                  (sdb/name r ?col "ID")
                  (sdb/primary r ?col true)
-                 (r/enum-constanto r 'ColumnTypes.INTEGER ?enum-const)
+                 (enum-const r 'ColumnTypes.INTEGER ?enum-const)
                  (sdb/type r ?col ?enum-const)]
          :where [(generalization2foreign-key :?supercls ?cls :?table ?table :?col ?col)
                  (attribute2column :?cls ?cls :?table ?table)])
@@ -625,17 +627,25 @@
    :left  [(scd/->superclass l ?subcls ?supercls)]
    :right [(sdb/->pkey r ?subcol ?col)])
   (cd-type2db-type [cdt dbt]
-    (ccl/fresh [cdn dbn]
-      (ccl/conde
-       [(ccl/all (ccl/== cdn 'AttributeTypes.BOOLEAN) (ccl/== dbn 'ColumnTypes.BOOLEAN))]
-       ;; We prefer LONG and not INT for INTEGER
-       [(ccl/all (ccl/== cdn 'AttributeTypes.LONG)    (ccl/== dbn 'ColumnTypes.INTEGER))]
-       [(ccl/all (ccl/== cdn 'AttributeTypes.INT)     (ccl/== dbn 'ColumnTypes.INTEGER))]
-       [(ccl/all (ccl/== cdn 'AttributeTypes.FLOAT)   (ccl/== dbn 'ColumnTypes.REAL))]
-       [(ccl/all (ccl/== cdn 'AttributeTypes.DOUBLE)  (ccl/== dbn 'ColumnTypes.DOUBLE))]
-       [(ccl/all (ccl/== cdn 'AttributeTypes.STRING)  (ccl/== dbn 'ColumnTypes.TEXT))])
-      (r/enum-constanto l cdn cdt)
-      (r/enum-constanto r dbn dbt)))
+    (ccl/conde
+     [(ccl/all
+       (enum-const l 'AttributeTypes.BOOLEAN cdt)
+       (enum-const r 'ColumnTypes.BOOLEAN dbt))]
+     [(ccl/all
+       (enum-const l 'AttributeTypes.LONG cdt)
+       (enum-const r 'ColumnTypes.INTEGER dbt))]
+     [(ccl/all
+       (enum-const l 'AttributeTypes.INT cdt)
+       (enum-const r 'ColumnTypes.INTEGER dbt))]
+     [(ccl/all
+       (enum-const l 'AttributeTypes.FLOAT cdt)
+       (enum-const r 'ColumnTypes.REAL dbt))]
+     [(ccl/all
+       (enum-const l 'AttributeTypes.DOUBLE cdt)
+       (enum-const r 'ColumnTypes.DOUBLE dbt))]
+     [(ccl/all
+       (enum-const l 'AttributeTypes.STRING cdt)
+       (enum-const r 'ColumnTypes.TEXT dbt))]))
   (attribute2column
    :when [(ccl/!= ?name "ID")
           (ccl/condu [(cd-type2db-type ?atype ?ctype)])]
@@ -671,7 +681,7 @@
     (class-diagram2database-schema-simple cd db :right)
     (test/is (= 4 (tg/vcount db 'Table)))
     (test/is (= 8 (tg/vcount db 'Column)))
-    (viz/print-model db :gtk)
+    ;;(viz/print-model db :gtk)
     ;; New CD from result DBS
     (class-diagram2database-schema-simple cd-new db :left)
     (test/is (g/equal-models? cd cd-new))
