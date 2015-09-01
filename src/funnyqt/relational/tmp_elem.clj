@@ -91,10 +91,10 @@
         (when-not (#{:element :relationship} k)
           (u/errorf "Unknown kind %s." k))
         (let [cur (cond
-                   (instance-of-any? element-types wrapped-element) :element
-                   (instance-of-any? relationship-types wrapped-element) :relationship
-                   :else (u/errorf "The type of %s is not registered in %s or %s."
-                                   wrapped-element #'element-types #'relationship-types))]
+                    (instance-of-any? element-types wrapped-element) :element
+                    (instance-of-any? relationship-types wrapped-element) :relationship
+                    :else (u/errorf "The type of %s is not registered in %s or %s."
+                                    wrapped-element #'element-types #'relationship-types))]
           (= k cur)))))
   IType
   (check-type [this] true)
@@ -204,14 +204,14 @@
 
 (def ^{:dynamic true
        :doc "A cache (atom {}) for WrapperElements.  There is at most only one
-  WrapperElement per model object and relation."}
+  WrapperElement per model object."}
   *wrapper-cache* nil)
 
 (defn make-wrapper [model lvar element]
-  (let [cur (get @*wrapper-cache* [lvar element])]
+  (let [cur (get @*wrapper-cache* element)]
     (or cur
         (let [w (->WrapperElement model element {} {} false #{})]
-          (swap! *wrapper-cache* assoc [lvar element] w)
+          (swap! *wrapper-cache* assoc element w)
           w))))
 
 ;;## TmpElement
@@ -313,9 +313,9 @@
   (finalize-alpha-and-omega [this subst]
     (set! alpha (cclp/walk subst alpha))
     (set! omega (cclp/walk subst omega))
-    (when (ru/fresh? alpha)
+    (when (ccl/lvar? alpha)
       (u/errorf "Can't groundify alpha of %s." this))
-    (when (ru/fresh? omega)
+    (when (ccl/lvar? omega)
       (u/errorf "Can't groundify omega of %s." this))
     true)
   IManifestation
@@ -369,31 +369,25 @@
 (defn wrapper-element? [el]
   (instance? WrapperElement el))
 
+(defn groundify-val [subst v]
+  (let [v (if (ccl/lvar? v)
+            (cclp/walk subst v)
+            v)]
+    (when (ccl/lvar? v)
+      (u/errorf "%s can't be grounded with substitution %s." v subst))
+    v))
+
 (defn groundify-attrs [attrs subst]
-  (apply hash-map (mapcat (fn [[a v]]
-                            (let [v (if (ccl/lvar? v)
-                                      (cclp/walk subst v)
-                                      v)]
-                              (when (ccl/lvar? v)
-                                (u/errorf "Attribute %s can't be grounded with substitution %s."
-                                          a subst))
-                              [a v]))
-                          attrs)))
+  (into {} (map (fn [[a v]]
+                  [a (groundify-val subst v)]))
+        attrs))
 
 (defn groundify-refs [refs subst]
-  (apply hash-map
-         (mapcat (fn [[r vs]]
-                   (let [vs (mapv (fn [v]
-                                    (let [v (if (ccl/lvar? v)
-                                              (cclp/walk subst v)
-                                              v)]
-                                      (when (ccl/lvar? v)
-                                        (u/errorf "Reference %s can't be grounded with substitution %s."
-                                                  r subst))
-                                      v))
-                                  vs)]
-                     [r vs]))
-                 refs)))
+  (into {}
+        (map (fn [[r vs]]
+               (let [vs (mapv (partial groundify-val subst) vs)]
+                 [r vs])))
+        refs))
 
 (defn ref-checker [el type subst ref-selector-fn predicate]
   ;; el: the tmp or wrapper element having refs

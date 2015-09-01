@@ -32,12 +32,12 @@
 (defn replace-tmps-and-wrappers-with-manifestations
   "Only for internal use."
   [trg-match]
-  (apply hash-map
-         (mapcat (fn [[k v]]
-                   [k (if (tmp/tmp-or-wrapper-element? v)
-                        (tmp/manifestation v)
-                        v)])
-                 trg-match)))
+  (into {}
+        (map (fn [[k v]]
+               [k (if (tmp/tmp-or-wrapper-element? v)
+                    (tmp/manifestation v)
+                    v)]))
+        trg-match))
 
 (defn src-initializeo
   "Only for internal use."
