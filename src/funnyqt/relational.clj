@@ -379,22 +379,26 @@
     (let [gel-or-rel (cclp/walk a el-or-rel)
           gattr      (cclp/walk a attr)]
       (cond
-       (not (tmp/tmp-or-wrapper-element? gel-or-rel))
-       (u/errorf "tmp-valueo: o has to be a ground Tmp/WrapperElement but was %s."
-                 gel-or-rel)
+        (not (tmp/tmp-or-wrapper-element? gel-or-rel))
+        (u/errorf "tmp-valueo: el-or-rel has to be a ground Tmp/WrapperElement but was %s."
+                  gel-or-rel)
 
-       (not (keyword? gattr))
-       (u/errorf "tmp-valueo: at must be a ground keyword but was %s." gattr)
+        (not (keyword? gattr))
+        (u/errorf "tmp-valueo: attr must be a ground keyword but was %s." gattr)
 
-       may-override
-       (if (or (tmp/add-attr gel-or-rel gattr val false a)
-               (tmp/add-attr gel-or-rel gattr val true a))
-         (ccl/succeed a)
-         (ccl/fail a))
+        may-override
+        (if (or (and (tmp/wrapper-element? gel-or-rel)
+                     (ccl/unify a val (g/aval (.wrapped-element ^WrapperElement gel-or-rel) gattr)))
+                (tmp/add-attr gel-or-rel gattr val false a)
+                (tmp/add-attr gel-or-rel gattr val true a))
+          (ccl/succeed a)
+          (ccl/fail a))
 
-       :else (if (tmp/add-attr gel-or-rel gattr val false a)
-               (ccl/succeed a)
-               (ccl/fail a))))))
+        :else (if (or (and (tmp/wrapper-element? gel-or-rel)
+                           (ccl/unify a val (g/aval (.wrapped-element ^WrapperElement gel-or-rel) gattr)))
+                      (tmp/add-attr gel-or-rel gattr val false a))
+                (ccl/succeed a)
+                (ccl/fail a))))))
 
 
 (defn avalo

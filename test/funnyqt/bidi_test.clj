@@ -599,8 +599,8 @@
         cls-a-sub (tg/create-vertex! g 'Class {:name "ASub", :superclass cls-a})
         attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub,
                                                     :type (tg/enum-constant g 'AttributeTypes.LONG)})
-        ;; attr-a-sub2 (tg/create-vertex! g 'Attribute {:name "asub2", :class cls-a-sub,
-        ;;                                              :type (tg/enum-constant g 'AttributeTypes.INT)})
+        attr-a-sub2 (tg/create-vertex! g 'Attribute {:name "asub2", :class cls-a-sub,
+                                                     :type (tg/enum-constant g 'AttributeTypes.INT)})
         cls-b (tg/create-vertex! g 'Class {:name "B"})
         attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b,
                                                 :type (tg/enum-constant g 'AttributeTypes.FLOAT)})
@@ -631,29 +631,29 @@
    :when  [(class2table :?cls ?supercls :?col ?supercol)
            (class2table :?cls ?subcls   :?col ?subcol)])
   (cd-type2db-type [cdt dbt]
-                   (ccl/conde
-                    [(enum-const l 'AttributeTypes.BOOLEAN cdt)
-                     (enum-const r 'ColumnTypes.BOOLEAN dbt)]
-                    [(enum-const l 'AttributeTypes.LONG cdt)
-                     (enum-const r 'ColumnTypes.INTEGER dbt)]
-                    [(enum-const l 'AttributeTypes.INT cdt)
-                     (enum-const r 'ColumnTypes.INTEGER dbt)]
-                    [(enum-const l 'AttributeTypes.FLOAT cdt)
-                     (enum-const r 'ColumnTypes.REAL dbt)]
-                    [(enum-const l 'AttributeTypes.DOUBLE cdt)
-                     (enum-const r 'ColumnTypes.DOUBLE dbt)]
-                    [(enum-const l 'AttributeTypes.STRING cdt)
-                     (enum-const r 'ColumnTypes.TEXT dbt)]))
+                   (ccl/conda
+                    [(ccl/all (enum-const l 'AttributeTypes.BOOLEAN cdt)
+                              (enum-const r 'ColumnTypes.BOOLEAN dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.LONG cdt)
+                              (enum-const r 'ColumnTypes.INTEGER dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.INT cdt)
+                              (enum-const r 'ColumnTypes.INTEGER dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.FLOAT cdt)
+                              (enum-const r 'ColumnTypes.REAL dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.DOUBLE cdt)
+                              (enum-const r 'ColumnTypes.DOUBLE dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.STRING cdt)
+                              (enum-const r 'ColumnTypes.TEXT dbt))]))
   (attribute2column
    ;;:debug-trg true
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
-          (scd/type* l ?attr ?atype)]
+          (scd/type* l ?attr ?atype)
+          (cd-type2db-type ?atype ?ctype)]
    :right [(sdb/->cols r ?table ?col)
            (sdb/name r ?col ?name)
            (sdb/type* r ?col ?ctype)]
-   :when [(ccl/!= ?name ?pkey-col-name)
-          (ccl/onceo (cd-type2db-type ?atype ?ctype))])
+   :when [(ccl/!= ?name ?pkey-col-name)])
   (^:top association2table
          ;;:debug-trg true
          :left [(scd/Association l ?assoc)
@@ -680,12 +680,12 @@
     (test/testing "New DBS from given CD"
       (class-diagram2database-schema-simple cd db :right)
       (test/is (= 4 (tg/vcount db 'Table)))
-      (test/is (= 8 (tg/vcount db 'Column)))
+      (test/is (= 9 (tg/vcount db 'Column)))
       #_(viz/print-model db :gtk))
     (test/testing "New CD from result DBS"
       (class-diagram2database-schema-simple cd-new db :left)
       (test/is (= 3 (tg/vcount cd 'Class)))
-      (test/is (= 3 (tg/vcount cd 'Attribute)))
+      (test/is (= 4 (tg/vcount cd 'Attribute)))
       (test/is (= 1 (tg/vcount cd 'Association)))
       #_(viz/print-model cd-new :gtk))
     (test/testing "Sync orig CD into result DBS (shouldn't change anything)"
