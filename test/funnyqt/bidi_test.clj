@@ -628,24 +628,18 @@
            (class2table :?cls ?subcls   :?col ?subcol)])
   (cd-type2db-type [cdt dbt]
     (ccl/conde
-     [(ccl/all
-       (enum-const l 'AttributeTypes.BOOLEAN cdt)
-       (enum-const r 'ColumnTypes.BOOLEAN dbt))]
-     [(ccl/all
-       (enum-const l 'AttributeTypes.LONG cdt)
-       (enum-const r 'ColumnTypes.INTEGER dbt))]
-     [(ccl/all
-       (enum-const l 'AttributeTypes.INT cdt)
-       (enum-const r 'ColumnTypes.INTEGER dbt))]
-     [(ccl/all
-       (enum-const l 'AttributeTypes.FLOAT cdt)
-       (enum-const r 'ColumnTypes.REAL dbt))]
-     [(ccl/all
-       (enum-const l 'AttributeTypes.DOUBLE cdt)
-       (enum-const r 'ColumnTypes.DOUBLE dbt))]
-     [(ccl/all
-       (enum-const l 'AttributeTypes.STRING cdt)
-       (enum-const r 'ColumnTypes.TEXT dbt))]))
+     [(enum-const l 'AttributeTypes.BOOLEAN cdt)
+      (enum-const r 'ColumnTypes.BOOLEAN dbt)]
+     [(enum-const l 'AttributeTypes.LONG cdt)
+      (enum-const r 'ColumnTypes.INTEGER dbt)]
+     [(enum-const l 'AttributeTypes.INT cdt)
+      (enum-const r 'ColumnTypes.INTEGER dbt)]
+     [(enum-const l 'AttributeTypes.FLOAT cdt)
+      (enum-const r 'ColumnTypes.REAL dbt)]
+     [(enum-const l 'AttributeTypes.DOUBLE cdt)
+      (enum-const r 'ColumnTypes.DOUBLE dbt)]
+     [(enum-const l 'AttributeTypes.STRING cdt)
+      (enum-const r 'ColumnTypes.TEXT dbt)]))
   (attribute2column
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
