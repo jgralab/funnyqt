@@ -599,6 +599,8 @@
         cls-a-sub (tg/create-vertex! g 'Class {:name "ASub", :superclass cls-a})
         attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub,
                                                     :type (tg/enum-constant g 'AttributeTypes.LONG)})
+        #_attr-a-sub2 #_(tg/create-vertex! g 'Attribute {:name "asub2", :class cls-a-sub,
+                                                         :type (tg/enum-constant g 'AttributeTypes.INT)})
         cls-b (tg/create-vertex! g 'Class {:name "B"})
         attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b,
                                                 :type (tg/enum-constant g 'AttributeTypes.FLOAT)})
@@ -648,7 +650,7 @@
            (sdb/name r ?col ?name)
            (sdb/type* r ?col ?ctype)]
    :when [(ccl/!= ?name ?pkey-col-name)
-          (ccl/condu [(cd-type2db-type ?atype ?ctype)])])
+          (ccl/onceo (cd-type2db-type ?atype ?ctype))])
   (^:top association2table
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
@@ -671,19 +673,27 @@
   (let [cd (gen-simple-class-diagram)
         db (tg/new-graph (tg/load-schema "test/input/cd2db-simple/db-schema.tg"))
         cd-new (tg/new-graph (tg/load-schema "test/input/cd2db-simple/cd-schema.tg"))]
-    ;; New DBS from given CD
-    (class-diagram2database-schema-simple cd db :right)
-    (test/is (= 4 (tg/vcount db 'Table)))
-    (test/is (= 8 (tg/vcount db 'Column)))
-    ;;(viz/print-model db :gtk)
-    ;; New CD from result DBS
-    (class-diagram2database-schema-simple cd-new db :left)
-    (test/is (g/equal-models? cd cd-new))
-    ;;(viz/print-model cd-new :gtk)
-    ;; :right again shouldn't change anything
-    (class-diagram2database-schema-simple cd db :right)
-    (test/is (= 4 (tg/vcount db 'Table)))
-    (test/is (= 8 (tg/vcount db 'Column)))
-    ;; :left again shouldn't change anything, too
-    (class-diagram2database-schema-simple cd-new db :left)
-    (test/is (g/equal-models? cd cd-new))))
+    (test/testing "New DBS from given CD"
+      (class-diagram2database-schema-simple cd db :right)
+      (test/is (= 4 (tg/vcount db 'Table)))
+      (test/is (= 8 (tg/vcount db 'Column)))
+      #_(viz/print-model db :gtk))
+    (test/testing "New CD from result DBS"
+      (class-diagram2database-schema-simple cd-new db :left)
+      (test/is (= 3 (tg/vcount cd 'Class)))
+      (test/is (= 3 (tg/vcount cd 'Attribute)))
+      (test/is (= 1 (tg/vcount cd 'Association)))
+      #_(viz/print-model cd-new :gtk))
+    (test/testing "Sync orig CD into result DBS (shouldn't change anything)"
+      (let [db-copy (g/copy-model db)]
+        (class-diagram2database-schema-simple cd db :right)
+        (test/is (g/equal-models? db db-copy))))
+    (test/testing "Sync result DBS into result CD (shouldn't change anything)"
+      (let [cd-new-copy (g/copy-model cd-new)]
+        (class-diagram2database-schema-simple cd-new db :left)
+        (test/is (g/equal-models? cd-new cd-new-copy))))
+    (test/testing "Sync result DBS into orig CD (shouldn't change anything)"
+      (let [cd-copy (g/copy-model cd)]
+        (class-diagram2database-schema-simple cd db :left)
+        (test/is (g/equal-models? cd cd-copy))
+        #_(viz/print-model cd :gtk)))))
