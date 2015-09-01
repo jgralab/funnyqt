@@ -105,13 +105,13 @@
                                     (let [~(make-destr-map trg-syms tm)
                                           (binding [tmp/*make-tmp-elements* true]
                                             (i/select-match
-                                             (ccl/run 1 [q#]
+                                             (ccl/run* [q#]
                                                (r/with-fresh
                                                  (i/trg-initializeo *target-model* true ~sm ~args-map ~@trg-syms)
                                                  ~@(get map trg)
                                                  (tmp/finalizeo ~@trg-syms)
                                                  (ccl/== q# ~(make-kw-result-map trg-syms))))
-                                             ~relsym ~sm))]
+                                             '~relsym ~sm))]
                                       ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
                                                       wsyms src-syms trg-syms)
                                       (i/enforce-match ~tm)

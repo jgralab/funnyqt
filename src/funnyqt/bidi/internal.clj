@@ -17,7 +17,7 @@
   [matches relation src-match]
   (when-not (seq matches)
     (u/errorf "Couldn't create a %s target match for source match: %s"
-              (.getSimpleName (class relation)) src-match))
+              relation src-match))
   (first matches))
 
 (defn enforce-match
