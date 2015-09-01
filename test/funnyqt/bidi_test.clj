@@ -599,8 +599,8 @@
         cls-a-sub (tg/create-vertex! g 'Class {:name "ASub", :superclass cls-a})
         attr-a-sub (tg/create-vertex! g 'Attribute {:name "asub", :class cls-a-sub,
                                                     :type (tg/enum-constant g 'AttributeTypes.LONG)})
-        #_attr-a-sub2 #_(tg/create-vertex! g 'Attribute {:name "asub2", :class cls-a-sub,
-                                                         :type (tg/enum-constant g 'AttributeTypes.INT)})
+        ;; attr-a-sub2 (tg/create-vertex! g 'Attribute {:name "asub2", :class cls-a-sub,
+        ;;                                              :type (tg/enum-constant g 'AttributeTypes.INT)})
         cls-b (tg/create-vertex! g 'Class {:name "B"})
         attr-b (tg/create-vertex! g 'Attribute {:name "b", :class cls-b,
                                                 :type (tg/enum-constant g 'AttributeTypes.FLOAT)})
@@ -612,6 +612,7 @@
   (enum-const [m const val]
     (ccl/== (g/enum-constant m const) val))
   (^:top class2table
+         ;;:debug-trg true
          :left [(scd/Class l ?cls)
                 (scd/name l ?cls ?name)]
          :right [(sdb/Table r ?table)
@@ -624,25 +625,27 @@
          :where [(generalization2foreign-key :?subcls ?cls :?subcol ?col)
                  (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
   (generalization2foreign-key
+   ;;:debug-trg true
    :left  [(scd/->superclass l ?subcls ?supercls)]
    :right [(sdb/->pkey r ?subcol ?supercol)]
    :when  [(class2table :?cls ?supercls :?col ?supercol)
            (class2table :?cls ?subcls   :?col ?subcol)])
   (cd-type2db-type [cdt dbt]
-    (ccl/conde
-     [(enum-const l 'AttributeTypes.BOOLEAN cdt)
-      (enum-const r 'ColumnTypes.BOOLEAN dbt)]
-     [(enum-const l 'AttributeTypes.LONG cdt)
-      (enum-const r 'ColumnTypes.INTEGER dbt)]
-     [(enum-const l 'AttributeTypes.INT cdt)
-      (enum-const r 'ColumnTypes.INTEGER dbt)]
-     [(enum-const l 'AttributeTypes.FLOAT cdt)
-      (enum-const r 'ColumnTypes.REAL dbt)]
-     [(enum-const l 'AttributeTypes.DOUBLE cdt)
-      (enum-const r 'ColumnTypes.DOUBLE dbt)]
-     [(enum-const l 'AttributeTypes.STRING cdt)
-      (enum-const r 'ColumnTypes.TEXT dbt)]))
+                   (ccl/conde
+                    [(enum-const l 'AttributeTypes.BOOLEAN cdt)
+                     (enum-const r 'ColumnTypes.BOOLEAN dbt)]
+                    [(enum-const l 'AttributeTypes.LONG cdt)
+                     (enum-const r 'ColumnTypes.INTEGER dbt)]
+                    [(enum-const l 'AttributeTypes.INT cdt)
+                     (enum-const r 'ColumnTypes.INTEGER dbt)]
+                    [(enum-const l 'AttributeTypes.FLOAT cdt)
+                     (enum-const r 'ColumnTypes.REAL dbt)]
+                    [(enum-const l 'AttributeTypes.DOUBLE cdt)
+                     (enum-const r 'ColumnTypes.DOUBLE dbt)]
+                    [(enum-const l 'AttributeTypes.STRING cdt)
+                     (enum-const r 'ColumnTypes.TEXT dbt)]))
   (attribute2column
+   ;;:debug-trg true
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
           (scd/type* l ?attr ?atype)]
@@ -652,6 +655,7 @@
    :when [(ccl/!= ?name ?pkey-col-name)
           (ccl/onceo (cd-type2db-type ?atype ?ctype))])
   (^:top association2table
+         ;;:debug-trg true
          :left [(scd/Association l ?assoc)
                 (scd/name l ?assoc ?name)
                 (scd/->src* l ?assoc ?src)

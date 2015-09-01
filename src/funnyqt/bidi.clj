@@ -60,8 +60,15 @@
 
 (defn ^:private insert-debug
   "If code is non-nil, wrap it in a vector for being spliced in."
-  [code]
-  (when code [code]))
+  [code what when wsyms src-syms trg-syms]
+  (cond
+    (true? code)
+    `[(println (format "==> %s(%s)" '~what ~when))
+      (clojure.pprint/pprint ~(into {} (map (fn [sym]
+                                              [`'~sym sym]))
+                                    (concat wsyms src-syms trg-syms)))]
+    ;;--
+    code [code]))
 
 (defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
@@ -93,7 +100,8 @@
                               ~(if enforcing
                                  ;; Enforcement mode
                                  `(binding [tmp/*wrapper-cache* (atom {})]
-                                    ~@(insert-debug (:debug-src map))
+                                    ~@(insert-debug (:debug-src map) relsym "DEBUG-SRC"
+                                                    wsyms src-syms trg-syms)
                                     (let [~(make-destr-map trg-syms tm)
                                           (binding [tmp/*make-tmp-elements* true]
                                             (i/select-match
@@ -104,7 +112,8 @@
                                                  (tmp/finalizeo ~@trg-syms)
                                                  (ccl/== q# ~(make-kw-result-map trg-syms))))
                                              ~relsym ~sm))]
-                                      ~@(insert-debug (:debug-trg map))
+                                      ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
+                                                      wsyms src-syms trg-syms)
                                       (i/enforce-match ~tm)
                                       (let [~(make-destr-map trg-syms etm)
                                             (i/replace-tmps-and-wrappers-with-manifestations ~tm)]
@@ -112,11 +121,14 @@
                                                (fn [current# new#]
                                                  (conj (or current# #{}) new#))
                                                (merge ~sm ~etm))
-                                        ~@(insert-debug (:debug-enforced map))
+                                        ~@(insert-debug (:debug-enforced map) relsym
+                                                        "DEBUG-ENFORCED"
+                                                        wsyms src-syms trg-syms)
                                         (fn [] ~@(:where map)))))
                                  ;; Checkonly mode
                                  `(do
-                                    ~@(insert-debug (:debug-src map))
+                                    ~@(insert-debug (:debug-src map) relsym "DEBUG-SRC"
+                                                    wsyms src-syms trg-syms)
                                     (let [match# (first
                                                   (ccl/run 1 [q#]
                                                     (r/with-fresh
@@ -124,7 +136,8 @@
                                                       ~@(get map trg)
                                                       (ccl/== q# ~(make-kw-result-map trg-syms)))))
                                           ~(make-destr-map trg-syms tm) match#]
-                                      ~@(insert-debug (:debug-trg map))
+                                      ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
+                                                      wsyms src-syms trg-syms)
                                       (if match#
                                         (do
                                           (swap! *t-relation-bindings* update-in [:related ~(keyword relsym)]
@@ -227,7 +240,7 @@
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms args-map)]
               (i/check-t-relation-args '~relsym ~args-map ~(set (map keyword syms)))
-              ~@(insert-debug (:debug-entry m))
+              ~@(insert-debug (:debug-entry m) relsym "DEBUG-ENTRY" wsyms lsyms rsyms)
               (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
                                     :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms rsyms args-map)
                                     :left  ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)

@@ -17,7 +17,7 @@
   (as-map [this]))
 
 (defprotocol IAttr
-  (add-attr [this attr val may-override])
+  (add-attr [this attr val may-override subst])
   (check-attr-validity [this subst])
   (finalize-attrs [this subst]))
 
@@ -107,13 +107,26 @@
         (q/exists? super-or-eq-to-cur? (map (partial g/mm-class model) t))
         (super-or-eq-to-cur? (g/mm-class model t)))))
   IAttr
-  (add-attr [this attr val may-override]
+  (add-attr [this attr val may-override subst]
     (when manifested (u/errorf "Already manifested: %s" this))
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
-    (when may-override
-      (set! overridable-properties (conj overridable-properties attr)))
-    (set! attrs (assoc attrs attr val)))
+    (cond
+      may-override
+      (do (set! overridable-properties (conj overridable-properties attr))
+          (set! attrs (assoc attrs attr val))
+          true)
+      ;;---
+      (g/unset? wrapped-element attr)
+      (do (set! attrs (assoc attrs attr val))
+          true)
+      ;;---
+      (let [gval (cclp/walk subst val)
+            cval (g/aval wrapped-element attr)]
+        (= gval cval))
+      true
+      ;;---
+      :else false))
   (check-attr-validity [this subst]
     (q/forall? (fn [[a v]]
                  (or (overridable-properties a)
@@ -252,7 +265,7 @@
               (g/mm-superclass? type mm-class) (do (set! type mm-class) true)
               :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
-  (add-attr [this attr val _] ;; The may-override param is ignored for new elements.
+  (add-attr [this attr val _ _] ;; The may-override param is ignored for new elements.
     (when-not (keyword? attr)
       (u/errorf "attr must be given as keyword but was %s." attr))
     (cond

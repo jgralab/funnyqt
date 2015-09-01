@@ -386,8 +386,15 @@
        (not (keyword? gattr))
        (u/errorf "tmp-valueo: at must be a ground keyword but was %s." gattr)
 
-       :else (do (tmp/add-attr gel-or-rel gattr val may-override)
-                 (ccl/succeed a))))))
+       may-override
+       (if (or (tmp/add-attr gel-or-rel gattr val false a)
+               (tmp/add-attr gel-or-rel gattr val true a))
+         (ccl/succeed a)
+         (ccl/fail a))
+
+       :else (if (tmp/add-attr gel-or-rel gattr val false a)
+               (ccl/succeed a)
+               (ccl/fail a))))))
 
 
 (defn avalo
