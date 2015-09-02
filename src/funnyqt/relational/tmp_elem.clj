@@ -5,9 +5,7 @@
             [funnyqt
              [generic :as g]
              [query :as q]
-             [tg :as tg]
-             [utils :as u]]
-            [funnyqt.relational.util :as ru]))
+             [utils :as u]]))
 
 (def ^:dynamic *make-tmp-elements* false)
 
@@ -43,15 +41,6 @@
   (set-target [this o])
   (finalize-alpha-and-omega [this subst]))
 
-(defprotocol IWrappedRelationship
-  (get-src [this])
-  (get-trg [this]))
-
-(extend-protocol IWrappedRelationship
-  de.uni_koblenz.jgralab.Edge
-  (get-src [this] (tg/alpha this))
-  (get-trg [this] (tg/omega this)))
-
 ;;# Types
 
 (declare wrapper-element?)
@@ -62,12 +51,6 @@
 (declare single-valued-refs-are-single?)
 
 ;;## WrapperElement
-
-(def element-types #{de.uni_koblenz.jgralab.Vertex org.eclipse.emf.ecore.EObject})
-(def relationship-types #{de.uni_koblenz.jgralab.Edge})
-
-(defn ^:private instance-of-any? [class-set elem]
-  (some #(instance? % elem) class-set))
 
 (deftype WrapperElement [model
                          wrapped-element
@@ -91,10 +74,10 @@
         (when-not (#{:element :relationship} k)
           (u/errorf "Unknown kind %s." k))
         (let [cur (cond
-                    (instance-of-any? element-types wrapped-element) :element
-                    (instance-of-any? relationship-types wrapped-element) :relationship
-                    :else (u/errorf "The type of %s is not registered in %s or %s."
-                                    wrapped-element #'element-types #'relationship-types))]
+                    (g/element? wrapped-element)      :element
+                    (g/relationship? wrapped-element) :relationship
+                    :else (u/errorf "%s is neither element nor relationship."
+                                    wrapped-element))]
           (= k cur)))))
   IType
   (check-type [this] true)
@@ -161,16 +144,16 @@
   (set-source [this a]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; a is either fresh or a wrapper or tmp element
-    (when-not (instance-of-any? relationship-types wrapped-element)
-      (u/errorf "Can't set alpha of non-relationship %s." wrapped-element))
+    (when-not (g/relationship? wrapped-element)
+      (u/errorf "Can't set source of non-relationship %s." wrapped-element))
     (cond
       (tmp-element? a)     false
       :else                true))
   (set-target [this o]
     (when manifested (u/errorf "Already manifested: %s" this))
     ;; o is either fresh or a wrapper or tmp element
-    (when-not (instance-of-any? relationship-types wrapped-element)
-      (u/errorf "Can't set omega of non-relationship %s." wrapped-element))
+    (when-not (g/relationship? wrapped-element)
+      (u/errorf "Can't set target of non-relationship %s." wrapped-element))
     (cond
       (tmp-element? o)     false
       :else                true))
