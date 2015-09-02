@@ -2,7 +2,7 @@ TGraph 2;
 Schema de.uni_koblenz.funnyqt.test.db_schema.DBSchema;
 GraphClass DBGraph;
 
-EnumDomain ColumnTypes (BOOLEAN, INTEGER, REAL, DOUBLE, TEXT);
+EnumDomain ColumnTypes (BOOLEAN, INTEGER, REAL, DOUBLE, VARCHAR, TEXT);
 VertexClass Table {name: String};
 VertexClass Column {name: String, primary: Boolean, type: ColumnTypes};
 

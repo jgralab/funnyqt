@@ -643,16 +643,18 @@
                     [(ccl/all (enum-const l 'AttributeTypes.DOUBLE cdt)
                               (enum-const r 'ColumnTypes.DOUBLE dbt))]
                     [(ccl/all (enum-const l 'AttributeTypes.STRING cdt)
-                              (enum-const r 'ColumnTypes.TEXT dbt))]))
+                              (enum-const r 'ColumnTypes.TEXT dbt))]
+                    [(ccl/all (enum-const l 'AttributeTypes.STRING cdt)
+                              (enum-const r 'ColumnTypes.VARCHAR dbt))]))
   (attribute2column
    ;;:debug-trg true
    :left [(scd/->attrs l ?cls ?attr)
           (scd/name l ?attr ?name)
-          (scd/type* l ?attr ?atype)
-          (cd-type2db-type ?atype ?ctype)]
+          (scd/type* l ?attr ?atype)]
    :right [(sdb/->cols r ?table ?col)
            (sdb/name r ?col ?name)
            (sdb/type* r ?col ?ctype)]
+   :target [(cd-type2db-type ?atype ?ctype)]
    :when [(ccl/!= ?name ?pkey-col-name)])
   (^:top association2table
          ;;:debug-trg true
@@ -700,4 +702,12 @@
       (let [cd-copy (g/copy-model cd)]
         (class-diagram2database-schema-simple cd db :left)
         (test/is (g/equal-models? cd cd-copy))
-        #_(viz/print-model cd :gtk)))))
+        #_(viz/print-model cd :gtk)))
+    (test/testing "Sync CD into VARCHAR-modified DBS (shouldn't change anything)"
+      (let [at (first (filter #(= (g/aval % :type)
+                                  (g/enum-constant db 'ColumnTypes.TEXT))
+                              (g/elements db 'Column)))
+            _ (g/set-aval! at :type (g/enum-constant db 'ColumnTypes.VARCHAR))
+            db-copy (g/copy-model db)]
+        (class-diagram2database-schema-simple cd db :right)
+        (test/is (g/equal-models? db db-copy))))))

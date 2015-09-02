@@ -109,6 +109,7 @@
                                                (r/with-fresh
                                                  (i/trg-initializeo *target-model* true ~sm ~args-map ~@trg-syms)
                                                  ~@(get map trg)
+                                                 ~@(get map :target)
                                                  (tmp/finalizeo ~@trg-syms)
                                                  (ccl/== q# ~(make-kw-result-map trg-syms))))
                                              '~relsym ~sm))]
@@ -134,6 +135,7 @@
                                                     (r/with-fresh
                                                       (i/trg-initializeo *target-model* false ~sm ~args-map ~@trg-syms)
                                                       ~@(get map trg)
+                                                      ~@(get map :target)
                                                       (ccl/== q# ~(make-kw-result-map trg-syms)))))
                                           ~(make-destr-map trg-syms tm) match#]
                                       ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
@@ -231,20 +233,21 @@
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
         lsyms (distinct (filter ru/qmark-symbol? (flatten (:left m))))
         rsyms (distinct (filter ru/qmark-symbol? (flatten (:right m))))
+        tsyms (distinct (filter ru/qmark-symbol? (flatten (:target m))))
         syms  (distinct (concat lsyms rsyms wsyms))
         args-map (gensym "args-map")]
     (when-let [unknown-keys (seq (disj (set (keys m))
                                        :left :right :when :where :extends
                                        :debug-entry :debug-src :debug-trg
-                                       :debug-enforced))]
+                                       :debug-enforced :target))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms args-map)]
               (i/check-t-relation-args '~relsym ~args-map ~(set (map keyword syms)))
               ~@(insert-debug (:debug-entry m) relsym "DEBUG-ENTRY" wsyms lsyms rsyms)
-              (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms rsyms args-map)
-                                    :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms rsyms args-map)
-                                    :left  ~(do-rel-body relsym :left  m wsyms rsyms lsyms args-map)
-                                    :left-checkonly  ~(do-rel-body relsym :left-checkonly  m wsyms rsyms lsyms args-map)}]
+              (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms (concat rsyms tsyms) args-map)
+                                    :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms (concat rsyms tsyms) args-map)
+                                    :left  ~(do-rel-body relsym :left  m wsyms rsyms (concat lsyms tsyms) args-map)
+                                    :left-checkonly  ~(do-rel-body relsym :left-checkonly  m wsyms rsyms (concat lsyms tsyms) args-map)}]
                 ((transform-fns# *target-direction*))))))
 
 (defn relateo
@@ -383,16 +386,72 @@
   A relation spec may also contain a :when precondition:
 
     (foo2bar
-      :when [...]
-      :left [...]
-      :right [...])
+      :left  [...]
+      :right [...]
+      :when  [...])
 
   It is also a vector of goals.  Usually, the goals are used to retrieve and
-  bind elements created by previous relations using `relateo`.  The :left
+  bind elements created by previous t-relations using traceability goals such
+  as (other-t-rel :?foo ?f :?bar ?b) which use `relateo` internally.  The :left
   to :right semantics are: For all solutions satisfying the conjunction
   of :left and :when goals, a corresponding solution of the :right goals has to
   exist, i.e., the :when goals are simply added to the clause of the current
-  source direction.
+  source model.
+
+  Target Clauses
+  ==============
+
+  T-relations may have a :target clause:
+
+    (foo2bar
+      :left   [...]
+      :right  [...]
+      :target [...])
+
+  As said above, the goals of :when clauses are simply added to the current
+  source clause, e.g., :left when transforming into the direction of the right
+  model.  The :target clause is essentially the inverse, i.e., its goals are
+  added to the current target clause, e.g., to the :right clause when
+  transforming into the :right direction.
+
+  The use-case this clause serves is the handling of non-bijective mappings in
+  attribute value goals which may change the value (i.e., the generated attr*
+  relations).  For example, in a hypothetical class diagram to database schema
+  transformation, the attribute types INT and LONG both correspond to the
+  database type INTEGER, and the database types VARCHAR and TEXT both
+  correspond to the class diagram type STRING.  Thus, there are choices how to
+  map STRING attributes and INTEGER columns.  In such cases, the mapping can be
+  defined by a plain relation (see below)
+
+    (cd-type2db-type [cdt dbt]
+      (conda
+        [(all (== cdt \"LONG\")   (== dbt \"INTEGER\"))]
+        [(all (== cdt \"INT\")    (== dbt \"INTEGER\"))]
+        [(all (== cdt \"STRING\") (== dbt \"TEXT\"))]
+        [(all (== cdt \"STRING\") (== dbt \"VARCHAR\"))]))
+
+  where the order of clauses defines that we prefer the larger types LONG and
+  TEXT here.  This should be used in the :target clause like so.
+
+     (attr2col
+       :left   [...
+                (cd/type* cd ?attr ?atype)]
+       :right  [...
+                (db/type* db ?col ?ctype)]
+       :target [(cd-type2db-type ?atype ?ctype)])
+
+  The problem the :target clause solves is the following: if it were placed in
+  the :when clause (or either :left or :right), then (depending on direction)
+  either cdt or dbt would be fresh.  Thus, when synchronizing between existing
+  models, always the first of the two conda-clauses which could match will
+  match because unifying a fresh variable with some literal always works.  The
+  effect is that, e.g., all INT attributes will be changed to LONG.
+
+  If the goal is in the :target clause, then both cdt and dbt are ground if the
+  corresponding attribute and column have their type set already.  Thus, the
+  INT/INTEGER and STRING/VARCHAR clauses will match for the respective
+  attribute types, and the corresponding attribute and column types won't be
+  changed.
 
   Postconditions
   ==============
@@ -400,7 +459,7 @@
   A relation spec may also contain a :where postcondition:
 
     (foo2bar
-      :left [...]
+      :left  [...]
       :right [...]
       :where [...])
 
