@@ -114,10 +114,10 @@
            (ab-tg/homepage r ?org2 ?hp)
            (ab-tg/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(org2org :?org1 ?org1 :?org2 ?org2)
-                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
-         :right [(ab-tg/->employees r ?org2 ?contact2)]))
+         :right [(ab-tg/->employees r ?org2 ?contact2)]
+         :when [(org2org :?org1 ?org1 :?org2 ?org2)
+                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
 
 (defmacro assert-same-addressbooks-tg-tg [l r]
   `(let [l# ~l, r# ~r]
@@ -231,10 +231,10 @@
            (ab-emf/homepage r ?org2 ?hp)
            (ab-emf/name r ?org2 ?n)])
   (^:top connect-employees
-         :when [(org2org :?org1 ?org1 :?org2 ?org2)
-                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]
          :left [(ab-tg/->employees l ?org1 ?contact1)]
-         :right [(ab-emf/->employees r ?org2 ?contact2)]))
+         :right [(ab-emf/->employees r ?org2 ?contact2)]
+         :when [(org2org :?org1 ?org1 :?org2 ?org2)
+                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
 
 (defmacro assert-same-addressbooks-tg-emf [l r]
   `(let [l# ~l, r# ~r]
@@ -554,7 +554,6 @@
   (this-is-just-a-normal-relation [a b c]
                                   (== a "I overwrite the inherited one"))
   (class2table
-   :when [ccl/succeed]
    :left [(cd/->classifiers l ?pkg ?class)
           (cd/Class l ?class)
           (cd/is-persistent l ?class true)
@@ -562,6 +561,7 @@
    :right [(db/->tables r ?schema ?table)
            (db/Table r ?table)
            (db/name r ?table ?name)]
+   :when [ccl/succeed]
    :where [(attribute2column :?class ?class :?table ?table)]))
 
 (test/deftest test-cd2db-ext
@@ -619,9 +619,9 @@
                  (sdb/name r ?table ?name)
                  (sdb/->cols r ?table ?col)
                  (sdb/name r ?col "ID")
-                 (sdb/primary r ?col true)
+                 (sdb/primary* r ?col true)
                  (enum-const r 'ColumnTypes.INTEGER ?enum-const)
-                 (sdb/type r ?col ?enum-const)]
+                 (sdb/type* r ?col ?enum-const)]
          :where [(generalization2foreign-key :?subcls ?cls :?subcol ?col)
                  (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
   (generalization2foreign-key
@@ -654,8 +654,8 @@
    :right [(sdb/->cols r ?table ?col)
            (sdb/name r ?col ?name)
            (sdb/type* r ?col ?ctype)]
-   :target [(cd-type2db-type ?atype ?ctype)]
-   :when [(ccl/!= ?name ?pkey-col-name)])
+   :when [(ccl/!= ?name ?pkey-col-name)]
+   :target [(cd-type2db-type ?atype ?ctype)])
   (^:top association2table
          ;;:debug-trg true
          :left [(scd/Association l ?assoc)
