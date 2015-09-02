@@ -4,13 +4,12 @@
             [clojure.walk :as cw]
             [flatland.ordered.map :as om]
             [funnyqt
-             [generic :as g]
-             [utils :as u]
-             [relational :as r]]
+             [relational :as r]
+             [utils :as u]]
+            [funnyqt.bidi.internal :as i]
             [funnyqt.relational
              [tmp-elem :as tmp]
-             [util :as ru]]
-            [funnyqt.bidi.internal :as i]))
+             [util :as ru]]))
 
 (def ^{:dynamic true
        :doc "Only for internal use.
