@@ -6,8 +6,7 @@
              [query :as q]
              [tg :as tg]
              [utils :as u]]
-            [funnyqt.coevo.tg :as coevo]
-            [funnyqt.extensional.tg :as etg])
+            [funnyqt.coevo.tg :as coevo])
   (:import de.uni_koblenz.jgralab.exception.GraphException
            [de.uni_koblenz.jgralab.schema AggregationKind Attribute AttributedElementClass]
            de.uni_koblenz.jgralab.schema.exception.SchemaException))
@@ -86,7 +85,7 @@
       ;; Now we mustn't be able to create direct Top instances.
       (is (thrown-with-msg? GraphException
                             #"Cannot create instances of abstract type Top"
-                            (etg/create-vertices! g 'Top (fn [] [1 2 3])))))))
+                            (e/create-elements! g 'Top (fn [] [1 2 3])))))))
 
 (deftest test-multiple-inheritance-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -195,8 +194,8 @@
          #"Bijectivity violation: can't make SubEdge subclass of SuperEdge because their sets of archetypes are not disjoint. Common archetypes: \(1\)"
          (e/with-trace-mappings
            (top-sibs-bottom g)
-           (etg/create-vertices! g 'Sibling1 (fn [] [1 2 3]))
-           (etg/create-vertices! g 'Sibling2 (fn [] [1 2 3]))
+           (e/create-elements! g 'Sibling1 (fn [] [1 2 3]))
+           (e/create-elements! g 'Sibling2 (fn [] [1 2 3]))
            (coevo/create-edge-class! g 'SuperEdge 'Sibling1 'Sibling2
                                      (fn []
                                        [[1 (e/source-image 1) (e/target-image 1)]]))

@@ -7,8 +7,7 @@
              [extensional :as e]
              [generic :as g]
              [tg :as tg]
-             [utils :as u]]
-            [funnyqt.extensional.tg :as etg])
+             [utils :as u]])
   (:import [de.uni_koblenz.jgralab AttributedElement Graph]
            [de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
             InternalAttributesArrayAccess$OnAttributesFunction]
@@ -181,14 +180,14 @@
   "Creates a new VertexClass with qualified name `qname` in the graph `g`s schema.
   Returns the newly created VertexClass.  If `archfn` is supplied, also creates
   vertices of the new VertexClass in `g`.  For more details on `archfn`, see
-  `funnyqt.extensional.tg/create-vertices!`."
+  `funnyqt.extensional/create-elements!`."
   ([g qname]
    {:pre [g qname]}
    (create-vc! g qname false))
   ([g qname archfn]
    {:pre [g qname (or (nil? archfn) (fn? archfn))]}
    (let [vc (create-vc! g qname false)]
-     (etg/create-vertices! g qname archfn)
+     (e/create-elements! g qname archfn)
      vc)))
 
 (defn create-abstract-vertex-class!
@@ -243,7 +242,7 @@
      :to-kind AggregationKind/NONE}
 
   If an `archfn` is supplied, also creates edges in `g`.  For the details of
-  `archfn`, see function `funnyqt.extensional.tg/create-edges!`."
+  `archfn`, see function `funnyqt.extensional/create-relationships!`."
   ([g qname from to]
    {:pre [qname from to]}
    (create-ec! g qname false from to {}))
@@ -256,7 +255,7 @@
    {:pre [g qname from to (or (nil? archfn) (fn? archfn))]}
    (let [ec (create-ec! g qname false from to props)]
      (when archfn
-       (etg/create-edges! g qname archfn))
+       (e/create-relationships! g qname archfn))
      ec)))
 
 (defn create-abstract-edge-class!
@@ -416,7 +415,7 @@
   denoting the qualified name of the attributed element class, `attr` is a
   keyword denoting the new attribute's name.  If a `valfn` is supplied, also
   sets the `attr` value of instances.  For details on `valfn`, see
-  `funnyqt.extensional.tg/set-values!`."
+  `funnyqt.extensional/set-avals!`."
   ([g aec attr domain]
    {:pre [g aec attr domain]}
    (create-attr! g aec attr domain nil))
@@ -429,7 +428,7 @@
    {:pre [g aec attr domain]}
    (let [at (create-attr! g aec attr domain default)]
      (when valfn
-       (etg/set-values! g aec attr valfn))
+       (e/set-avals! g aec attr valfn))
      at)))
 
 ;;### Renaming
