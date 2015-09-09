@@ -13,7 +13,7 @@
             InternalAttributesArrayAccess$OnAttributesFunction]
            [de.uni_koblenz.jgralab.schema AggregationKind Attribute
             AttributedElementClass EdgeClass GraphClass GraphElementClass
-            IncidenceClass RecordDomain Schema VertexClass]
+            IncidenceClass RecordDomain Schema VertexClass EnumDomain RecordDomain]
            de.uni_koblenz.jgralab.schema.impl.SchemaImpl))
 
 ;;# Utility functions
@@ -67,7 +67,7 @@
     (.finish s)
     (tg/new-graph s)))
 
-;;## Creating Enum & Record domains
+;;## Creating, renaming, and deleting Enum & Record domains
 
 (defn create-record-domain!
   "Creates a RecordDomain of the given `qname` and `comp-doms` in `g`.
@@ -100,6 +100,22 @@
   (let [dom (tg/domain g old-qname)]
     (with-open-schema g
       (.setQualifiedName dom (name new-qname)))))
+
+(defn delete-domain!
+  "Deletes the Enum- or RecordDomain with the given `qname` from `g`s schema.
+  Throws an exception if the domain is still in use by some attribute."
+  [g qname]
+  (let [dom (tg/domain g qname)]
+    (when-not (or (instance? EnumDomain dom)
+                  (instance? RecordDomain dom))
+      (u/errorf "Can only delete Enum- and RecordDomains but not %s." dom))
+    (let [attrs (.getAttributes dom)]
+      (when (seq attrs)
+        (u/errorf (str "Cannot delete domain %s because these attributes"
+                       " still have this type: %s")
+                  dom attrs)))
+    (with-open-schema g
+      (.delete dom))))
 
 ;;## AttributedElementClasses
 
@@ -234,12 +250,12 @@
   properties for the edge class' incidence classes.  If omitted, the default
   is:
 
-    {:from-multis [0, Integer/MAX_VALUE]
-     :from-role \"\"
-     :from-kind AggregationKind/NONE
-     :to-multis [0, Integer/MAX_VALUE]
-     :to-role \"\"
-     :to-kind AggregationKind/NONE}
+  {:from-multis [0, Integer/MAX_VALUE]
+   :from-role \"\"
+   :from-kind AggregationKind/NONE
+   :to-multis [0, Integer/MAX_VALUE]
+   :to-role \"\"
+   :to-kind AggregationKind/NONE}
 
   If an `archfn` is supplied, also creates edges in `g`.  For the details of
   `archfn`, see function `funnyqt.extensional/create-relationships!`."
@@ -265,12 +281,12 @@
   properties for the edge class' incidence classes.  If omitted, the default
   is:
 
-    {:from-multis [0, Integer/MAX_VALUE]
-     :from-role \"\"
-     :from-kind AggregationKind/NONE
-     :to-multis [0, Integer/MAX_VALUE]
-     :to-role \"\"
-     :to-kind AggregationKind/NONE}"
+  {:from-multis [0, Integer/MAX_VALUE]
+   :from-role \"\"
+   :from-kind AggregationKind/NONE
+   :to-multis [0, Integer/MAX_VALUE]
+   :to-role \"\"
+   :to-kind AggregationKind/NONE}"
   [g qname from to {:keys [from-multis from-role from-kind
                            to-multis   to-role   to-kind]
                     :or {from-multis [0, Integer/MAX_VALUE]
@@ -287,12 +303,12 @@
   the EdgeClass `ec-qname` according to `props`.  `props` is a map with the
   properties for the edge class' incidence classes.  It has the form:
 
-    {:from-multis [0, Integer/MAX_VALUE]
-     :from-role \"\"
-     :from-kind AggregationKind/NONE
-     :to-multis [0, Integer/MAX_VALUE]
-     :to-role \"\"
-     :to-kind AggregationKind/NONE}"
+  {:from-multis [0, Integer/MAX_VALUE]
+   :from-role \"\"
+   :from-kind AggregationKind/NONE
+   :to-multis [0, Integer/MAX_VALUE]
+   :to-role \"\"
+   :to-kind AggregationKind/NONE}"
   [g ec-qname props]
   (let [^EdgeClass ec (get-aec g ec-qname)
         ^IncidenceClass from (.getFrom ec)
@@ -330,9 +346,9 @@
   "Resizes the attributes array of all `aec` instances after adding new
   attributes.  `aec2new-attrs-map` is a map of the form
 
-    {aec [new-attr1 ...]
-     sub-aec [new-attr1 ...]
-     ...}"
+  {aec [new-attr1 ...]
+   sub-aec [new-attr1 ...]
+   ...}"
   [g aec aec2new-attrs-map]
   (let [elems (element-seq g aec)
         oaf (on-attributes-fn
@@ -365,9 +381,9 @@
   "Resizes the attributes array of all `aec` instances after deleting
   attributes.  `aec2obs-attrs-map` is a map of the form
 
-    {aec [obsolete-attr1 ...]
-     sub-aec [obsolete-attr1 ...]
-     ...}"
+  {aec [obsolete-attr1 ...]
+   sub-aec [obsolete-attr1 ...]
+   ...}"
   [g aec aec2obs-attrs-map]
   (let [elems (element-seq g aec)
         oaf (on-attributes-fn
@@ -554,9 +570,9 @@
   (let [supermap (attr-name-dom-map super)
         gec2obs-attrs-map (atom {})]
     (doseq [^GraphElementClass sub all-subs
-              :let [submap (attr-name-dom-map sub)
-                    obs-attrs (clojure.set/difference (set (keys supermap))
-                                                      (set (keys submap)))]]
+            :let [submap (attr-name-dom-map sub)
+                  obs-attrs (clojure.set/difference (set (keys supermap))
+                                                    (set (keys submap)))]]
       (when (seq obs-attrs)
         (swap! gec2obs-attrs-map assoc sub (map (fn [obs-attr-name]
                                                   (.getAttribute super obs-attr-name))
