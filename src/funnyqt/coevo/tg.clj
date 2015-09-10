@@ -132,19 +132,20 @@ with name `gcname`."
   (let [aec (tg/attributed-element-class g old-qname)
         ;; The hash of aec will change, so we have to remove its entry and add
         ;; it back after the renaming has been performed.
-        img-val  (when e/*img*
+        img-val  (when (bound? #'e/*img*)
                    (let [img-val (@e/*img* aec)]
                      (swap! e/*img* dissoc aec)
                      img-val))
-        arch-val (when e/*arch*
+        arch-val (when (bound? #'e/*arch*)
                    (let [arch-val (@e/*arch* aec)]
                      (swap! e/*arch* dissoc aec)
                      arch-val))]
     (with-open-schema g
       (.setQualifiedName aec (name new-qname)))
     ;; Re-add the mappings.
-    (swap! e/*img*  assoc aec img-val)
-    (swap! e/*arch* assoc aec arch-val)))
+    (when (bound? #'e/*img*)
+      (swap! e/*img*  assoc aec img-val)
+      (swap! e/*arch* assoc aec arch-val))))
 
 ;;## GraphElementClasses
 
@@ -161,11 +162,9 @@ with name `gcname`."
             all-subs (conj (seq (.getAllSubClasses ^GraphElementClass aec)) aec)]
         (with-open-schema g
           (.delete ^GraphElementClass aec))
-        (when e/*arch*
+        (when (bound? #'e/*arch*)
           (doseq [sub all-subs]
-            (swap! e/*arch* dissoc sub)))
-        (when e/*img*
-          (doseq [sub all-subs]
+            (swap! e/*arch* dissoc sub)
             (swap! e/*img* dissoc sub)))
         (doseq [el els]
           (g/delete! el)))
@@ -593,11 +592,14 @@ with name `gcname`."
         ^GraphElementClass sub-gec (get-aec g sub)
         gec2new-attrs-map (determine-new-attributes-before-adding-specialization
                            super-gec sub-gec)]
-    (when-let [dups (seq (clojure.set/intersection
-                          (set (remove nil? (map (partial e/archetype super-gec)
-                                                 (element-seq g super-gec))))
-                          (set (remove nil? (map (partial e/archetype sub-gec)
-                                                 (element-seq g sub-gec))))))]
+    (when-let [dups (when (bound? #'e/*img*)
+                      (seq (clojure.set/intersection
+                            (into #{} (comp (map (partial e/archetype super-gec))
+                                            (remove nil?))
+                                  (element-seq g super-gec))
+                            (into #{} (comp (map (partial e/archetype sub-gec))
+                                            (remove nil?))
+                                  (element-seq g sub-gec)))))]
       (u/errorf "Bijectivity violation: can't make %s subclass of %s because their sets of archetypes are not disjoint. Common archetypes: %s"
                 sub super dups))
     (if (instance? VertexClass super-gec)
