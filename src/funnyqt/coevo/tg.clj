@@ -62,7 +62,11 @@
     (doto (SchemaImpl. sname prefix)
       (.createGraphClass (name gcname)))))
 
-(defn empty-graph [sqname gcname]
+(defn empty-graph
+  "Creates an empty graph conforming to an empty schema.
+The schema's qualified name is `sqname`, and it just contains the graph class
+with name `gcname`."
+  [sqname gcname]
   (let [^Schema s (create-schema sqname gcname)]
     (.finish s)
     (tg/new-graph s)))
@@ -287,16 +291,18 @@
    :to-multis [0, Integer/MAX_VALUE]
    :to-role \"\"
    :to-kind AggregationKind/NONE}"
-  [g qname from to {:keys [from-multis from-role from-kind
-                           to-multis   to-role   to-kind]
-                    :or {from-multis [0, Integer/MAX_VALUE]
-                         from-role ""
-                         from-kind AggregationKind/NONE
-                         to-multis [0, Integer/MAX_VALUE]
-                         to-role ""
-                         to-kind AggregationKind/NONE}
-                    :as props}]
-  (create-ec! g qname true from to props))
+  ([g qname from to]
+   (create-abstract-edge-class! g qname from to {}))
+  ([g qname from to {:keys [from-multis from-role from-kind
+                            to-multis   to-role   to-kind]
+                     :or {from-multis [0, Integer/MAX_VALUE]
+                          from-role ""
+                          from-kind AggregationKind/NONE
+                          to-multis [0, Integer/MAX_VALUE]
+                          to-role ""
+                          to-kind AggregationKind/NONE}
+                     :as props}]
+   (create-ec! g qname true from to props)))
 
 (defn set-incidence-class-properties!
   "In the schema of graph `g`, sets the properties of the IncidenceClasses of
@@ -626,7 +632,8 @@
 
 (defn delete-specialization!
   "Deletes the specialization between Vertex/EdgeClasses `super` and `sub`.
-  All attributes inherited from `super` to `sub` and its subclasses are deleted."
+  The values of properties inherited from `super` to `sub` and its subclasses
+  are removed on the instance level."
   [g super sub]
   (let [^GraphElementClass super-gec (get-aec g super)
         ^GraphElementClass sub-gec (get-aec g sub)
@@ -637,5 +644,6 @@
       (if (instance? VertexClass super-gec)
         (.removeSuperClass ^VertexClass sub-gec ^VertexClass super-gec)
         (.removeSuperClass ^EdgeClass sub-gec ^EdgeClass super-gec)))
-    (fix-attr-array-after-del! g sub-gec (determine-obsolete-attributes-after-removing-specialization
-                                          super-gec all-subs))))
+    (fix-attr-array-after-del!
+     g sub-gec (determine-obsolete-attributes-after-removing-specialization
+                super-gec all-subs))))
