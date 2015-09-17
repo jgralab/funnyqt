@@ -417,8 +417,9 @@ with name `gcname`."
   [g aec attr domain default]
   (let [domain (tg/domain g domain)
         gio (GraphIO/createStringWriter (tg/schema g))
-        default-tg (do (.serializeGenericAttribute domain gio default)
-                       (.getStringWriterResult gio))
+        default-tg (when default
+                     (do (.serializeGenericAttribute domain gio default)
+                         (.getStringWriterResult gio)))
         aec ^AttributedElementClass (tg/attributed-element-class g aec)
         check (fn [^AttributedElementClass aec]
                 (when (.getAttribute aec (name attr))
