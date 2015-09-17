@@ -8,7 +8,7 @@
              [generic :as g]
              [tg :as tg]
              [utils :as u]])
-  (:import [de.uni_koblenz.jgralab AttributedElement Graph]
+  (:import [de.uni_koblenz.jgralab AttributedElement Graph GraphIO]
            [de.uni_koblenz.jgralab.impl.generic InternalAttributesArrayAccess
             InternalAttributesArrayAccess$OnAttributesFunction]
            [de.uni_koblenz.jgralab.schema AggregationKind Attribute
@@ -415,7 +415,11 @@ with name `gcname`."
 
 (defn ^:private create-attr!
   [g aec attr domain default]
-  (let [aec ^AttributedElementClass (tg/attributed-element-class g aec)
+  (let [domain (tg/domain g domain)
+        gio (GraphIO/createStringWriter (tg/schema g))
+        default-tg (do (.serializeGenericAttribute domain gio default)
+                       (.getStringWriterResult gio))
+        aec ^AttributedElementClass (tg/attributed-element-class g aec)
         check (fn [^AttributedElementClass aec]
                 (when (.getAttribute aec (name attr))
                   (u/errorf "%s already has a %s attribute" aec attr)))
@@ -426,7 +430,7 @@ with name `gcname`."
     (doseq [sub aec-and-subs]
       (check sub))
     (with-open-schema g
-      (let [attr (.createAttribute aec (name attr) (tg/domain g domain) default)]
+      (let [attr (.createAttribute aec (name attr) domain default-tg)]
         (fix-attr-array-after-add! g aec (zipmap aec-and-subs (repeat #{attr})))
         attr))))
 

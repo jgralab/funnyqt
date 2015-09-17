@@ -18,7 +18,7 @@
   (let [g (coevo/empty-graph 'test.transformation2.T2Schema 'T2Graph)]
     (e/with-trace-mappings
       (coevo/create-vertex-class! g 'Person (fn [] [1 2 3 4 5]))
-      (coevo/create-attribute! g 'Person :name 'String "\"Fritz\""
+      (coevo/create-attribute! g 'Person :name 'String "Fritz"
                                (fn [] {(e/element-image 1) "Hugo"
                                        (e/element-image 2) "Peter"
                                        (e/element-image 3) "August"}))
