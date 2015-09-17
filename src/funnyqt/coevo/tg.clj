@@ -654,3 +654,46 @@ with name `gcname`."
     (fix-attr-array-after-del!
      g sub-gec (determine-obsolete-attributes-after-removing-specialization
                 super-gec all-subs))))
+
+(defn retype!
+  "Retypes instances of graph element class `super` for which `predicate` holds
+  to instances of subclass `sub`.  Concretely, for each `super` instance a
+  corresponding `sub` instance is created, and all attribute values are copied
+  over.  When retyping between a vertex classes, also the edges incident to the
+  selected `super` instances are relinked to the new `sub` instance."
+  [g super sub predicate]
+  (let [els (filter predicate (element-seq g super true))]
+    (when (seq els)
+      (let [[img arch]
+            (e/with-trace-mappings
+              (cond
+                (tg/vertex? (first els))
+                (e/create-elements! g sub (fn [] els))
+                ;;---
+                (tg/edge? (first els))
+                (e/create-relationships!
+                 g sub (fn []
+                         (map (fn [edge]
+                                [edge (tg/alpha edge) (tg/omega edge)])
+                              els))))
+              (doseq [attr (g/mm-attributes (get-aec g super))]
+                (e/set-avals! g super attr
+                              (fn []
+                                (map (fn [el]
+                                       [(e/element-image el) (tg/value el attr)])
+                                     els))))
+              (when (tg/vertex? (first els))
+                (doseq [el els]
+                  (tg/relink! el (e/image g sub el))))
+              (g/delete! els true))]
+        ;; Fix mappings so that archetypes for old super instances are now
+        ;; archetypes for the retyped sub instances.
+        (when (bound? #'e/*img*)
+          (let [super-gec (get-aec g super)
+                sub-gec   (get-aec g sub)
+                old-archs (e/archetype-map super-gec)]
+            (doseq [[oel arch] old-archs]
+              (swap! e/*arch* update-in [super-gec] dissoc oel)
+              (swap! e/*arch* update-in [sub-gec] assoc (img sub oel) arch)
+              (swap! e/*img* update-in [super-gec] dissoc arch)
+              (swap! e/*img* update-in [sub-gec] assoc arch (img sub oel)))))))))
