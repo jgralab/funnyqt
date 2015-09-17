@@ -660,7 +660,10 @@ with name `gcname`."
   to instances of subclass `sub`.  Concretely, for each `super` instance a
   corresponding `sub` instance is created, and all attribute values are copied
   over.  When retyping between a vertex classes, also the edges incident to the
-  selected `super` instances are relinked to the new `sub` instance."
+  selected `super` instances are relinked to the new `sub` instance.
+
+  Also the traceability mappings are adapted accordingly, i.e., archetypes of
+  `super` instances become instances of `sub` instances."
   [g super sub predicate]
   (let [els (filter predicate (element-seq g super true))]
     (when (seq els)
