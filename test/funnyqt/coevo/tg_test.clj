@@ -685,15 +685,15 @@
                                           (seq (g/adjs p :incoming))))
     (coevo/downtype! g 'Port 'OutputPort (fn [p]
                                            (seq (g/adjs p :outgoing))))
-    
+
     ;; Role renaming
     (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
     (coevo/rename-attributed-element-class! g 'GoesTo    'HasTarget)
     (coevo/set-incidence-class-properties! g 'HasSource {:to-role :source})
     (coevo/set-incidence-class-properties! g 'HasTarget {:to-role :target})
-    
+
     #_(funnyqt.visualization/print-model g :gtk)
-    
+
     (is (== 4 (tg/vcount g 'Port)))
     (is (== 2 (tg/vcount g 'InputPort)))
     (is (== 2 (tg/vcount g 'OutputPort)))
