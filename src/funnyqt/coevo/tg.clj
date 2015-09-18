@@ -25,7 +25,7 @@
     (invoke [_ ae ary]
       (f ae ary))))
 
-(defn ^:private get-aec [g aec]
+(defn ^:private get-aec ^AttributedElementClass [g aec]
   (if (tg/attributed-element-class? aec)
     aec
     (tg/attributed-element-class g aec)))
@@ -458,6 +458,33 @@ with name `gcname`."
        (e/set-avals! g aec attr valfn))
      at)))
 
+(defn pull-up-attribute!
+  "Pulls up `attr` into `super` from all subclasses of `super`.
+  Throws if not all subclasses declare `attr` or the declarations have no
+  unique domain and default value."
+  [g super attr]
+  (let [^GraphElementClass super-gec (get-aec g super)
+        sub-gecs  (.getDirectSubClasses super-gec)
+        _ (when-not (seq sub-gecs)
+            (u/errorf "Can't pull up %s; %s has no subclasses!" attr super))
+        ^Attribute a (.getAttribute ^GraphElementClass (first sub-gecs) (name attr))
+        dom (.getDomain a)
+        def (.getDefaultValueAsString a)
+        err-subs (remove (fn [^GraphElementClass sub]
+                           (when-let [a (.getAttribute sub (name attr))]
+                             (and (= dom (.getDomain a))
+                                  (= def (.getDefaultValueAsString a)))))
+                         sub-gecs)]
+    (when (seq err-subs)
+      (u/errorf "Cannot pull up attribute %s into %s because the subclasses %s don't have it at all or define it with a different domain/default value!"
+                attr super err-subs))
+    (with-open-schema g
+      (doseq [^GraphElementClass sub sub-gecs]
+        (-> sub
+            (.getAttribute (name attr))
+            .delete))
+      (.createAttribute super-gec (name attr) dom def))))
+
 ;;### Renaming
 
 (defn ^:private old-attr-idx-map
@@ -685,7 +712,7 @@ with name `gcname`."
                          (map (fn [edge]
                                 [edge (tg/alpha edge) (tg/omega edge)])
                               els))))
-              (doseq [attr (g/mm-attributes (get-aec g super))]
+              (doseq [attr (map #(.getName ^Attribute %) (.getAttributeList super-gec))]
                 (e/set-avals! g super attr
                               (fn []
                                 (map (fn [el]

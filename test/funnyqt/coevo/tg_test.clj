@@ -60,10 +60,10 @@
   (when (seq (.getVertexClasses (.getGraphClass (tg/schema g))))
     (throw (RuntimeException. "BANG")))
   (e/ensure-trace-mappings
-    (coevo/create-vertex-class! g 'Top (fn [] [:t]))
-    (coevo/create-vertex-class! g 'Sibling1 (fn [] [:s1]))
-    (coevo/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
-    (coevo/create-vertex-class! g 'Bottom (fn [] [:b]))))
+   (coevo/create-vertex-class! g 'Top (fn [] [:t]))
+   (coevo/create-vertex-class! g 'Sibling1 (fn [] [:s1]))
+   (coevo/create-vertex-class! g 'Sibling2 (fn [] [:s2]))
+   (coevo/create-vertex-class! g 'Bottom (fn [] [:b]))))
 
 (deftest test-set-abstract-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -209,20 +209,20 @@
 
 (defn delete-vc-spec-base [g]
   (e/ensure-trace-mappings
-    (top-sibs-bottom g)
-    (coevo/create-specialization! g 'Top 'Sibling1)
-    (coevo/create-specialization! g 'Top 'Sibling2)
-    (coevo/create-specialization! g 'Sibling1 'Bottom)
-    (coevo/create-specialization! g 'Sibling2 'Bottom)
-    (coevo/create-attribute! g 'Top :t 'String (fn [] {(e/element-image :t)  "t-top"
-                                                       (e/element-image :s1) "t-s1"
-                                                       (e/element-image :s2) "t-s2"
-                                                       (e/element-image :b)  "t-bottom"}))
-    (coevo/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/element-image :s1) "s1-s1"
-                                                             (e/element-image :b)  "s1-bottom"}))
-    (coevo/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/element-image :s2) "s2-s2"
-                                                             (e/element-image :b)  "s2-bottom"}))
-    (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/element-image :b)  "b-bottom"}))))
+   (top-sibs-bottom g)
+   (coevo/create-specialization! g 'Top 'Sibling1)
+   (coevo/create-specialization! g 'Top 'Sibling2)
+   (coevo/create-specialization! g 'Sibling1 'Bottom)
+   (coevo/create-specialization! g 'Sibling2 'Bottom)
+   (coevo/create-attribute! g 'Top :t 'String (fn [] {(e/element-image :t)  "t-top"
+                                                      (e/element-image :s1) "t-s1"
+                                                      (e/element-image :s2) "t-s2"
+                                                      (e/element-image :b)  "t-bottom"}))
+   (coevo/create-attribute! g 'Sibling1 :s1 'String (fn [] {(e/element-image :s1) "s1-s1"
+                                                            (e/element-image :b)  "s1-bottom"}))
+   (coevo/create-attribute! g 'Sibling2 :s2 'String (fn [] {(e/element-image :s2) "s2-s2"
+                                                            (e/element-image :b)  "s2-bottom"}))
+   (coevo/create-attribute! g 'Bottom :b 'String (fn [] {(e/element-image :b)  "b-bottom"}))))
 
 (deftest test-delete-spec-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -413,9 +413,9 @@
 (deftest test-ec-delete-1
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
         [img arch] (e/ensure-trace-mappings
-                     (delete-vc-ec-spec-base g)
-                     ;; Should delete EdgeClasses T2S2 and S12S2 because that's a subclass.
-                     (coevo/delete-graph-element-class! g 'T2S2))]
+                    (delete-vc-ec-spec-base g)
+                    ;; Should delete EdgeClasses T2S2 and S12S2 because that's a subclass.
+                    (coevo/delete-graph-element-class! g 'T2S2))]
     (is (= ['T2T 'S12T] (map g/qname (.getEdgeClasses (.getGraphClass (tg/schema g))))))
     (is (q/forall? #(g/has-type? % '[:or T2T S12T]) (tg/eseq g)))
     (doseq [[k _] arch]
@@ -614,6 +614,8 @@
      {:from-kind AggregationKind/COMPOSITE
       :to-kind AggregationKind/NONE})))
 
+;;## Tests for downtype!
+
 (deftest test-downtype!-0
   (let [g (coevo/empty-graph 'test.towntype.DTSchema 'DTGraph)]
     (e/with-trace-mappings
@@ -649,3 +651,39 @@
            Exception #"Top is no superclass of Sub1 so can't downtype!"
            (coevo/downtype! g 'Top 'Sub1 (fn [t]
                                            (odd? (e/archetype g 'Top t)))))))))
+;;## Co-Evolution of Components Schema
+
+(defn component-graph []
+  (let [g (tg/new-graph (tg/load-schema "test/input/component-schema-v1.tg"))
+        c1 (tg/create-vertex! g 'Component {:name "A"})
+        c2 (tg/create-vertex! g 'Component {:name "B"})
+        c1p1 (tg/create-vertex! g 'Port {:name "in"})
+        c1p2 (tg/create-vertex! g 'Port {:name "out"})
+        c2p1 (tg/create-vertex! g 'Port {:name "in"})
+        c2p2 (tg/create-vertex! g 'Port {:name "out"})
+        con1 (tg/create-vertex! g 'Connector {:name "con1" :from c1p2 :to c2p1})
+        con2 (tg/create-vertex! g 'Connector {:name "con2" :from c2p2 :to c1p1})]
+    (g/add-adjs! c1 :ports [c1p1 c1p2])
+    (g/add-adjs! c2 :ports [c2p1 c2p2])
+    g))
+
+(deftest test-component-evo
+  (let [g (component-graph)]
+    ;; NamedElement specialization
+    (coevo/create-abstract-vertex-class! g 'NamedElement)
+    (coevo/create-specialization! g 'NamedElement 'Component)
+    (coevo/create-specialization! g 'NamedElement 'Port)
+    (coevo/create-specialization! g 'NamedElement 'Connector)
+    (coevo/pull-up-attribute! g 'NamedElement :name)
+
+    ;; Port specialization
+    (coevo/create-vertex-class! g 'InputPort)
+    (coevo/create-vertex-class! g 'OutputPort)
+    (coevo/create-specialization! g 'Port 'InputPort)
+    (coevo/create-specialization! g 'Port 'OutputPort)
+    (coevo/downtype! g 'Port 'InputPort (fn [p]
+                                          (seq (g/adjs p :incoming))))
+    (coevo/downtype! g 'Port 'OutputPort (fn [p]
+                                           (seq (g/adjs p :outgoing))))
+    ;; TODO: Add assertions!
+    ))
