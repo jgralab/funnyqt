@@ -464,6 +464,7 @@ with name `gcname`."
   Throws if not all subclasses declare `attr` or the declarations have no
   unique domain and default value."
   [g super attr]
+  ;; TODO: We must fix the attr array of direct instances of super!
   (let [^GraphElementClass super-gec (get-aec g super)
         sub-gecs  (.getDirectSubClasses super-gec)
         _ (when-not (seq sub-gecs)
