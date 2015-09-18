@@ -319,30 +319,31 @@ with name `gcname`."
   (let [^EdgeClass ec (get-aec g ec-qname)
         ^IncidenceClass from (.getFrom ec)
         ^IncidenceClass to (.getTo ec)]
-    (when-let [[fmin fmax] (:from-multis props)]
-      (.setMin from fmin)
-      (.setMax from fmax))
-    (when-let [frole (:from-role props)]
-      (.setRolename from frole))
-    (when-let [[tmin tmax] (:to-multis props)]
-      (.setMin to tmin)
-      (.setMax to tmax))
-    (when-let [trole (:to-role props)]
-      (.setRolename to trole))
-    (let [^AggregationKind fak (:from-kind props)
-          ^AggregationKind tak (:to-kind props)]
-      ;; In order to be able to swap the aggregation kinds of an EC, the
-      ;; setting to NONE must happen first.
-      (if (= fak AggregationKind/NONE)
-        (do (.setAggregationKind from fak)
-            (when tak (.setAggregationKind to tak)))
-        (if (= tak AggregationKind/NONE)
-          (do (.setAggregationKind to tak)
-              (when fak (.setAggregationKind from fak)))
-          ;; Else, probably only fak or tak has been given.
-          (do
-            (when fak (.setAggregationKind from fak))
-            (when tak (.setAggregationKind to tak))))))))
+    (with-open-schema g
+      (when-let [[fmin fmax] (:from-multis props)]
+        (.setMin from fmin)
+        (.setMax from fmax))
+      (when-let [frole (:from-role props)]
+        (.setRolename from (name frole)))
+      (when-let [[tmin tmax] (:to-multis props)]
+        (.setMin to tmin)
+        (.setMax to tmax))
+      (when-let [trole (:to-role props)]
+        (.setRolename to (name trole)))
+      (let [^AggregationKind fak (:from-kind props)
+            ^AggregationKind tak (:to-kind props)]
+        ;; In order to be able to swap the aggregation kinds of an EC, the
+        ;; setting to NONE must happen first.
+        (if (= fak AggregationKind/NONE)
+          (do (.setAggregationKind from fak)
+              (when tak (.setAggregationKind to tak)))
+          (if (= tak AggregationKind/NONE)
+            (do (.setAggregationKind to tak)
+                (when fak (.setAggregationKind from fak)))
+            ;; Else, probably only fak or tak has been given.
+            (do
+              (when fak (.setAggregationKind from fak))
+              (when tak (.setAggregationKind to tak)))))))))
 
 ;;## Attributes
 

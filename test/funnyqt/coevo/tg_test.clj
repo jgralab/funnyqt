@@ -289,26 +289,26 @@
 
 (defn delete-vc-ec-spec-base [g]
   (e/ensure-trace-mappings
-    (delete-vc-spec-base g)
-    (coevo/create-edge-class! g 'T2T 'Top 'Top
-                              (fn []
-                                [[:t2t (e/source-image :t) (e/target-image :t)]]))
-    (coevo/create-attribute! g 'T2T :t2t 'String
+   (delete-vc-spec-base g)
+   (coevo/create-edge-class! g 'T2T 'Top 'Top
                              (fn []
-                               {(e/element-image :t2t) "t-t2t"}))
-    (coevo/create-edge-class! g 'T2S2 'Top 'Sibling2
-                              (fn []
-                                [[:t2s2 (e/source-image :t) (e/target-image :s2)]]))
-    (coevo/create-specialization! g 'T2T 'T2S2)
-    (coevo/create-edge-class! g 'S12T 'Sibling1 'Top
-                              (fn []
-                                [[:s12t (e/source-image :s1) (e/target-image :t)]]))
-    (coevo/create-specialization! g 'T2T 'S12T)
-    (coevo/create-edge-class! g 'S12S2 'Sibling1 'Sibling2
-                              (fn []
-                                [[:s12s2 (e/source-image :s1) (e/target-image :s2)]]))
-    (coevo/create-specialization! g 'S12T 'S12S2)
-    (coevo/create-specialization! g 'T2S2 'S12S2)))
+                               [[:t2t (e/source-image :t) (e/target-image :t)]]))
+   (coevo/create-attribute! g 'T2T :t2t 'String
+                            (fn []
+                              {(e/element-image :t2t) "t-t2t"}))
+   (coevo/create-edge-class! g 'T2S2 'Top 'Sibling2
+                             (fn []
+                               [[:t2s2 (e/source-image :t) (e/target-image :s2)]]))
+   (coevo/create-specialization! g 'T2T 'T2S2)
+   (coevo/create-edge-class! g 'S12T 'Sibling1 'Top
+                             (fn []
+                               [[:s12t (e/source-image :s1) (e/target-image :t)]]))
+   (coevo/create-specialization! g 'T2T 'S12T)
+   (coevo/create-edge-class! g 'S12S2 'Sibling1 'Sibling2
+                             (fn []
+                               [[:s12s2 (e/source-image :s1) (e/target-image :s2)]]))
+   (coevo/create-specialization! g 'S12T 'S12S2)
+   (coevo/create-specialization! g 'T2S2 'S12S2)))
 
 (deftest test-delete-vc-spec-with-conn-ecs-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)]
@@ -388,9 +388,9 @@
 (deftest test-ec-delete-0
   (let [g (coevo/empty-graph 'test.multi_inherit.MISchema 'MIGraph)
         [img arch] (e/ensure-trace-mappings
-                     (delete-vc-ec-spec-base g)
-                     ;; Should delete all EdgeClasses and all edges
-                     (coevo/delete-graph-element-class! g 'T2T))]
+                    (delete-vc-ec-spec-base g)
+                    ;; Should delete all EdgeClasses and all edges
+                    (coevo/delete-graph-element-class! g 'T2T))]
     (is (= [] (.getEdgeClasses (.getGraphClass (tg/schema g)))))
     (is (= [] (tg/eseq g)))
     (doseq [[k _] arch]
@@ -685,5 +685,20 @@
                                           (seq (g/adjs p :incoming))))
     (coevo/downtype! g 'Port 'OutputPort (fn [p]
                                            (seq (g/adjs p :outgoing))))
-    ;; TODO: Add assertions!
-    ))
+    
+    ;; Role renaming
+    (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
+    (coevo/rename-attributed-element-class! g 'GoesTo    'HasTarget)
+    (coevo/set-incidence-class-properties! g 'HasSource {:to-role :source})
+    (coevo/set-incidence-class-properties! g 'HasTarget {:to-role :target})
+    
+    #_(funnyqt.visualization/print-model g :gtk)
+    
+    (is (== 4 (tg/vcount g 'Port)))
+    (is (== 2 (tg/vcount g 'InputPort)))
+    (is (== 2 (tg/vcount g 'OutputPort)))
+    (is (q/forall?
+         (fn [con]
+           (and (g/has-type? (g/adj con :source) 'OutputPort)
+                (g/has-type? (g/adj con :target) 'InputPort)))
+         (tg/vseq g 'Connector)))))
