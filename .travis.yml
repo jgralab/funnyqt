@@ -4,6 +4,11 @@ sudo: false
 branches:
   only:
     - master
+cache:
+  directories:
+    - $HOME/.m2
 jdk:
   - openjdk7
+  - openjdk8
   - oraclejdk7
+  - oraclejdk8
