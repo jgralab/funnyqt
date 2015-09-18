@@ -272,6 +272,39 @@
       (instance? org.eclipse.emf.common.util.UniqueEList l)
       (instance? java.util.Map l)))
 
+(defn no-dups
+  "Returns a lazy sequence of the elements of `coll` with duplicates removed.
+  If `coll` is a unique collection (e.g., a Set), simply returns that again.
+  With no args, returns a transducer."
+  ([]
+   (fn [xf]
+     (let [seen (java.util.HashSet.)]
+       (fn
+         ([] (xf))
+         ([result]
+          (.clear seen)
+          (xf result))
+         ([result input]
+          (if (.contains seen input)
+            result
+            (do (.add seen input)
+                (xf result input))))))))
+  ([coll]
+   (if (unique-coll? coll)
+     coll
+     (let [step (^:once fn* step [xs ^java.util.Set seen]
+                        (lazy-seq
+                         ((^:once fn* [xs ^java.util.Set seen]
+                                  (when-let [s (seq xs)]
+                                    (let [f (first s)]
+                                      (if (.contains seen f)
+                                        (recur (rest s) seen)
+                                        (do
+                                          (.add seen f)
+                                          (cons f (step (rest s) seen)))))))
+                          xs seen)))]
+       (step coll (java.util.HashSet.))))))
+
 (defn array-pset
   "Returns an ArrayPSet containing the given args.  ArrayPSets cannot contain
   nil, so nil args are not considered, e.g., (array-pset nil) returns the empty

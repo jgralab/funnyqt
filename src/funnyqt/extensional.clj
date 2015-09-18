@@ -244,7 +244,7 @@
   `funnyqt.extensional/*arch*`.  Returns the sequence of new elements."
   [m cls archfn]
   (let [mm-cls (g/mm-class m cls)
-        archs (set (archfn))]
+        archs (u/no-dups (archfn))]
     (check-trace-mappings mm-cls archs)
     (loop [as archs
            im (transient {})]

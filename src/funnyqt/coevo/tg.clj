@@ -25,11 +25,17 @@
     (invoke [_ ae ary]
       (f ae ary))))
 
+(defn ^:private get-aec [g aec]
+  (if (tg/attributed-element-class? aec)
+    aec
+    (tg/attributed-element-class g aec)))
+
 (defn ^:private element-seq
   ([g aec]
    (element-seq g aec false))
   ([g aec only-direct-instances]
-   (let [ts (g/qname aec)
+   (let [aec (get-aec g aec)
+         ts (g/qname aec)
          ts (if only-direct-instances
               (symbol (str ts "!"))
               ts)]
@@ -48,11 +54,6 @@
        (.finish s#)
        (tg/reset-all-tg-caches))
      r#))
-
-(defn ^:private get-aec [g aec]
-  (if (tg/attributed-element-class? aec)
-    aec
-    (tg/attributed-element-class g aec)))
 
 ;;# Schema functions
 ;;## Create a new schema & empty graph
@@ -655,19 +656,24 @@ with name `gcname`."
      g sub-gec (determine-obsolete-attributes-after-removing-specialization
                 super-gec all-subs))))
 
-(defn retype!
-  "Retypes instances of graph element class `super` for which `predicate` holds
-  to instances of subclass `sub`.  Concretely, for each `super` instance a
-  corresponding `sub` instance is created, and all attribute values are copied
-  over.  When retyping between a vertex classes, also the edges incident to the
-  selected `super` instances are relinked to the new `sub` instance.
+(defn downtype!
+  "Retypes direct instances of super-graph element class `super` for which
+  `predicate` holds to instances of subclass `sub`.  Concretely, for each
+  `super` instance a corresponding `sub` instance is created, and all attribute
+  values are copied over.  When retyping between a vertex classes, also the
+  edges incident to the selected `super` instances are relinked to the new
+  `sub` instance.
 
   Also the traceability mappings are adapted accordingly, i.e., archetypes of
   `super` instances become instances of `sub` instances."
   [g super sub predicate]
-  (let [els (filter predicate (element-seq g super true))]
+  (let [els       (into [] (filter predicate) (element-seq g super true))
+        super-gec (get-aec g super)
+        sub-gec   (get-aec g sub)]
+    (when-not (g/mm-superclass? super-gec sub-gec)
+      (u/errorf "%s is no superclass of %s so can't downtype!" super sub))
     (when (seq els)
-      (let [[img arch]
+      (let [[nimg narch]
             (e/with-trace-mappings
               (cond
                 (tg/vertex? (first els))
@@ -687,16 +693,17 @@ with name `gcname`."
                                      els))))
               (when (tg/vertex? (first els))
                 (doseq [el els]
-                  (tg/relink! el (e/image g sub el))))
-              (g/delete! els true))]
+                  (tg/relink! el (e/image g sub el)))))]
         ;; Fix mappings so that archetypes for old super instances are now
         ;; archetypes for the retyped sub instances.
         (when (bound? #'e/*img*)
-          (let [super-gec (get-aec g super)
-                sub-gec   (get-aec g sub)
-                old-archs (e/archetype-map super-gec)]
-            (doseq [[oel arch] old-archs]
+          (let [old-archs (into [] (filter (fn [[oel oarch]]
+                                             (get-in nimg [sub-gec oel])))
+                                (e/archetype-map super-gec))]
+            (doseq [[oel oarch] old-archs]
               (swap! e/*arch* update-in [super-gec] dissoc oel)
-              (swap! e/*arch* update-in [sub-gec] assoc (img sub oel) arch)
-              (swap! e/*img* update-in [super-gec] dissoc arch)
-              (swap! e/*img* update-in [sub-gec] assoc arch (img sub oel)))))))))
+              (swap! e/*arch* update-in [sub-gec] assoc ((nimg sub-gec) oel) oarch)
+              (swap! e/*img* update-in [super-gec] dissoc oarch)
+              (swap! e/*img* update-in [sub-gec] assoc oarch ((nimg sub-gec) oel)))))
+        ;; Finally, delete the old elements!
+        (g/delete! els true)))))

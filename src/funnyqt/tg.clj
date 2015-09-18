@@ -1404,9 +1404,9 @@ For a Graph it is a string, for vertices and edges its an integer."
   The incidences can be restricted by type spec `ts` and `ds` (see
   `funnyqt.generic/type-matcher` and `funnyqt.generic/direction-matcher`)."
   ([from to]
-   (relink! from to identity identity))
+   (relink! from to nil nil))
   ([from to ts]
-   (relink! from to ts identity))
+   (relink! from to ts nil))
   ([from to ts ds]
    (let [pred (every-pred (direction-matcher ds) (g/type-matcher from ts))]
      (loop [inc (first-inc from pred)]

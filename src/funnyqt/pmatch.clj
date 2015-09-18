@@ -296,7 +296,7 @@
                                                                             all-syms))))
         patterns (map #(build-nested-pattern pname % model-sym binding-var-set pattern-var-set)
                       alternative-specs)]
-    `[:for [~all-syms (q/no-dups (concat ~@patterns))]]))
+    `[:for [~all-syms (u/no-dups (concat ~@patterns))]]))
 
 (defn ^:private nested-specs-to-let [pname nested-specs model-sym binding-var-set pattern-var-set]
   ;; nested-specs is [np1 [...pattern...], np2 [...pattern...]]
@@ -582,7 +582,7 @@
          ;; and save the no-dups call.  That's a bit faster than (sequence
          ;; xform start-coll) which needs to be fully realized here anyway.
          `(into #{} ~(make-comp xforms) ~start-coll)
-         `(q/no-dups ~seq-form))]
+         `(u/no-dups ~seq-form))]
       ;;---
       :else (u/errorf "Don't know how to handle anon-vec %s." av))))
 
@@ -1344,7 +1344,7 @@
                ;; Lazy Case
                (let [code `(u/for+ ~bf ~result-form)]
                  (if (:distinct (meta bf))
-                   `(q/no-dups ~code)
+                   `(u/no-dups ~code)
                    code)))))))))
 
 (defn ^:private extract-pattern-specs

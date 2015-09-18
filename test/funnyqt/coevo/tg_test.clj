@@ -613,3 +613,39 @@
      g 'TestEC
      {:from-kind AggregationKind/COMPOSITE
       :to-kind AggregationKind/NONE})))
+
+(deftest test-downtype!-0
+  (let [g (coevo/empty-graph 'test.towntype.DTSchema 'DTGraph)]
+    (e/with-trace-mappings
+      (coevo/create-vertex-class! g 'Top (fn [] [1 2 3 4]))
+      (coevo/create-vertex-class! g 'Sub1)
+      (coevo/create-vertex-class! g 'Sub2)
+      (coevo/create-specialization! g 'Top 'Sub1)
+      (coevo/create-specialization! g 'Top 'Sub2)
+      (clojure.pprint/pprint (deref e/*arch*))
+      (coevo/downtype! g 'Top 'Sub1 (fn [t]
+                                      (odd? (e/archetype g 'Top t))))
+      (coevo/downtype! g 'Top 'Sub2 (fn [t]
+                                      (even? (e/archetype g 'Top t))))
+      (is (zero? (tg/vcount g 'Top!)))
+      (is (== 2 (tg/vcount g 'Sub1)))
+      (is (== 2 (tg/vcount g 'Sub2)))
+      (doseq [i [1 3]]
+        (is (e/image g 'Top i))
+        (is (e/image g 'Sub1 i))
+        (is (nil? (e/image g 'Sub2 i))))
+      (doseq [i [2 4]]
+        (is (e/image g 'Top i))
+        (is (e/image g 'Sub2 i))
+        (is (nil? (e/image g 'Sub1 i)))))))
+
+(deftest test-downtype!-1
+  (let [g (coevo/empty-graph 'test.towntype.DTSchema 'DTGraph)]
+    (e/with-trace-mappings
+      (coevo/create-vertex-class! g 'Top (fn [] [1 2 3 4]))
+      (coevo/create-vertex-class! g 'Sub1)
+      ;; This must throw because Sub1 is no subclass of Top
+      (is (thrown-with-msg?
+           Exception #"Top is no superclass of Sub1 so can't downtype!"
+           (coevo/downtype! g 'Top 'Sub1 (fn [t]
+                                           (odd? (e/archetype g 'Top t)))))))))
