@@ -624,7 +624,6 @@
       (coevo/create-vertex-class! g 'Sub2)
       (coevo/create-specialization! g 'Top 'Sub1)
       (coevo/create-specialization! g 'Top 'Sub2)
-      (clojure.pprint/pprint (deref e/*arch*))
       (coevo/downtype! g 'Top 'Sub1 (fn [t]
                                       (odd? (e/archetype g 'Top t))))
       (coevo/downtype! g 'Top 'Sub2 (fn [t]
@@ -667,31 +666,33 @@
     (g/add-adjs! c2 :ports [c2p1 c2p2])
     g))
 
+(defn evolve-component-schema [g]
+  ;; NamedElement specialization
+  (coevo/create-abstract-vertex-class! g 'NamedElement)
+  (coevo/create-specialization! g 'NamedElement 'Component)
+  (coevo/create-specialization! g 'NamedElement 'Port)
+  (coevo/create-specialization! g 'NamedElement 'Connector)
+  (coevo/pull-up-attribute! g 'NamedElement :name)
+
+  ;; Port specialization
+  (coevo/create-vertex-class! g 'InputPort)
+  (coevo/create-vertex-class! g 'OutputPort)
+  (coevo/create-specialization! g 'Port 'InputPort)
+  (coevo/create-specialization! g 'Port 'OutputPort)
+  (coevo/downtype! g 'Port 'InputPort (fn [p]
+                                        (seq (g/adjs p :incoming))))
+  (coevo/downtype! g 'Port 'OutputPort (fn [p]
+                                         (seq (g/adjs p :outgoing))))
+
+  ;; Role renaming
+  (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
+  (coevo/rename-attributed-element-class! g 'GoesTo    'HasTarget)
+  (coevo/set-incidence-class-properties! g 'HasSource {:to-role :source})
+  (coevo/set-incidence-class-properties! g 'HasTarget {:to-role :target}))
+
 (deftest test-component-evo
   (let [g (component-graph)]
-    ;; NamedElement specialization
-    (coevo/create-abstract-vertex-class! g 'NamedElement)
-    (coevo/create-specialization! g 'NamedElement 'Component)
-    (coevo/create-specialization! g 'NamedElement 'Port)
-    (coevo/create-specialization! g 'NamedElement 'Connector)
-    (coevo/pull-up-attribute! g 'NamedElement :name)
-
-    ;; Port specialization
-    (coevo/create-vertex-class! g 'InputPort)
-    (coevo/create-vertex-class! g 'OutputPort)
-    (coevo/create-specialization! g 'Port 'InputPort)
-    (coevo/create-specialization! g 'Port 'OutputPort)
-    (coevo/downtype! g 'Port 'InputPort (fn [p]
-                                          (seq (g/adjs p :incoming))))
-    (coevo/downtype! g 'Port 'OutputPort (fn [p]
-                                           (seq (g/adjs p :outgoing))))
-
-    ;; Role renaming
-    (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
-    (coevo/rename-attributed-element-class! g 'GoesTo    'HasTarget)
-    (coevo/set-incidence-class-properties! g 'HasSource {:to-role :source})
-    (coevo/set-incidence-class-properties! g 'HasTarget {:to-role :target})
-
+    (evolve-component-schema g)
     #_(funnyqt.visualization/print-model g :gtk)
 
     (is (== 4 (tg/vcount g 'Port)))
