@@ -667,6 +667,12 @@
     g))
 
 (defn evolve-component-schema [g]
+  ;; (1) Check preconditions
+  (when-not (q/forall? #(q/xor (seq (g/adjs % :incoming))
+                               (seq (g/adjs % :outgoing)))
+                       (tg/vseq g 'Port))
+    (u/error "Graph contains ports which are not connected or both input and output!"))
+
   ;; NamedElement specialization
   (coevo/create-abstract-vertex-class! g 'NamedElement)
   (coevo/create-specialization! g 'NamedElement 'Component)
@@ -683,6 +689,7 @@
                                         (seq (g/adjs p :incoming))))
   (coevo/downtype! g 'Port 'OutputPort (fn [p]
                                          (seq (g/adjs p :outgoing))))
+  (coevo/set-abstract! g 'Port true)
 
   ;; Role renaming
   (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
