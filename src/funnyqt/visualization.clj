@@ -87,7 +87,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
         r))))
 
 (defn ^:private dot-options [opts]
-  (letfn [(update [m k v]
+  (letfn [(add-default [m k v]
             (if (get m k)
               m
               (assoc m k v)))]
@@ -101,9 +101,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           ;; ditto for :exclude
           exclude (:exclude m)
           m (dissoc m :exclude)
-          ;; ditto for :excluded-attributes
-          excluded-attibutes (:excluded-attributes m)
-          m (dissoc m :excluded-attributes)
+          ;; ditto for :exclude-attributes
+          excluded-attibutes (:exclude-attributes m)
+          m (dissoc m :exclude-attributes)
           ;; ditto for :mark
           mark (:mark m)
           m (dissoc m :mark)
@@ -117,10 +117,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           qnames (:qualified-names m)
           m (dissoc m :qualified-names)
           ;; Add default values
-          m (update m :ranksep 1.5)]
+          m (add-default m :ranksep 1.5)]
       (with-meta m
         {:name gname, :include include, :exclude exclude,
-         :excluded-attributes excluded-attibutes, :mark mark,
+         :exclude-attributes excluded-attibutes, :mark mark,
          :node-attrs node-attrs, :edge-attrs edge-attrs,
          :qualified-names qnames}))))
 
@@ -349,7 +349,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (binding [*included* (when-let [included (:include (meta opts))]
                            (set included))
               *excluded* (set (:exclude (meta opts)))
-              *excluded-attributes* (or (:excluded-attributes (meta opts))
+              *excluded-attributes* (or (:exclude-attributes (meta opts))
                                         {})
               *marked*   (if-let [mark (:mark (meta opts))]
                            (cond
@@ -404,7 +404,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   and omega vertex are printed.  To forbid printing of certain edges where
   alpha/omega are printed, it is possible to add them to :exclude, though.
 
-  The option :excluded-attributes is a map of the form {pred [:attr1 :attr2]}
+  The option :exclude-attributes is a map of the form {pred [:attr1 :attr2]}
   determining that these two attributes should not be printed for elements for
   which pred holds.
 
