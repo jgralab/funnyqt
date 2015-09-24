@@ -22,39 +22,46 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 ;;** Generic stuff
 
 (def ^{:dynamic true
+       :private true
        :doc "A set of elements to be included in the visualization.  This is
   not to be used directly but set by `print-model` according to its :include
   option."}
   *included*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A set of elements to be excluded in the visualization.  This is
   not to be used directly but set by `print-model` according to its :exclude
   option."}
   *excluded*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A map from predicates to set of attributes which should not be
   printed for elements that match the predicate."}
   *excluded-attributes*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A set of elements to be printed in red instead of black.  It might
   also be a predicate receiving a model element.  This is not to be used
   directly but set by `print-model` according to its :mark option."}
   *marked*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A map of the form {pred node-attrs}.  If (pred el) returns true,
   node-attrs is appended to its node definition.  Useful for colorizing etc."}
   *node-attrs*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A map of the form {pred edge-attrs}.  If (pred e) returns true,
   edge-attrs is appended to its edge definition.  Useful for colorizing etc."}
   *edge-attrs*)
 
 (def ^{:dynamic true
+       :private true
        :doc "A boolean determining if class names should be printed fully
   qualified or not.  This is not to be used directly but set by `print-model`
   according to its :qualified-names option."}
@@ -133,7 +140,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
 
 ;;** EMF stuff
 
-(def ^{:private true, :dynamic true
+(def ^{:private true
+       :dynamic true
        :doc "Opposite refs: those are not dotted, cause we already
   printed them from the other direction."}
   *emf-opposite-refs*)
@@ -254,7 +262,7 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
          (add-attrs v *node-attrs*)
          "];\n")))
 
-(defn tg-role-name [^de.uni_koblenz.jgralab.schema.IncidenceClass ic]
+(defn ^:private tg-role-name [^de.uni_koblenz.jgralab.schema.IncidenceClass ic]
   (when ic
     (let [r (.getRolename ic)]
       (if (seq r)
