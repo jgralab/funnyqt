@@ -386,6 +386,8 @@
 
 (extend-protocol IMMElementClass
   Object
+  (mm-element-class? [_] false)
+  nil
   (mm-element-class? [_] false))
 
 (defprotocol IMMRelationshipClass
@@ -394,6 +396,8 @@
 
 (extend-protocol IMMRelationshipClass
   Object
+  (mm-relationship-class? [_] false)
+  nil
   (mm-relationship-class? [_] false))
 
 (defprotocol IMMRelationshipClassSourceTarget
