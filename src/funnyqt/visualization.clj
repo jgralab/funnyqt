@@ -165,7 +165,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (let [h (emf-dot-id eo)]
       (str "  " h
            " [label=\"{{:" (if *print-qualified-names*
-                             (g/qname eo)
+                             ((if (= *print-qualified-names* :unique)
+                                g/uname g/qname) eo)
                              (.getName (.eClass eo)))
            "}|"
            (emf-dot-attributes eo)
@@ -253,7 +254,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
     (str "  v" (tg/id v)
          " [label=\"{{v" (tg/id v) ": "
          (if *print-qualified-names*
-           (g/qname v)
+           ((if (= *print-qualified-names* :unique)
+              g/uname g/qname) v)
            (.getSimpleName (.getAttributedElementClass v)))
          "}|"
          (tg-dot-attributes v)
@@ -282,7 +284,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
       (str "  v" (tg/id (tg/alpha e)) " -> v" (tg/id (tg/omega e))
            " [id=e" (tg/id e) ", label=\"e" (tg/id e) ": "
            (if *print-qualified-names*
-             (g/qname e)
+             ((if (= *print-qualified-names* :unique)
+                g/uname g/qname) e)
              (.getSimpleName (.getAttributedElementClass e)))
            "\\l"
            (tg-dot-attributes e)
@@ -429,8 +432,9 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   edges.  (And therefore, this option is only available with JGraLab TGraphs.)
 
   If the option :qualified-names is set to true, the element types will be
-  printed as fully qualified names.  The default is false, where only simple
-  class names are printed."
+  printed as fully qualified names.  If it is set to :unique, the unique names
+  will be printed.  The default is false where only simple class names are
+  printed."
   [m f & opts]
   (let [ds (dot-model m opts)
         dot (fn
