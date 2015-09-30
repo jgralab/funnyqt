@@ -95,10 +95,7 @@
   `(binding [*ns-uris* ~uris]
      ~@body))
 
-(def ^:private registry-access-classloader
-  (if 
-      (ClassLoader/getSystemClassLoader)
-    :current))
+(def ^:private registry-access-classloader :current)
 
 (defn set-registry-access-classloader! [cl]
   (if (or (= cl :current)
