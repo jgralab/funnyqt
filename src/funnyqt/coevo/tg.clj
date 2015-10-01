@@ -152,8 +152,9 @@ with name `gcname`."
 
 (defn delete-graph-element-class!
   "Deletes the GraphElementClass with qualified name `qname` in the schema of
-  graph `g`.  All its subclasses will be deleted, too, and likewise all
-  instances in the graph.  Additionally, the traceability information
+  graph `g`.  VertexClasses can only be deleted if there are no incident
+  EdgeClasses anymore.  All its subclasses will be deleted, too, and likewise
+  all instances in the graph.  Additionally, the traceability information
   wrt. class and its subclasses is purged from `funnyqt.extensional/*arch*` and
   `funnyqt.extensional/*img*`."
   [g qname]
@@ -161,6 +162,8 @@ with name `gcname`."
     (if (or (tg/vertex-class? aec) (tg/edge-class? aec))
       (let [els (vec (element-seq g aec))
             all-subs (conj (seq (.getAllSubClasses ^GraphElementClass aec)) aec)]
+        ;; JGraLab already takes care that one cannot delete a VC which still
+        ;; has connected ECs.
         (with-open-schema g
           (.delete ^GraphElementClass aec))
         (when (bound? #'e/*arch*)
