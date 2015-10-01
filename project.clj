@@ -4,7 +4,7 @@
   :dependencies [[org.clojure/clojure "1.8.0-alpha5"]
                  [org.clojure/core.cache "0.6.4"]
                  [org.clojure/data.priority-map "0.0.7"]
-                 [de.uni-koblenz.ist/jgralab "8.0.10"]
+                 [de.uni-koblenz.ist/jgralab "8.0.12"]
                  [org.clojure/core.logic "0.8.10"]
                  [org.flatland/ordered "1.5.3"]
                  [org.clojure/tools.macro "0.1.5"]
