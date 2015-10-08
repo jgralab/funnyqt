@@ -124,23 +124,28 @@
         :when t]
     `(and ~e (g/has-type? ~e ~t))))
 
-(defn ^:private create-vector [v outs]
+(defn ^:private create-vector-and-prop-setters [v outs]
   ;; [a 'A
   ;;  b 'B :in foo
   ;;  c 'C {:p1 "foo"}
   ;;  d 'D :in foo {:p1 "foo"}
   ;;  e 'E {:p1 "foo"} :in foo
-  ;;  f (rule-call ...)]       ;; f is initialized by another rule
+  ;;  f (expr-evaling-to-type ...) (expr-evaling-to-prop-map ...)]
   (letfn [(model? [v]
             (or (when (= (get v 2) :in) 3)
-                (when (and (= (get v 3) :in)
-                           (map? (get v 2)))
-                  4)))
+                (and (= (get v 3) :in)
+                     (map? (get v 2))
+                     4)))
           (props? [v]
-            (or (when (map? (get v 2)) 2)
-                (when (and (map? (get v 4))
-                           (= (get v 2) :in))
-                  4)))]
+            (or (let [x (get v 2)]
+                  (and x
+                       (map? x)
+                       2))
+                (let [x (get v 4)]
+                  (and x
+                       (map? x)
+                       (= (get v 2) :in)
+                       4))))]
     (let [v (loop [v v, r []]
               (if (seq v)
                 (let [m (model? v)
@@ -162,16 +167,14 @@
                    :else (recur (subvec v 2)
                                 (conj r [(first v) (second v) nil nil]))))
                 r))]
-      (vec (mapcat (fn [[sym type model prop-map]]
-                     [sym (if (and (seq? type) (= 'quote (first type)))
-                            ;; type is a type-spec
-                            `(g/create-element! ~(or model (first outs)) ~type ~prop-map)
-                            ;; type is an expression
-                            (if (or model prop-map)
-                              (u/errorf "%s is initialized by expression %s where no model and prop-map are supported: %s"
-                                        sym type [model prop-map])
-                              type))])
-                   v)))))
+      {:create-vector (into [] (mapcat (fn [[sym type model prop-map]]
+                                         [sym `(g/create-element! ~(or model (first outs)) ~type)]))
+                            v)
+       :prop-setters (into [] (comp (map (fn [[sym type model prop-map]]
+                                           (when prop-map
+                                             `(g/set-props! ~sym ~prop-map))))
+                                    (remove nil?))
+                           v)})))
 
 (defn ^:private disjunct-rules [rule-map]
   (seq (take-while (fn [x]
@@ -187,7 +190,9 @@
         trace-src (if (= 1 (count arg-vec))
                     (first arg-vec)
                     arg-vec)
-        create-vec (create-vector (:to rule-map) outs)
+        create-vec-and-prop-setters (create-vector-and-prop-setters (:to rule-map) outs)
+        create-vec (:create-vector create-vec-and-prop-setters)
+        prop-setters (:prop-setters create-vec-and-prop-setters)
         created (mapv first (partition 2 create-vec))
         retval (if (= (count created) 1)
                  (first created)
@@ -204,6 +209,7 @@
                          ~@(when (:id rule-map)
                              `[(swap! *trace* update-in [~(keyword (:name rule-map))]
                                       assoc ~id ~retval)])
+                         ~@prop-setters
                          ~@(:body rule-map)
                          ~retval)
         handle-cs-and-bs (fn [body]
@@ -292,8 +298,8 @@
       :let  [y (some-other-fn a x)
              z (some-other-fn2 a x y)]
       :to   [b 'OutClass
-             c 'OutClass2
-             d (a2d a)]
+             c 'OutClass2 {:name id}
+             d 'OutClass3 :in out)]
       (do-stuff-with a x v b y z b c d))
 
   :from declares the number and types of elements for which this rule is
@@ -334,34 +340,34 @@
   after :when-let has matched, that is, the vars bound by :when-let may be used
   in the :let expressions, but not the other way round.
 
-  :to is a vector of output elements (paired with their types) that are to be
-  created.  As can be seen with the last example element d, an element may also
-  be created by invoking another rule.
+  :to is a vector of output elements paired with their type that are to be
+  created.
+
+    :to [b 'OutClass,
+         c (type-expr ...)]
+
+  As can be seen, the type may be the value of an expression which should
+  return either a qualified name as a symbol or the actual metamodel class
+  object.
 
   If there are multiple output models, the :to spec may state in which model a
   given object has to be created, e.g.,
 
-    :to [b 'OutClass  :in out1,
-         c 'OutClass2 :in out2
-         d (a2d a)]
+    :to [b 'OutClass :in out2,
+         c (type-expr ...) :in out2]
 
   If there are multiple output models but an element in :to doesn't specify the
   target model explicitly, the first output model in the transformation's
-  output model vector is used as a default.  Output elements created by other
-  rules must not have an :in specification because that's the responsibility of
-  the called rule (a2d, in the case above).
+  argument vector is used as a default.
 
   The :to vector may also specify values for the newly created element's
   properties (attributes and references).  Those a specified using a map.
 
-    :to [b 'OutClass  {:name \"Some Name\", ...},
-         c 'OutClass2 {:name \"Other name\", :links b}
-         d (a2d a)]
+    :to [b 'OutClass :in out2 {:name \"Some Name\", ...},
+         c (type-expr ...) {:name \"Other name\", :links b} :in out2]
 
-  If a target element specification contains both a property map and a :in
-  spec, they may occur in any order.  Like the :in spec, property maps are not
-  allowed for elements that are created by other rules such as the element d
-  above which is created by the rule a2d.
+  As can be seen, if a target element specification contains both a property
+  map and a :in spec, they may occur in any order.
 
   Following these special keyword-clauses, arbitrary code may follow, e.g., to
   set attributes and references of the newly created objects by calling other

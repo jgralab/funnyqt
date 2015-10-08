@@ -232,5 +232,32 @@
                                    g 'G {:name "Test4"} :in out2
                                    h 'H
                                    i 'I
-                                   j 'J :in out2 {:foo "Bar"}]))))))
+                                   j 'J :in out2 {:foo "Bar"}
+                                   k (symbol "SomeType")
+                                   l (symbol "SomeType") {:a 1 :b 2} :in out1
+                                   m 'A :in out2
+                                   n 'B {:a 1 :b 2}
+                                   o (symbol "C")
+                                   p (symbol "C")
+                                   q (symbol "C") {:a 1 :b 2}]))))))
 
+
+(deftransformation copy-transformation-1 [^:in old ^:out new]
+  (^:top element2element
+   :from [oel]
+   :let  [cls (g/mm-class oel)]
+   :to   [nel cls]
+   (doseq [attr (g/mm-all-attributes cls)]
+     (g/set-aval! nel attr (g/aval oel attr)))
+   (doseq [ref  (g/mm-all-references cls)]
+     (if (g/mm-multi-valued-property? cls ref)
+       (when-let [oadjs (seq (g/adjs oel ref))]
+         (g/set-adjs! nel ref (map element2element oadjs)))
+       (when-let [oadj (g/adj oel ref)]
+         (g/set-adj! nel ref (element2element oadj)))))))
+
+(deftest test-copy-transformation-1
+  (let [in  (emf/load-resource "test/input/example.families")
+        out (emf/new-resource)]
+    (copy-transformation-1 in out)
+    (is (g/equal-models? in out))))

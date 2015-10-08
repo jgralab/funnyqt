@@ -425,6 +425,12 @@
   (mm-direct-superclasses [metamodel-type]
     "Returns the direct superclasses of metamodel-type."))
 
+(defn mm-all-superclasses
+  "Returns the set of all direct and indirect superclasses of `cls`."
+  [cls]
+  (let [supers (set (mm-direct-superclasses cls))]
+    (into supers (mapcat mm-all-superclasses) supers)))
+
 (defprotocol IMMSuperclass
   (mm-superclass? [super sub]
     "Return true iff super is a direct or indirect super class of sub.
@@ -440,10 +446,27 @@
     "Returns the sequence of attributes declared for class `cls`.
   Each attribute is represented as a keyword."))
 
+(defn ^:private mm-all-props [cls props-fn]
+  (let [supers (mm-all-superclasses cls)]
+    (into #{} (concat (props-fn cls)
+                      (mapcat props-fn supers)))))
+
+(defn mm-all-attributes
+  "Returns the set of all attributes of `cls`, i.e., own and inherited
+  attributes."
+  [cls]
+  (mm-all-props cls mm-attributes))
+
 (defprotocol IMMReferences
   (mm-references [cls]
     "Returns the sequence of references declared for class `cls`.
   Each reference is represented as a keyword."))
+
+(defn mm-all-references
+  "Returns the set of all references of `cls`, i.e., own and inherited
+  references."
+  [cls]
+  (mm-all-props cls mm-references))
 
 (defprotocol IMMReferencedElementClass
   (mm-referenced-element-class [cls ref]
@@ -468,6 +491,29 @@
   (mm-enum-classes [m]
     "Returns a map of the following form:
     {EnumClass (CONST1 CONST2 ...), ...}"))
+
+;;# Setting properties
+
+(defn set-props!
+  "Sets the properties of `el` and return `el` again.
+  Properties may either be given as key-value pairs or as one single map from
+  keywords to values.  Note that this function is not very efficient because it
+  has to check for each given property if it is an attribute or a reference,
+  and for the latter it has to check if it is single- or multi-valued."
+  ([el props]
+   (let [cls (mm-class el)
+         attrs (into #{} (mm-all-attributes cls))
+         refs  (into #{} (mm-all-references cls))]
+     (doseq [[prop val] props]
+       (cond
+         (attrs prop) (set-aval! el prop val)
+         (refs prop)  (if (mm-multi-valued-property? cls prop)
+                        (set-adjs! el prop val)
+                        (set-adj! el prop val))
+         :else (u/errorf "Unknown property %s for %s." prop el)))
+     el))
+  ([el prop val & more]
+   (set-props! el (apply hash-map prop val more))))
 
 ;;# Metamodel-specific API generator
 
