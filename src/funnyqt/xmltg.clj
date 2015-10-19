@@ -47,8 +47,8 @@ If the XML file has no DTD, you can influence the resolution by providing an
        :arglists '([e])}
   ns-uri (partial ns-get :nsURI))
 
-(defn expanded-name
-  "Returns the expanded name of the give Element, i.e., \"nsprefix:name\"."
+(defn qualified-name
+  "Returns the qualified name of the give Element, i.e., \"nsprefix:name\"."
   [e]
   (if-let [n (ns-prefix e)]
     (str n ":" (tg/value e :name))
@@ -62,8 +62,8 @@ If the XML file has no DTD, you can influence the resolution by providing an
     (str n ":" (tg/value e :name))
     (tg/value e :name)))
 
-(defn qualified-name
-  "Returns the qualified name of Element `e` in the form \"{nsURI}localName\",
+(defn expanded-name
+  "Returns the expanded name of Element or Attribute `e` in the form \"{nsURI}localName\",
   or just \"localName\" if it's not namespaced."
   [e]
   (if-let [u (ns-uri e)]
