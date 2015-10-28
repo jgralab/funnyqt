@@ -9,6 +9,13 @@
   <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
 
+<script>
+  ((window.gitter = {}).chat = {}).options = {
+    room: 'jgralab/funnyqt'
+  };
+</script>
+<script src="https://sidecar.gitter.im/dist/sidecar.v1.js" async defer></script>
+
 # Welcome!
 
 FunnyQT is a model querying and transformation library.  It currently supports
@@ -27,6 +34,7 @@ the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 3. [Getting Support](#getting-support)
   - [Contact the Author](#contact-the-author)
   - [IRC Channel](#irc-channel)
+  - [Gitter Channel](#gitter)
   - [Found a Bug?](#found-a-bug)
 
 # Documentation
@@ -274,7 +282,8 @@ Getting started is really simple:
 
 FunnyQT is developed by Tassilo Horn ([tsdh](http://github.com/tsdh)).  If you
 want, you can get in touch with me via [email](mailto:horn@uni-koblenz.de),
-[IRC](#irc-channel), or [G+](http://plus.google.com/u/0/+TassiloHorn).
+[IRC](#irc-channel), [Gitter](#gitter-channel), or
+[G+](http://plus.google.com/u/0/+TassiloHorn).
 
 ## IRC Channel
 
@@ -285,7 +294,11 @@ install an IRC client, you can also
 
 ## Gitter Channel
 
-FunnyQT also has a Gitter channel: [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge).
+FunnyQT also has a Gitter channel:
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge).
+
+You can also open the chat directly on this site.  See the tab at the
+bottom-right corner.
 
 If I'm not around, just ask your question and come back later.  I'll reply as
 soon as I can.
