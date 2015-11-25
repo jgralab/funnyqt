@@ -168,7 +168,7 @@ The FunnyQT API docs generated for the current release are
   [TTC 2015](http://www.transformation-tool-contest.eu/solutions_train.html)
 
 - _Graph Pattern Matching as an Embedded Clojure DSL_, Tassilo Horn,
-  [ICGT 2015](http://btn1x4.inf.uni-bayreuth.de/icgt2015), to appear
+  [ICGT 2015](http://btn1x4.inf.uni-bayreuth.de/icgt2015)
 
 
 # Getting FunnyQT
