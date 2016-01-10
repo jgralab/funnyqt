@@ -307,7 +307,7 @@ with name `gcname`."
                      :as props}]
    (create-ec! g qname true from to props)))
 
-(defn set-incidence-class-properties!
+(defn set-incidence-class-props!
   "In the schema of graph `g`, sets the properties of the IncidenceClasses of
   the EdgeClass `ec-qname` according to `props`.  `props` is a map with the
   properties for the edge class' incidence classes.  It has the form:

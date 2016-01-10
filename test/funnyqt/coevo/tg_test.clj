@@ -575,7 +575,7 @@
     (is (thrown-with-msg?
          SchemaException
          #"The aggregation kind of an incidence class must equal the one of its subsetted class. Offending EdgeClasses are T2S2 and T2T at end Omega"
-         (coevo/set-incidence-class-properties!
+         (coevo/set-incidence-class-props!
           g 'T2T
           {:to-kind   AggregationKind/COMPOSITE})))))
 
@@ -587,7 +587,7 @@
     (is (thrown-with-msg?
          SchemaException
          #"The multiplicity of an edge class may not be larger than the multiplicities of its superclass. Offending EdgeClasses are T2S2 and T2T at end Alpha"
-         (coevo/set-incidence-class-properties!
+         (coevo/set-incidence-class-props!
           g 'T2T
           {:from-multis [0 10]})))))
 
@@ -599,7 +599,7 @@
     (is (thrown-with-msg?
          SchemaException
          #"At least one end of each EdgeClass must be of AggregationKind NONE at EdgeClass TestEC"
-         (coevo/set-incidence-class-properties!
+         (coevo/set-incidence-class-props!
           g 'TestEC
           {:from-kind AggregationKind/COMPOSITE
            :to-kind AggregationKind/COMPOSITE})))))
@@ -609,7 +609,7 @@
     (delete-vc-ec-spec-base g)
     (coevo/create-edge-class! g 'TestEC 'Sibling1 'Sibling2 {:to-kind AggregationKind/COMPOSITE})
     ;; Switching the AggregationKind in one step should work
-    (coevo/set-incidence-class-properties!
+    (coevo/set-incidence-class-props!
      g 'TestEC
      {:from-kind AggregationKind/COMPOSITE
       :to-kind AggregationKind/NONE})))
@@ -694,8 +694,8 @@
   ;; Role renaming
   (coevo/rename-attributed-element-class! g 'ComesFrom 'HasSource)
   (coevo/rename-attributed-element-class! g 'GoesTo    'HasTarget)
-  (coevo/set-incidence-class-properties! g 'HasSource {:to-role :source})
-  (coevo/set-incidence-class-properties! g 'HasTarget {:to-role :target}))
+  (coevo/set-incidence-class-props! g 'HasSource {:to-role :source})
+  (coevo/set-incidence-class-props! g 'HasTarget {:to-role :target}))
 
 (deftest test-component-evo
   (let [g (component-graph)]
