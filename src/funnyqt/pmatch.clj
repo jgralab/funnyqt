@@ -601,7 +601,7 @@
 
 ;;*** TG
 
-(defn pattern-graph-to-for+-bindings-tg [pname argvec pg]
+(defn pg-to-for+-bindings-tg [pname argvec pg]
   (let [gsym (first argvec)
         inc-type (fn [e]
                    ;; -<_>-> accepts all edges of all ECs, and since an "edge
@@ -873,7 +873,7 @@
 
 ;;** Models with only references/roles
 
-(defn pattern-graph-to-for+-bindings-only-refs-base
+(defn pg-to-for+-bindings-only-refs
   "Internal transformer function that given a pattern argument vector `argvec`,
   a pattern graph `pg` and an `elements-fn`, a `role-fn` and a `neighbors-fn`
   transforms the pattern graph to a comprehension binding form."
@@ -1033,14 +1033,14 @@
       ;; the fastest Set when it comes to creation time.
       (u/array-pset x))))
 
-(defn pattern-graph-to-for+-bindings-emf [pname argvec pg]
-  (pattern-graph-to-for+-bindings-only-refs-base
+(defn pg-to-for+-bindings-emf [pname argvec pg]
+  (pg-to-for+-bindings-only-refs
    pname argvec pg `emf/eallcontents `eget-1 `emf/erefs `emf/econtentrefs `emf/econtainer))
 
 ;;*** Generic
 
-(defn pattern-graph-to-for+-bindings-generic [pname argvec pg]
-  (pattern-graph-to-for+-bindings-only-refs-base
+(defn pg-to-for+-bindings-generic [pname argvec pg]
+  (pg-to-for+-bindings-only-refs
    pname argvec pg `g/elements `g/adjs `g/neighbors `g/contents `g/container))
 
 ;;** defpattern and friends
@@ -1098,9 +1098,9 @@
 
 (def pattern-graph-transform-function-map
   "A map from techspace to pattern graph transformers."
-  {:emf     pattern-graph-to-for+-bindings-emf
-   :tg      pattern-graph-to-for+-bindings-tg
-   :generic pattern-graph-to-for+-bindings-generic})
+  {:emf     pg-to-for+-bindings-emf
+   :tg      pg-to-for+-bindings-tg
+   :generic pg-to-for+-bindings-generic})
 
 (defn ^:private replace-id
   ([new-id _ old-id type]
