@@ -87,12 +87,7 @@ model transformation API** builds upon GReTL's concepts of extensional
 semantics and is an operational transformation API, whereas the **model2model
 API** realizes a rule-based approach to model transformations.
 
-  - _funnyqt.extensional_: Generic parts of the extensional model
-    transformation API
-  - _funnyqt.extensional.emf_: The EMF-specific parts of the extensional model
-    transformation API
-  - _funnyqt.extensional.tg_: The TGraph-specific parts of the extensional
-    model transformation API
+  - _funnyqt.extensional_: Extensional model transformation API
   - _funnyqt.model2model_: The rule-based model transformation API
 
 The **relational querying API** allows for Prolog-like logical querying of
@@ -126,7 +121,8 @@ Finally, there are some **utility and helper APIs**.
     [GraphViz](http://www.graphviz.org/)
   - _funnyqt.xmltg_: Converting arbitrary XML documents to DOM-like TGraphs and
     back again
-
+  - _funnyqt.edn_: Persistence of model-related data in the
+    [EDN](https://github.com/edn-format/edn) format.
 
 ## API Documentation
 
