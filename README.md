@@ -3,8 +3,7 @@
 [![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-[![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt
-)
+[![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
 <object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
   <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
@@ -165,7 +164,6 @@ The FunnyQT API docs generated for the current release are
 
 - _Graph Pattern Matching as an Embedded Clojure DSL_, Tassilo Horn,
   [ICGT 2015](http://btn1x4.inf.uni-bayreuth.de/icgt2015)
-
 
 # Getting FunnyQT
 
