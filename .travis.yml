@@ -8,5 +8,5 @@ cache:
   directories:
     - $HOME/.m2
 jdk:
-  - openjdk8
+#  - openjdk8 # still no OpenJDK8 on the Travis machines
   - oraclejdk8
