@@ -1,8 +1,8 @@
-(defproject funnyqt "1.0.2"
+(defproject funnyqt "1.0.3"
   :description "A model querying and transformation library for TGraphs and EMF
   models developed as part of Tassilo Horn's dissertation studies."
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/core.cache "0.6.4"]
+                 [org.clojure/core.cache "0.6.5"]
                  [org.clojure/data.priority-map "0.0.7"]
                  [de.uni-koblenz.ist/jgralab "8.1.0"]
                  [org.clojure/core.logic "0.8.10"]
@@ -11,7 +11,7 @@
                  [emf-xsd-sdk "2.11.1"]
                  [inflections "0.12.1" :exclusions [org.clojure/clojure]]]
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[im.chit/vinyasa "0.4.2"]]
+                   :dependencies [[im.chit/vinyasa "0.4.3"]]
                    ;; Don't omit stack traces
                    :jvm-opts ^:replace ["-Xmx1G" "-XX:-OmitStackTraceInFastThrow"]}}
   ;; Don't put version control dirs into the jar

@@ -774,7 +774,7 @@
            (set-adjs! ~'el ~ref ~'refed)
            (set-adj! ~'el ~ref ~'refed)))
 
-       ;; ADDER
+       ;; ADDER & REMOVER
        ~@(when (multi? true)
            `[(defn ~(symbol (str prefix "->add-" (name ref) "!"))
                ~(format "Adds `obj` and `more` elements to `el`s %s reference.
@@ -786,13 +786,28 @@
                (doseq [o# ~'more]
                  (add-adj! ~'el ~ref o#))
                ~'el)
+             (defn ~(symbol (str prefix "->remove-" (name ref) "!"))
+               ~(format "Removes `obj` elements from `el`s %s reference.
+  Possible types for `el`: %s"
+                        (name ref)
+                        owner-string)
+               [~'el ~'obj]
+               (remove-adj! ~'el ~ref ~'obj)
+               ~'el)
              (defn ~(symbol (str prefix "->addall-" (name ref) "!"))
                ~(format "Adds all `objs` to `el`s %s reference.
   Possible types for `el`: %s"
                         (name ref)
                         owner-string)
                [~'el ~'objs]
-               (add-adjs! ~'el ~ref ~'objs))]))))
+               (add-adjs! ~'el ~ref ~'objs))
+             (defn ~(symbol (str prefix "->removeall-" (name ref) "!"))
+               ~(format "Removes all `objs` from `el`s %s reference.
+  Possible types for `el`: %s"
+                        (name ref)
+                        owner-string)
+               [~'el ~'objs]
+               (remove-adjs! ~'el ~ref ~'objs))]))))
 
 (defmacro generate-metamodel-functions
   "Generates a metamodel-specific API consisting of functions for creating
