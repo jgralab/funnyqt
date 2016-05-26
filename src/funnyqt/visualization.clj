@@ -67,6 +67,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   according to its :qualified-names option."}
   *print-qualified-names*)
 
+(def ^{:dynamic true
+       :private true
+       :doc "A boolean determining if unset attributes are to be omitted."}
+  *omit-unset-attributes*)
+
 (defn ^:private dot-included? [o]
   (and (or (not *included*) ;; Not set ==> all are included
            (*included* o))
@@ -116,13 +121,16 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
           ;; ditto for :qualified-names
           qnames (:qualified-names m)
           m (dissoc m :qualified-names)
+          ;; ditto for :omit-unset-attibutes
+          omit-unset-attibutes (:omit-unset-attibutes m)
+          m (dissoc m :omit-unset-attibutes)
           ;; Add default values
           m (add-default m :ranksep 1.5)]
       (with-meta m
         {:name gname, :include include, :exclude exclude,
          :exclude-attributes excluded-attibutes, :mark mark,
          :node-attrs node-attrs, :edge-attrs edge-attrs,
-         :qualified-names qnames}))))
+         :qualified-names qnames, :omit-unset-attibutes omit-unset-attibutes}))))
 
 (defn ^:private add-attrs [el current-attrs]
   (let [attrs (str/join ", "
@@ -153,11 +161,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (reduce str
           (u/for-1 [^EAttribute attr (.getEAllAttributes (.eClass eo))
                     :let [n (.getName attr)
-                          ex-attrs (excluded-attributes eo)]
-                    :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
-            (str n " = " (dot-escape (try (emf/eget eo (keyword n))
-                                          (catch Exception _
-                                            (emf/eget eo (keyword n)))))
+                          ex-attrs (excluded-attributes eo)
+                          val (emf/eget eo (keyword n))]
+                    :when (and (not (and ex-attrs (contains? ex-attrs (keyword n))))
+                               (or (not *omit-unset-attributes*) val))]
+            (str n " = " (dot-escape val)
                  "\\l"))))
 
 (defn ^:private emf-dot-eobject [^EObject eo]
@@ -245,9 +253,11 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   (reduce str
           (u/for-1 [^Attribute attr (.getAttributeList (.getAttributedElementClass elem))
                     :let [n (.getName attr)
-                          ex-attrs (excluded-attributes elem)]
-                    :when (not (and ex-attrs (contains? ex-attrs (keyword n))))]
-            (str n " = " (dot-escape (tg/value elem (keyword n))) "\\l"))))
+                          ex-attrs (excluded-attributes elem)
+                          val (tg/value elem (keyword n))]
+                    :when (and (not (and ex-attrs (contains? ex-attrs (keyword n))))
+                               (or (not *omit-unset-attributes*) val))]
+            (str n " = " (dot-escape val) "\\l"))))
 
 (defn ^:private tg-dot-vertex [^Vertex v]
   (when (dot-included? v)
@@ -363,7 +373,8 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
                            (constantly false))
               *node-attrs* (or (:node-attrs (meta opts)) {})
               *edge-attrs* (or (:edge-attrs (meta opts)) {})
-              *print-qualified-names* (:qualified-names (meta opts))]
+              *print-qualified-names* (:qualified-names (meta opts))
+              *omit-unset-attributes* (:omit-unset-attibutes (meta opts))]
       (str "digraph " (:name (meta opts)) " {"
            (clojure.string/join
             \;
@@ -434,7 +445,10 @@ either in a window or by printing them to PDF/PNG/JPG/SVG documents."
   If the option :qualified-names is set to true, the element types will be
   printed as fully qualified names.  If it is set to :unique, the unique names
   will be printed.  The default is false where only simple class names are
-  printed."
+  printed.
+
+  If the option :omit-unset-attibutes is set to true, attributes that aren't
+  set to some value are not printed."
   [m f & opts]
   (let [ds (dot-model m opts)
         dot (fn
