@@ -14,6 +14,9 @@ FunnyQT is a model querying and transformation library.  It currently supports
 the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 [Eclipse Modeling Framework](http://www.eclipse.org/modeling/emf/).
 
+**News:** The FunnyQT book (my dissertation) is now available in a dead-tree
+version or as gratis **Open Access** version, see [here](#dissertation).
+
 # Table of Contents
 
 1. [Documentation](#documentation)
@@ -31,7 +34,8 @@ the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 
 # Documentation
 
-Check out the [overview description](#funnyqt-overview), the
+Check out the [overview description](#funnyqt-overview), my
+[dissertation](#dissertation), the
 [generated API documentation](#api-documentation), and the
 [papers about FunnyQT](#publications).
 
@@ -122,6 +126,23 @@ Finally, there are some **utility and helper APIs**.
     back again
   - _funnyqt.edn_: Persistence of model-related data in the
     [EDN](https://github.com/edn-format/edn) format.
+
+## Dissertation
+
+My dissertation _A Functional, Comprehensive and Extensible Multi-Platform
+Querying and Transformation Approach_ discusses any aspect of FunnyQT (version
+1.0.x) in detail with examples and motivations.  You can buy the book here:
+
+- Directly at the publisher [Logos Verlag Berlin GmbH](http://www.logos-verlag.de/cgi-bin/engbuchmid?isbn=4291)
+- From [Amazon](https://www.amazon.de/Functional-Comprehensive-Extensible-Multi-Platform-Transformation/dp/3832542914)
+
+Alternatively, the electronic **Open Access** version
+([CC BY-NC 3.0 DE](https://creativecommons.org/licenses/by-nc/3.0/)) of the
+book is also available (gratis!) from several sources.
+
+- [Zenodo](https://zenodo.org/record/58302#.V5D3DRJ96is)
+- [Issuu](https://issuu.com/logosverlag/docs/isbn-978-3-8325-4291-7/1)
+- [Deutsche Nationalbibliothek](https://portal.dnb.de/opac.htm?method=simpleSearch&cqlMode=true&query=idn%3D1107450268)
 
 ## API Documentation
 
