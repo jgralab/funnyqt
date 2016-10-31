@@ -1,4 +1,5 @@
 (ns funnyqt.bidi
+  "Bidirectional transformations (BX)."
   (:require [clojure.core.logic :as ccl]
             [clojure.tools.macro :as tm]
             [clojure.walk :as cw]
