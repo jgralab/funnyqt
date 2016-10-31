@@ -99,14 +99,13 @@
   "Logical XOR: returns logical true iff an odd number of arguments is true."
   ([] false)
   ([x] x)
+  ([x y]
+   `(let [x# ~x, y# ~y]
+      (if x#
+        (if y# false x#)
+        (if y# y# false))))
   ([x y & more]
-   (if (seq more)
-     `(xor ~(last more)
-           (xor ~@(butlast more) ~x ~y))
-     `(let [x# ~x, y# ~y]
-        (if x#
-          (if y# false x#)
-          (if y# y# false))))))
+   `(xor (xor ~x ~y) ~@more)))
 
 (defn xor*
   "Logical XOR: returns true iff an odd number of arguments is true.

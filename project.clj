@@ -5,7 +5,7 @@
                  [org.clojure/core.cache "0.6.5"]
                  [org.clojure/data.priority-map "0.0.7"]
                  [de.uni-koblenz.ist/jgralab "8.1.0"]
-                 [org.clojure/core.logic "0.8.10"]
+                 [org.clojure/core.logic "0.8.11"]
                  [org.flatland/ordered "1.5.4"]
                  [org.clojure/tools.macro "0.1.5"]
                  [emf-xsd-sdk "2.11.1"]

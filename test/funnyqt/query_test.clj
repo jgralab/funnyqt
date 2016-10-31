@@ -49,21 +49,34 @@
   (is (= [[1 2] [2 3] [3 4] [4 nil]]
          (succ-seq [1 2 3 4]))))
 
+(deftest test-xor
+  (is (not (xor)))
+  (is (xor true))
+  (is (not (xor nil)))
+  (is (xor 1 nil))
+  (is (xor false 1))
+  (is (xor 1 nil false))
+  (is (xor nil 1 false))
+  (is (xor 1 2 3))
+  (is (not (xor false 2 3)))
+  (is (xor 1 2 3 4 5 6 7))
+  (is (not (xor 1 2 3 4 5 6 nil))))
+
 (deftest test-xor*-and-xor-fn
   (are [expected in] (= expected
                         (apply xor* in)
                         ((apply xor-fn (map constantly in))))
-       false []
-       true  [true]
-       false [false]
-       true  [true false]
-       true  [false true]
-       false [true true]
-       false [false false]
-       true  [true false false false false]
-       true  [false false false false true]
-       false [true false false false false true]
-       true  [true false false false true true]))
+    false []
+    true  [true]
+    false [false]
+    true  [true false]
+    true  [false true]
+    false [true true]
+    false [false false]
+    true  [true false false false false]
+    true  [false false false false true]
+    false [true false false false false true]
+    true  [true false false false true true]))
 
 (deftest test-xor-fn
   (are [expected in] (= expected ((apply xor-fn in) 15))
