@@ -289,7 +289,7 @@ Getting started is really simple:
 ## Contact the Author
 
 FunnyQT is developed by Tassilo Horn ([tsdh](http://github.com/tsdh)).  If you
-want, you can get in touch with me via [email](mailto:horn@uni-koblenz.de),
+want, you can get in touch with me via [email](mailto:tsdh@gnu.org),
 [IRC](#irc-channel), [Gitter](#gitter-channel), or
 [G+](http://plus.google.com/u/0/+TassiloHorn).
 
@@ -316,7 +316,7 @@ the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
 
 # License
 
-Copyright (C) 2011-2015 Tassilo Horn <horn@uni-koblenz.de> & The JGraLab Team <ist@uni-koblenz.de>
+Copyright (C) 2011-2017 Tassilo Horn <tsdh@gnu.org> & The JGraLab Team <ist@uni-koblenz.de>
 
 Distributed under the
 [General Public License, Version 3](http://www.gnu.org/copyleft/gpl.html) with
