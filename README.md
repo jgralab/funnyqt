@@ -4,8 +4,8 @@
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
-<object data="logos/funnyqt.svg" type="image/svg+xml" width="600">
-  <img src="logos/funnyqt.png" width="600">
+<object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
+  <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
 </object>
 
 # Welcome!
@@ -332,8 +332,7 @@ the following additional grant:
     combination shall include the source code for the parts of JGraLab used as
     well as that of the covered work.
 
-[![License GPL 3][badge-license]](http://www.gnu.org/licenses/gpl-3.0.txt)
-[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 
 <!-- Local Variables:        -->
 <!-- mode: markdown          -->
