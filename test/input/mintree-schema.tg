@@ -1,8 +1,0 @@
-TGraph 2;
-Schema test.mintree.MinTreeSchema;
-GraphClass MinTree;
-
-VertexClass Tree {value : Integer};
-abstract EdgeClass HasChild  from Tree (0,1) role parent to Tree (0,1) aggregation composite;
-EdgeClass HasLeft  : HasChild from Tree (0,1) to Tree (0,1) role left aggregation composite;
-EdgeClass HasRight : HasChild from Tree (0,1) to Tree (0,1) role right aggregation composite;

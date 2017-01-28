@@ -1,6 +1,0 @@
-TGraph 2;
-
-Schema classhierarchy.ClassHierarchySchema;
-GraphClass ClassHierarchyGraph;
-VertexClass Class {name : String};
-EdgeClass HasSuperClass from Class (0,*) role subclasses to Class (0,*) role superclasses;
