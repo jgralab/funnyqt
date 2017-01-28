@@ -4,9 +4,7 @@
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
-<object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
-  <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
-</object>
+
 
 # Welcome!
 
@@ -209,43 +207,44 @@ following steps:
 
 2. Create a new project.
 
-    ```
-    $ lein new my-funnyqt-transform
-    Generating a project called my-funnyqt-transform based on the 'default' template.
-    To see other templates (app, lein plugin, etc), try `lein help new`.
-    ```
+```sh
+$ lein new my-funnyqt-transform
+Generating a project called my-funnyqt-transform based on the 'default' template.
+To see other templates (app, lein plugin, etc), try `lein help new`.
+```
 
 3. Declare that your project depends on FunnyQT.  Replace 0.42.0 below with
    whatever is the the [current FunnyQT release](http://clojars.org/funnyqt).
 
-    ```
-    $ cd my-funnyqt-transform
-    $ edit project.clj
-    # add funnyqt in the project :dependencies
-    (defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
-      :description "FIXME: write description"
-      :url "http://example.com/FIXME"
-      :license {:name "Eclipse Public License"
-                :url "http://www.eclipse.org/legal/epl-v10.html"}
-      :dependencies [ [funnyqt "0.42.0"] ])
-    ```
+```sh
+$ cd my-funnyqt-transform
+$ edit project.clj
+# add funnyqt in the project :dependencies
+(defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :dependencies [ [funnyqt "1.0.6"] ])
+```
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
    all dependencies such as Clojure and FunnyQT.
 
-    ```
-    nREPL server started on port 44783 on host 127.0.0.1 - nrepl://127.0.0.1:44783
-    REPL-y 0.3.5, nREPL 0.2.6
-    Clojure 1.7.0-alpha5
-    OpenJDK 64-Bit Server VM 1.8.0_40-b20
-       Docs: (doc function-name-here)
-             (find-doc "part-of-name-here")
-     Source: (source function-name-here)
-    Javadoc: (javadoc java-object-or-class-here)
-       Exit: Control+D or (exit) or (quit)
-    Results: Stored in vars *1, *2, *3, an exception in *e
-    user=> ;; Here you go!
-    ```
+```sh
+$ lein repl
+Welcome to FunnyQT!
+nREPL server started on port 38865 on host 127.0.0.1 - nrepl://127.0.0.1:38865
+REPL-y 0.3.7, nREPL 0.2.12
+Clojure 1.8.0
+OpenJDK 64-Bit Server VM 1.8.0_121-b13
+    Docs: (doc function-name-here)
+          (find-doc "part-of-name-here")
+  Source: (source function-name-here)
+ Javadoc: (javadoc java-object-or-class-here)
+    Exit: Control+D or (exit) or (quit)
+ Results: Stored in vars *1, *2, *3, an exception in *e
+
+user=>
+```
 
 ## Getting the Git Version
 
@@ -260,29 +259,29 @@ Getting started is really simple:
 
 2. Clone the FunnyQT git repository:
 
-    ```
-    $ git clone https://github.com/jgralab/funnyqt.git
-    ```
+```sh
+$ git clone https://github.com/jgralab/funnyqt.git
+```
 
 3. Just to be sure everything's fine, you might want to execute the test cases.
 
-    ```
-    $ cd funnyqt
-    $ lein test
-    ```
+```sh
+$ cd funnyqt
+$ lein test
+```
 
 4. You are ready to go.  Start a REPL and start hacking.
 
-    ```
-    $ lein repl
-    REPL started; server listening on localhost port 22815
-    user=> (use 'funnyqt.tg)
-    nil
-    user=> (def g (load-graph "test/input/greqltestgraph.tg"))
-    #<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
-    user=> (vseq g 'localities.City)
-    (#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
-    ```
+```sh
+$ lein repl
+# ...some output omitted...
+user=> (use 'funnyqt.tg)
+nil
+user=> (def g (load-graph "test/input/greqltestgraph.tg"))
+#<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
+user=> (vseq g 'localities.City)
+(#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
+```
 
 # Getting Support
 
