@@ -1,6 +1,6 @@
 name: FunnyQT
 description: Functional Model Queries and Transformations
 url: "http://funnyqt.org"
-theme: jekyll-theme-hacker
+theme: jekyll-theme-architect
 markdown: kramdown
 highlighter: rouge
