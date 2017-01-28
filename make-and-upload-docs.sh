@@ -7,12 +7,12 @@ lein with-profile docs html5-docs
 
 if [[ $? -eq 0 ]]; then
     echo "Deleting the old docs on helena"
-    ssh horn@linux.uni-koblenz.de 'rm /home/horn/public_html/funnyqt-docs/*'
+    ssh horn@134.119.24.195 'rm /home/horn/www/funnyqt-api/*'
     echo "Copying over the new docs"
-    scp -r docs/* horn@linux.uni-koblenz.de:/home/horn/public_html/funnyqt-docs/
+    scp -r docs/* horn@134.119.24.195:/home/horn/www/funnyqt-api/
     echo "Adjusting the permissions"
-    ssh horn@linux.uni-koblenz.de \
-	'cd /home/horn/public_html/funnyqt-docs && chmod -R 644 *'
+    ssh horn@134.119.24.195 \
+	'cd /home/horn/www/funnyqt-api && chmod -R 644 *'
     echo Fini.
 else
     echo Error.

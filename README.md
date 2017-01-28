@@ -147,7 +147,7 @@ book is also available (gratis!) from several sources.
 ## API Documentation
 
 The FunnyQT API docs generated for the current release are
-[here](http://userpages.uni-koblenz.de/~horn/funnyqt-docs/).
+[here](http://www.tsdh.org/funnyqt-api/).
 
 ## Publications
 
