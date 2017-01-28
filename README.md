@@ -4,9 +4,7 @@
 [![Build Status](https://secure.travis-ci.org/jgralab/funnyqt.png)](http://travis-ci.org/jgralab/funnyqt)
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Clojars Project](http://clojars.org/funnyqt/latest-version.svg)](http://clojars.org/funnyqt)
-<object data="http://jgralab.github.io/funnyqt/images/funnyqt.svg" type="image/svg+xml" width="600">
-  <img src="http://jgralab.github.io/funnyqt/images/funnyqt.png" width="600">
-</object>
+
 
 # Welcome!
 
@@ -16,6 +14,7 @@ the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 
 **News:** The FunnyQT book (my dissertation) is now available in a dead-tree
 version or as gratis **Open Access** version, see [here](#dissertation).
+
 
 # Table of Contents
 
@@ -32,12 +31,14 @@ version or as gratis **Open Access** version, see [here](#dissertation).
   - [Gitter Channel](#gitter-channel)
   - [Found a Bug?](#found-a-bug)
 
+
 # Documentation
 
 Check out the [overview description](#funnyqt-overview), my
 [dissertation](#dissertation), the
 [generated API documentation](#api-documentation), and the
 [papers about FunnyQT](#publications).
+
 
 ## FunnyQT Overview
 
@@ -127,6 +128,7 @@ Finally, there are some **utility and helper APIs**.
   - _funnyqt.edn_: Persistence of model-related data in the
     [EDN](https://github.com/edn-format/edn) format.
 
+
 ## Dissertation
 
 My dissertation _A Functional, Comprehensive and Extensible Multi-Platform
@@ -144,10 +146,12 @@ book is also available (gratis!) from several sources.
 - [Issuu](https://issuu.com/logosverlag/docs/isbn-978-3-8325-4291-7/1)
 - [Deutsche Nationalbibliothek](https://portal.dnb.de/opac.htm?method=simpleSearch&cqlMode=true&query=idn%3D1107450268)
 
+
 ## API Documentation
 
 The FunnyQT API docs generated for the current release are
 [here](http://www.tsdh.org/funnyqt-api/).
+
 
 ## Publications
 
@@ -186,6 +190,7 @@ The FunnyQT API docs generated for the current release are
 - _Graph Pattern Matching as an Embedded Clojure DSL_, Tassilo Horn,
   [ICGT 2015](http://btn1x4.inf.uni-bayreuth.de/icgt2015)
 
+
 # Getting FunnyQT
 
 There are two ways of getting FunnyQT.  When you want to use it for writing
@@ -193,6 +198,7 @@ your own queries and transformations, you should
 [get the latest release](#getting-a-release) available with Leiningen.  If you
 want to have the bleeding edge version from git, e.g., to validate that some
 bug has been fixed, see how to [get the git version](#getting-the-git-version).
+
 
 ## Getting a Release
 
@@ -209,43 +215,45 @@ following steps:
 
 2. Create a new project.
 
-    ```
-    $ lein new my-funnyqt-transform
-    Generating a project called my-funnyqt-transform based on the 'default' template.
-    To see other templates (app, lein plugin, etc), try `lein help new`.
-    ```
+```sh
+$ lein new my-funnyqt-transform
+Generating a project called my-funnyqt-transform based on the 'default' template.
+To see other templates (app, lein plugin, etc), try `lein help new`.
+```
 
 3. Declare that your project depends on FunnyQT.  Replace 0.42.0 below with
    whatever is the the [current FunnyQT release](http://clojars.org/funnyqt).
 
-    ```
-    $ cd my-funnyqt-transform
-    $ edit project.clj
-    # add funnyqt in the project :dependencies
-    (defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
-      :description "FIXME: write description"
-      :url "http://example.com/FIXME"
-      :license {:name "Eclipse Public License"
-                :url "http://www.eclipse.org/legal/epl-v10.html"}
-      :dependencies [ [funnyqt "0.42.0"] ])
-    ```
+```sh
+$ cd my-funnyqt-transform
+$ edit project.clj
+# add funnyqt in the project :dependencies
+(defproject my-funnyqt-transform "0.1.0-SNAPSHOT"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :dependencies [ [funnyqt "1.0.6"] ])
+```
 
 4. Now start a REPL and start hacking.  Leiningen will take care of fetching
    all dependencies such as Clojure and FunnyQT.
 
-    ```
-    nREPL server started on port 44783 on host 127.0.0.1 - nrepl://127.0.0.1:44783
-    REPL-y 0.3.5, nREPL 0.2.6
-    Clojure 1.7.0-alpha5
-    OpenJDK 64-Bit Server VM 1.8.0_40-b20
-       Docs: (doc function-name-here)
-             (find-doc "part-of-name-here")
-     Source: (source function-name-here)
-    Javadoc: (javadoc java-object-or-class-here)
-       Exit: Control+D or (exit) or (quit)
-    Results: Stored in vars *1, *2, *3, an exception in *e
-    user=> ;; Here you go!
-    ```
+```sh
+$ lein repl
+Welcome to FunnyQT!
+nREPL server started on port 38865 on host 127.0.0.1 - nrepl://127.0.0.1:38865
+REPL-y 0.3.7, nREPL 0.2.12
+Clojure 1.8.0
+OpenJDK 64-Bit Server VM 1.8.0_121-b13
+    Docs: (doc function-name-here)
+          (find-doc "part-of-name-here")
+  Source: (source function-name-here)
+ Javadoc: (javadoc java-object-or-class-here)
+    Exit: Control+D or (exit) or (quit)
+ Results: Stored in vars *1, *2, *3, an exception in *e
+
+user=>
+```
+
 
 ## Getting the Git Version
 
@@ -260,31 +268,33 @@ Getting started is really simple:
 
 2. Clone the FunnyQT git repository:
 
-    ```
-    $ git clone https://github.com/jgralab/funnyqt.git
-    ```
+```sh
+$ git clone https://github.com/jgralab/funnyqt.git
+```
 
 3. Just to be sure everything's fine, you might want to execute the test cases.
 
-    ```
-    $ cd funnyqt
-    $ lein test
-    ```
+```sh
+$ cd funnyqt
+$ lein test
+```
 
 4. You are ready to go.  Start a REPL and start hacking.
 
-    ```
-    $ lein repl
-    REPL started; server listening on localhost port 22815
-    user=> (use 'funnyqt.tg)
-    nil
-    user=> (def g (load-graph "test/input/greqltestgraph.tg"))
-    #<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
-    user=> (vseq g 'localities.City)
-    (#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
-    ```
+```sh
+$ lein repl
+# ...some output omitted...
+user=> (use 'funnyqt.tg)
+nil
+user=> (def g (load-graph "test/input/greqltestgraph.tg"))
+#<Graph c06de1c7-f4ec0906-21cfbc86-28c31aa1 (1175): RouteMap>>
+user=> (vseq g 'localities.City)
+(#<v6: localities.City> #<v7: localities.City> #<v8: localities.City>)
+```
+
 
 # Getting Support
+
 
 ## Contact the Author
 
@@ -293,12 +303,14 @@ want, you can get in touch with me via [email](mailto:tsdh@gnu.org),
 [IRC](#irc-channel), [Gitter](#gitter-channel), or
 [G+](http://plus.google.com/u/0/+TassiloHorn).
 
+
 ## IRC Channel
 
 Join us on the official [JGraLab IRC Channel](irc://irc.freenode.net/#jgralab)
 (channel `#jgralab` on `irc.freenode.net`).  If you don't have or don't want to
 install an IRC client, you can also
 [chat directly in your browser](http://webchat.freenode.net/?channels=jgralab).
+
 
 ## Gitter Channel
 
@@ -308,11 +320,13 @@ FunnyQT also has a Gitter channel:
 If I'm not around, just ask your question and come back later.  I'll reply as
 soon as I can.
 
+
 ## Found a Bug?
 
 Although that should be quite impossible and is surely an error on your side
 `>:)`, if you found a bug or miss an important feature, file a bug report in
 the [FunnyQT issue tracker](http://github.com/jgralab/funnyqt/issues).
+
 
 # License
 
@@ -331,6 +345,7 @@ the following additional grant:
     resulting work.  Corresponding Source for a non-source form of such a
     combination shall include the source code for the parts of JGraLab used as
     well as that of the covered work.
+
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 
