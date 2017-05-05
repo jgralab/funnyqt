@@ -60,15 +60,22 @@
                                         :organizations [mozilla]})]
     g))
 
+(defn make-example-triple-ab []
+  (let [g (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))]
+    (tg/create-vertex! g 'AddressBook {:name "MyAddressBook"})
+    (tg/create-vertex! g 'AddressBook {:name "MyAddressBook"})
+    (tg/create-vertex! g 'AddressBook {:name "MyAddressBook"})
+    g))
+
 ;;## Transformation TG <-> TG
 
 (bidi/deftransformation addressbook-tg2addressbook-tg [l r]
   (^:top addressbook2addressbook
-         :left [(ab-tg/AddressBook l ?addrbook1)
-                (ab-tg/name l ?addrbook1 ?n)]
-         :right [(ab-tg/AddressBook r ?addrbook2)
-                 (ab-tg/name r ?addrbook2 ?n)]
-         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+   :left [(ab-tg/AddressBook l ?addrbook1)
+          (ab-tg/name l ?addrbook1 ?n)]
+   :right [(ab-tg/AddressBook r ?addrbook2)
+           (ab-tg/name r ?addrbook2 ?n)]
+   :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
   (category2category
    :left [(ab-tg/ContainsCategory l ?cc1 ?ab1 ?cat1)
           (ab-tg/Category l ?cat1)
@@ -81,16 +88,16 @@
   ;; The following 2 relations are of course non-sense.  They only serve to
   ;; check if the (transitive) :extends stuff works.
   (^:abstract have-same-ids3
-              :left [(ab-tg/id l ?ex1 ?id)]
-              :right [(ab-tg/id r ?ex2 ?id)])
+   :left [(ab-tg/id l ?ex1 ?id)]
+   :right [(ab-tg/id r ?ex2 ?id)])
   (^:abstract have-same-ids2
-              :left [(ab-tg/id l ?e1 ?id)]
-              :right [(ab-tg/id r ?e2 ?id)])
+   :left [(ab-tg/id l ?e1 ?id)]
+   :right [(ab-tg/id r ?e2 ?id)])
   (^:abstract have-same-ids
-              :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
-                        (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
-              :left [(ab-tg/id l ?entry1 ?id)]
-              :right [(ab-tg/id r ?entry2 ?id)])
+   :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+             (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+   :left [(ab-tg/id l ?entry1 ?id)]
+   :right [(ab-tg/id r ?entry2 ?id)])
   (contact2contact
    :extends [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab-tg/->contacts l ?cat1 ?contact1)
@@ -114,10 +121,10 @@
            (ab-tg/homepage r ?org2 ?hp)
            (ab-tg/name r ?org2 ?n)])
   (^:top connect-employees
-         :left [(ab-tg/->employees l ?org1 ?contact1)]
-         :right [(ab-tg/->employees r ?org2 ?contact2)]
-         :when [(org2org :?org1 ?org1 :?org2 ?org2)
-                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
+   :left [(ab-tg/->employees l ?org1 ?contact1)]
+   :right [(ab-tg/->employees r ?org2 ?contact2)]
+   :when [(org2org :?org1 ?org1 :?org2 ?org2)
+          (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
 
 (defmacro assert-same-addressbooks-tg-tg [l r]
   `(let [l# ~l, r# ~r]
@@ -180,11 +187,11 @@
 
 (bidi/deftransformation addressbook-tg2addressbook-emf [l r]
   (^:top addressbook2addressbook
-         :left [(ab-tg/AddressBook l ?addrbook1)
-                (ab-tg/name l ?addrbook1 ?n)]
-         :right [(ab-emf/AddressBook r ?addrbook2)
-                 (ab-emf/name r ?addrbook2 ?n)]
-         :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
+   :left [(ab-tg/AddressBook l ?addrbook1)
+          (ab-tg/name l ?addrbook1 ?n)]
+   :right [(ab-emf/AddressBook r ?addrbook2)
+           (ab-emf/name r ?addrbook2 ?n)]
+   :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)])
   (category2category
    :left [(ab-tg/ContainsCategory l ?cc ?ab1 ?cat1)
           #_(r/echo [?cc ?ab1 ?cat1])
@@ -198,16 +205,16 @@
   ;; The following 2 relations are of course non-sense.  They only serve to
   ;; check if the (transitive) :extends stuff works.
   (^:abstract have-same-ids3
-              :left [(ab-tg/id l ?ex1 ?id)]
-              :right [(ab-emf/id r ?ex2 ?id)])
+   :left [(ab-tg/id l ?ex1 ?id)]
+   :right [(ab-emf/id r ?ex2 ?id)])
   (^:abstract have-same-ids2
-              :left [(ab-tg/id l ?e1 ?id)]
-              :right [(ab-emf/id r ?e2 ?id)])
+   :left [(ab-tg/id l ?e1 ?id)]
+   :right [(ab-emf/id r ?e2 ?id)])
   (^:abstract have-same-ids
-              :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
-                        (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
-              :left [(ab-tg/id l ?entry1 ?id)]
-              :right [(ab-emf/id r ?entry2 ?id)])
+   :extends [(have-same-ids2 :?e1 ?entry1 :?e2 ?entry2)
+             (have-same-ids3 :?ex1 ?entry1 :?ex2 ?entry2)]
+   :left [(ab-tg/id l ?entry1 ?id)]
+   :right [(ab-emf/id r ?entry2 ?id)])
   (contact2contact
    :extends [(have-same-ids :?entry1 ?contact1 :?entry2 ?contact2)]
    :left [(ab-tg/->contacts l ?cat1 ?contact1)
@@ -231,10 +238,10 @@
            (ab-emf/homepage r ?org2 ?hp)
            (ab-emf/name r ?org2 ?n)])
   (^:top connect-employees
-         :left [(ab-tg/->employees l ?org1 ?contact1)]
-         :right [(ab-emf/->employees r ?org2 ?contact2)]
-         :when [(org2org :?org1 ?org1 :?org2 ?org2)
-                (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
+   :left [(ab-tg/->employees l ?org1 ?contact1)]
+   :right [(ab-emf/->employees r ?org2 ?contact2)]
+   :when [(org2org :?org1 ?org1 :?org2 ?org2)
+          (contact2contact :?contact1 ?contact1 :?contact2 ?contact2)]))
 
 (defmacro assert-same-addressbooks-tg-emf [l r]
   `(let [l# ~l, r# ~r]
@@ -457,6 +464,57 @@
       (test/is (= "Private" (emf/eget priv :name)))
       (test/is (== 1 (count (g/adjs priv :addressBook)))))))
 
+
+;;## Tests for synthetic ids
+
+(bidi/deftransformation triple-ab2triple-ab [l r]
+  :extends addressbook-tg2addressbook-tg
+  :id-init-fn (fn [l r dir]
+                (->> (g/elements (if (#{:right :right-checkonly} dir) l r))
+                     (map-indexed (fn [i elem] [elem i]))
+                     (mapcat identity)
+                     (apply hash-map)))
+  (^:top addressbook2addressbook
+   :left [(ab-tg/AddressBook l ?addrbook1)
+          (ab-tg/name l ?addrbook1 ?n)
+          (id ?addrbook1 ?id)]
+   :right [(ab-tg/AddressBook r ?addrbook2)
+           (ab-tg/name r ?addrbook2 ?n)
+           (id ?addrbook2 ?id)]
+   :where [(category2category :?ab1 ?addrbook1 :?ab2 ?addrbook2)]))
+
+(test/deftest test-triple-ab2-triple-ab
+  (let [l (make-example-triple-ab)
+        r (tg/new-graph (tg/load-schema "test/input/addressbook.tg"))]
+    ;; Transform l to r
+    (print "triple-ab2triple-ab l -> r (empty)                ")
+    (let [t1 (time (triple-ab2triple-ab l r :right))
+          t11 (triple-ab2triple-ab l r :right-checkonly)]
+      (assert-same-addressbooks-tg-tg l r)
+      (test/is (= t1 t11))
+      ;; Do it again.  It shouldn't modify anything.
+      (print "triple-ab2triple-ab l -> r (both already in sync) ")
+      (let [t2 (time (triple-ab2triple-ab l r :right))
+            t22 (triple-ab2triple-ab l r :right-checkonly)]
+        (assert-same-addressbooks-tg-tg l r)
+        (test/is (= t1 t2 t22))))
+    ;; Do it in the other direction.  Again, it shouldn't modify anything.
+    (print "triple-ab2triple-ab l <- r (both already in sync) ")
+    (let [t3 (time (triple-ab2triple-ab l r :left))
+          t33 (triple-ab2triple-ab l r :left-checkonly)]
+      (test/is (= t3 t33))
+      (assert-same-addressbooks-tg-tg l r))
+    ;; Now add a new Contact to the right addressbook and synchronize it to the
+    ;; left.
+    (print "triple-ab2triple-ab l <- r (r has a new Category)  ")
+    (let [cat (tg/create-vertex! r 'Category
+                                 {:name "Some Category"})
+          ab1 (tg/first-vertex r)]
+      (g/add-adj! ab1 :categories cat))
+    (let [t4 (time (triple-ab2triple-ab l r :left))
+          t44 (triple-ab2triple-ab l r :left-checkonly)]
+      (test/is (= t4 t44))
+      (assert-same-addressbooks-tg-tg l r))))
 
 ;;# UML Class Diagram to RDBMS Tables
 

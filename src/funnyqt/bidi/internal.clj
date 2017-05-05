@@ -23,11 +23,17 @@
 (defn enforce-match
   "Only for internal use.
   Manifests the temporary and wrapper elements in `match`."
-  [match]
+  [match id-map-atom]
   (doseq [el (vals match)
           :when (tmp/tmp-or-wrapper-element? el)]
     ;;(println "Enforcing" (tmp/as-map el))
-    (tmp/manifest el)))
+    (tmp/manifest el)
+    (swap! id-map-atom (fn [m]
+                         (if (find m el)
+                           (let [v (m el)
+                                 m (dissoc m el)]
+                             (assoc m (tmp/manifestation el) v))
+                           m)))))
 
 (defn replace-tmps-and-wrappers-with-manifestations
   "Only for internal use."
@@ -89,3 +95,20 @@
     (u/errorf "Unbound keyword arg %s when calling relation %s."
               unbound-key relsym)))
 
+(defn id [map-atom elem val]
+  (fn [a]
+    (let [gelem (ccl/walk* a elem)
+          gelem (if (tmp/wrapper-element? gelem)
+                  (tmp/manifestation gelem)
+                  gelem)
+          gval (ccl/walk* a val)
+          [melem mval] (find @map-atom gelem)]
+      (when-not (ru/ground? gelem)
+        (u/error "elem must be ground in (id elem val) goals."))
+      (if melem
+        (do
+          (and (ccl/unify a melem gelem)
+               (ccl/unify a mval gval)))
+        (do
+          (swap! map-atom assoc gelem gval)
+          (ccl/succeed a))))))

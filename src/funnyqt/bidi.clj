@@ -70,7 +70,7 @@
     ;;--
     code [code]))
 
-(defn ^:private do-rel-body [relsym trg map wsyms src-syms trg-syms args-map]
+(defn ^:private do-rel-body [relsym trg map id-map-atom wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
         enforcing (#{:left :right} trg)
         trg  (if (#{:right :right-checkonly} trg) :right :left)
@@ -115,7 +115,7 @@
                                              '~relsym ~sm))]
                                       ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
                                                       wsyms src-syms trg-syms)
-                                      (i/enforce-match ~tm)
+                                      (i/enforce-match ~tm ~id-map-atom)
                                       (let [~(make-destr-map trg-syms etm)
                                             (i/replace-tmps-and-wrappers-with-manifestations ~tm)]
                                         (swap! *t-relation-bindings* update-in [:related ~(keyword relsym)]
@@ -227,7 +227,7 @@
            :right (do-it rel-syms (:right m))
            :when  (do-it rel-syms (:when m)))))
 
-(defn ^:private convert-t-relation [all-rels [relsym m]]
+(defn ^:private convert-t-relation [all-rels id-map-atom [relsym m]]
   (let [m     (embed-included-rels all-rels m)
         m     (t-relation-goals-to-relateo-goals all-rels m)
         wsyms (distinct (filter ru/qmark-symbol? (flatten (:when m))))
@@ -242,13 +242,13 @@
                                        :debug-enforced :target))]
       (u/errorf "Relation contains unknown keys: %s" unknown-keys))
     `(~relsym [& ~(make-destr-map syms args-map)]
-              (i/check-t-relation-args '~relsym ~args-map ~(set (map keyword syms)))
-              ~@(insert-debug (:debug-entry m) relsym "DEBUG-ENTRY" wsyms lsyms rsyms)
-              (let [transform-fns# {:right ~(do-rel-body relsym :right m wsyms lsyms (concat rsyms tsyms) args-map)
-                                    :right-checkonly ~(do-rel-body relsym :right-checkonly m wsyms lsyms (concat rsyms tsyms) args-map)
-                                    :left  ~(do-rel-body relsym :left  m wsyms rsyms (concat lsyms tsyms) args-map)
-                                    :left-checkonly  ~(do-rel-body relsym :left-checkonly  m wsyms rsyms (concat lsyms tsyms) args-map)}]
-                ((transform-fns# *target-direction*))))))
+      (i/check-t-relation-args '~relsym ~args-map ~(set (map keyword syms)))
+      ~@(insert-debug (:debug-entry m) relsym "DEBUG-ENTRY" wsyms lsyms rsyms)
+      (let [transform-fns# {:right ~(do-rel-body relsym :right m id-map-atom wsyms lsyms (concat rsyms tsyms) args-map)
+                            :right-checkonly ~(do-rel-body relsym :right-checkonly m id-map-atom wsyms lsyms (concat rsyms tsyms) args-map)
+                            :left  ~(do-rel-body relsym :left  m id-map-atom wsyms rsyms (concat lsyms tsyms) args-map)
+                            :left-checkonly  ~(do-rel-body relsym :left-checkonly m id-map-atom wsyms rsyms (concat lsyms tsyms) args-map)}]
+        ((transform-fns# *target-direction*))))))
 
 (defn relateo
   "A relation that succeeds if there's a correspondence between `keyvals` in
@@ -569,6 +569,9 @@
         [extended more] (if (= :extends (first more))
                           [(fnext more) (nnext more)]
                           [nil          more])
+        [id-init-fn more] (if (= :id-init-fn (first more))
+                            [(fnext more) (nnext more)]
+                            [nil          more])
         relations more
         [trelations prelations] ((juxt remove filter) #(vector? (nth % 1)) relations)
         trelations (mapify-t-relations trelations)
@@ -596,7 +599,9 @@
                                                                 extended)
                                                           prelations))]))
                                   [trelations prelations])
-        top-rels (filter #(:top (meta %)) (keys trelations))]
+        top-rels (filter #(:top (meta %)) (keys trelations))
+        id-map-atom (gensym "id-map-atom")
+        dir (gensym "dir")]
     (when (empty? top-rels)
       (u/error "There has to be at least one :top rule!"))
     `(defn ~name ~(merge (meta name)
@@ -604,17 +609,26 @@
                           ::right-model-name (list 'quote right)
                           ::trelations (list 'quote trelations)
                           ::prelations (list 'quote prelations)})
-       [~left ~right dir# ~@other-args]
-       (when-not (#{:right :left :right-checkonly :left-checkonly} dir#)
-         (u/errorf "Direction parameter must either be :left or :right but was %s."
-                   dir#))
-       (letfn [~@(map (partial t-relation-goals-to-relateo-goals-1 trelations)
-                   (vals prelations))
-               ~@(map (partial convert-t-relation trelations)
-                   (remove #(:abstract (meta %)) trelations))]
-         (binding [*target-direction* dir#
-                   *target-model* (if (= dir# :right) ~right ~left)
-                   *t-relation-bindings* (atom {:related {}
-                                                :unrelated {}})]
-           ~@(map (fn [r] `(~r)) top-rels)
-           @*t-relation-bindings*)))))
+       [~left ~right ~dir ~@other-args]
+       (when-not (#{:right :left :right-checkonly :left-checkonly} ~dir)
+         (u/errorf "Direction parameter must either be :left, :left-checkonly, :right, or :right-checkonly but was %s."
+                   ~dir))
+       (let [~id-map-atom (atom ~(if id-init-fn
+                                   `(let [id-map# (~id-init-fn ~left ~right ~dir ~@other-args)]
+                                      (when-not (map? id-map#)
+                                        (u/errorf "The %s must result in a map but resulted in %s" :id-init-fn id-map#))
+                                      id-map#)
+                                   {}))]
+         (letfn [(~'id [elem# val#]
+                  (i/id ~id-map-atom elem# val#))
+                 ~@(map (partial t-relation-goals-to-relateo-goals-1 trelations)
+                     (vals prelations))
+                 ~@(map (partial convert-t-relation trelations id-map-atom)
+                     (remove #(:abstract (meta %)) trelations))]
+           (binding [*target-direction* ~dir
+                     *target-model* (if (= ~dir :right) ~right ~left)
+                     *t-relation-bindings* (atom {:related {}
+                                                  :unrelated {}})]
+             ~@(map (fn [r] `(~r)) top-rels)
+             (assoc @*t-relation-bindings*
+                    :id-map @~id-map-atom)))))))

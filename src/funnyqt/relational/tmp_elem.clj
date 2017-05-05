@@ -230,7 +230,8 @@
     (or type (u/errorf "No type defined for %s." this)))
   (set-type [this t]
     (if (vector? t)
-      true ;; Many types given as a result of an attribute relation.  Simply
+      true
+      ;; Many types given as a result of an attribute relation.  Simply
       ;; succeed.  TODO: We could handle that more restrictively, i.e.,
       ;; the current type must be a subclass or equal to one of the given
       ;; types, and if there's no current type, it must be a subclass or
@@ -243,10 +244,10 @@
           ;; type, so ccl/succeed without changing anything.
           (or (= mm-class type)
               (g/mm-superclass? mm-class type)) true
-              ;; The current type is a superclass of mm-class, so set to the more
-              ;; specific.
-              (g/mm-superclass? type mm-class) (do (set! type mm-class) true)
-              :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
+          ;; The current type is a superclass of mm-class, so set to the more
+          ;; specific.
+          (g/mm-superclass? type mm-class) (do (set! type mm-class) true)
+          :else (u/errorf "Cannot reset type from %s to %s." (g/qname type) t)))))
   IAttr
   (add-attr [this attr val _ _] ;; The may-override param is ignored for new elements.
     (when-not (keyword? attr)
