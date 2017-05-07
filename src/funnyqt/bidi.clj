@@ -4,6 +4,7 @@
             [clojure.tools.macro :as tm]
             [clojure.walk :as cw]
             [flatland.ordered.map :as om]
+            [funnyqt.generic :as g]
             [funnyqt
              [relational :as r]
              [utils :as u]]
@@ -306,10 +307,26 @@
                [(first rel) rel])
              rels)))
 
+(defn number-all-source-model-elements
+  "A simple :id-init-fn that simply numbers all source model elements so that
+  every source element has a unique id (this number)."
+  [left right dir & args]
+  (->> (if (#{:right :right-checkonly} dir) left right)
+       (g/elements)
+       (map-indexed (fn [i el] [el i]))
+       (mapcat identity)
+       (apply hash-map)))
+
 (defmacro deftransformation
   "Creates a new bidirectional transformation with the given `name` on the
-  models `left` and `right` with possibly additional `args`.  The signature of
-  the defined transformation (a plain function) is
+  models `left` and `right` with possibly additional `args`.  The
+  transformation may extend other transformation using an `extends-clause` (see
+  Transformation Inheritance below).  If the transformation should delete
+  target elements that aren't required, add a `target-deletion-clause` (see
+  Target Deletion Clause below), and finally there can be synthetic ids (see
+  Synthetic Identities below).
+
+  The signature of the defined transformation (a plain function) is
 
     (transformation-name left-model right-model direction & args)
 
@@ -344,6 +361,32 @@
   are enforced or checked automatically by the transformation in their
   declaration order.  Non-top-level t-relations have to be called explicitly
   from another t-relation using :where clauses (see Postconditions below).
+
+  Target Deletion Clause
+  ======================
+
+  By default, FunnyQT won't delete elements in the target model which are not
+  required by some source model element and some t-relation, i.e., unmatched
+  target model elements.  That is, after the transformation has been enforced,
+  for any element (considered by the transformation's t-relations) in the
+  source model, there exists some element in the target model.  However, there
+  still might be additional elements in the target model without some source
+  model element correspondence.
+
+  In general, this is good.  Given two models, if you enforce a transformation
+  first in one and then the other direction, then both models will be in sync
+  with missing elements created in either one.  This would not be possible if
+  enforcing a transformation in a given direction would automatically delete
+  unmatched target model elements.
+
+  Anyway, since that's usefull nevertheless in some situations, you can enable
+  automatic deleteion of unmatched target model elements with a target deletion
+  clause of the form:
+
+    :delete-unmatched-target-elements true
+
+  Target deletion only happens in enforcement mode, i.e., not in the case of
+  the direction being :right-checkonly or :left-checkonly.
 
   Return Value and Traceability
   =============================
@@ -559,9 +602,51 @@
   least if some other inherited relation calls the overridden relation
   in :where or accesses its trace in terms of `relateo` in :when.  That's
   because the logical variables act as named parameters and are also
-  represented in the transformation trace."
+  represented in the transformation trace.
 
-  {:arglists '([name [left right & args] extends-clause? & t-relations])}
+  Synthetic Identities
+  ====================
+
+  FunnyQT bidirectional transformations have forall-there-exists semantics.
+  This also means that if in one model there are two completely equal elements
+  (same type, attribute values, references), FunnyQT won't see a need to create
+  two different elements in the other model.  If you wanted to change that,
+  you'd need to add some kind of identity attribute to your element's metamodel
+  class and assign unique values to your model elements.  Of course, extending
+  a metamodel just for the sake of a transformation tool is cumbersome, so
+  FunnyQT bidirectional transformations provide synthetic ids for you.
+
+  Every bidirectional transformation implicitly declares a plain relation `id`.
+  Goals have the form (id ?elem ?id) where the element ?elem has the given ?id.
+  The ids can be defined before the start of the transformation using
+  a :id-init-fn which is a function that receives the same arguments as the
+  transformation itself (the left model, the right model, the direction, and
+  possibly additional arguments) and returns a map from elements to their
+  id (which may be chosen freely).  There is a  default :id-init-fn
+  (`number-all-source-model-elements`) which simply numbers all elements in the
+  current source model and uses that number as id.
+
+  Here is an example: If we don't assume that the name of a Family in
+  combination with the first name of a FamilyMember, and the name of a Person
+  uniquely determine an element, then we need to use synthetic ids.
+
+  (bx/deftransformation families2persons [f p]
+    :id-init-fn number-all-source-model-elements
+    (^:abstract member2person
+     :left  [(f/->families f ?fam-reg ?family)
+             (f/Family f ?family)
+             (f/name f ?family ?last-name)
+             (f/FamilyMember f ?member)
+             (f/name f ?member ?first-name)
+             (id ?member ?id)]
+     :right [(p/->persons p ?per-reg ?person)
+             (p/Person p ?person)
+             (rel/stro ?last-name \", \" ?first-name ?n)
+             (p/name p ?person ?n)
+             (id ?person ?id)])
+"
+
+  {:arglists '([name [left right & args] extends-clause? target-deletion-clause? id-init-clause? & t-relations])}
   [name & more]
   (let [[name more] (tm/name-with-attributes name more)
         [left right & other-args] (first more)
@@ -569,6 +654,9 @@
         [extended more] (if (= :extends (first more))
                           [(fnext more) (nnext more)]
                           [nil          more])
+        [delete-unmatched-target-els more] (if (= :delete-unmatched-target-elements (first more))
+                                             [(fnext more) (nnext more)]
+                                             [false          more])
         [id-init-fn more] (if (= :id-init-fn (first more))
                             [(fnext more) (nnext more)]
                             [nil          more])
@@ -630,5 +718,8 @@
                      *t-relation-bindings* (atom {:related {}
                                                   :unrelated {}})]
              ~@(map (fn [r] `(~r)) top-rels)
+             ~@(when delete-unmatched-target-els
+                 `((when (#{:left :right} ~dir) ;; Not in checkonly mode
+                     (i/delete-unmatched-target-elements ~left ~right ~dir @*t-relation-bindings*))))
              (assoc @*t-relation-bindings*
                     :id-map @~id-map-atom)))))))

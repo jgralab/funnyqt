@@ -112,3 +112,16 @@
         (do
           (swap! map-atom assoc gelem gval)
           (ccl/succeed a))))))
+
+(defn delete-unmatched-target-elements
+  [left right dir trace]
+  (when (#{:right-checkonly :left-checkonly} dir)
+    (u/error "Must not be used in checkonly transformations."))
+  (let [matched-els (into #{} (comp
+                               (mapcat identity)
+                               (mapcat vals)
+                               (filter g/element?))
+                          (->> trace :related vals))]
+    (doseq [el (g/elements (if (= dir :right) right left))]
+      (when (not (matched-els el))
+        (g/delete! el false)))))
