@@ -8,6 +8,8 @@
 
 # Welcome!
 
+[![Join the chat at https://gitter.im/jgralab/funnyqt](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jgralab/funnyqt?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 FunnyQT is a model querying and transformation library.  It currently supports
 the [Java Graph Laboratory](http://jgralab.github.io/jgralab) and the
 [Eclipse Modeling Framework](http://www.eclipse.org/modeling/emf/).
