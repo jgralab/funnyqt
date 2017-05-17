@@ -115,7 +115,7 @@
 
 (defn delete-unmatched-target-elements
   [left right dir trace]
-  (when (#{:right-checkonly :left-checkonly} dir)
+  (when-not (#{:right :left} dir)
     (u/error "Must not be used in checkonly transformations."))
   (let [matched-els (into #{} (comp
                                (mapcat identity)
