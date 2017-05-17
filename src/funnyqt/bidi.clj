@@ -71,6 +71,40 @@
     ;;--
     code [code]))
 
+(defn new-elemento?
+  "Succeeds iff `elem` is a ground model element to be created by the transformation.
+  Throws an exception if `elem` is ground but no model element."
+  [elem]
+  (fn [a]
+    (let [gelem (ccl/walk* a elem)]
+      (when (ccl/lvar? gelem)
+        (u/errorf "elem must be ground but was %s" gelem))
+      (when-not (or (g/element? gelem)
+                    (tmp/wrapper-element? gelem)
+                    (tmp/tmp-element? gelem))
+        (u/errorf "elem must be a ground model element but was %s" gelem))
+      (if (tmp/tmp-element? gelem)
+        (ccl/succeed a)
+        (ccl/fail a)))))
+
+(defn existing-elemento?
+  "Succeeds iff `elem` is a ground and existing model element that has been
+  matched by the transformation.  Throws an exception if `elem` is ground but
+  no model element."
+  [elem]
+  (fn [a]
+    (let [gelem (ccl/walk* a elem)]
+      (when (ccl/lvar? gelem)
+        (u/errorf "elem must be ground but was %s" gelem))
+      (when-not (or (g/element? gelem)
+                    (tmp/wrapper-element? gelem)
+                    (tmp/tmp-element? gelem))
+        (u/errorf "elem must be a ground model element but was %s" gelem))
+      (if (or (g/element? gelem)
+              (tmp/wrapper-element? gelem))
+        (ccl/succeed a)
+        (ccl/fail a)))))
+
 (defn ^:private do-rel-body [relsym trg map id-map-atom wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
         enforcing (#{:left :right} trg)
