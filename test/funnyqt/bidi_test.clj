@@ -668,20 +668,20 @@
 
 (bidi/deftransformation class-diagram2database-schema-simple [l r]
   (enum-const [m const val]
-    (ccl/== (g/enum-constant m const) val))
+              (ccl/== (g/enum-constant m const) val))
   (^:top class2table
-         ;;:debug-trg true
-         :left [(scd/Class l ?cls)
-                (scd/name l ?cls ?name)]
-         :right [(sdb/Table r ?table)
-                 (sdb/name r ?table ?name)
-                 (sdb/->cols r ?table ?col)
-                 (sdb/name r ?col "ID")
-                 (sdb/primary* r ?col true)
-                 (enum-const r 'ColumnTypes.INTEGER ?enum-const)
-                 (sdb/type* r ?col ?enum-const)]
-         :where [(generalization2foreign-key :?subcls ?cls :?subcol ?col)
-                 (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
+   ;;:debug-trg true
+   :left [(scd/Class l ?cls)
+          (scd/name l ?cls ?name)]
+   :right [(sdb/Table r ?table)
+           (sdb/name r ?table ?name)
+           (sdb/->cols r ?table ?col)
+           (sdb/name r ?col "ID")
+           (sdb/primary* r ?col true)
+           (enum-const r 'ColumnTypes.INTEGER ?enum-const)
+           (sdb/type* r ?col ?enum-const)]
+   :where [(generalization2foreign-key :?subcls ?cls :?subcol ?col)
+           (attribute2column :?cls ?cls :?table ?table :?pkey-col-name "ID")])
   (generalization2foreign-key
    ;;:debug-trg true
    :left  [(scd/->superclass l ?subcls ?supercls)]
@@ -715,23 +715,23 @@
    :when [(ccl/!= ?name ?pkey-col-name)]
    :target [(cd-type2db-type ?atype ?ctype)])
   (^:top association2table
-         ;;:debug-trg true
-         :left [(scd/Association l ?assoc)
-                (scd/name l ?assoc ?name)
-                (scd/->src* l ?assoc ?src)
-                (scd/->trg* l ?assoc ?trg)]
-         :right [(sdb/Table r ?table)
-                 (sdb/name r ?table ?name)
-                 (sdb/->cols r ?table ?src-col)
-                 (sdb/name r ?src-col "SRC")
-                 (sdb/type* r ?src-col ?src-pkey-type)
-                 (sdb/->pkey* r ?src-col ?src-pkey)
-                 (sdb/->cols r ?table ?trg-col)
-                 (sdb/name r ?trg-col "TRG")
-                 (sdb/type* r ?trg-col ?trg-pkey-type)
-                 (sdb/->pkey* r ?trg-col ?trg-pkey)]
-         :when [(class2table :?cls ?src :?col ?src-pkey :?enum-const ?src-pkey-type)
-                (class2table :?cls ?trg :?col ?trg-pkey :?enum-const ?trg-pkey-type)]))
+   ;;:debug-trg true
+   :left [(scd/Association l ?assoc)
+          (scd/name l ?assoc ?name)
+          (scd/->src* l ?assoc ?src)
+          (scd/->trg* l ?assoc ?trg)]
+   :right [(sdb/Table r ?table)
+           (sdb/name r ?table ?name)
+           (sdb/->cols r ?table ?src-col)
+           (sdb/name r ?src-col "SRC")
+           (sdb/type* r ?src-col ?src-pkey-type)
+           (sdb/->pkey* r ?src-col ?src-pkey)
+           (sdb/->cols r ?table ?trg-col)
+           (sdb/name r ?trg-col "TRG")
+           (sdb/type* r ?trg-col ?trg-pkey-type)
+           (sdb/->pkey* r ?trg-col ?trg-pkey)]
+   :when [(class2table :?cls ?src :?col ?src-pkey :?enum-const ?src-pkey-type)
+          (class2table :?cls ?trg :?col ?trg-pkey :?enum-const ?trg-pkey-type)]))
 
 (test/deftest test-class-diagram2database-schema-simple
   (let [cd (gen-simple-class-diagram)

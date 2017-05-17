@@ -300,7 +300,13 @@ functions `record` and `enum-constant`."
 (extend-protocol g/IUnset
   AttributedElement
   (unset? [this attr]
-    (.isUnsetAttribute this (name attr))))
+    (if (vertex? this)
+      (if (.getAttribute (.getAttributedElementClass this) (name attr))
+        (.isUnsetAttribute this (name attr))
+        (let [adjs (.adjacences this (name attr))]
+          (or (not adjs)
+              (empty? adjs))))
+      (.isUnsetAttribute this (name attr)))))
 
 (defn ^:private domain-qname
   "Transforms a domain qname given as symbol, keyword, string, or vector to a

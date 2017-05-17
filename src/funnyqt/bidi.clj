@@ -150,9 +150,8 @@
                                              '~relsym ~sm))]
                                       ~@(insert-debug (:debug-trg map) relsym "DEBUG-TRG"
                                                       wsyms src-syms trg-syms)
-                                      (i/enforce-match ~tm ~id-map-atom)
                                       (let [~(make-destr-map trg-syms etm)
-                                            (i/replace-tmps-and-wrappers-with-manifestations ~tm)]
+                                            (i/enforce-match ~tm ~id-map-atom)]
                                         (swap! *t-relation-bindings* update-in [:related ~(keyword relsym)]
                                                (fn [current# new#]
                                                  (conj (or current# #{}) new#))

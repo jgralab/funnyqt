@@ -20,22 +20,7 @@
               relation src-match))
   (first matches))
 
-(defn enforce-match
-  "Only for internal use.
-  Manifests the temporary and wrapper elements in `match`."
-  [match id-map-atom]
-  (doseq [el (vals match)
-          :when (tmp/tmp-or-wrapper-element? el)]
-    ;;(println "Enforcing" (tmp/as-map el))
-    (tmp/manifest el)
-    (swap! id-map-atom (fn [m]
-                         (if (find m el)
-                           (let [v (m el)
-                                 m (dissoc m el)]
-                             (assoc m (tmp/manifestation el) v))
-                           m)))))
-
-(defn replace-tmps-and-wrappers-with-manifestations
+(defn ^:private replace-tmps-and-wrappers-with-manifestations
   "Only for internal use."
   [trg-match]
   (into {}
@@ -44,6 +29,30 @@
                     (tmp/manifestation v)
                     v)]))
         trg-match))
+
+(defn enforce-match
+  "Only for internal use.
+  Manifests the temporary and wrapper elements in `match`."
+  [match id-map-atom]
+  ;; First manifest the temps and wrappers...
+  (doseq [el (vals match)
+          :when (tmp/tmp-or-wrapper-element? el)]
+    (tmp/manifest el)
+    (swap! id-map-atom (fn [m]
+                         (if-let [[el v] (find m el)]
+                           (let [m (dissoc m el)]
+                             (assoc m (tmp/manifestation el) v))
+                           m))))
+  ;; ... then remove unneeded tmps and wrappers from the id-map
+  (let [new-match (replace-tmps-and-wrappers-with-manifestations match)
+        els (into #{} (vals new-match))]
+    (swap! id-map-atom (fn [m]
+                         (let [tr (filter (fn [el]
+                                            (and (tmp/tmp-or-wrapper-element? el)
+                                                 (not (els el))))
+                                          (keys m))]
+                           (apply dissoc m tr))))
+    new-match))
 
 (defn src-initializeo
   "Only for internal use."
@@ -106,9 +115,8 @@
       (when-not (ru/ground? gelem)
         (u/error "elem must be ground in (id elem val) goals."))
       (if melem
-        (do
-          (and (ccl/unify a melem gelem)
-               (ccl/unify a mval gval)))
+        (and (ccl/unify a melem gelem)
+             (ccl/unify a mval gval))
         (do
           (swap! map-atom assoc gelem gval)
           (ccl/succeed a))))))
