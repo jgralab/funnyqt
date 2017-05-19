@@ -107,18 +107,25 @@
 
 (defn unseto?
   "Succeeds if `elem`s reference `ref` is unset or is set to `refed-elem`.
-  All arguments must be ground.  Non-relational.
+  All arguments must be ground.  `ref` may be a keyword or top-level reference
+  relation.  Non-relational.
+
   Useful in conda-goals like these:
 
   ;; Prefer adding to the father role.  If that's already set, add to the sons
   ;; role.
   (conda
-   [(unseto? family :father member)
-    (->father f family member)]
-   [(->sons f family member)])"
+   [(all
+     (unseto? family f/->father member)
+     (f/->father f family member))]
+   [(f/->sons f family member)])"
   [f elem ref refed-elem]
   (fn [a]
-    (let [gelem (ccl/walk* a elem)
+    (let [ref (cond
+                (keyword? ref) ref
+                (fn? ref) (keyword (clojure.string/replace-first (u/fn-name ref) "->" ""))
+                :else (u/errorf "Cannot get ref from %s" ref))
+          gelem (ccl/walk* a elem)
           relem (if (tmp/wrapper-element? gelem)
                   (tmp/manifestation gelem)
                   gelem)
