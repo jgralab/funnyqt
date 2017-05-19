@@ -18,3 +18,10 @@
   `x` must have been `walk`ed before!"
   [x]
   (not (ccl/lvar? x)))
+
+(defn printo
+  "Prints `txt` and the (walked) values of `lvars`."
+  [txt & lvars]
+  (fn [a]
+    (println txt (map (partial ccl/walk* a) lvars))
+    a))

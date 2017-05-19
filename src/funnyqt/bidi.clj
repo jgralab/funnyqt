@@ -105,6 +105,39 @@
         (ccl/succeed a)
         (ccl/fail a)))))
 
+(defn unseto?
+  "Succeeds if `elem`s reference `ref` is unset or is set to `refed-elem`.
+  All arguments must be ground.  Non-relational.
+  Useful in conda-goals like these:
+
+  ;; Prefer adding to the father role.  If that's already set, add to the sons
+  ;; role.
+  (conda
+   [(unseto? family :father member)
+    (->father f family member)]
+   [(->sons f family member)])"
+  [f elem ref refed-elem]
+  (fn [a]
+    (let [gelem (ccl/walk* a elem)
+          relem (if (tmp/wrapper-element? gelem)
+                  (tmp/manifestation gelem)
+                  gelem)
+          grefed-elem (ccl/walk* a refed-elem)
+          rrefed-elem (if (tmp/wrapper-element? grefed-elem)
+                        (tmp/manifestation grefed-elem)
+                        grefed-elem)]
+      (if (tmp/tmp-element? relem)
+        a
+        (do
+          (when (ccl/lvar? relem)
+            (u/errorf "elem must be ground but was %s" gelem))
+          (when-not (g/element? relem)
+            (u/errorf "elem must be a model element but was %s" relem))
+          ((ccl/fresh []
+             (ccl/== true (or (funnyqt.generic/unset? relem ref)
+                              (identical? rrefed-elem (funnyqt.generic/adj relem ref)))))
+           a))))))
+
 (defn ^:private do-rel-body [relsym trg map id-map-atom wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
         enforcing (#{:left :right} trg)
