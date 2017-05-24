@@ -64,13 +64,13 @@
                          (if (= val ::unknown) lv val)))
                      lvars))))
 
-(defn ^:private maybe-wrap
-  "Wraps `val` in bound to the logic variable `lv` in a WrapperElement if it is
-  a model object.  Else returns `val` unchanged.
-  Only for internal use."
-  [target-model lv val]
-  (if (or (g/element? val) (g/relationship? val))
-    (tmp/make-wrapper target-model lv val)
+(defn maybe-wrap
+  "Wraps `val` in a WrapperElement if it is a model object.  Else returns `val`
+  unchanged.  Only for internal use."
+  [target-model val]
+  (if (and (or (g/element? val) (g/relationship? val))
+           tmp/*make-tmp-elements*)
+    (tmp/make-wrapper target-model val)
     val))
 
 (defn trg-initializeo
@@ -84,14 +84,10 @@
                              args-val (get args-map  lv-kw ::unknown)]
                          (cond
                            (not= src-val  ::unknown)
-                           (if enforcing
-                             (maybe-wrap target-model lv src-val)
-                             src-val)
+                           (maybe-wrap target-model src-val)
 
                            (not= args-val ::unknown)
-                           (if enforcing
-                             (maybe-wrap target-model lv args-val)
-                             args-val)
+                           (maybe-wrap target-model args-val)
 
                            :else lv)))
                      lvars))))

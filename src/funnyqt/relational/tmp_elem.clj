@@ -190,7 +190,7 @@
   WrapperElement per model object."}
   *wrapper-cache* nil)
 
-(defn make-wrapper [model lvar element]
+(defn make-wrapper [model element]
   (let [cur (get @*wrapper-cache* element)]
     (or cur
         (let [w (->WrapperElement model element {} {} false #{})]

@@ -140,10 +140,15 @@
             (u/errorf "elem must be ground but was %s" gelem))
           (when-not (g/element? relem)
             (u/errorf "elem must be a model element but was %s" relem))
-          ((ccl/fresh []
-             (ccl/== true (or (funnyqt.generic/unset? relem ref)
-                              (identical? rrefed-elem (funnyqt.generic/adj relem ref)))))
-           a))))))
+          (if (g/unset? relem ref)
+            a
+            (let [adj (g/adj relem ref)]
+              (ccl/to-stream
+               (->> (for [el (concat [(i/maybe-wrap f adj)]
+                                     (when tmp/*make-tmp-elements*
+                                       [(tmp/make-tmp-element f :element)]))]
+                      (ccl/unify a refed-elem el))
+                    (remove not))))))))))
 
 (defn ^:private do-rel-body [relsym trg map id-map-atom wsyms src-syms trg-syms args-map]
   (let [src  (if (#{:right :right-checkonly} trg) :left :right)
@@ -269,9 +274,22 @@
               [spec]))
       spec)))
 
+(defn ^:private splice-in-at-succeed [clause & more]
+  (if (empty? more)
+    clause
+    (let [[head tail] (split-with (complement (fn [x]
+                                                (and (symbol? x)
+                                                     (= (name x) "succeed"))))
+                                  clause)]
+      (if (seq head)
+        ;; Da war ein succeed drin.  Hier einfügen!
+        (apply concat head (concat more [(rest tail)]))
+        ;; Und hier nicht.
+        (apply concat clause more)))))
+
 (defn ^:private embed-included-rels [all-rels m]
   (if-let [irels (:extends m)]
-    (apply merge-with concat
+    (apply merge-with splice-in-at-succeed
            (concat
             (map (fn [irel]
                    (let [[_ & rm] irel
