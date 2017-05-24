@@ -639,6 +639,12 @@
   extended by others should be declared ^:abstract like a2b above.  Then, no
   code is generated for it.
 
+  Hint: The clauses of the relation that is extended may have
+  `clojure.core.logic/succeed` in their :left/:right/:when clauses.  This is a
+  no-op but gives a hint where the corresponding clauses of the extending
+  t-relation should be filled in.  If no succeed goal is in the clauses, the
+  extending t-relation's clauses are simply appended.
+
   Debugging Transformation Relations
   ==================================
 
