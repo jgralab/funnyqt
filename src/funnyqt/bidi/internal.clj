@@ -111,8 +111,7 @@
       (when-not (ru/ground? gelem)
         (u/error "elem must be ground in (id elem val) goals."))
       (if melem
-        (and (ccl/unify a melem gelem)
-             (ccl/unify a mval gval))
+        (ccl/unify a [gelem gval] [melem mval])
         (do
           (swap! map-atom assoc gelem gval)
           (ccl/succeed a))))))
