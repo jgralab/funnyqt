@@ -133,11 +133,15 @@
           rrefed-elem (if (tmp/wrapper-element? grefed-elem)
                         (tmp/manifestation grefed-elem)
                         grefed-elem)]
+      (when (ccl/lvar? relem)
+        (u/errorf "elem must be ground but was %s" gelem))
       (if (tmp/tmp-element? relem)
-        a
+        (if-let [current-refed-el (get ref (tmp/get-refs relem))]
+          ;; Ref already set, so is the current the asked for element?
+          (ccl/unify a refed-elem (i/maybe-wrap current-refed-el))
+          ;; Nothing in it, so we succeed
+          a)
         (do
-          (when (ccl/lvar? relem)
-            (u/errorf "elem must be ground but was %s" gelem))
           (when-not (g/element? relem)
             (u/errorf "elem must be a model element but was %s" relem))
           (if (g/unset? relem ref)
